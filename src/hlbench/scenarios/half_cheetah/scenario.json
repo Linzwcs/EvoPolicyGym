@@ -1,0 +1,66 @@
+{
+  "scenario_id": "half_cheetah_v5",
+  "scenario_level": "hard",
+  "env_backend": "gymnasium",
+  "env_id": "HalfCheetah-v5",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "observation_type": "state",
+  "max_steps": 1000,
+  "success_score": 5000.0,
+  "task": {
+    "goal": "Control the half-cheetah robot so it runs forward quickly and efficiently.",
+    "success_condition": "A successful episode reaches a total score of at least 5000 over the 1000 step episode.",
+    "reward_description": "The environment rewards forward velocity and subtracts control cost. Higher total return is better.",
+    "notes": [
+      "This is a MuJoCo locomotion task with six continuous torque actions.",
+      "The observation excludes absolute x position and includes body pose and joint velocities.",
+      "Good policies usually require coordinated periodic motion."
+    ]
+  },
+  "minimum_score": {
+    "value": -1000.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "torso_height", "meaning": "Torso vertical position."},
+    {"index": 1, "name": "torso_angle", "meaning": "Torso angle."},
+    {"index": 2, "name": "back_thigh_angle", "meaning": "Back thigh joint angle."},
+    {"index": 3, "name": "back_shin_angle", "meaning": "Back shin joint angle."},
+    {"index": 4, "name": "back_foot_angle", "meaning": "Back foot joint angle."},
+    {"index": 5, "name": "front_thigh_angle", "meaning": "Front thigh joint angle."},
+    {"index": 6, "name": "front_shin_angle", "meaning": "Front shin joint angle."},
+    {"index": 7, "name": "front_foot_angle", "meaning": "Front foot joint angle."},
+    {"index": 8, "name": "x_velocity", "meaning": "Forward torso velocity."},
+    {"index": 9, "name": "z_velocity", "meaning": "Vertical torso velocity."},
+    {"index": 10, "name": "torso_angular_velocity", "meaning": "Torso angular velocity."},
+    {"index": 11, "name": "back_thigh_angular_velocity", "meaning": "Back thigh joint angular velocity."},
+    {"index": 12, "name": "back_shin_angular_velocity", "meaning": "Back shin joint angular velocity."},
+    {"index": 13, "name": "back_foot_angular_velocity", "meaning": "Back foot joint angular velocity."},
+    {"index": 14, "name": "front_thigh_angular_velocity", "meaning": "Front thigh joint angular velocity."},
+    {"index": 15, "name": "front_shin_angular_velocity", "meaning": "Front shin joint angular velocity."},
+    {"index": 16, "name": "front_foot_angular_velocity", "meaning": "Front foot joint angular velocity."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "back_thigh_torque", "meaning": "Torque applied to the back thigh joint in [-1, 1]."},
+    {"index": 1, "name": "back_shin_torque", "meaning": "Torque applied to the back shin joint in [-1, 1]."},
+    {"index": 2, "name": "back_foot_torque", "meaning": "Torque applied to the back foot joint in [-1, 1]."},
+    {"index": 3, "name": "front_thigh_torque", "meaning": "Torque applied to the front thigh joint in [-1, 1]."},
+    {"index": 4, "name": "front_shin_torque", "meaning": "Torque applied to the front shin joint in [-1, 1]."},
+    {"index": 5, "name": "front_foot_torque", "meaning": "Torque applied to the front foot joint in [-1, 1]."}
+  ]
+}

@@ -7,16 +7,18 @@ cd "$ROOT_DIR"
 CLASSIC_SCENARIOS="cartpole_balance mountain_car acrobot_swingup pendulum_swingup"
 BOX2D_SCENARIOS="lunar_lander lunar_lander_continuous bipedal_walker car_racing"
 MINIGRID_SCENARIOS="minigrid_doorkey_16x16 minigrid_keycorridor_s6r3 minigrid_obstructedmaze_2dlhb minigrid_lavacrossing_s11n5"
-IMPLEMENTED_SCENARIOS="$CLASSIC_SCENARIOS $BOX2D_SCENARIOS $MINIGRID_SCENARIOS"
+MUJOCO_SCENARIOS="reacher inverted_pendulum hopper half_cheetah"
+IMPLEMENTED_SCENARIOS="$CLASSIC_SCENARIOS $BOX2D_SCENARIOS $MINIGRID_SCENARIOS $MUJOCO_SCENARIOS"
 
 SCENARIO_SET="${SCENARIO_SET:-implemented}"
 case "$SCENARIO_SET" in
   classic) DEFAULT_SCENARIOS="$CLASSIC_SCENARIOS" ;;
   box2d) DEFAULT_SCENARIOS="$BOX2D_SCENARIOS" ;;
   minigrid) DEFAULT_SCENARIOS="$MINIGRID_SCENARIOS" ;;
-  implemented | core12) DEFAULT_SCENARIOS="$IMPLEMENTED_SCENARIOS" ;;
+  mujoco) DEFAULT_SCENARIOS="$MUJOCO_SCENARIOS" ;;
+  implemented | core16) DEFAULT_SCENARIOS="$IMPLEMENTED_SCENARIOS" ;;
   *)
-    echo "Unknown SCENARIO_SET=${SCENARIO_SET}. Expected classic, box2d, minigrid, implemented, or core12." >&2
+    echo "Unknown SCENARIO_SET=${SCENARIO_SET}. Expected classic, box2d, minigrid, mujoco, implemented, or core16." >&2
     exit 2
     ;;
 esac
@@ -40,7 +42,7 @@ usage() {
 Run an HLBench model/environment matrix with bounded parallelism.
 
 Environment variables:
-  SCENARIO_SET=implemented       One of classic, box2d, minigrid, implemented/core12.
+  SCENARIO_SET=implemented       One of classic, box2d, minigrid, mujoco, implemented/core16.
   SCENARIOS="a b c"              Override the scenario list.
   AGENT_MODELS="gpt-5.4-mini"    Agent model ids to evaluate.
   MODEL_PREFIX=codex             Prefix for generated model-name directories.

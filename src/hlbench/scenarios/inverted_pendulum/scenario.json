@@ -1,0 +1,48 @@
+{
+  "scenario_id": "inverted_pendulum_v5",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "InvertedPendulum-v5",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "observation_type": "state",
+  "max_steps": 1000,
+  "success_score": 950.0,
+  "task": {
+    "goal": "Move the cart to keep the pole balanced upright for the full episode.",
+    "success_condition": "A successful episode remains balanced and reaches a total score of at least 950.",
+    "reward_description": "The environment gives +1 reward for every timestep before failure or timeout. Higher total return is better.",
+    "notes": [
+      "This is a MuJoCo telemetry task with one continuous force action.",
+      "The state contains cart and pole positions and velocities.",
+      "The episode terminates early when the pole falls beyond the environment threshold."
+    ]
+  },
+  "minimum_score": {
+    "value": 0.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive the lowest normal return."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "cart_position", "meaning": "Horizontal cart position."},
+    {"index": 1, "name": "pole_angle", "meaning": "Pole angle in radians."},
+    {"index": 2, "name": "cart_velocity", "meaning": "Horizontal cart velocity."},
+    {"index": 3, "name": "pole_angular_velocity", "meaning": "Pole angular velocity."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "cart_force", "meaning": "Continuous horizontal force applied to the cart in [-3, 3]."}
+  ]
+}

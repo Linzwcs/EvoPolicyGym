@@ -23,6 +23,10 @@ class ScenarioCatalogTest(unittest.TestCase):
         self.assertIn("minigrid_obstructedmaze_2dlhb", scenarios)
         self.assertIn("mountain_car", scenarios)
         self.assertIn("pendulum_swingup", scenarios)
+        self.assertIn("reacher", scenarios)
+        self.assertIn("inverted_pendulum", scenarios)
+        self.assertIn("hopper", scenarios)
+        self.assertIn("half_cheetah", scenarios)
 
         for scenario in scenarios:
             with self.subTest(scenario=scenario):
@@ -68,6 +72,18 @@ class ScenarioCatalogTest(unittest.TestCase):
         self.assertEqual(sorted(contract.observation_schema["fields"]), ["action_count", "direction", "image", "mission"])
         self.assertEqual(contract.observation_schema["fields"]["image"]["shape"], [7, 7, 3])
         self.assertEqual(contract.action_schema["n"], 7)
+
+    def test_mujoco_continuous_control_schema(self) -> None:
+        from hlbench.core.scenario import load_scenario
+
+        scenario = load_scenario("half_cheetah")
+        contract = get_backend(scenario.env_backend).describe(scenario)
+        self.assertEqual(scenario.observation_type, "state")
+        self.assertEqual(scenario.observation_mode, "jsonable")
+        self.assertEqual(contract.observation_schema["type"], "box")
+        self.assertEqual(contract.observation_schema["shape"], [17])
+        self.assertEqual(contract.action_schema["type"], "box")
+        self.assertEqual(contract.action_schema["shape"], [6])
 
 
 if __name__ == "__main__":

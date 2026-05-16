@@ -67,6 +67,8 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 
 - 已有：`cartpole_balance`、`mountain_car`、`acrobot_swingup`、`pendulum_swingup`。
 - 已接入 Box2D smoke：`lunar_lander`、`lunar_lander_continuous`、`bipedal_walker`、`car_racing`。
+- 已接入 MiniGrid smoke：`minigrid_doorkey_16x16`、`minigrid_keycorridor_s6r3`、`minigrid_obstructedmaze_2dlhb`、`minigrid_lavacrossing_s11n5`。
+- 已接入 MuJoCo smoke：`reacher`、`inverted_pendulum`、`hopper`、`half_cheetah`。
 - 每个环境先跑 `2 epoch` agent smoke。
 - `mountain_car` 保留为当前主流程回归测试。
 - `pendulum_swingup` 必须验证 continuous action schema、range check 和 minimum score。
@@ -103,7 +105,8 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 
 目标：覆盖高维连续控制。
 
-- MuJoCo 先接 `reacher`、`inverted_pendulum`，再接 locomotion。
+- 已接入 MuJoCo core：`reacher`、`inverted_pendulum`、`hopper`、`half_cheetah`。
+- MuJoCo 依赖通过 `gymnasium[box2d,mujoco]` 安装。
 
 ### Phase 5: Extend To Atari
 

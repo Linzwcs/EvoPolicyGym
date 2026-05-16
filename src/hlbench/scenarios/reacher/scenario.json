@@ -1,0 +1,55 @@
+{
+  "scenario_id": "reacher_v5",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "Reacher-v5",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "observation_type": "state",
+  "max_steps": 50,
+  "success_score": -5.0,
+  "task": {
+    "goal": "Control the two-joint arm so the fingertip reaches the target.",
+    "success_condition": "A successful episode reaches a total score of at least -5 over the 50 step episode.",
+    "reward_description": "The environment penalizes fingertip distance to the target and control effort. Returns are usually negative; higher total return is better.",
+    "notes": [
+      "This is a MuJoCo telemetry task with a short horizon and continuous torque actions.",
+      "The policy receives the official Reacher state vector, including joint angle features, target position, joint velocities, and fingertip-to-target displacement.",
+      "The target changes with the environment seed."
+    ]
+  },
+  "minimum_score": {
+    "value": -100.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "cos_shoulder_angle", "meaning": "Cosine of the first joint angle."},
+    {"index": 1, "name": "cos_elbow_angle", "meaning": "Cosine of the second joint angle."},
+    {"index": 2, "name": "sin_shoulder_angle", "meaning": "Sine of the first joint angle."},
+    {"index": 3, "name": "sin_elbow_angle", "meaning": "Sine of the second joint angle."},
+    {"index": 4, "name": "target_x", "meaning": "Target x coordinate."},
+    {"index": 5, "name": "target_y", "meaning": "Target y coordinate."},
+    {"index": 6, "name": "shoulder_angular_velocity", "meaning": "First joint angular velocity."},
+    {"index": 7, "name": "elbow_angular_velocity", "meaning": "Second joint angular velocity."},
+    {"index": 8, "name": "fingertip_to_target_x", "meaning": "Horizontal displacement from fingertip to target."},
+    {"index": 9, "name": "fingertip_to_target_y", "meaning": "Vertical displacement from fingertip to target."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "shoulder_torque", "meaning": "Torque applied to the first joint in [-1, 1]."},
+    {"index": 1, "name": "elbow_torque", "meaning": "Torque applied to the second joint in [-1, 1]."}
+  ]
+}

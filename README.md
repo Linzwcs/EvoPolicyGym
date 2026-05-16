@@ -19,7 +19,7 @@ The repository contains the refactored HLBench v1 skeleton:
 - learner workspace generation;
 - command-based agent execution;
 - epoch loop, scoring, reports, and learning curves;
-- smoke scenarios for Classic Control, Box2D, and hard MiniGrid.
+- smoke scenarios for Classic Control, Box2D, hard MiniGrid, and MuJoCo.
 
 Current built-in scenarios:
 
@@ -36,6 +36,10 @@ minigrid_doorkey_16x16
 minigrid_keycorridor_s6r3
 minigrid_obstructedmaze_2dlhb
 minigrid_lavacrossing_s11n5
+reacher
+inverted_pendulum
+hopper
+half_cheetah
 ```
 
 The target benchmark suite is documented in
@@ -120,7 +124,7 @@ AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=4 EPOCHS=8 TRAIN_EPISODES=32 \
 
 The matrix script writes runs under `runs/<model_name>/<scenario>/<run_id>/`
 and logs under `runs/_matrix_logs/<run_group>/`.
-Use `SCENARIO_SET=classic|box2d|minigrid|implemented` to select environment
+Use `SCENARIO_SET=classic|box2d|minigrid|mujoco|implemented` to select environment
 groups, or set `SCENARIOS="mountain_car car_racing"` explicitly. Use
 `DRY_RUN=1` to print the planned model/env cells without starting evaluations.
 

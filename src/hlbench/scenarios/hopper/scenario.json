@@ -1,0 +1,57 @@
+{
+  "scenario_id": "hopper_v5",
+  "scenario_level": "hard",
+  "env_backend": "gymnasium",
+  "env_id": "Hopper-v5",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "observation_type": "state",
+  "max_steps": 1000,
+  "success_score": 2500.0,
+  "task": {
+    "goal": "Control the one-legged robot so it hops forward without falling.",
+    "success_condition": "A successful episode reaches a total score of at least 2500 before the 1000 step limit.",
+    "reward_description": "The environment rewards forward velocity and survival, subtracts control cost, and terminates on unhealthy states. Higher total return is better.",
+    "notes": [
+      "This is a MuJoCo locomotion task with three continuous torque actions.",
+      "The observation excludes absolute x position and includes body height, angles, and velocities.",
+      "Stable hopping requires coordinated periodic control rather than a single static action."
+    ]
+  },
+  "minimum_score": {
+    "value": -1000.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "torso_height", "meaning": "Torso height."},
+    {"index": 1, "name": "torso_angle", "meaning": "Torso angle."},
+    {"index": 2, "name": "thigh_joint_angle", "meaning": "Thigh joint angle."},
+    {"index": 3, "name": "leg_joint_angle", "meaning": "Leg joint angle."},
+    {"index": 4, "name": "foot_joint_angle", "meaning": "Foot joint angle."},
+    {"index": 5, "name": "x_velocity", "meaning": "Forward torso velocity."},
+    {"index": 6, "name": "z_velocity", "meaning": "Vertical torso velocity."},
+    {"index": 7, "name": "torso_angular_velocity", "meaning": "Torso angular velocity."},
+    {"index": 8, "name": "thigh_joint_velocity", "meaning": "Thigh joint angular velocity."},
+    {"index": 9, "name": "leg_joint_velocity", "meaning": "Leg joint angular velocity."},
+    {"index": 10, "name": "foot_joint_velocity", "meaning": "Foot joint angular velocity."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "thigh_torque", "meaning": "Torque applied to the thigh joint in [-1, 1]."},
+    {"index": 1, "name": "leg_torque", "meaning": "Torque applied to the leg joint in [-1, 1]."},
+    {"index": 2, "name": "foot_torque", "meaning": "Torque applied to the foot joint in [-1, 1]."}
+  ]
+}

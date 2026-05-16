@@ -59,6 +59,7 @@ Examples:
   JOBS=4 EPOCHS=8 TRAIN_EPISODES=32 ./scripts/run_agent_matrix.sh
   SCENARIO_SET=minigrid AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=2 ./scripts/run_agent_matrix.sh
   DRY_RUN=1 SCENARIOS="mountain_car car_racing" ./scripts/run_agent_matrix.sh
+  tail -f runs/_matrix_logs/<run_group>/status.tsv
 EOF
 }
 
@@ -119,6 +120,24 @@ agent_command_for() {
   printf "%s" "codex exec -m ${agent_model} --skip-git-repo-check --sandbox workspace-write --ephemeral '${prompt}'"
 }
 
+timestamp_utc() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+append_status() {
+  local status="$1"
+  local agent_model="$2"
+  local model_name="$3"
+  local scenario="$4"
+  local run_id="$5"
+  local duration_seconds="$6"
+  local exit_code="$7"
+  local log_file="$8"
+  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    "$(timestamp_utc)" "$status" "$agent_model" "$model_name" "$scenario" "$run_id" \
+    "$duration_seconds" "$exit_code" "$log_file" >>"$STATUS_FILE"
+}
+
 run_one() {
   local agent_model="$1"
   local scenario="$2"
@@ -132,6 +151,9 @@ run_one() {
   mkdir -p "$log_dir"
 
   echo "[start] model=${model_name} agent_model=${agent_model} scenario=${scenario} log=${log_file}"
+  local started
+  started="$(date +%s)"
+  append_status "start" "$agent_model" "$model_name" "$scenario" "$run_id" "0" "" "$log_file"
   if PYTHONPATH=src python -m hlbench run \
     --scenario "$scenario" \
     --model-name "$model_name" \
@@ -143,11 +165,17 @@ run_one() {
     --agent-backend command \
     --agent-command "$agent_command" \
     >"$log_file" 2>&1; then
-    echo "[ok] model=${model_name} scenario=${scenario}"
+    local duration
+    duration="$(($(date +%s) - started))"
+    append_status "ok" "$agent_model" "$model_name" "$scenario" "$run_id" "$duration" "0" "$log_file"
+    echo "[ok] model=${model_name} scenario=${scenario} duration=${duration}s"
     return 0
   else
     local status=$?
-    echo "[fail] model=${model_name} scenario=${scenario} status=${status} log=${log_file}"
+    local duration
+    duration="$(($(date +%s) - started))"
+    append_status "fail" "$agent_model" "$model_name" "$scenario" "$run_id" "$duration" "$status" "$log_file"
+    echo "[fail] model=${model_name} scenario=${scenario} status=${status} duration=${duration}s log=${log_file}"
     tail -n 40 "$log_file" || true
     return "$status"
   fi
@@ -185,6 +213,12 @@ if [[ -n "${RUN_ID:-}" ]]; then
   export RUN_ID
 fi
 
+LOG_DIR="$ROOT_DIR/runs/_matrix_logs/$RUN_GROUP"
+TASKS_FILE="$LOG_DIR/tasks.tsv"
+STATUS_FILE="$LOG_DIR/status.tsv"
+SUMMARY_FILE="$LOG_DIR/summary.txt"
+export STATUS_FILE
+
 echo "HLBench matrix run"
 echo "  run_group=${RUN_GROUP}"
 echo "  scenarios=${SCENARIOS}"
@@ -195,10 +229,9 @@ echo "  train_episodes=${TRAIN_EPISODES}"
 echo "  timeout_seconds=${TIMEOUT_SECONDS}"
 echo "  logs=runs/_matrix_logs/${RUN_GROUP}"
 
-LOG_DIR="$ROOT_DIR/runs/_matrix_logs/$RUN_GROUP"
-TASKS_FILE="$LOG_DIR/tasks.tsv"
 mkdir -p "$LOG_DIR"
 printf "agent_model\tmodel_name\tscenario\trun_id\tlog_file\n" >"$TASKS_FILE"
+printf "timestamp\tstatus\tagent_model\tmodel_name\tscenario\trun_id\tduration_seconds\texit_code\tlog_file\n" >"$STATUS_FILE"
 
 while read -r agent_model scenario; do
   model_name="$(model_name_for "$agent_model")"
@@ -214,10 +247,25 @@ done < <(
 )
 
 echo "  task_manifest=runs/_matrix_logs/${RUN_GROUP}/tasks.tsv"
+echo "  status_log=runs/_matrix_logs/${RUN_GROUP}/status.tsv"
 
 if [[ "$DRY_RUN" == "1" ]]; then
   cat "$TASKS_FILE"
   exit 0
 fi
 
+set +e
 tail -n +2 "$TASKS_FILE" | cut -f1,3 | xargs -n 2 -P "$JOBS" bash -c 'AGENT_MODEL="$1" SCENARIO="$2" HLBENCH_MATRIX_WORKER=1 "$0"' "$0"
+matrix_status=$?
+set -e
+
+awk -F '\t' '
+  NR > 1 && $2 == "start" { started += 1 }
+  NR > 1 && $2 == "ok" { ok += 1 }
+  NR > 1 && $2 == "fail" { fail += 1 }
+  END {
+    printf("started\t%d\nok\t%d\nfail\t%d\n", started + 0, ok + 0, fail + 0)
+  }
+' "$STATUS_FILE" >"$SUMMARY_FILE"
+cat "$SUMMARY_FILE"
+exit "$matrix_status"

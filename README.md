@@ -127,6 +127,11 @@ and logs under `runs/_matrix_logs/<run_group>/`.
 Use `SCENARIO_SET=classic|box2d|minigrid|mujoco|implemented` to select environment
 groups, or set `SCENARIOS="mountain_car car_racing"` explicitly. Use
 `DRY_RUN=1` to print the planned model/env cells without starting evaluations.
+During parallel runs, monitor completed cells with:
+
+```bash
+tail -f runs/_matrix_logs/<run_group>/status.tsv
+```
 
 ## Evaluation Boundary
 

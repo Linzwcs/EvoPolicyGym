@@ -1,4 +1,4 @@
-"""Baseline MountainCar policy."""
+"""Baseline continuous LunarLander policy."""
 
 from __future__ import annotations
 
@@ -9,6 +9,6 @@ class Policy:
     def reset(self, task_config: dict[str, Any]) -> None:
         del task_config
 
-    def act(self, observation: Any, context: dict[str, Any]) -> int:
+    def act(self, observation: Any, context: dict[str, Any]) -> list[float]:
         del observation, context
-        return 2
+        return [0.0, 0.0]

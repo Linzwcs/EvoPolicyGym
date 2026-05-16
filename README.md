@@ -29,6 +29,7 @@ mountain_car
 pendulum_swingup
 acrobot_swingup
 lunar_lander
+lunar_lander_continuous
 ```
 
 The target benchmark suite is documented in

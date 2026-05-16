@@ -144,7 +144,11 @@ Baseline `policy.py` must:
 - run at least one train rollout without execution error;
 - not access private data or external evaluator state.
 
-A weak baseline is acceptable. A broken baseline is not acceptable for official scenarios.
+The baseline should be intentionally simple: fixed valid actions or a minimal
+one-line rule are preferred. It should validate the interface and give the
+agent a clean starting point, not embed a strong hand-written heuristic. A weak
+baseline is acceptable. A broken baseline is not acceptable for official
+scenarios.
 
 ## Visibility Validation
 

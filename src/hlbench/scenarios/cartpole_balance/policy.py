@@ -10,7 +10,5 @@ class Policy:
         del task_config
 
     def act(self, observation: Any, context: dict[str, Any]) -> Any:
-        del context
-        values = observation
-        pole_angle = float(values[2]) if len(values) > 2 else 0.0
-        return 1 if pole_angle > 0 else 0
+        del observation, context
+        return 0

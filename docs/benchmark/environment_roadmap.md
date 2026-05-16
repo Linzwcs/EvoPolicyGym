@@ -63,9 +63,10 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 
 ### Phase 0: Current Smoke Suite
 
-目标：把现有 4 个 Classic Control scenario 全部跑通。
+目标：把现有轻量 scenario 全部跑通。
 
 - 已有：`cartpole_balance`、`mountain_car`、`acrobot_swingup`、`pendulum_swingup`。
+- 已接入 Box2D smoke：`lunar_lander`、`lunar_lander_continuous`。
 - 每个环境先跑 `2 epoch` agent smoke。
 - `mountain_car` 保留为当前主流程回归测试。
 - `pendulum_swingup` 必须验证 continuous action schema、range check 和 minimum score。
@@ -83,7 +84,7 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 
 目标：接入 `LunarLander`、`BipedalWalker` 和 `CarRacing`，验证更复杂动力学和第一类 image observation。
 
-- 先接 `lunar_lander` 和 `lunar_lander_continuous`。
+- `lunar_lander` 和 `lunar_lander_continuous` 已接入。
 - 再接 `bipedal_walker`。
 - `car_racing` 使用官方 RGB image observation，用来验证 image schema、image artifact 和 agent 可见输入协议。
 - 文档必须注明依赖：`gymnasium[box2d]`。

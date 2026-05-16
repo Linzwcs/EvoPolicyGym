@@ -14,6 +14,7 @@ class ScenarioCatalogTest(unittest.TestCase):
         self.assertIn("acrobot_swingup", scenarios)
         self.assertIn("cartpole_balance", scenarios)
         self.assertIn("lunar_lander", scenarios)
+        self.assertIn("lunar_lander_continuous", scenarios)
         self.assertIn("mountain_car", scenarios)
         self.assertIn("pendulum_swingup", scenarios)
 

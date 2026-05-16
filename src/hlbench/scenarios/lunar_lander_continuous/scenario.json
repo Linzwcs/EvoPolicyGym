@@ -1,0 +1,54 @@
+{
+  "scenario_id": "lunar_lander_continuous_v0",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "LunarLander-v3",
+  "env_kwargs": {
+    "continuous": true
+  },
+  "observation_mode": "jsonable",
+  "max_steps": 1000,
+  "success_score": 200.0,
+  "task": {
+    "goal": "Land the spacecraft safely on the landing pad near the origin using continuous engine controls.",
+    "success_condition": "A successful episode lands safely and reaches a total score of at least 200.",
+    "reward_description": "The environment rewards moving toward the pad, slowing down, staying level, and leg contact. It penalizes engine use, crashes, and unsafe flight. Higher total return is better.",
+    "notes": [
+      "This is a Box2D telemetry task: the policy receives the official public LunarLander state vector.",
+      "The action has two continuous values in [-1, 1]: main engine control and lateral booster control.",
+      "Fuel is unlimited, but firing engines has a reward cost, so useful policies should stabilize and land efficiently."
+    ]
+  },
+  "minimum_score": {
+    "value": -1000.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "x_position", "meaning": "Horizontal coordinate of the lander relative to the landing pad."},
+    {"index": 1, "name": "y_position", "meaning": "Vertical coordinate of the lander."},
+    {"index": 2, "name": "x_velocity", "meaning": "Horizontal velocity of the lander."},
+    {"index": 3, "name": "y_velocity", "meaning": "Vertical velocity of the lander."},
+    {"index": 4, "name": "angle", "meaning": "Lander angle in radians."},
+    {"index": 5, "name": "angular_velocity", "meaning": "Angular velocity of the lander."},
+    {"index": 6, "name": "left_leg_contact", "meaning": "1 if the left leg is touching the ground, otherwise 0."},
+    {"index": 7, "name": "right_leg_contact", "meaning": "1 if the right leg is touching the ground, otherwise 0."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "main_engine_control", "meaning": "Main engine throttle control in [-1, 1]. Values below 0 turn the main engine off; values from 0 to 1 scale throttle from 50% to 100%."},
+    {"index": 1, "name": "lateral_booster_control", "meaning": "Lateral booster control in [-1, 1]. Values below -0.5 fire one side booster, values above 0.5 fire the other side booster, and values near 0 fire neither."}
+  ]
+}

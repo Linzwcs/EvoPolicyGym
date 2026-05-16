@@ -29,8 +29,9 @@ Use standard Python 3 style: four-space indentation, type hints where they clari
 interfaces, `snake_case` for functions and variables, and `PascalCase`
 for classes. Scenario directories use descriptive `snake_case` names such as
 `mountain_car` or `acrobot_swingup`; every scenario exposes a `Policy` class in
-`policy.py`. Prefer `pathlib.Path`, dataclasses, explicit JSON records, and
-small functions over framework-heavy abstractions.
+`policy.py`. Built-in initial policies should be simple legal baselines rather
+than strong hand-written heuristics. Prefer `pathlib.Path`, dataclasses,
+explicit JSON records, and small functions over framework-heavy abstractions.
 
 ## Testing Guidelines
 

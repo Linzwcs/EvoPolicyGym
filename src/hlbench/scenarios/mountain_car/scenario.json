@@ -5,6 +5,7 @@
   "env_id": "MountainCar-v0",
   "env_kwargs": {},
   "observation_mode": "jsonable",
+  "observation_type": "state",
   "max_steps": 200,
   "success_score": -110.0,
   "task": {
@@ -35,12 +36,32 @@
     }
   },
   "observation_meanings": [
-    {"index": 0, "name": "position", "meaning": "Car position along the valley."},
-    {"index": 1, "name": "velocity", "meaning": "Car velocity."}
+    {
+      "index": 0,
+      "name": "position",
+      "meaning": "Car position along the valley."
+    },
+    {
+      "index": 1,
+      "name": "velocity",
+      "meaning": "Car velocity."
+    }
   ],
   "action_meanings": [
-    {"id": 0, "name": "push_left", "meaning": "Accelerate left."},
-    {"id": 1, "name": "no_push", "meaning": "Apply no acceleration."},
-    {"id": 2, "name": "push_right", "meaning": "Accelerate right."}
+    {
+      "id": 0,
+      "name": "push_left",
+      "meaning": "Accelerate left."
+    },
+    {
+      "id": 1,
+      "name": "no_push",
+      "meaning": "Apply no acceleration."
+    },
+    {
+      "id": 2,
+      "name": "push_right",
+      "meaning": "Accelerate right."
+    }
   ]
 }

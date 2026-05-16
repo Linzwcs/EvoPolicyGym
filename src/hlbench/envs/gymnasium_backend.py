@@ -33,6 +33,7 @@ class GymnasiumEnvInstance:
 
     def step(self, action: Any) -> StepResult:
         action = validate_action(self.action_schema, action)
+        action = _coerce_action(self.env.action_space, action)
         observation, reward, terminated, truncated, info = self.env.step(action)
         return StepResult(
             observation=self.wrapper.observation(observation, action_count=self.action_count),
@@ -54,18 +55,16 @@ class GymnasiumBackend:
         try:
             reward_range = getattr(env, "reward_range", (None, None))
             low, high = _clean_bound(reward_range[0]), _clean_bound(reward_range[1])
+            raw_observation_schema = space_to_schema(env.observation_space)
+            action_schema = space_to_schema(env.action_space)
             return EnvContract(
                 backend=self.name,
                 env_id=scenario.env_id,
-                observation_schema=_with_meanings(
-                    space_to_schema(env.observation_space),
-                    scenario.observation_meanings,
-                    "dimensions",
-                ),
+                observation_schema=_observation_schema(raw_observation_schema, scenario),
                 action_schema=_with_meanings(
-                    space_to_schema(env.action_space),
+                    action_schema,
                     scenario.action_meanings,
-                    _action_meaning_key(space_to_schema(env.action_space)),
+                    _action_meaning_key(action_schema),
                 ),
                 reward_range=(low, high),
                 termination={
@@ -88,6 +87,11 @@ class GymnasiumBackend:
             import gymnasium as gym
         except ModuleNotFoundError as exc:  # pragma: no cover - dependency dependent
             raise RuntimeError("Gymnasium backend requires the `gymnasium` package.") from exc
+        if scenario.env_id.startswith("MiniGrid-"):
+            try:
+                import minigrid  # noqa: F401
+            except ModuleNotFoundError as exc:  # pragma: no cover - dependency dependent
+                raise RuntimeError("MiniGrid scenarios require the `minigrid` package.") from exc
         try:
             return gym.make(scenario.env_id, **scenario.env_kwargs)
         except ModuleNotFoundError:
@@ -104,6 +108,38 @@ def _with_meanings(schema: dict[str, Any], meanings: tuple[dict[str, Any], ...],
     return merged
 
 
+def _observation_schema(raw_schema: dict[str, Any], scenario: ScenarioSpec) -> dict[str, Any]:
+    if scenario.observation_mode == "image_artifact":
+        return {
+            "type": "dict",
+            "mode": "image_artifact",
+            "fields": {
+                "type": {"type": "string", "constant": "image"},
+                "image_path": {"type": "string", "meaning": "Path to the current image observation artifact."},
+                "format": {"type": "string", "constant": "ppm"},
+                "shape": {"type": "array", "items": "int", "meaning": "Image shape [height, width, channels]."},
+                "dtype": {"type": "string", "meaning": "Original image dtype."},
+            },
+            "image_schema": _with_meanings(raw_schema, scenario.observation_meanings, "dimensions"),
+        }
+    if scenario.observation_mode == "minigrid_public":
+        return {
+            "type": "dict",
+            "mode": "minigrid_public",
+            "fields": {
+                "image": raw_schema.get("spaces", {}).get("image", {"type": "unknown"}),
+                "direction": raw_schema.get("spaces", {}).get("direction", {"type": "unknown"}),
+                "mission": raw_schema.get("spaces", {}).get("mission", {"type": "unknown"}),
+                "action_count": {
+                    "type": "integer",
+                    "meaning": "Number of legal discrete actions exposed by the environment.",
+                },
+            },
+            "field_meanings": [dict(item) for item in scenario.observation_meanings],
+        }
+    return _with_meanings(raw_schema, scenario.observation_meanings, "dimensions")
+
+
 def _action_meaning_key(schema: dict[str, Any]) -> str:
     return "dimensions" if schema.get("type") == "box" else "actions"
 
@@ -113,3 +149,11 @@ def _clean_bound(value: Any) -> float | None:
         return None
     number = float(value)
     return number if math.isfinite(number) else None
+
+
+def _coerce_action(space: Any, action: Any) -> Any:
+    if type(space).__name__ != "Box":
+        return action
+    import numpy as np
+
+    return np.asarray(action, dtype=space.dtype)

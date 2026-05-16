@@ -1,0 +1,64 @@
+{
+  "scenario_id": "car_racing_v0",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "CarRacing-v3",
+  "env_kwargs": {
+    "continuous": true
+  },
+  "observation_mode": "image_artifact",
+  "observation_type": "image",
+  "max_steps": 1000,
+  "success_score": 900.0,
+  "task": {
+    "goal": "Drive the car around the generated track and visit as many track tiles as possible.",
+    "success_condition": "A strong episode completes most or all of the lap and reaches a high positive score.",
+    "reward_description": "The environment gives -0.1 reward per frame and positive reward for newly visited track tiles. Going far off track can terminate the episode with a large penalty. Higher total return is better.",
+    "notes": [
+      "This is an image task: the policy receives the official top-down 96x96 RGB observation as an image artifact path.",
+      "Continuous actions control steering, gas, and brake.",
+      "The generated track is random for each episode seed."
+    ]
+  },
+  "minimum_score": {
+    "value": -1000.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {
+      "name": "rgb_frame",
+      "meaning": "Top-down 96x96 RGB image of the car, track, and dashboard indicators."
+    }
+  ],
+  "action_meanings": [
+    {
+      "index": 0,
+      "name": "steering",
+      "meaning": "Steering command in [-1, 1], where -1 is full left and +1 is full right."
+    },
+    {
+      "index": 1,
+      "name": "gas",
+      "meaning": "Gas command in [0, 1]."
+    },
+    {
+      "index": 2,
+      "name": "brake",
+      "meaning": "Brake command in [0, 1]."
+    }
+  ]
+}

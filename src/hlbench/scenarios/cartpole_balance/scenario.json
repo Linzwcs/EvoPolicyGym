@@ -5,6 +5,7 @@
   "env_id": "CartPole-v1",
   "env_kwargs": {},
   "observation_mode": "jsonable",
+  "observation_type": "state",
   "max_steps": 500,
   "success_score": 500,
   "task": {
@@ -35,13 +36,37 @@
     }
   },
   "observation_meanings": [
-    {"index": 0, "name": "cart_position", "meaning": "Cart position on the track."},
-    {"index": 1, "name": "cart_velocity", "meaning": "Cart velocity."},
-    {"index": 2, "name": "pole_angle", "meaning": "Pole angle in radians."},
-    {"index": 3, "name": "pole_angular_velocity", "meaning": "Pole angular velocity."}
+    {
+      "index": 0,
+      "name": "cart_position",
+      "meaning": "Cart position on the track."
+    },
+    {
+      "index": 1,
+      "name": "cart_velocity",
+      "meaning": "Cart velocity."
+    },
+    {
+      "index": 2,
+      "name": "pole_angle",
+      "meaning": "Pole angle in radians."
+    },
+    {
+      "index": 3,
+      "name": "pole_angular_velocity",
+      "meaning": "Pole angular velocity."
+    }
   ],
   "action_meanings": [
-    {"id": 0, "name": "push_left", "meaning": "Apply force to the left."},
-    {"id": 1, "name": "push_right", "meaning": "Apply force to the right."}
+    {
+      "id": 0,
+      "name": "push_left",
+      "meaning": "Apply force to the left."
+    },
+    {
+      "id": 1,
+      "name": "push_right",
+      "meaning": "Apply force to the right."
+    }
   ]
 }

@@ -114,7 +114,11 @@ runs/<model_name>/<env_name>/<run_id>/epochs/epoch_000/
 
 Validation aggregate summaries may be copied into `workspace/feedback/history/`.
 Heldout summaries are not copied to learner workspace. validation / heldout
-evaluation 不能生成 replay、trace、`episodes.jsonl` 或 `failures.jsonl`，包括临时生成后删除的做法。
+evaluation 不能持久化 replay、trace、`episodes.jsonl`、`failures.jsonl`
+或 frame replay。Image-observation scenarios may use ephemeral current-frame
+files as the policy-visible observation transport during evaluation, but these
+files must be deleted before the private split result is returned and must not
+be referenced from any private summary or report artifact.
 
 Train evaluation is stored separately under `evaluation/train/`. It may
 contain replay and per-episode artifacts because it is public train feedback,

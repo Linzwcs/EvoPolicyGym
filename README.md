@@ -19,7 +19,7 @@ The repository contains the refactored HLBench v1 skeleton:
 - learner workspace generation;
 - command-based agent execution;
 - epoch loop, scoring, reports, and learning curves;
-- smoke scenarios for Classic Control and Box2D.
+- smoke scenarios for Classic Control, Box2D, and hard MiniGrid.
 
 Current built-in scenarios:
 
@@ -30,6 +30,12 @@ pendulum_swingup
 acrobot_swingup
 lunar_lander
 lunar_lander_continuous
+bipedal_walker
+car_racing
+minigrid_doorkey_16x16
+minigrid_keycorridor_s6r3
+minigrid_obstructedmaze_2dlhb
+minigrid_lavacrossing_s11n5
 ```
 
 The target benchmark suite is documented in

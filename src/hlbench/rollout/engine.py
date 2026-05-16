@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from hlbench.core.policy import file_sha256, load_policy, reset_policy
 from hlbench.core.scenario import ScenarioSplit, ScenarioSpec, load_scenario
 from hlbench.envs.base import EnvironmentInstance
 from hlbench.envs.registry import get_backend
+from hlbench.envs.wrappers import ImageObservation
 from hlbench.rollout.summarize import failure_samples, summarize_trials
 
 PRIVATE_SPLITS = {ScenarioSplit.VALIDATION.value, ScenarioSplit.HELDOUT.value}
@@ -94,12 +96,16 @@ def run_episode(
     seed: int,
     task_config: dict[str, Any] | None = None,
     replay_path: Path | None = None,
+    observation_dir: Path | None = None,
 ) -> EpisodeResult:
     replay: list[dict[str, Any]] = []
+    episode_id = task_config.get("episode_id", "episode_unknown") if task_config else "episode_unknown"
+    observation_writer = ObservationArtifactWriter(observation_dir=observation_dir, episode_id=episode_id)
     try:
         observation = backend.reset(seed=seed, config=task_config)
         reset_policy(policy, task_config=task_config or {})
     except Exception as exc:
+        observation_writer.close()
         return EpisodeResult(
             episode_id=task_config.get("episode_id", "episode_unknown") if task_config else "episode_unknown",
             seed=seed,
@@ -119,54 +125,57 @@ def run_episode(
     steps = 0
     exception: str | None = None
 
-    while steps < scenario.max_steps:
-        before = observation
-        try:
-            action = policy.act(
-                observation,
+    try:
+        while steps < scenario.max_steps:
+            before = observation_writer.public_observation(observation, step_index=steps)
+            try:
+                action = policy.act(
+                    before,
+                    {
+                        "action_schema": backend.action_schema,
+                        "action_count": backend.action_count,
+                        "step_index": steps,
+                        "max_steps": scenario.max_steps,
+                    },
+                )
+            except Exception as exc:
+                exception = repr(exc)
+                terminated_by = "policy_exception"
+                break
+
+            try:
+                step = backend.step(action)
+            except Exception as exc:
+                invalid_actions += 1
+                exception = repr(exc)
+                replay.append({"t": steps, "observation": before, "action": repr(action), "error": exception})
+                terminated_by = "invalid_action"
+                break
+
+            replay.append(
                 {
-                    "action_schema": backend.action_schema,
-                    "action_count": backend.action_count,
-                    "step_index": steps,
-                    "max_steps": scenario.max_steps,
-                },
+                    "t": steps,
+                    "observation": before,
+                    "action": action,
+                    "reward": step.reward,
+                    "terminated": step.terminated,
+                    "truncated": step.truncated,
+                    "info": step.info,
+                }
             )
-        except Exception as exc:
-            exception = repr(exc)
-            terminated_by = "policy_exception"
-            break
-
-        try:
-            step = backend.step(action)
-        except Exception as exc:
-            invalid_actions += 1
-            exception = repr(exc)
-            replay.append({"t": steps, "observation": before, "action": repr(action), "error": exception})
-            terminated_by = "invalid_action"
-            break
-
-        replay.append(
-            {
-                "t": steps,
-                "observation": before,
-                "action": action,
-                "reward": step.reward,
-                "terminated": step.terminated,
-                "truncated": step.truncated,
-                "info": step.info,
-            }
-        )
-        total_reward += step.reward
-        observation = step.observation
-        terminated = step.terminated
-        truncated = step.truncated
-        steps += 1
-        if step.done:
-            terminated_by = "terminated" if step.terminated else "truncated"
-            break
-    else:
-        terminated_by = "timeout"
-        truncated = True
+            total_reward += step.reward
+            observation = step.observation
+            terminated = step.terminated
+            truncated = step.truncated
+            steps += 1
+            if step.done:
+                terminated_by = "terminated" if step.terminated else "truncated"
+                break
+        else:
+            terminated_by = "timeout"
+            truncated = True
+    finally:
+        observation_writer.close()
 
     if replay_path is not None:
         write_jsonl(replay_path, replay)
@@ -232,6 +241,11 @@ def run_rollout(
         for index, seed in enumerate(seeds):
             episode_id = f"{split}_{index:06d}"
             replay_path = run_dir / "replays" / f"episode_{index:04d}.jsonl" if write_artifacts else None
+            observation_dir = (
+                run_dir / "observations" / f"episode_{index:04d}"
+                if write_artifacts and scenario.observation_mode == "image_artifact"
+                else None
+            )
             result = run_episode(
                 backend=backend,
                 policy=policy,
@@ -239,6 +253,7 @@ def run_rollout(
                 seed=seed,
                 task_config={"scenario": scenario.scenario_id, "episode_id": episode_id},
                 replay_path=replay_path,
+                observation_dir=observation_dir,
             )
             record = result.to_record(include_seed=True)
             public_record = result.to_record(include_seed=False)
@@ -339,7 +354,7 @@ def purge_private_artifacts(run_dir: Path) -> None:
         path = run_dir / name
         if path.exists():
             path.unlink()
-    for name in ("replays", "episodes"):
+    for name in ("replays", "episodes", "observations"):
         path = run_dir / name
         if path.exists():
             shutil.rmtree(path)
@@ -351,3 +366,62 @@ def _effective_sampler_seed(*, episodes: int | None, sampler_seed: int | None) -
     if sampler_seed is not None:
         return sampler_seed
     return time.time_ns()
+
+
+class ObservationArtifactWriter:
+    def __init__(self, *, observation_dir: Path | None, episode_id: str) -> None:
+        self.episode_id = episode_id
+        self._observation_dir = observation_dir
+        self.persistent = observation_dir is not None
+        self._temporary: tempfile.TemporaryDirectory[str] | None = None
+        self.root: Path | None = None
+
+    def public_observation(self, observation: Any, *, step_index: int) -> Any:
+        if not isinstance(observation, ImageObservation):
+            return observation
+        root = self._root()
+        image_path = root / f"step_{step_index:06d}.ppm"
+        shape, dtype = write_ppm(image_path, observation.pixels)
+        return {
+            "type": "image",
+            "image_path": str(image_path),
+            "format": "ppm",
+            "shape": shape,
+            "dtype": dtype,
+        }
+
+    def close(self) -> None:
+        if self._temporary is not None:
+            self._temporary.cleanup()
+
+    def _root(self) -> Path:
+        if self.root is not None:
+            return self.root
+        if self._observation_dir is None:
+            self._temporary = tempfile.TemporaryDirectory(prefix="hlbench-image-observation-")
+            self.root = Path(self._temporary.name)
+        else:
+            self.root = self._observation_dir
+        self.root.mkdir(parents=True, exist_ok=True)
+        return self.root
+
+
+def write_ppm(path: Path, pixels: Any) -> tuple[list[int], str]:
+    import numpy as np
+
+    array = np.asarray(pixels)
+    dtype = str(array.dtype)
+    if array.ndim == 2:
+        array = np.repeat(array[:, :, None], 3, axis=2)
+    if array.ndim != 3 or array.shape[2] not in (3, 4):
+        raise ValueError(f"image observation must have shape HxWx3 or HxWx4, got {list(array.shape)}")
+    if array.shape[2] == 4:
+        array = array[:, :, :3]
+    if array.dtype != np.uint8:
+        array = np.clip(array, 0, 255).astype(np.uint8)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    height, width, _channels = array.shape
+    with path.open("wb") as handle:
+        handle.write(f"P6\n{width} {height}\n255\n".encode("ascii"))
+        handle.write(np.ascontiguousarray(array).tobytes())
+    return [int(height), int(width), 3], dtype

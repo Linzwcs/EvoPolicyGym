@@ -96,7 +96,7 @@ Gymnasium Classic Control 官方任务默认是 telemetry。如果要研究 pixe
 }
 ```
 
-未来实现 image observation 时，train replay 不应把每一帧内联到 JSONL。应把 frame 写成文件，并在 replay 中记录相对路径、shape 和 dtype。validation / heldout 仍然不生成 replay 或 frame 文件。
+Image observation 的 train replay 不应把每一帧内联到 JSONL。应把 frame 写成文件，并在 replay 中记录路径、shape 和 dtype。validation / heldout 仍然不持久化 replay 或 frame 文件；如果 evaluator 需要临时 current-frame 文件把图片传给 policy，必须在 private split 返回前删除。
 
 ## Action Schema
 

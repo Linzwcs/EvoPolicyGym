@@ -1,0 +1,98 @@
+{
+  "scenario_id": "minigrid_doorkey_16x16_v0",
+  "scenario_level": "hard",
+  "env_backend": "gymnasium",
+  "env_id": "MiniGrid-DoorKey-16x16-v0",
+  "env_kwargs": {},
+  "observation_mode": "minigrid_public",
+  "observation_type": "symbolic",
+  "max_steps": 2560,
+  "success_score": 0.01,
+  "task": {
+    "goal": "Navigate the partially observable grid, collect the key, unlock the door, and reach the green goal.",
+    "success_condition": "A successful episode reaches the goal and receives positive reward before the 2560 step limit.",
+    "reward_description": "MiniGrid gives sparse positive reward only on success, discounted by episode length. Higher total return is better.",
+    "notes": [
+      "This is a symbolic MiniGrid task: the policy receives the official 7x7 egocentric grid image, direction, mission text, and action_count.",
+      "Each grid cell is encoded as [object_type, color, state] using MiniGrid's official integer encoding.",
+      "The agent must infer map structure through exploration because the full map is not visible."
+    ]
+  },
+  "minimum_score": {
+    "value": -1.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a score below normal MiniGrid failure."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {
+      "field": "image",
+      "name": "egocentric_grid",
+      "meaning": "7x7x3 partially observable MiniGrid encoding. Channels are object type, color, and object state."
+    },
+    {
+      "field": "direction",
+      "name": "agent_direction",
+      "meaning": "Integer heading of the agent in MiniGrid's official direction convention."
+    },
+    {
+      "field": "mission",
+      "name": "mission_text",
+      "meaning": "Natural-language task instruction supplied by the environment."
+    },
+    {
+      "field": "action_count",
+      "name": "action_count",
+      "meaning": "Number of legal discrete actions."
+    }
+  ],
+  "action_meanings": [
+    {
+      "id": 0,
+      "name": "turn_left",
+      "meaning": "Rotate left in place."
+    },
+    {
+      "id": 1,
+      "name": "turn_right",
+      "meaning": "Rotate right in place."
+    },
+    {
+      "id": 2,
+      "name": "move_forward",
+      "meaning": "Move one cell forward if not blocked."
+    },
+    {
+      "id": 3,
+      "name": "pick_up",
+      "meaning": "Pick up an object in the current cell if possible."
+    },
+    {
+      "id": 4,
+      "name": "drop",
+      "meaning": "Drop the carried object."
+    },
+    {
+      "id": 5,
+      "name": "toggle",
+      "meaning": "Toggle or interact with an adjacent object, such as opening a door."
+    },
+    {
+      "id": 6,
+      "name": "done",
+      "meaning": "Declare the task done."
+    }
+  ]
+}

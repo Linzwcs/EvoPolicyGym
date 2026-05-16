@@ -5,6 +5,7 @@
   "env_id": "Pendulum-v1",
   "env_kwargs": {},
   "observation_mode": "jsonable",
+  "observation_type": "state",
   "max_steps": 200,
   "success_score": -250.0,
   "task": {
@@ -35,11 +36,27 @@
     }
   },
   "observation_meanings": [
-    {"index": 0, "name": "cos_theta", "meaning": "Cosine of the pendulum angle."},
-    {"index": 1, "name": "sin_theta", "meaning": "Sine of the pendulum angle."},
-    {"index": 2, "name": "angular_velocity", "meaning": "Pendulum angular velocity."}
+    {
+      "index": 0,
+      "name": "cos_theta",
+      "meaning": "Cosine of the pendulum angle."
+    },
+    {
+      "index": 1,
+      "name": "sin_theta",
+      "meaning": "Sine of the pendulum angle."
+    },
+    {
+      "index": 2,
+      "name": "angular_velocity",
+      "meaning": "Pendulum angular velocity."
+    }
   ],
   "action_meanings": [
-    {"index": 0, "name": "torque", "meaning": "Applied torque, clipped by the environment to [-2, 2]."}
+    {
+      "index": 0,
+      "name": "torque",
+      "meaning": "Applied torque, clipped by the environment to [-2, 2]."
+    }
   ]
 }

@@ -1,0 +1,71 @@
+{
+  "scenario_id": "bipedal_walker_v0",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "BipedalWalker-v3",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "observation_type": "state",
+  "max_steps": 1600,
+  "success_score": 300.0,
+  "task": {
+    "goal": "Control the walker so it travels forward across uneven terrain without falling.",
+    "success_condition": "A successful episode reaches a total score of at least 300 before the 1600 step limit.",
+    "reward_description": "The environment rewards forward progress, gives a large penalty if the hull falls, and subtracts a small cost for motor torque. Higher total return is better.",
+    "notes": [
+      "This is a Box2D telemetry task: the policy receives the official public BipedalWalker state vector.",
+      "The state includes hull motion, joint positions and speeds, leg ground contact flags, and lidar rangefinder measurements.",
+      "There are no absolute coordinates in the observation."
+    ]
+  },
+  "minimum_score": {
+    "value": -200.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "hull_angle", "meaning": "Hull angle."},
+    {"index": 1, "name": "hull_angular_velocity", "meaning": "Hull angular velocity."},
+    {"index": 2, "name": "horizontal_speed", "meaning": "Horizontal speed."},
+    {"index": 3, "name": "vertical_speed", "meaning": "Vertical speed."},
+    {"index": 4, "name": "hip_1_angle", "meaning": "First hip joint angle."},
+    {"index": 5, "name": "hip_1_speed", "meaning": "First hip joint angular speed."},
+    {"index": 6, "name": "knee_1_angle", "meaning": "First knee joint angle."},
+    {"index": 7, "name": "knee_1_speed", "meaning": "First knee joint angular speed."},
+    {"index": 8, "name": "leg_1_ground_contact", "meaning": "1 if the first leg touches the ground, otherwise 0."},
+    {"index": 9, "name": "hip_2_angle", "meaning": "Second hip joint angle."},
+    {"index": 10, "name": "hip_2_speed", "meaning": "Second hip joint angular speed."},
+    {"index": 11, "name": "knee_2_angle", "meaning": "Second knee joint angle."},
+    {"index": 12, "name": "knee_2_speed", "meaning": "Second knee joint angular speed."},
+    {"index": 13, "name": "leg_2_ground_contact", "meaning": "1 if the second leg touches the ground, otherwise 0."},
+    {"index": 14, "name": "lidar_0", "meaning": "First lidar rangefinder measurement."},
+    {"index": 15, "name": "lidar_1", "meaning": "Second lidar rangefinder measurement."},
+    {"index": 16, "name": "lidar_2", "meaning": "Third lidar rangefinder measurement."},
+    {"index": 17, "name": "lidar_3", "meaning": "Fourth lidar rangefinder measurement."},
+    {"index": 18, "name": "lidar_4", "meaning": "Fifth lidar rangefinder measurement."},
+    {"index": 19, "name": "lidar_5", "meaning": "Sixth lidar rangefinder measurement."},
+    {"index": 20, "name": "lidar_6", "meaning": "Seventh lidar rangefinder measurement."},
+    {"index": 21, "name": "lidar_7", "meaning": "Eighth lidar rangefinder measurement."},
+    {"index": 22, "name": "lidar_8", "meaning": "Ninth lidar rangefinder measurement."},
+    {"index": 23, "name": "lidar_9", "meaning": "Tenth lidar rangefinder measurement."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "hip_1_motor", "meaning": "Motor speed command for the first hip joint in [-1, 1]."},
+    {"index": 1, "name": "knee_1_motor", "meaning": "Motor speed command for the first knee joint in [-1, 1]."},
+    {"index": 2, "name": "hip_2_motor", "meaning": "Motor speed command for the second hip joint in [-1, 1]."},
+    {"index": 3, "name": "knee_2_motor", "meaning": "Motor speed command for the second knee joint in [-1, 1]."}
+  ]
+}

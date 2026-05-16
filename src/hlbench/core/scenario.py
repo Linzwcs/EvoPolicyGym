@@ -17,6 +17,12 @@ class ScenarioSplit(StrEnum):
     HELDOUT = "heldout"
 
 
+class ObservationType(StrEnum):
+    STATE = "state"
+    SYMBOLIC = "symbolic"
+    IMAGE = "image"
+
+
 @dataclass(frozen=True)
 class TaskSpec:
     goal: str
@@ -84,6 +90,7 @@ class ScenarioSpec:
     env_id: str
     env_kwargs: dict[str, Any]
     observation_mode: str
+    observation_type: str
     task: TaskSpec
     observation_meanings: tuple[dict[str, Any], ...]
     action_meanings: tuple[dict[str, Any], ...]
@@ -103,6 +110,7 @@ class ScenarioSpec:
             "env_id",
             "env_kwargs",
             "observation_mode",
+            "observation_type",
             "task",
             "observation_meanings",
             "action_meanings",
@@ -135,6 +143,7 @@ class ScenarioSpec:
             env_id=str(data["env_id"]),
             env_kwargs=dict(data.get("env_kwargs", {})),
             observation_mode=str(data.get("observation_mode", "jsonable")),
+            observation_type=ObservationType(data.get("observation_type", ObservationType.STATE.value)).value,
             task=TaskSpec.from_mapping(dict(data["task"])),
             observation_meanings=tuple(dict(item) for item in data.get("observation_meanings", ())),
             action_meanings=tuple(dict(item) for item in data.get("action_meanings", ())),
@@ -168,6 +177,7 @@ class ScenarioSpec:
             "env_id": self.env_id,
             "env_kwargs": self.env_kwargs,
             "observation_mode": self.observation_mode,
+            "observation_type": self.observation_type,
             "task": asdict(self.task),
             "observation_meanings": [dict(item) for item in self.observation_meanings],
             "action_meanings": [dict(item) for item in self.action_meanings],

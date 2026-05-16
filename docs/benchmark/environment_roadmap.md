@@ -43,10 +43,10 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 
 | Scenario | Gymnasium env | Observation | Action | 主要能力 |
 | --- | --- | --- | --- | --- |
-| `minigrid_doorkey_8x8` | `MiniGrid-DoorKey-8x8-v0` | symbolic | discrete | key-door-object 逻辑 |
 | `minigrid_doorkey_16x16` | `MiniGrid-DoorKey-16x16-v0` | symbolic | discrete | 更大地图探索 |
-| `minigrid_keycorridor_s3r2` | `MiniGrid-KeyCorridorS3R2-v0` | symbolic | discrete | corridor、room、carry/drop |
-| `minigrid_multiroom_n4s5` | `MiniGrid-MultiRoom-N4-S5-v0` | symbolic | discrete | 长 horizon 导航 |
+| `minigrid_keycorridor_s6r3` | `MiniGrid-KeyCorridorS6R3-v0` | symbolic | discrete | 大走廊、多房间、任务目标检索 |
+| `minigrid_obstructedmaze_2dlhb` | `MiniGrid-ObstructedMaze-2Dlhb-v1` | symbolic | discrete | 阻塞门、物体操作、多步解谜 |
+| `minigrid_lavacrossing_s11n5` | `MiniGrid-LavaCrossingS11N5-v0` | symbolic | discrete | 大图安全导航和稀疏成功 |
 
 ### 4. MuJoCo Continuous Control
 
@@ -66,7 +66,7 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 目标：把现有轻量 scenario 全部跑通。
 
 - 已有：`cartpole_balance`、`mountain_car`、`acrobot_swingup`、`pendulum_swingup`。
-- 已接入 Box2D smoke：`lunar_lander`、`lunar_lander_continuous`。
+- 已接入 Box2D smoke：`lunar_lander`、`lunar_lander_continuous`、`bipedal_walker`、`car_racing`。
 - 每个环境先跑 `2 epoch` agent smoke。
 - `mountain_car` 保留为当前主流程回归测试。
 - `pendulum_swingup` 必须验证 continuous action schema、range check 和 minimum score。
@@ -85,15 +85,16 @@ HLBench 的环境集合应保持小而覆盖面清晰。第一版目标不是覆
 目标：接入 `LunarLander`、`BipedalWalker` 和 `CarRacing`，验证更复杂动力学和第一类 image observation。
 
 - `lunar_lander` 和 `lunar_lander_continuous` 已接入。
-- 再接 `bipedal_walker`。
-- `car_racing` 使用官方 RGB image observation，用来验证 image schema、image artifact 和 agent 可见输入协议。
+- `bipedal_walker` 已接入。
+- `car_racing` 已接入，使用官方 RGB image observation，用来验证 image schema、image artifact 和 agent 可见输入协议。
 - 文档必须注明依赖：`gymnasium[box2d]`。
 
 ### Phase 3: Add MiniGrid
 
 目标：形成“控制 + 推理导航”双主线。
 
-- 实现或恢复 `minigrid_public` wrapper。
+- `minigrid_public` wrapper 已实现，公开 `image`、`direction`、`mission` 和 `action_count`。
+- 已接入 hard MiniGrid core：`minigrid_doorkey_16x16`、`minigrid_keycorridor_s6r3`、`minigrid_obstructedmaze_2dlhb`、`minigrid_lavacrossing_s11n5`。
 - task contract 必须公开 grid encoding、mission、方向、可执行动作和对象语义。
 - train replay 可以面向人类可视化；validation / heldout 不生成 replay。
 - 从 legacy 中迁移 DoorKey 和 KeyCorridor 经验，但不复用旧 harness。

@@ -5,6 +5,7 @@
   "env_id": "Acrobot-v1",
   "env_kwargs": {},
   "observation_mode": "jsonable",
+  "observation_type": "state",
   "max_steps": 500,
   "success_score": -120.0,
   "task": {
@@ -35,16 +36,52 @@
     }
   },
   "observation_meanings": [
-    {"index": 0, "name": "cos_theta_1", "meaning": "Cosine of the first joint angle."},
-    {"index": 1, "name": "sin_theta_1", "meaning": "Sine of the first joint angle."},
-    {"index": 2, "name": "cos_theta_2", "meaning": "Cosine of the second joint angle."},
-    {"index": 3, "name": "sin_theta_2", "meaning": "Sine of the second joint angle."},
-    {"index": 4, "name": "theta_dot_1", "meaning": "Angular velocity of the first joint."},
-    {"index": 5, "name": "theta_dot_2", "meaning": "Angular velocity of the second joint."}
+    {
+      "index": 0,
+      "name": "cos_theta_1",
+      "meaning": "Cosine of the first joint angle."
+    },
+    {
+      "index": 1,
+      "name": "sin_theta_1",
+      "meaning": "Sine of the first joint angle."
+    },
+    {
+      "index": 2,
+      "name": "cos_theta_2",
+      "meaning": "Cosine of the second joint angle."
+    },
+    {
+      "index": 3,
+      "name": "sin_theta_2",
+      "meaning": "Sine of the second joint angle."
+    },
+    {
+      "index": 4,
+      "name": "theta_dot_1",
+      "meaning": "Angular velocity of the first joint."
+    },
+    {
+      "index": 5,
+      "name": "theta_dot_2",
+      "meaning": "Angular velocity of the second joint."
+    }
   ],
   "action_meanings": [
-    {"id": 0, "name": "negative_torque", "meaning": "Apply negative torque to the actuated joint."},
-    {"id": 1, "name": "zero_torque", "meaning": "Apply no torque."},
-    {"id": 2, "name": "positive_torque", "meaning": "Apply positive torque to the actuated joint."}
+    {
+      "id": 0,
+      "name": "negative_torque",
+      "meaning": "Apply negative torque to the actuated joint."
+    },
+    {
+      "id": 1,
+      "name": "zero_torque",
+      "meaning": "Apply no torque."
+    },
+    {
+      "id": 2,
+      "name": "positive_torque",
+      "meaning": "Apply positive torque to the actuated joint."
+    }
   ]
 }

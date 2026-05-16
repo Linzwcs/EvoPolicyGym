@@ -123,6 +123,7 @@ def render_task_markdown(contract: TaskContract) -> str:
             "",
             f"Scenario: `{scenario.scenario_id}`",
             f"Environment: `{env.backend}:{env.env_id}`",
+            f"Observation type: `{scenario.observation_type}`",
             f"Max steps: `{scenario.max_steps}`",
             "",
             "## Goal",

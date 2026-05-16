@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class ImageObservation:
+    pixels: Any
 
 
 def jsonable(value: Any) -> Any:
@@ -30,7 +36,9 @@ class PublicObservationWrapper:
         *,
         action_count: int | None = None,
     ) -> Any:
-        if self.mode == "minigrid_public" and isinstance(observation, dict):
+        if self.mode == "image_artifact":
+            public = ImageObservation(observation)
+        elif self.mode == "minigrid_public" and isinstance(observation, dict):
             public = {key: jsonable(observation.get(key)) for key in self.keys if key in observation}
         elif isinstance(observation, dict):
             public = jsonable(observation)

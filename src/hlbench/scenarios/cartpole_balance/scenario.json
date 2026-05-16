@@ -1,0 +1,47 @@
+{
+  "scenario_id": "cartpole_balance_v0",
+  "scenario_level": "smoke",
+  "env_backend": "gymnasium",
+  "env_id": "CartPole-v1",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "max_steps": 500,
+  "success_score": 500,
+  "task": {
+    "goal": "Control the cart so the pole stays balanced for the full episode.",
+    "success_condition": "A successful episode reaches the 500 step limit without the pole falling or the cart leaving bounds.",
+    "reward_description": "The environment gives +1 reward for each balanced step. The episode score is total return.",
+    "notes": [
+      "This is a telemetry task: the policy and the human task description both use the same public sensor readings.",
+      "The rendered scene is not a separate hidden source of information for this scenario."
+    ]
+  },
+  "minimum_score": {
+    "value": 0.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive score 0."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "cart_position", "meaning": "Cart position on the track."},
+    {"index": 1, "name": "cart_velocity", "meaning": "Cart velocity."},
+    {"index": 2, "name": "pole_angle", "meaning": "Pole angle in radians."},
+    {"index": 3, "name": "pole_angular_velocity", "meaning": "Pole angular velocity."}
+  ],
+  "action_meanings": [
+    {"id": 0, "name": "push_left", "meaning": "Apply force to the left."},
+    {"id": 1, "name": "push_right", "meaning": "Apply force to the right."}
+  ]
+}

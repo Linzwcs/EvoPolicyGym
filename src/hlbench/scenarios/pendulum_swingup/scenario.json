@@ -1,0 +1,45 @@
+{
+  "scenario_id": "pendulum_swingup_v0",
+  "scenario_level": "smoke",
+  "env_backend": "gymnasium",
+  "env_id": "Pendulum-v1",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "max_steps": 200,
+  "success_score": -250.0,
+  "task": {
+    "goal": "Apply torque to swing the pendulum upright and keep it balanced.",
+    "success_condition": "A successful policy keeps the pendulum near upright with low torque cost.",
+    "reward_description": "The environment returns negative cost each step. Higher total return is better.",
+    "notes": [
+      "This is a telemetry task: the policy and the human task description both use the same public sensor readings.",
+      "The observation exposes angle components and angular velocity as public instrument readings, not hidden evaluator state."
+    ]
+  },
+  "minimum_score": {
+    "value": -2000.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive a conservative low score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "cos_theta", "meaning": "Cosine of the pendulum angle."},
+    {"index": 1, "name": "sin_theta", "meaning": "Sine of the pendulum angle."},
+    {"index": 2, "name": "angular_velocity", "meaning": "Pendulum angular velocity."}
+  ],
+  "action_meanings": [
+    {"index": 0, "name": "torque", "meaning": "Applied torque, clipped by the environment to [-2, 2]."}
+  ]
+}

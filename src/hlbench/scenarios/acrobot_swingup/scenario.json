@@ -1,0 +1,50 @@
+{
+  "scenario_id": "acrobot_swingup_v0",
+  "scenario_level": "medium",
+  "env_backend": "gymnasium",
+  "env_id": "Acrobot-v1",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "max_steps": 500,
+  "success_score": -120.0,
+  "task": {
+    "goal": "Swing the two-link acrobot so the free end reaches the target height.",
+    "success_condition": "A successful episode reaches the target height well before the 500 step time limit.",
+    "reward_description": "The environment gives -1 reward per step until the goal is reached. Higher total return is better.",
+    "notes": [
+      "This is a telemetry task: the policy and the human task description both use the same public sensor readings.",
+      "The observation exposes joint angle components and angular velocities as public instrument readings, not hidden evaluator state."
+    ]
+  },
+  "minimum_score": {
+    "value": -500.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive the worst 500-step score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "cos_theta_1", "meaning": "Cosine of the first joint angle."},
+    {"index": 1, "name": "sin_theta_1", "meaning": "Sine of the first joint angle."},
+    {"index": 2, "name": "cos_theta_2", "meaning": "Cosine of the second joint angle."},
+    {"index": 3, "name": "sin_theta_2", "meaning": "Sine of the second joint angle."},
+    {"index": 4, "name": "theta_dot_1", "meaning": "Angular velocity of the first joint."},
+    {"index": 5, "name": "theta_dot_2", "meaning": "Angular velocity of the second joint."}
+  ],
+  "action_meanings": [
+    {"id": 0, "name": "negative_torque", "meaning": "Apply negative torque to the actuated joint."},
+    {"id": 1, "name": "zero_torque", "meaning": "Apply no torque."},
+    {"id": 2, "name": "positive_torque", "meaning": "Apply positive torque to the actuated joint."}
+  ]
+}

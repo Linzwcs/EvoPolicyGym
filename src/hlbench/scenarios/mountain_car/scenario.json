@@ -1,0 +1,46 @@
+{
+  "scenario_id": "mountain_car_v0",
+  "scenario_level": "smoke",
+  "env_backend": "gymnasium",
+  "env_id": "MountainCar-v0",
+  "env_kwargs": {},
+  "observation_mode": "jsonable",
+  "max_steps": 200,
+  "success_score": -110.0,
+  "task": {
+    "goal": "Drive the underpowered car up the right hill to reach the goal position.",
+    "success_condition": "A successful episode reaches the goal before the 200 step time limit.",
+    "reward_description": "The environment gives -1 reward per step until termination. Higher total return is better.",
+    "notes": [
+      "This is a Gymnasium Classic Control telemetry task: the policy receives the official public observation [position, velocity].",
+      "The track is fixed. The car usually needs to build momentum by moving back and forth before reaching the right hill."
+    ]
+  },
+  "minimum_score": {
+    "value": -200.0,
+    "reason": "Policy errors, invalid actions, evaluator failures, and workspace contract violations receive the worst 200-step score."
+  },
+  "splits": {
+    "train": {
+      "seed_pool": "default/train",
+      "public_feedback": true
+    },
+    "validation": {
+      "seed_pool": "default/validation",
+      "public_feedback": false
+    },
+    "heldout": {
+      "seed_pool": "default/heldout",
+      "public_feedback": false
+    }
+  },
+  "observation_meanings": [
+    {"index": 0, "name": "position", "meaning": "Car position along the valley."},
+    {"index": 1, "name": "velocity", "meaning": "Car velocity."}
+  ],
+  "action_meanings": [
+    {"id": 0, "name": "push_left", "meaning": "Accelerate left."},
+    {"id": 1, "name": "no_push", "meaning": "Apply no acceleration."},
+    {"id": 2, "name": "push_right", "meaning": "Accelerate right."}
+  ]
+}

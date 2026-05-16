@@ -122,6 +122,20 @@ AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=4 EPOCHS=8 TRAIN_EPISODES=32 \
   ./scripts/run_agent_matrix.sh
 ```
 
+Provider-specific launchers set the command template and output prefix:
+
+```bash
+SCENARIO_SET=classic AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=2 \
+  ./scripts/run_codex_matrix.sh
+
+SCENARIO_SET=classic AGENT_MODELS="sonnet opus" JOBS=2 \
+  ./scripts/run_claude_matrix.sh
+```
+
+Both launchers use the same matrix runner, workspace layout, status log, and
+benchmark prompt. Claude Code uses its default tool set without an
+`--allowedTools` restriction.
+
 The matrix script writes runs under `runs/<model_name>/<scenario>/<run_id>/`
 and logs under `runs/_matrix_logs/<run_group>/`.
 Use `SCENARIO_SET=classic|box2d|minigrid|mujoco|implemented` to select environment

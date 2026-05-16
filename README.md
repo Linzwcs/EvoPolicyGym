@@ -136,6 +136,12 @@ Both launchers use the same matrix runner, workspace layout, status log, and
 benchmark prompt. Claude Code uses its default tool set without an
 `--allowedTools` restriction.
 
+Configure Claude Code for MiniMax M2.7:
+
+```bash
+MINIMAX_API_KEY=<key> ./scripts/configure_claude_minimax.sh --region global
+```
+
 The matrix script writes runs under `runs/<model_name>/<scenario>/<run_id>/`
 and logs under `runs/_matrix_logs/<run_group>/`.
 Use `SCENARIO_SET=classic|box2d|minigrid|mujoco|implemented` to select environment

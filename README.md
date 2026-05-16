@@ -111,6 +111,19 @@ SCENARIO=mountain_car EPOCHS=8 TRAIN_EPISODES=32 \
   ./scripts/run_codex_scenario_32.sh
 ```
 
+Run a model/environment matrix with bounded parallelism:
+
+```bash
+AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=4 EPOCHS=8 TRAIN_EPISODES=32 \
+  ./scripts/run_agent_matrix.sh
+```
+
+The matrix script writes runs under `runs/<model_name>/<scenario>/<run_id>/`
+and logs under `runs/_matrix_logs/<run_group>/`.
+Use `SCENARIO_SET=classic|box2d|minigrid|implemented` to select environment
+groups, or set `SCENARIOS="mountain_car car_racing"` explicitly. Use
+`DRY_RUN=1` to print the planned model/env cells without starting evaluations.
+
 ## Evaluation Boundary
 
 Learner workspaces expose train feedback and aggregate validation summaries.

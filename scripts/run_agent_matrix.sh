@@ -110,14 +110,32 @@ agent_command_for() {
   local prompt
   prompt="$(agent_prompt "$scenario")"
   if [[ -n "$AGENT_COMMAND_TEMPLATE" ]]; then
-    local command="$AGENT_COMMAND_TEMPLATE"
-    command="${command//\{AGENT_MODEL\}/$agent_model}"
-    command="${command//\{SCENARIO\}/$scenario}"
-    command="${command//\{PROMPT\}/$prompt}"
-    printf "%s" "$command"
+    render_command_template "$AGENT_COMMAND_TEMPLATE" "$agent_model" "$scenario" "$prompt"
     return
   fi
   printf "%s" "codex exec -m ${agent_model} --skip-git-repo-check --sandbox workspace-write --ephemeral '${prompt}'"
+}
+
+sed_replacement_escape() {
+  printf "%s" "$1" | sed -e 's/[\/&|]/\\&/g'
+}
+
+render_command_template() {
+  local template="$1"
+  local agent_model="$2"
+  local scenario="$3"
+  local prompt="$4"
+  local escaped_agent_model
+  local escaped_scenario
+  local escaped_prompt
+  escaped_agent_model="$(sed_replacement_escape "$agent_model")"
+  escaped_scenario="$(sed_replacement_escape "$scenario")"
+  escaped_prompt="$(sed_replacement_escape "$prompt")"
+  printf "%s" "$template" |
+    sed \
+      -e "s|{AGENT_MODEL}|$escaped_agent_model|g" \
+      -e "s|{SCENARIO}|$escaped_scenario|g" \
+      -e "s|{PROMPT}|$escaped_prompt|g"
 }
 
 timestamp_utc() {

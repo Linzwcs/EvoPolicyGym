@@ -133,6 +133,10 @@ During parallel runs, monitor completed cells with:
 tail -f runs/_matrix_logs/<run_group>/status.tsv
 ```
 
+For custom Codex base URLs or proxy providers, start from
+`config/codex.toml` and copy it to `~/.codex/config.toml`. Keep API keys in
+environment variables, not in the repository.
+
 ## Evaluation Boundary
 
 Learner workspaces expose train feedback and aggregate validation summaries.

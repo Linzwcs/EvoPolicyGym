@@ -1,0 +1,34 @@
+# Example Codex CLI configuration for HLBench server experiments.
+#
+# Copy this file to ~/.codex/config.toml, then set the API key in the shell.
+# Do not commit real API keys.
+#
+#   mkdir -p ~/.codex
+#   cp config/codex.toml ~/.codex/config.toml
+#   export HLBENCH_CODEX_API_KEY="..."
+#
+# Use the profile in HLBench with:
+#
+#   AGENT_COMMAND_TEMPLATE="codex exec -p hlbench_proxy -m {AGENT_MODEL} --skip-git-repo-check --sandbox workspace-write --ephemeral '{PROMPT}'" \
+#     MODEL_PREFIX=hlbench-proxy \
+#     AGENT_MODELS="your-model-name" \
+#     SCENARIO_SET=classic ./scripts/run_agent_matrix.sh
+
+model_provider = "hlbench_proxy"
+model = "your-model-name"
+disable_response_storage = true
+
+[model_providers.hlbench_proxy]
+name = "hlbench_proxy"
+base_url = "https://YOUR_BASE_URL/v1"
+env_key = "HLBENCH_CODEX_API_KEY"
+
+# Use "chat" for most OpenAI-compatible providers such as vLLM, LiteLLM,
+# OpenRouter, or custom Chat Completions proxies. Use "responses" only if the
+# endpoint supports the OpenAI Responses API.
+wire_api = "chat"
+
+[profiles.hlbench_proxy]
+model_provider = "hlbench_proxy"
+model = "your-model-name"
+disable_response_storage = true

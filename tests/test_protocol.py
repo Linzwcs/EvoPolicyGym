@@ -110,6 +110,25 @@ class HarnessProtocolTest(unittest.TestCase):
                 rollout_main(["--workspace", str(workspace.root), "--split", "validation"])
             self.assertIn("workspace rollouts may only use --split train", str(raised.exception))
 
+    def test_task_markdown_is_self_contained_for_environment_interface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = create_workspace(
+                scenario_name="minigrid_doorkey_16x16",
+                output_dir=Path(tmp) / "workspace",
+                overwrite=True,
+            )
+
+            task_md = (workspace.root / "task.md").read_text()
+            self.assertIn("## Environment Loop", task_md)
+            self.assertIn("## Observation", task_md)
+            self.assertIn("## Actions", task_md)
+            self.assertIn("## Termination", task_md)
+            self.assertIn("image_cell_encoding", task_md)
+            self.assertIn('"door": 4', task_md)
+            self.assertIn('"key": 5', task_md)
+            self.assertIn("`0 / turn_left`", task_md)
+            self.assertIn("Success threshold used for `success_rate`", task_md)
+
     def test_agent_command_streams_are_written_as_submission_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

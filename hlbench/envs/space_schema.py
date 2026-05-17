@@ -99,7 +99,7 @@ def _maybe_scalar(value: Any) -> Any:
     if hasattr(value, "shape") and getattr(value, "shape", None) == ():
         return _clean(value.item())
     if hasattr(value, "tolist"):
-        return _clean(value.tolist())
+        return _compact_uniform(_clean(value.tolist()))
     return _clean(value)
 
 
@@ -110,6 +110,16 @@ def _clean(value: Any) -> Any:
         return [_clean(item) for item in value]
     if isinstance(value, float) and not math.isfinite(value):
         return None
+    return value
+
+
+def _compact_uniform(value: Any) -> Any:
+    flattened = _flatten(value)
+    if not flattened:
+        return value
+    first = flattened[0]
+    if all(item == first for item in flattened):
+        return first
     return value
 
 

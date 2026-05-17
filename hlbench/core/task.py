@@ -114,9 +114,13 @@ def render_task_markdown(contract: TaskContract) -> str:
     workspace = contract.workspace
     action_schema = json.dumps(env.action_schema, indent=2, sort_keys=True)
     observation_schema = json.dumps(env.observation_schema, indent=2, sort_keys=True)
+    termination_schema = json.dumps(env.termination, indent=2, sort_keys=True)
+    context_schema = json.dumps(_context_schema(scenario.max_steps), indent=2, sort_keys=True)
     action_lines = _meaning_lines(scenario.action_meanings)
     observation_lines = _meaning_lines(scenario.observation_meanings)
     notes = _notes_lines(scenario.task.notes)
+    success_threshold = _success_threshold_line(scenario.metadata.get("success_score"))
+    reward_range = _reward_range_line(env.reward_range)
     return "\n".join(
         [
             "# Task",
@@ -130,15 +134,29 @@ def render_task_markdown(contract: TaskContract) -> str:
             scenario.task.goal,
             notes,
             "",
+            "## Environment Loop",
+            "The evaluator calls `reset(task_config)` once at the start of each episode, then calls `act(observation, context)` until the episode terminates, truncates, or reaches the max step limit.",
+            "You may keep episode-local memory on `self`; clear or initialize it in `reset`.",
+            "Evaluator seeds and hidden simulator state are never passed to policy.",
+            "",
+            "The `context` argument has this public shape:",
+            "",
+            "```json",
+            context_schema,
+            "```",
+            "",
             "## Success",
             scenario.task.success_condition,
+            success_threshold,
             "",
             "## Scoring",
             scenario.task.reward_description,
+            reward_range,
             f"Execution errors or invalid actions receive the minimum score `{scenario.minimum_score.value}`.",
+            f"Minimum score reason: {scenario.minimum_score.reason}",
             "",
             "## Observation",
-            "Policy receives only the public observation described by this schema:",
+            "Policy receives exactly the public `observation` described below. Do not rely on hidden environment state, private seeds, or full maps unless they are present in this schema.",
             "",
             "```json",
             observation_schema,
@@ -146,12 +164,19 @@ def render_task_markdown(contract: TaskContract) -> str:
             observation_lines,
             "",
             "## Actions",
-            "Policy must return an action matching this schema:",
+            "Policy must return one action matching this schema on every call to `act`.",
             "",
             "```json",
             action_schema,
             "```",
             action_lines,
+            "",
+            "## Termination",
+            "Episode end conditions are reported by the environment as:",
+            "",
+            "```json",
+            termination_schema,
+            "```",
             "",
             "## Policy Interface",
             f"Implement `{workspace.policy_path}` with `class Policy`.",
@@ -182,10 +207,43 @@ def _meaning_lines(items: tuple[dict[str, Any], ...]) -> str:
         return ""
     lines = ["", "Meanings:"]
     for item in items:
-        label = item.get("name", item.get("id", item.get("index", "?")))
+        label = _meaning_label(item)
         meaning = item.get("meaning", item.get("description", ""))
         lines.append(f"- `{label}`: {meaning}")
     return "\n".join(lines)
+
+
+def _meaning_label(item: dict[str, Any]) -> str:
+    name = item.get("name")
+    if "index" in item:
+        return f"{item['index']} / {name}" if name else str(item["index"])
+    if "id" in item:
+        return f"{item['id']} / {name}" if name else str(item["id"])
+    if "field" in item:
+        return f"{item['field']} / {name}" if name else str(item["field"])
+    return str(name or "?")
+
+
+def _context_schema(max_steps: int) -> dict[str, Any]:
+    return {
+        "action_schema": "Machine-readable schema for valid return actions.",
+        "action_count": "Number of legal discrete actions, or null for continuous action spaces.",
+        "step_index": "Zero-based timestep within the current episode.",
+        "max_steps": max_steps,
+    }
+
+
+def _success_threshold_line(value: Any) -> str:
+    if value is None:
+        return ""
+    return f"Success threshold used for `success_rate`: score >= `{value}`."
+
+
+def _reward_range_line(reward_range: tuple[float | None, float | None]) -> str:
+    low, high = reward_range
+    if low is None and high is None:
+        return "Reward range is not bounded by the environment contract."
+    return f"Environment reward range: `{low}` to `{high}`."
 
 
 def _notes_lines(items: tuple[str, ...]) -> str:

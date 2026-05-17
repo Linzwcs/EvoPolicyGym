@@ -126,6 +126,7 @@ def _observation_schema(raw_schema: dict[str, Any], scenario: ScenarioSpec) -> d
         return {
             "type": "dict",
             "mode": "minigrid_public",
+            "description": "Policy-visible MiniGrid observation dictionary returned to act(observation, context).",
             "fields": {
                 "image": raw_schema.get("spaces", {}).get("image", {"type": "unknown"}),
                 "direction": raw_schema.get("spaces", {}).get("direction", {"type": "unknown"}),
@@ -135,6 +136,7 @@ def _observation_schema(raw_schema: dict[str, Any], scenario: ScenarioSpec) -> d
                     "meaning": "Number of legal discrete actions exposed by the environment.",
                 },
             },
+            "image_cell_encoding": _minigrid_cell_encoding(),
             "field_meanings": [dict(item) for item in scenario.observation_meanings],
         }
     return _with_meanings(raw_schema, scenario.observation_meanings, "dimensions")
@@ -142,6 +144,45 @@ def _observation_schema(raw_schema: dict[str, Any], scenario: ScenarioSpec) -> d
 
 def _action_meaning_key(schema: dict[str, Any]) -> str:
     return "dimensions" if schema.get("type") == "box" else "actions"
+
+
+def _minigrid_cell_encoding() -> dict[str, dict[str, int]]:
+    try:
+        from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX, STATE_TO_IDX
+    except Exception:  # pragma: no cover - dependency dependent fallback
+        return {
+            "object_type": {
+                "unseen": 0,
+                "empty": 1,
+                "wall": 2,
+                "floor": 3,
+                "door": 4,
+                "key": 5,
+                "ball": 6,
+                "box": 7,
+                "goal": 8,
+                "lava": 9,
+                "agent": 10,
+            },
+            "color": {
+                "red": 0,
+                "green": 1,
+                "blue": 2,
+                "purple": 3,
+                "yellow": 4,
+                "grey": 5,
+            },
+            "state": {
+                "open": 0,
+                "closed": 1,
+                "locked": 2,
+            },
+        }
+    return {
+        "object_type": {str(key): int(value) for key, value in OBJECT_TO_IDX.items()},
+        "color": {str(key): int(value) for key, value in COLOR_TO_IDX.items()},
+        "state": {str(key): int(value) for key, value in STATE_TO_IDX.items()},
+    }
 
 
 def _clean_bound(value: Any) -> float | None:

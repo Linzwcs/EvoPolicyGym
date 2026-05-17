@@ -205,7 +205,24 @@ class ScenarioSpec:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    package_root = Path(__file__).resolve().parents[1]
+    if (package_root / "scenarios").exists():
+        return package_root.parent
+    if package_root.parent.name == "src":
+        return package_root.parents[1]
+    return package_root.parent
+
+
+def _unique_paths(paths: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(path)
+    return unique
 
 
 def scenario_roots() -> list[Path]:
@@ -214,8 +231,9 @@ def scenario_roots() -> list[Path]:
     if env_root:
         roots.extend(Path(item) for item in env_root.split(os.pathsep) if item)
     root = repo_root()
+    roots.append(root / "hlbench" / "scenarios")
     roots.append(root / "src" / "hlbench" / "scenarios")
-    return roots
+    return _unique_paths(roots)
 
 
 def seed_roots() -> list[Path]:
@@ -223,8 +241,10 @@ def seed_roots() -> list[Path]:
     env_root = os.environ.get("HLBENCH_SEED_ROOT")
     if env_root:
         roots.extend(Path(item) for item in env_root.split(os.pathsep) if item)
-    roots.append(repo_root() / "src" / "hlbench" / "seeds")
-    return roots
+    root = repo_root()
+    roots.append(root / "hlbench" / "seeds")
+    roots.append(root / "src" / "hlbench" / "seeds")
+    return _unique_paths(roots)
 
 
 def find_scenario_dir(name: str) -> Path:

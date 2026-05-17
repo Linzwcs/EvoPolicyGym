@@ -81,9 +81,11 @@ Read-only paths:
 
 Rules:
 - Implement and keep `system/policy.py` executable.
+- Use `tools/` for reusable analysis helpers, rollout parsers, and small scripts you write while improving the policy.
+- Write helper outputs, scratch files, notes, and train-only rollout results under `experiments/`.
 - Use `feedback/current/` for the latest train feedback.
 - `feedback/history/` may include prior train replays and aggregate validation summaries.
 - You may use `feedback/history/*/validation_summary.json` as aggregate validation feedback.
 - Do not attempt to inspect validation seeds, validation replays, heldout metrics, or heldout data.
-- Put temporary analysis and rollout outputs under `experiments/`.
+- Do not use `tools/` or `experiments/` to modify the evaluator, task files, feedback, seeds, or hidden data.
 """

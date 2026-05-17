@@ -129,6 +129,19 @@ class HarnessProtocolTest(unittest.TestCase):
             self.assertIn("`0 / turn_left`", task_md)
             self.assertIn("Success threshold used for `success_rate`", task_md)
 
+    def test_workspace_agents_md_explains_tools_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = create_workspace(
+                scenario_name="cartpole_balance",
+                output_dir=Path(tmp) / "workspace",
+                overwrite=True,
+            )
+
+            agents_md = (workspace.root / "AGENTS.md").read_text()
+            self.assertIn("Use `tools/` for reusable analysis helpers", agents_md)
+            self.assertIn("Write helper outputs, scratch files, notes", agents_md)
+            self.assertIn("Do not use `tools/` or `experiments/` to modify the evaluator", agents_md)
+
     def test_agent_command_streams_are_written_as_submission_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

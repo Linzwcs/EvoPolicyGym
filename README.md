@@ -130,11 +130,16 @@ SCENARIO_SET=classic AGENT_MODELS="gpt-5.4-mini gpt-5.4" JOBS=2 \
 
 SCENARIO_SET=classic AGENT_MODELS="sonnet opus" JOBS=2 \
   ./scripts/run_claude_matrix.sh
+
+SCENARIO_SET=classic AGENT_MODELS="kimi-k2" JOBS=2 \
+  ./scripts/run_kimi_matrix.sh
 ```
 
 Both launchers use the same matrix runner, workspace layout, status log, and
-benchmark prompt. Claude Code uses its default tool set without an
-`--allowedTools` restriction.
+benchmark prompt. Claude Code and Kimi Code use their default tool sets without
+provider-specific tool allowlist restrictions. Kimi Code runs in non-interactive
+print mode with `--final-message-only`; run `kimi login` before launching a
+matrix.
 
 Configure Claude Code for MiniMax M2.7:
 

@@ -81,6 +81,9 @@ Read-only paths:
 
 Rules:
 - Implement and keep `system/policy.py` executable.
+- Use only heuristic Python policies: controllers, planners, state machines, simple memory, or parameterized rules.
+- Do not implement RL training loops, neural-network policies, PPO/SAC/DQN-style updates, learned weight files, or offline RL.
+- Rollouts are for debugging, validation, and light heuristic tuning, not for training an RL agent.
 - Use `tools/` for reusable analysis helpers, rollout parsers, and small scripts you write while improving the policy.
 - Write helper outputs, scratch files, notes, and train-only rollout results under `experiments/`.
 - Use `feedback/current/` for the latest train feedback.

@@ -148,6 +148,9 @@ class HarnessProtocolTest(unittest.TestCase):
             self.assertIn("Use `tools/` for reusable analysis helpers", agents_md)
             self.assertIn("Write helper outputs, scratch files, notes", agents_md)
             self.assertIn("Do not use `tools/` or `experiments/` to modify the evaluator", agents_md)
+            self.assertIn("Use only heuristic Python policies", agents_md)
+            self.assertIn("Do not implement RL training loops", agents_md)
+            self.assertIn("not for training an RL agent", agents_md)
 
     def test_agent_command_streams_are_written_as_submission_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

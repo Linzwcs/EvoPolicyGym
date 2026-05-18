@@ -33,6 +33,15 @@ for classes. Scenario directories use descriptive `snake_case` names such as
 than strong hand-written heuristics. Prefer `pathlib.Path`, dataclasses,
 explicit JSON records, and small functions over framework-heavy abstractions.
 
+## Policy Scope
+
+HLBench evaluates heuristic-learning behavior, not reinforcement learning
+training. Policies and agent edits must stay as ordinary Python heuristics,
+controllers, planners, state machines, or parameterized rules. Do not add RL
+training loops, neural-network policies, offline RL, PPO/SAC/DQN-style updates,
+learned weight files, or dataset collection for later RL training. Rollouts are
+for debugging, validation, and light heuristic tuning only.
+
 ## Testing Guidelines
 
 Use `unittest`; name files `tests/test_<area>.py`. Core protocol tests should

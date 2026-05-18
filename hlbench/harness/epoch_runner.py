@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from hlbench.core.artifacts import write_json
+from hlbench.core.complexity import analyze_policy_complexity, complexity_delta
 from hlbench.core.events import EventLogger
 from hlbench.core.paths import run_root
 from hlbench.core.scenario import load_scenario
@@ -39,16 +40,21 @@ class EpochResult:
     evaluation: dict[str, Any]
 
     def to_record(self) -> dict[str, Any]:
+        comparison = {
+            "reference": self.reference,
+            "reward": self.reward,
+        }
+        input_complexity = self.input.get("complexity", {})
+        submission_complexity = self.submission.get("complexity", {})
+        if isinstance(input_complexity, dict) and isinstance(submission_complexity, dict):
+            comparison["complexity_delta"] = complexity_delta(input_complexity, submission_complexity)
         return {
             "run_dir": str(self.run_dir),
             "workspace": str(self.workspace),
             "input": self.input,
             "submission": self.submission,
             "evaluation": self.evaluation,
-            "comparison": {
-                "reference": self.reference,
-                "reward": self.reward,
-            },
+            "comparison": comparison,
         }
 
 
@@ -92,6 +98,7 @@ def run_epoch(
     readonly_before = _readonly_snapshot(workspace.root)
     input_policy_text = workspace.policy_path.read_text()
     input_policy_sha = _sha256_text(input_policy_text)
+    input_complexity = analyze_policy_complexity(workspace.policy_path)
     events.log("agent_started", agent=agent_config.to_record())
     agent_result = CommandAgent(
         command=agent_config.command,
@@ -114,8 +121,11 @@ def run_epoch(
     submission_dir.mkdir(parents=True, exist_ok=True)
     submission_policy_path = submission_dir / "policy.py"
     submission_policy_path.write_text(_safe_read_text(workspace.policy_path))
+    submission_complexity = analyze_policy_complexity(workspace.policy_path)
     agent_record = _write_agent_artifacts(submission_dir, agent_result)
     write_json(submission_dir / "compile.json", compile_result.to_record())
+    write_json(input_dir / "complexity.json", input_complexity)
+    write_json(submission_dir / "complexity.json", submission_complexity)
     reference = _prior_or_minimum_summaries(prior_feedback=prior_feedback, scenario_name=scenario_name)
     if invalid_transition:
         evaluation = _minimum_transition_splits(
@@ -178,11 +188,13 @@ def run_epoch(
         input={
             "policy_path": str(input_policy_path),
             "policy_sha256": input_policy_sha,
+            "complexity": input_complexity,
             "feedback_source": _feedback_source(prior_feedback),
         },
         submission={
             "policy_path": str(submission_policy_path),
             "policy_sha256": submission_policy_sha,
+            "complexity": submission_complexity,
             "compile": compile_result.to_record(),
             "agent": agent_record,
             "protected_changed": protected_changed,
@@ -190,9 +202,7 @@ def run_epoch(
         reference=reference,
         evaluation={key: value.to_record() for key, value in evaluation.items()},
     )
-    transition_record = {
-        **result.to_record(),
-    }
+    transition_record = result.to_record()
     write_json(run_dir / "transition.json", transition_record)
     write_json(run_dir / "epoch.json", transition_record)
     events.log("epoch_completed", reward=reward)

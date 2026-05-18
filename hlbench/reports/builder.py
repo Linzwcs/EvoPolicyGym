@@ -77,6 +77,11 @@ def _curve_row(index: int, record: dict[str, Any], *, run_dir: Path) -> dict[str
         "epoch_dir": _relative_or_string(epoch_dir, run_dir),
         "transition": _relative_or_string(epoch_dir / "transition.json", run_dir),
         "policy_sha256": submission.get("policy_sha256"),
+        "policy_sloc": _complexity_value(submission, "sloc"),
+        "policy_branch_count": _complexity_value(submission, "branch_count"),
+        "policy_max_nesting_depth": _complexity_value(submission, "max_nesting_depth"),
+        "policy_cyclomatic_complexity_max": _complexity_value(submission, "cyclomatic_complexity_max"),
+        "policy_maintainability_index": _complexity_value(submission, "maintainability_index"),
         "invalid_transition": bool(reward.get("invalid", False)),
         "minimum_score_applied": bool(reward.get("minimum_score_applied", False)),
         "reward": reward.get("reward"),
@@ -116,6 +121,8 @@ def _metrics(
     compile_failure_count = sum(1 for record in records if not record["submission"]["compile"].get("ok"))
     protected_violation_count = sum(1 for record in records if record["submission"].get("protected_changed"))
     runtime_failure_count = sum(1 for row in learning_curve if _has_runtime_minimum_score(row))
+    initial_complexity = records[0]["input"].get("complexity", {}) if records else {}
+    final_complexity = records[-1]["submission"].get("complexity", {}) if records else {}
     return {
         "run_id": run_id,
         "model_name": model_name,
@@ -141,10 +148,20 @@ def _metrics(
             "train_episodes": sum(int(row.get("train_episodes") or 0) for row in learning_curve),
             "agent_wall_time_seconds": sum(_float(record["submission"]["agent"].get("duration_seconds")) for record in records),
         },
+        "complexity": {
+            "initial_policy": initial_complexity,
+            "final_policy": final_complexity,
+            "growth_from_initial": _complexity_delta(initial_complexity, final_complexity),
+        },
         "curves": {
             "train_mean_return": train_scores,
             "validation_mean_return": validation_scores,
             "heldout_mean_return": heldout_scores,
+            "policy_sloc": [_nullable_float(row.get("policy_sloc")) for row in learning_curve],
+            "policy_branch_count": [_nullable_float(row.get("policy_branch_count")) for row in learning_curve],
+            "policy_cyclomatic_complexity_max": [
+                _nullable_float(row.get("policy_cyclomatic_complexity_max")) for row in learning_curve
+            ],
         },
     }
 
@@ -156,6 +173,8 @@ def _write_html(path: Path, *, metrics: dict[str, Any], learning_curve: list[dic
         f"<td>{_fmt(row.get('train_mean_score'))}</td>"
         f"<td>{_fmt(row.get('validation_mean_score'))}</td>"
         f"<td>{_fmt(row.get('heldout_mean_score'))}</td>"
+        f"<td>{_fmt(row.get('policy_sloc'))}</td>"
+        f"<td>{_fmt(row.get('policy_branch_count'))}</td>"
         f"<td>{_fmt(row.get('reward'))}</td>"
         f"<td>{html.escape(str(row.get('invalid_transition')))}</td>"
         f"<td><a href=\"../{html.escape(str(row['transition']))}\">transition</a></td>"
@@ -163,6 +182,8 @@ def _write_html(path: Path, *, metrics: dict[str, Any], learning_curve: list[dic
         for row in learning_curve
     )
     primary = metrics["primary"]
+    final_complexity = metrics["complexity"]["final_policy"]
+    complexity_growth = metrics["complexity"]["growth_from_initial"]
     body = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -188,12 +209,14 @@ def _write_html(path: Path, *, metrics: dict[str, Any], learning_curve: list[dic
     <div class="metric"><strong>Best heldout return</strong>{_fmt(primary.get('best_heldout_mean_return'))}</div>
     <div class="metric"><strong>Heldout return AUC</strong>{_fmt(primary.get('heldout_return_auc'))}</div>
     <div class="metric"><strong>Invalid transition rate</strong>{_fmt(metrics['quality'].get('invalid_transition_rate'))}</div>
+    <div class="metric"><strong>Final policy SLOC</strong>{_fmt(final_complexity.get('sloc'))}</div>
+    <div class="metric"><strong>SLOC growth</strong>{_fmt(complexity_growth.get('sloc'))}</div>
   </section>
   <h2>Learning Curve</h2>
   <img src="learning_curve.svg" alt="Learning curve">
   <h2>Epochs</h2>
   <table>
-    <thead><tr><th>Epoch</th><th>Train</th><th>Validation</th><th>Heldout</th><th>Reward</th><th>Invalid</th><th>Artifact</th></tr></thead>
+    <thead><tr><th>Epoch</th><th>Train</th><th>Validation</th><th>Heldout</th><th>SLOC</th><th>Branches</th><th>Reward</th><th>Invalid</th><th>Artifact</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </body>
@@ -305,6 +328,25 @@ def _has_runtime_minimum_score(row: dict[str, Any]) -> bool:
     )
 
 
+def _complexity_value(record: dict[str, Any], key: str) -> Any:
+    complexity = record.get("complexity", {})
+    return complexity.get(key) if isinstance(complexity, dict) else None
+
+
+def _complexity_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    delta: dict[str, Any] = {}
+    for key, before_value in before.items():
+        after_value = after.get(key)
+        if (
+            not isinstance(before_value, bool)
+            and not isinstance(after_value, bool)
+            and isinstance(before_value, (int, float))
+            and isinstance(after_value, (int, float))
+        ):
+            delta[key] = after_value - before_value
+    return delta
+
+
 def _relative_or_string(path: Path, root: Path) -> str:
     try:
         return str(path.relative_to(root))
@@ -314,6 +356,10 @@ def _relative_or_string(path: Path, root: Path) -> str:
 
 def _float(value: Any) -> float:
     return float(value) if value is not None else 0.0
+
+
+def _nullable_float(value: Any) -> float | None:
+    return float(value) if value is not None else None
 
 
 def _fmt(value: Any) -> str:

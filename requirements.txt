@@ -1,2 +1,3 @@
 gymnasium[box2d,mujoco]>=1.1
 minigrid>=3.0
+radon>=6.0

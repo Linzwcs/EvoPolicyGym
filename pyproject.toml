@@ -49,6 +49,18 @@ include = ["hlbench*", "hlbench_cli*"]
 minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+filterwarnings = [
+    # Treat warnings as errors by default so latent issues surface in CI.
+    "error",
+    # Suppression below: multiprocessing(spawn) leaks an internal socket
+    # pair from get_preparation_data() at child startup. The leak is in
+    # CPython's stdlib (multiprocessing/spawn.py) and is benign — the
+    # process exits anyway. We use spawn extensively in tests (Sandbox,
+    # HTTP server tests that spawn sandboxes inside policies), so we
+    # whitelist this exact warning rather than disable -W error.
+    "ignore::ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.ruff]
 line-length = 100

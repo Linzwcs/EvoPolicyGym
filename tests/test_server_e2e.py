@@ -143,11 +143,90 @@ def test_five_submit_run_with_reference_pd_agent(
             assert len(lines) == 200, f"{traj} has {len(lines)} steps, want 200"
 
 
-def test_finalize_not_yet_implemented(workspace_with_reference_agent) -> None:
-    """Day 7 ships only the train-side loop; finalize arrives Day 8."""
+def test_finalize_runs_heldout_and_writes_run_json(
+    workspace_with_reference_agent,
+) -> None:
+    """End-to-end Day 8 acceptance: submit a couple of times, finalize,
+    then run.json contains a sane final_score, full held_out_returns
+    array (256 floats), and the documented schema fields."""
+    srv, ws = workspace_with_reference_agent
+
+    srv.submit([0, 1, 2, 3])
+    srv.submit([4, 5, 6, 7])
+
+    result = srv.finalize()
+
+    assert result.status == "completed"
+    assert result.run_json_path.exists()
+    assert result.held_out_returns is not None
+    assert len(result.held_out_returns) == 256
+    # PD on Pendulum: held-out mean is also in the -100 to -300 band.
+    assert -800 < result.held_out_mean_return < 0
+    # Normalized score: random=-1200, expert=-150; PD should clear ~80.
+    assert 50 < result.final_score <= 120
+    assert result.final_submit_index == 1
+    assert result.error is None
+
+    # File contents per output.md §3.1.
+    doc = json.loads(result.run_json_path.read_text())
+    assert doc["schema_version"] == "0.1"
+    assert doc["env"] == "pendulum"
+    assert doc["model"] == "unknown"  # default since we didn't pass one
+    assert "exp_id" in doc
+    assert doc["experiment_dimensions"]["episode_budget"] == 256
+    assert doc["timing"]["wall_time_seconds"] > 0
+    out = doc["outcome"]
+    assert out["status"] == "completed"
+    assert out["final_score"] == result.final_score
+    assert out["final_submit_index"] == 1
+    assert len(out["held_out_returns"]) == 256
+    aux = out["auxiliary"]
+    assert aux["n_submits"] == 2
+    assert aux["n_successful_submits"] == 2
+    assert aux["episodes_used"] == 8
+    assert aux["mean_episodes_per_submit"] == 4.0
+    assert aux["held_out_gap"] is not None
+    # Day 11 metrics are populated for successful runs.
+    assert aux["auc_in_loop"] is not None and 0 <= aux["auc_in_loop"] <= 120
+    # PD on Pendulum reliably clears 80% normalized (~98 typical) → both
+    # thresholds tripped at the first successful submit.
+    assert aux["episodes_to_50pct"] == 4
+    assert aux["episodes_to_80pct"] == 4
+    assert doc["versions"]["harness"] == "0.1.0a0"
+    assert doc["versions"]["env"] == "0.1"
+
+
+def test_finalize_is_idempotent_and_blocks_further_submits(
+    workspace_with_reference_agent,
+) -> None:
     srv, _ = workspace_with_reference_agent
-    with pytest.raises(NotImplementedError):
-        srv.finalize()
+    srv.submit([0, 1])
+    first = srv.finalize()
+    second = srv.finalize()
+    assert first is second  # same cached FinalResult
+
+    with pytest.raises(RuntimeError, match="finalize"):
+        srv.submit([2, 3])
+
+    info = srv.info()
+    assert info["state"]["is_finalized"] is True
+
+
+def test_finalize_writes_error_when_no_policy_exists(tmp_path: Path) -> None:
+    """A run that never had a working Policy still produces run.json,
+    with status='error' rather than crashing in finalize()."""
+    srv = Server(env_id="pendulum", workspace_dir=tmp_path / "run")
+    # Don't stage policy.py — heldout init will fail.
+    result = srv.finalize()
+    assert result.status == "error"
+    assert result.final_score is None
+    assert result.held_out_returns is None
+    assert result.error is not None
+    assert result.error["type"] == "HeldoutError"
+
+    doc = json.loads(result.run_json_path.read_text())
+    assert doc["outcome"]["status"] == "error"
+    assert doc["outcome"]["error"]["type"] == "HeldoutError"
 
 
 def test_unknown_config_override_rejected(tmp_path: Path) -> None:

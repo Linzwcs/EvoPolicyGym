@@ -60,6 +60,21 @@ class SubmitConfig:
 
 
 @dataclass(frozen=True)
+class SubmitHistoryEntry:
+    """One row of the run's per-submit history.
+
+    Used by ``run.json``'s auxiliary metrics (AUC, episodes_to_50pct,
+    held_out_gap, etc.) and by ``GET /info`` consumers that want the
+    in-loop learning curve."""
+
+    submit_index: int
+    status: str
+    n_episodes: int  # episodes consumed (== requested count, regardless of failure mode)
+    mean_return: float | None  # None when status != "ok"
+    cumulative_episodes: int  # global episode count AFTER this submit
+
+
+@dataclass(frozen=True)
 class SubmitState:
     """Run-level counters that span submits.
 
@@ -68,7 +83,8 @@ class SubmitState:
     rollback / debugging if they wish.
 
     Fields mirror SPEC §1.1 ``state.*`` plus ``n_episodes_executed``
-    (used to compute ``first_global_episode``)."""
+    (used to compute ``first_global_episode``) and ``submit_history``
+    (used by Day 11 auxiliary metrics)."""
 
     remaining_budget: int
     n_submits: int = 0
@@ -76,6 +92,7 @@ class SubmitState:
     n_episodes_executed: int = 0
     last_submit_index: int | None = None
     last_submit_status: str | None = None
+    submit_history: tuple[SubmitHistoryEntry, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -311,14 +328,23 @@ class SubmitHandler:
 
         fb.write_summary(submit_dir / "summary.json", summary)
 
+        new_episodes_executed = state.n_episodes_executed + n_req
+        history_entry = SubmitHistoryEntry(
+            submit_index=submit_index,
+            status="ok",
+            n_episodes=n_req,
+            mean_return=summary["mean_return"],
+            cumulative_episodes=new_episodes_executed,
+        )
         new_state = replace(
             state,
             remaining_budget=state.remaining_budget - n_req,
             n_submits=state.n_submits + 1,
             n_successful_submits=state.n_successful_submits + 1,
-            n_episodes_executed=state.n_episodes_executed + n_req,
+            n_episodes_executed=new_episodes_executed,
             last_submit_index=submit_index,
             last_submit_status="ok",
+            submit_history=state.submit_history + (history_entry,),
         )
         return SubmitOutcome(
             submit_index=submit_index, status="ok", summary=summary, new_state=new_state,
@@ -356,11 +382,19 @@ class SubmitHandler:
         fb.write_submit_error(
             submit_dir / "errors.txt", category=category, message=message,
         )
+        history_entry = SubmitHistoryEntry(
+            submit_index=submit_index,
+            status=category,
+            n_episodes=len(env_instances),
+            mean_return=None,
+            cumulative_episodes=state.n_episodes_executed,
+        )
         new_state = replace(
             state,
             n_submits=state.n_submits + 1,
             last_submit_index=submit_index,
             last_submit_status=category,
+            submit_history=state.submit_history + (history_entry,),
         )
         return SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,
@@ -399,12 +433,20 @@ class SubmitHandler:
             submit_dir / "errors.txt",
             category=category, message=message, traceback_str=traceback_str,
         )
+        history_entry = SubmitHistoryEntry(
+            submit_index=submit_index,
+            status=category,
+            n_episodes=n_req,
+            mean_return=None,
+            cumulative_episodes=state.n_episodes_executed,
+        )
         new_state = replace(
             state,
             remaining_budget=state.remaining_budget - n_req,
             n_submits=state.n_submits + 1,
             last_submit_index=submit_index,
             last_submit_status=category,
+            submit_history=state.submit_history + (history_entry,),
         )
         return SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,
@@ -463,13 +505,22 @@ class SubmitHandler:
         fb.write_submit_error(
             submit_dir / "errors.txt", category=category, message=message,
         )
+        new_episodes_executed = state.n_episodes_executed + episodes_executed
+        history_entry = SubmitHistoryEntry(
+            submit_index=submit_index,
+            status=category,
+            n_episodes=n_req,
+            mean_return=_mean(partial_returns) if partial_returns else None,
+            cumulative_episodes=new_episodes_executed,
+        )
         new_state = replace(
             state,
             remaining_budget=state.remaining_budget - n_req,
             n_submits=state.n_submits + 1,
-            n_episodes_executed=state.n_episodes_executed + episodes_executed,
+            n_episodes_executed=new_episodes_executed,
             last_submit_index=submit_index,
             last_submit_status=category,
+            submit_history=state.submit_history + (history_entry,),
         )
         return SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,

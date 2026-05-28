@@ -18,13 +18,23 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import statistics
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import hlbench
+from hlbench.core import feedback as fb
+from hlbench.core.heldout import (
+    HeldoutError,
+    HeldoutResult,
+    evaluate_heldout,
+    snapshot_workspace_system,
+)
 from hlbench.core.sandbox import SandboxConfig
+from hlbench.core import scoring
 from hlbench.core.seed_manager import SeedManager
 from hlbench.core.submit_handler import (
     SubmitConfig,
@@ -59,11 +69,17 @@ class SubmitResult:
 
 @dataclass(frozen=True)
 class FinalResult:
-    """Returned from ``Server.finalize()`` (Day 8)."""
+    """Returned from ``Server.finalize()``. Mirrors a subset of
+    ``run.json:outcome`` for callers that don't want to re-read the file."""
 
-    final_score: float
-    held_out_mean_return: float
-    held_out_std_return: float
+    status: str  # "completed" | "error"
+    final_score: float | None
+    held_out_mean_return: float | None
+    held_out_std_return: float | None
+    held_out_returns: list[float] | None
+    final_submit_index: int | None
+    error: dict[str, Any] | None
+    run_json_path: Path
 
 
 # --------------------------- server ---------------------------------------
@@ -93,6 +109,9 @@ class Server:
         *,
         config_overrides: dict[str, Any] | None = None,
         agent_md_path: Path | None = None,
+        run_dir: Path | None = None,
+        model: str = "unknown",
+        exp_id: str | None = None,
     ) -> None:
         """Initialize the run and stage workspace files.
 
@@ -111,6 +130,16 @@ class Server:
                 checkout). If the source file doesn't exist, a minimal
                 placeholder is written instead — callers running from a
                 wheel should pass an explicit path.
+            run_dir: Directory where ``run.json`` will be written by
+                ``finalize()``. Defaults to the workspace's parent
+                directory (so ``runs/<model>/<env>/<exp-id>/`` layouts
+                that put workspace at ``runs/<...>/workspace/`` work
+                out of the box). Created if missing.
+            model: Recorded as ``run.json:model``. Free-form identifier
+                for whatever produced ``system/policy.py``.
+            exp_id: Recorded as ``run.json:exp_id``. Defaults to the
+                ISO timestamp of run start so consecutive runs of the
+                same model/env don't collide.
         """
         # Resolve env + seeds.
         self._env_def: EnvDefinition = get_env(env_id)
@@ -181,11 +210,19 @@ class Server:
         self._state = SubmitState(remaining_budget=self._submit_cfg.episode_budget)
         self._is_finalized = False
         self._final_result: FinalResult | None = None
+        self._start_monotonic = time.monotonic()
         now = datetime.now(timezone.utc)
         self._started_at = (
             now.strftime("%Y-%m-%dT%H:%M:%S.")
             + f"{now.microsecond // 1000:03d}Z"
         )
+
+        # Run identity (used by run.json on finalize).
+        self._model = model
+        self._exp_id = exp_id or self._started_at.replace(":", "-").replace(".", "-")
+        self._run_dir = (Path(run_dir).resolve() if run_dir
+                         else self._workspace.parent)
+        self._run_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------- public API -------------------------------------------
 
@@ -259,14 +296,179 @@ class Server:
         )
 
     def finalize(self) -> FinalResult:
-        """Trigger held-out evaluation and write run.json (Day 8).
+        """Run held-out evaluation and write ``run.json``. Idempotent.
 
-        Currently raises ``NotImplementedError``. Day 7's purpose is to
-        validate the train-side loop end-to-end; held-out comes Day 8.
+        Per SPEC §5.2 and output.md §3:
+
+        1. Snapshot the current ``workspace/system/`` (the agent's final
+           code — MVP: most-recent-edit, not most-recent-successful-submit
+           per SPEC §5.4 since we don't yet retain per-submit snapshots).
+        2. Run the policy against all held-out seeds in
+           ``env_def.heldout_seeds_path`` (M = 256 for Pendulum, hidden
+           from the agent at all times).
+        3. Compute normalized score::
+
+               normalized = (mean_held_out - random_baseline)
+                          / (expert_baseline - random_baseline)
+               final_score = clip(normalized, 0.0, 1.2) * 100
+
+        4. Atomically write ``<run_dir>/run.json`` per output.md §3.1.
+        5. Mark the run finalized; further ``submit()`` calls raise.
+
+        Held-out results never reach the agent — they live in
+        ``run.json`` outside the workspace.
         """
         if self._is_finalized:
             assert self._final_result is not None
             return self._final_result
-        raise NotImplementedError(
-            "Server.finalize() is not implemented in MVP Day 7; arriving Day 8"
+
+        # Mark finalized immediately so failures don't leave the door
+        # open for more submits in an indeterminate state.
+        self._is_finalized = True
+
+        end_monotonic = time.monotonic()
+        now = datetime.now(timezone.utc)
+        end_time = (
+            now.strftime("%Y-%m-%dT%H:%M:%S.")
+            + f"{now.microsecond // 1000:03d}Z"
         )
+        wall_time = end_monotonic - self._start_monotonic
+
+        snapshot_dir = snapshot_workspace_system(self._workspace)
+        try:
+            result_obj: HeldoutResult | None = None
+            error_obj: dict[str, Any] | None = None
+            try:
+                result_obj = evaluate_heldout(
+                    snapshot_dir=snapshot_dir,
+                    env_def=self._env_def,
+                    seed_manager=self._sm,
+                    sandbox_config=self._submit_cfg.sandbox,
+                )
+            except HeldoutError as e:
+                error_obj = {
+                    "type": "HeldoutError",
+                    "message": str(e),
+                    "occurred_at_submit": self._state.last_submit_index,
+                    "traceback": None,
+                }
+        finally:
+            shutil.rmtree(snapshot_dir, ignore_errors=True)
+
+        # Identify the agent's "final" submit (SPEC §5.4: most recent ok).
+        final_submit_index: int | None = None
+        for entry in reversed(self._state.submit_history):
+            if entry.status == "ok":
+                final_submit_index = entry.submit_index
+                break
+
+        # Build outcome.
+        if result_obj is not None and result_obj.returns:
+            outcome_status = "completed"
+            held_out_mean = float(statistics.fmean(result_obj.returns))
+            held_out_std = (
+                float(statistics.stdev(result_obj.returns))
+                if len(result_obj.returns) > 1 else 0.0
+            )
+            final_score = scoring.final_score(
+                held_out_mean,
+                expert=self._env_def.expert_baseline,
+                random=self._env_def.random_baseline,
+            )
+            held_out_returns = result_obj.returns
+        else:
+            outcome_status = "error"
+            held_out_mean = None
+            held_out_std = None
+            final_score = None
+            held_out_returns = None
+
+        auxiliary = scoring.build_auxiliary(
+            self._state.submit_history,
+            expert=self._env_def.expert_baseline,
+            random=self._env_def.random_baseline,
+            held_out_mean=held_out_mean,
+            n_submits=self._state.n_submits,
+            n_successful_submits=self._state.n_successful_submits,
+            episodes_used=self._state.n_episodes_executed,
+        )
+
+        run_doc: dict[str, Any] = {
+            "schema_version": "0.1",
+            "model": self._model,
+            "env": self._env_def.env_id,
+            "exp_id": self._exp_id,
+
+            "experiment_dimensions": {
+                "episode_budget": self._submit_cfg.episode_budget,
+                "min_episodes_per_submit": self._submit_cfg.min_episodes_per_submit,
+                "max_episodes_per_submit": self._submit_cfg.max_episodes_per_submit,
+                "seed_pool_id": "default",
+                "agent_harness": f"hlbench@{hlbench.__version__}",
+                "model_config": None,
+            },
+
+            "timing": {
+                "start_time": self._started_at,
+                "end_time": end_time,
+                "wall_time_seconds": round(wall_time, 3),
+            },
+
+            "outcome": {
+                "status": outcome_status,
+                "error": error_obj,
+                "final_submit_index": final_submit_index,
+                "final_score": final_score,
+                "held_out_mean_return": held_out_mean,
+                "held_out_std_return": held_out_std,
+                "held_out_returns": held_out_returns,
+                "auxiliary": auxiliary,
+            },
+
+            "artifacts": {
+                # Relative paths per output.md §3.2.
+                "workspace": str(
+                    self._workspace.relative_to(self._run_dir)
+                ) if _is_subpath(self._workspace, self._run_dir)
+                else str(self._workspace),
+                "checkpoints": None,    # not produced by MVP
+                "logs_harness": None,   # not produced by MVP
+                "logs_agent": None,     # not produced by MVP
+                "logs_env": None,       # not produced by MVP
+            },
+
+            "versions": {
+                "harness": hlbench.__version__,
+                "env": self._env_def.env_version,
+                "agent_md_hash": self._agent_md_hash,
+            },
+        }
+
+        run_json_path = self._run_dir / "run.json"
+        fb.write_summary(run_json_path, run_doc)  # same atomic writer
+
+        self._final_result = FinalResult(
+            status=outcome_status,
+            final_score=final_score,
+            held_out_mean_return=held_out_mean,
+            held_out_std_return=held_out_std,
+            held_out_returns=held_out_returns,
+            final_submit_index=final_submit_index,
+            error=error_obj,
+            run_json_path=run_json_path,
+        )
+        return self._final_result
+
+
+# --------------------------- helpers --------------------------------------
+
+
+def _is_subpath(path: Path, parent: Path) -> bool:
+    """True if ``path`` is below ``parent``. Used so ``run.json:artifacts``
+    paths stay relative when the layout is canonical, and absolute when
+    the caller put workspace somewhere unexpected."""
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False

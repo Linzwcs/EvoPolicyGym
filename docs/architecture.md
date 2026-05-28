@@ -5,6 +5,14 @@ on getting a single env (Pendulum-v1) end-to-end. It is not a
 complete architecture for all of hlbench — it is the smallest thing
 we can build that exercises the protocol and gives us real data.
 
+> **Status (Day 14):** the plan executed. All 14 days are complete;
+> 77 tests pass; reference PD on Pendulum hits `final_score = 98.3`.
+> Section 3 below shows the *as-built* layout (with deviations from
+> the original sketch noted inline). Sections 4 and 5 are kept as
+> the historical design + build sequence — useful when extending
+> past Pendulum, less useful as "what's in the code". For the
+> current code map, prefer `README.md` and `docs/quickstart.md`.
+
 For the full protocol contract, see `SPEC.md`, `AGENT.md`,
 `docs/output.md`, `docs/submit-protocol.md`.
 
@@ -62,41 +70,77 @@ MVP doesn't need them to validate the core loop.
 
 ## 3. Package Layout
 
+Below is the **as-built** layout (what's on disk today). The design
+sketch matched closely; deviations from the original sketch are
+documented inline.
+
 ```
 hlbench-pro/
-├── src/hlbench/
-│   ├── __init__.py
+├── src/hlbench/                # SERVER LIBRARY (no consumers below this line)
+│   ├── __init__.py             # __version__
+│   ├── http_server.py          # stdlib http.server wrapper around Server
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── server.py             ← Server class (entry point)
-│   │   ├── submit_handler.py     ← Submit lifecycle (validate → run → write)
-│   │   ├── env_runner.py         ← Run episodes against a Policy
-│   │   ├── sandbox.py            ← Subprocess + rlimit + act() timeout
-│   │   ├── feedback.py           ← Write summary.json + trajectory.jsonl
-│   │   ├── seed_manager.py       ← Load train.json / heldout.json; ID → seed
-│   │   └── policy_loader.py      ← Import system/policy.py, instantiate Policy
-│   ├── envs/
-│   │   ├── __init__.py
-│   │   ├── registry.py           ← register_env(), get_env()
-│   │   └── pendulum/
-│   │       ├── __init__.py
-│   │       ├── env.py            ← register_env(id="pendulum", ...) + factory
-│   │       ├── train.json        ← {"real_seeds": [s0, s1, ..., s255]}
-│   │       └── heldout.json      ← {"real_seeds": [h0, ..., h255]}
-│   ├── cli/
-│   │   ├── __init__.py
-│   │   └── __main__.py           ← `hlbench` entry point
-│   └── reference_agent/
-│       └── pd_pendulum.py        ← Example agent script
-├── tests/
-│   ├── test_pendulum_env.py
-│   ├── test_seed_manager.py
-│   ├── test_sandbox.py
-│   ├── test_submit_handler.py
-│   └── test_end_to_end.py        ← Pendulum MVP smoke test
+│   │   ├── server.py           # Server class (entry point, init / info / submit / finalize)
+│   │   ├── submit_handler.py   # 7-phase submit lifecycle
+│   │   ├── env_runner.py       # Run one episode against a Policy
+│   │   ├── sandbox.py          # multiprocessing(spawn) + signal.setitimer act timeout
+│   │   ├── heldout.py          # Held-out evaluation (called by Server.finalize)
+│   │   ├── scoring.py          # final_score + auxiliary metrics (AUC, etc.)
+│   │   ├── feedback.py         # summary.json / trajectory.jsonl / error.txt writers
+│   │   └── seed_manager.py     # train.json / heldout.json → env_instance ID resolver
+│   └── envs/
+│       ├── __init__.py
+│       ├── registry.py         # register_env(), get_env(), EnvDefinition
+│       └── pendulum/
+│           ├── __init__.py     # register_env(id="pendulum", ...) + factory
+│           ├── TASK.md         # env-specific task description (delivered to workspace)
+│           ├── train.json      # {"real_seeds": [s0, …, s255]}
+│           └── heldout.json    # {"real_seeds": [h0, …, h255]}
+├── hlbench_cli/                # CONSUMER: argparse CLI (HTTP client only)
+│   ├── __init__.py
+│   └── main.py                 # hlbench {init,serve,info,submit,finalize}
+├── agents/
+│   └── pd_pendulum/
+│       └── policy.py           # Reference agent (drop into workspace/system/)
+├── tests/                      # 77 tests; gymnasium-skipped where not relevant
+│   ├── test_skeleton.py        # Day 1
+│   ├── test_env_runner.py      # Day 4
+│   ├── test_sandbox.py         # Day 5
+│   ├── test_submit_handler.py  # Day 6
+│   ├── test_server_e2e.py      # Day 7 + 8
+│   ├── test_scoring.py         # Day 11 (unit)
+│   ├── test_http_server.py     # Day 9
+│   └── test_cli.py             # Day 9
 ├── scripts/
-│   └── gen_seeds.py              ← Generate train.json / heldout.json
+│   ├── gen_seeds.py            # Generate train.json / heldout.json from master_seed
+│   └── calibration.py          # Day 12-13 budget sweep
+├── docs/
+│   ├── architecture.md         # This file
+│   ├── output.md               # runs/<...>/ layout
+│   ├── submit-protocol.md      # 7 phases, 11 verdicts
+│   ├── quickstart.md           # User walkthrough
+│   └── findings.md             # Day 14 calibration analysis
+├── README.md / AGENT.md / SPEC.md / CLAUDE.md
 └── pyproject.toml
+```
+
+**Deviations from the original sketch**:
+
+- No `src/hlbench/cli/` or `src/hlbench/reference_agent/` packages —
+  per CLAUDE.md invariant 9 (lib/consumer separation), the CLI and
+  reference agents live outside `src/hlbench/`.
+- `src/hlbench/http_server.py` is stdlib (`http.server`) rather than
+  FastAPI/uvicorn — the original sketch named FastAPI but those
+  packages flaked at install time and the protocol is small enough
+  that the stdlib server is easier to maintain.
+- No `policy_loader.py` — the original sketch had a separate module
+  for importing `system/policy.py` and instantiating `Policy`, but
+  that work happens inside the sandbox subprocess so it's all in
+  `sandbox.py:_child_main`.
+- Added `core/heldout.py` and `core/scoring.py` (Days 8 & 11) for
+  finalize-time logic, which weren't broken out in the original
+  sketch.
 ```
 
 ## 4. Component Sketches

@@ -1256,18 +1256,29 @@ run or after it.
 
 ### 5.3 Auxiliary Metrics
 
-Reported alongside the headline score, not part of it:
+Reported alongside the headline score, not part of it. All curve-shape
+metrics are computed in **normalized** space (`normalized = (mean -
+random) / (expert - random)`) so they're sign-invariant — they work
+the same for positive-reward envs (HalfCheetah, expert ~ 8500) and
+negative-reward envs (Pendulum, expert ~ -150).
 
 | Metric | Definition |
 |---|---|
-| `auc_in_loop` | Area under the in-loop `mean_return` curve plotted against cumulative episodes consumed, normalized to [0, 100] using the same baselines |
-| `episodes_to_50pct` | Cumulative episodes consumed at the first submit whose `mean_return` exceeds 0.5 × expert; `null` if never |
-| `episodes_to_80pct` | Same with 0.8 × expert |
-| `held_out_gap` | `mean_in_loop_final - mean_held_out_final` (high positive = overfitting) |
-| `n_submits` | Total submits made |
-| `n_successful_submits` | Submits with `status == "ok"` |
-| `mean_episodes_per_submit` | `episodes_used / n_submits` |
-| `mean_submit_wall_time` | |
+| `auc_in_loop` | Trapezoidal area under the in-loop curve of `normalized_score(mean_return)` vs cumulative episodes, anchored at `(0, 0)`, divided by total episodes, scaled to `[0, 100]`. Per-point values are clipped to `[0, 1.2]` so a single disastrous submit can't drive AUC negative. Recommended for **within-budget** agent comparison only; the `(0, 0)` anchor structurally penalizes small-budget runs. |
+| `episodes_to_50pct` | Cumulative episodes consumed at the first submit with `normalized_score(mean_return) >= 0.5`. `null` if never. Interpretation: "halfway from random to expert". |
+| `episodes_to_80pct` | Same with `>= 0.8`. |
+| `held_out_gap` | `mean_in_loop_final - mean_held_out_final` where `_final` is the most recent submit with `status == "ok"`. Positive = in-loop better than held-out (potential overfit); negative = held-out better than in-loop (lucky in-loop seeds). |
+| `n_submits` | Total submits attempted (incl. failures). |
+| `n_successful_submits` | Submits with `status == "ok"`. |
+| `episodes_used` | `sum(summary.json:n_episodes)` across all submits — equals `episode_budget - remaining_budget` at finalize time. |
+| `mean_episodes_per_submit` | `episodes_used / n_submits`. |
+| `mean_submit_wall_time` | Mean of per-submit `wall_time_seconds`. |
+
+> **Spec history note** (Day 14 calibration): an earlier draft of
+> `episodes_to_50pct`/`80pct` used `mean_return >= 0.5 × expert`. This
+> works for positive-reward envs but inverts for negative-reward ones
+> (`0.5 × -150 = -75` is *better than* expert). The normalized
+> formulation above is the implementation in `hlbench.core.scoring`.
 
 ### 5.4 Explicit Final Submit Designation
 

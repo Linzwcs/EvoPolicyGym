@@ -18,11 +18,9 @@ gym = pytest.importorskip("gymnasium")
 from hlbench.core.sandbox import (  # noqa: E402
     Sandbox,
     SandboxConfig,
-    SandboxDead,
     SandboxInitError,
 )
 from hlbench.envs.registry import get_env  # noqa: E402
-
 
 # ----------------------- helpers ------------------------------------------
 

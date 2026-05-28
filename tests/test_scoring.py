@@ -18,7 +18,6 @@ from hlbench.core.scoring import (
 )
 from hlbench.core.submit_handler import SubmitHistoryEntry
 
-
 # Pendulum-style baselines: negative rewards, expert > random.
 _EXPERT = -150.0
 _RANDOM = -1200.0

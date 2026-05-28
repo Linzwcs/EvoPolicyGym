@@ -35,6 +35,7 @@ episodes. Submit-level failures raise `SandboxInitError` or
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing as mp
 import resource
 import signal
@@ -45,7 +46,6 @@ from pathlib import Path
 from typing import Any
 
 from hlbench.core.env_runner import EpisodeRecord, run_episode
-
 
 # ----------------------------- exceptions ----------------------------------
 
@@ -142,10 +142,9 @@ def _child_main(
     # under Apple's malloc). On Linux it actually caps virtual address
     # space and OOMs allocate calls.
     if max_rss_bytes is not None:
-        try:
+        with contextlib.suppress(ValueError, OSError):
+            # not supported on this platform / value; ignore
             resource.setrlimit(resource.RLIMIT_AS, (max_rss_bytes, max_rss_bytes))
-        except (ValueError, OSError):
-            pass  # not supported on this platform / value; ignore
 
     # SIGALRM handler for act() wall-time.
     signal.signal(signal.SIGALRM, _sigalrm_handler)
@@ -158,7 +157,7 @@ def _child_main(
     # 1. Initialize: import policy module + construct Policy().
     try:
         import policy as _policy_module  # type: ignore[import-not-found]
-        PolicyClass = getattr(_policy_module, "Policy")
+        PolicyClass = _policy_module.Policy
         inner_policy = PolicyClass(
             obs_space=env_meta.get("obs_space"),
             action_space=env_meta.get("action_space"),
@@ -212,10 +211,8 @@ def _child_main(
 
             conn.send(("ok", {"event": "unknown_command", "cmd": cmd}))
     finally:
-        try:
+        with contextlib.suppress(Exception):
             env.close()
-        except Exception:
-            pass
         conn.close()
 
 
@@ -374,20 +371,16 @@ class Sandbox:
         self._closed = True
 
         if self._proc.is_alive():
-            try:
+            with contextlib.suppress(BrokenPipeError, OSError):
                 self._parent_conn.send(("close", {}))
-            except (BrokenPipeError, OSError):
-                pass
             self._proc.join(timeout=2.0)
 
         self._terminate()
 
     def _terminate(self) -> None:
         """Force-kill the child if still alive, then close the pipe."""
-        try:
+        with contextlib.suppress(Exception):
             self._parent_conn.close()
-        except Exception:
-            pass
         if self._proc.is_alive():
             self._proc.terminate()
             self._proc.join(timeout=1.0)

@@ -23,10 +23,10 @@ from __future__ import annotations
 import json
 import math
 import os
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 _SCHEMA_VERSION = "0.1"
 
@@ -49,7 +49,7 @@ def episode_dir_name(global_episode_index: int, width: int) -> str:
 
 def now_iso_utc() -> str:
     """ISO-8601 UTC with millisecond precision (matches SPEC examples)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
 
 

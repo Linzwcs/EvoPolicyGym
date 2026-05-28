@@ -25,7 +25,6 @@ from hlbench.core.submit_handler import (  # noqa: E402
 )
 from hlbench.envs.registry import get_env  # noqa: E402
 
-
 # -------------------- fixtures --------------------------------------------
 
 

@@ -26,7 +26,6 @@ from typing import Any
 
 from hlbench.core.server import Server
 
-
 log = logging.getLogger(__name__)
 
 
@@ -180,7 +179,7 @@ class HlbenchHTTPServer:
             self._http.server_close()
 
     # Context manager: spawn / shut down a background thread.
-    def __enter__(self) -> "HlbenchHTTPServer":
+    def __enter__(self) -> HlbenchHTTPServer:
         self.start()
         return self
 

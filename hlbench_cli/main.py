@@ -95,9 +95,10 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Spin up the HTTP server in the foreground. Blocks until Ctrl-C."""
+    import logging
+
     from hlbench.core.server import Server
     from hlbench.http_server import HlbenchHTTPServer
-    import logging
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
@@ -159,7 +160,7 @@ def cmd_submit(args: argparse.Namespace) -> int:
             print(f"  errors at idx:   {s['errors']}")
     else:
         print(f"  remaining: {s.get('remaining_budget')}")
-        print(f"  see: workspace/feedback/submit_*/errors.txt")
+        print("  see: workspace/feedback/submit_*/errors.txt")
     return 0 if result["status"] == "ok" else 1
 
 

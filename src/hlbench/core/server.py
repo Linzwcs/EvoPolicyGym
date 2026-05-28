@@ -21,12 +21,13 @@ import shutil
 import statistics
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import hlbench
 from hlbench.core import feedback as fb
+from hlbench.core import scoring
 from hlbench.core.heldout import (
     HeldoutError,
     HeldoutResult,
@@ -34,7 +35,6 @@ from hlbench.core.heldout import (
     snapshot_workspace_system,
 )
 from hlbench.core.sandbox import SandboxConfig
-from hlbench.core import scoring
 from hlbench.core.seed_manager import SeedManager
 from hlbench.core.submit_handler import (
     SubmitConfig,
@@ -43,7 +43,6 @@ from hlbench.core.submit_handler import (
     SubmitState,
 )
 from hlbench.envs.registry import EnvDefinition, get_env
-
 
 # Located via source-tree walk: src/hlbench/core/server.py → repo root.
 # When packaged into a wheel, the AGENT.md may not be at this location;
@@ -211,7 +210,7 @@ class Server:
         self._is_finalized = False
         self._final_result: FinalResult | None = None
         self._start_monotonic = time.monotonic()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._started_at = (
             now.strftime("%Y-%m-%dT%H:%M:%S.")
             + f"{now.microsecond // 1000:03d}Z"
@@ -327,7 +326,7 @@ class Server:
         self._is_finalized = True
 
         end_monotonic = time.monotonic()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         end_time = (
             now.strftime("%Y-%m-%dT%H:%M:%S.")
             + f"{now.microsecond // 1000:03d}Z"

@@ -13,7 +13,6 @@ gym = pytest.importorskip("gymnasium")
 
 from hlbench.core.env_runner import run_episode  # noqa: E402
 from hlbench.envs.registry import get_env  # noqa: E402
-
 from tests.conftest import CrashingPolicy, PendulumPDPolicy  # noqa: E402
 
 
@@ -78,7 +77,7 @@ def test_trajectory_schema_matches_spec(pendulum_env: object) -> None:
         for k in ("t", "obs", "action", "reward", "terminated", "truncated", "info"):
             assert k in step, f"step {i} missing key {k}"
         # Types
-        assert step["t"] == i, f"step.t should be 0-based step index"
+        assert step["t"] == i, "step.t should be 0-based step index"
         assert isinstance(step["obs"], list), "Pendulum obs is Box → JSON list"
         assert len(step["obs"]) == 3, "Pendulum obs has shape [3]"
         assert isinstance(step["action"], list), "Pendulum action is Box → JSON list"

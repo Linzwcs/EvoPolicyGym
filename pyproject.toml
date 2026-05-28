@@ -17,10 +17,6 @@ classifiers = [
 dependencies = [
     "numpy>=1.26",
     "gymnasium>=0.29",
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.27",
-    "httpx>=0.27",
-    "pydantic>=2.6",
 ]
 
 [project.optional-dependencies]
@@ -36,13 +32,18 @@ mujoco = [
 ]
 
 [project.scripts]
-hlbench = "hlbench.cli.__main__:main"
+hlbench = "hlbench_cli.main:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["hlbench*", "hlbench_cli*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+"hlbench_cli" = "hlbench_cli"
 
 [tool.setuptools.package-data]
-"hlbench.envs.pendulum" = ["*.json"]
+"hlbench.envs.pendulum" = ["*.json", "*.md"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

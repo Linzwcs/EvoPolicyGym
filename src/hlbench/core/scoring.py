@@ -54,7 +54,7 @@ def auc_in_loop(
     """
     ok_points = [
         (e.cumulative_episodes, normalized_score(
-            e.mean_return, expert=expert, random=random  # type: ignore[arg-type]
+            e.mean_return, expert=expert, random=random,
         ))
         for e in history
         if e.status == "ok" and e.mean_return is not None

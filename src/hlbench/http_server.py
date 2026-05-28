@@ -54,7 +54,9 @@ class HlbenchHandler(BaseHTTPRequestHandler):
             raise _BadRequest(f"invalid JSON body: {e}") from e
 
     def _server(self) -> Server:
-        return self.server.hlbench_server  # type: ignore[attr-defined]
+        srv = self.server.hlbench_server  # type: ignore[attr-defined]
+        assert isinstance(srv, Server)
+        return srv
 
     def log_message(self, fmt: str, *args: Any) -> None:
         # Route through stdlib logging so callers can mute it.
@@ -97,8 +99,8 @@ class HlbenchHandler(BaseHTTPRequestHandler):
             if self.path == "/finalize":
                 # Body is allowed to be empty; ignore if present.
                 self._read_json_body()
-                result = self._server().finalize()
-                self._send_json(200, asdict(result))
+                final = self._server().finalize()
+                self._send_json(200, asdict(final))
                 return
 
             self._send_json(404, {"error": "not_found", "path": self.path})
@@ -155,7 +157,10 @@ class HlbenchHTTPServer:
 
     @property
     def port(self) -> int:
-        return self._http.server_address[1]  # type: ignore[index]
+        # server_address is (host, port) for TCP.
+        port = self._http.server_address[1]
+        assert isinstance(port, int)
+        return port
 
     def start(self) -> None:
         if self._thread is not None:

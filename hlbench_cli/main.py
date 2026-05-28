@@ -21,6 +21,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 DEFAULT_URL = "http://127.0.0.1:8765"
 
@@ -42,13 +43,17 @@ def _parse_env_instances(spec: str) -> list[int]:
     return out
 
 
-def _http_request(url: str, *, method: str, body: dict | None = None) -> dict:
+def _http_request(
+    url: str, *, method: str, body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     data = json.dumps(body or {}).encode("utf-8") if method == "POST" else None
     headers = {"Content-Type": "application/json"} if method == "POST" else {}
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            parsed = json.loads(resp.read().decode("utf-8"))
+            assert isinstance(parsed, dict)
+            return parsed
     except urllib.error.HTTPError as e:
         body_text = e.read().decode("utf-8", errors="replace")
         try:
@@ -89,7 +94,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"  agent_md_hash     {info['agent_md_hash']}")
     print()
     print("Next: drop a Policy at workspace/system/policy.py, then run:")
-    print(f"  hlbench serve --workspace {workspace}")
+    print(f"  hlbench serve --workspace {workspace} --env {args.env}")
     return 0
 
 
@@ -131,8 +136,12 @@ def cmd_info(args: argparse.Namespace) -> int:
     print(f"agent_md_hash: {info['agent_md_hash']}")
     print(f"budget:        {state['remaining_budget']} / {info['episode_budget']}")
     print(f"submits:       {state['n_submits']} ({state['n_successful_submits']} ok)")
-    print(f"last_submit:   "
-          f"#{state['last_submit_index']} → {state['last_submit_status']}")
+    last_idx = state["last_submit_index"]
+    last_status = state["last_submit_status"]
+    if last_idx is None:
+        print("last_submit:   (none yet)")
+    else:
+        print(f"last_submit:   #{last_idx} → {last_status}")
     print(f"finalized:     {state['is_finalized']}")
     print(f"started_at:    {state['started_at']}")
     return 0
@@ -237,7 +246,9 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    rc = args.func(args)
+    assert isinstance(rc, int)
+    return rc
 
 
 if __name__ == "__main__":

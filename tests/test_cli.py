@@ -46,10 +46,11 @@ def test_init_creates_workspace(tmp_path: Path) -> None:
     ws = tmp_path / "run"
     rc = main(["init", "--env", "pendulum", "--dir", str(ws)])
     assert rc == 0
-    assert (ws / "TASK.md").is_file()
-    assert (ws / "AGENT.md").is_file()
+    assert (ws / "AGENTS.md").is_file()
     assert (ws / "system").is_dir()
     assert (ws / "feedback").is_dir()
+    # TASK.md is NOT staged into workspace (served via GET /task).
+    assert not (ws / "TASK.md").exists()
 
 
 # --------------------------- HTTP-using subcommands ----------------------

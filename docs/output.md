@@ -5,7 +5,7 @@ a single hlbench-pro evaluation run. It is the contract between the
 harness implementation and any downstream consumer (analysis scripts,
 dashboards, paper plots, replay tools).
 
-`AGENT.md` and `SPEC.md` describe the protocol from the agent's
+`AGENTS.md` and `SPEC.md` describe the protocol from the agent's
 perspective. This document describes the artifacts that result.
 
 ---
@@ -19,8 +19,7 @@ runs/
         └── <exp-id>/
             ├── run.json                  # top-level run metadata + final score
             ├── workspace/                # final workspace state at run end
-            │   ├── TASK.md
-            │   ├── AGENT.md
+            │   ├── AGENTS.md
             │   ├── system/               # final code (== latest successful submit)
             │   └── feedback/             # all submit_NNN/
             ├── checkpoints/              # code snapshots, one per submit
@@ -174,7 +173,7 @@ not partially populated mid-run. For mid-run state inspection, see
   "versions": {
     "harness": "0.1.0",
     "env": "0.1",
-    "agent_md_hash": "sha256:8f3a..."
+    "agents_md_hash": "sha256:8f3a..."
   }
 }
 ```
@@ -208,7 +207,7 @@ not partially populated mid-run. For mid-run state inspection, see
   `null` otherwise. Useful for variance/outlier analysis.
 - **`artifacts.*`** — paths are relative to the run directory.
   Consumers that move runs MUST keep paths relative.
-- **`versions.agent_md_hash`** — SHA-256 of the AGENT.md in effect at
+- **`versions.agents_md_hash`** — SHA-256 of the AGENTS.md in effect at
   run start (after task overrides applied).
 
 ### 3.3 What Must Match What
@@ -235,9 +234,8 @@ The contents of the agent's workspace at run end. Layout matches
 
 ```
 workspace/
-├── TASK.md          (delivered by server at run start)
-├── AGENT.md         (the global AGENT.md from this run's harness version)
-├── system/          (final code: identical to latest successful submit's snapshot)
+├── AGENTS.md       (the global AGENTS.md from this run's harness version)
+├── system/         (final code: identical to latest successful submit's snapshot)
 └── feedback/
     ├── submit_000/
     ├── submit_001/
@@ -397,7 +395,7 @@ JSONL of agent harness activity. One JSON object per line.
 ```jsonl
 {"t":"2026-05-28T10:00:00.500Z","event":"agent_start","model":"claude-opus-4-7"}
 {"t":"2026-05-28T10:00:05.123Z","event":"completion","input_tokens":12500,"output_tokens":847,"latency_ms":3200,"cost_usd":0.184}
-{"t":"2026-05-28T10:00:05.140Z","event":"tool_call","tool":"read","args":{"path":"TASK.md"}}
+{"t":"2026-05-28T10:00:05.140Z","event":"tool_call","tool":"http_get","args":{"path":"/task"}}
 {"t":"2026-05-28T10:00:05.150Z","event":"tool_call","tool":"write","args":{"path":"system/policy.py","bytes":1024}}
 {"t":"2026-05-28T10:00:10.200Z","event":"submit","n_episodes":8}
 {"t":"2026-05-28T10:01:30.000Z","event":"agent_end","reason":"budget_exhausted"}
@@ -474,7 +472,7 @@ Bit-exact reproduction requires:
 
 - Same harness version (`run.json:versions.harness`).
 - Same env version (`run.json:versions.env`).
-- Same AGENT.md (verified via `versions.agent_md_hash`).
+- Same AGENTS.md (verified via `versions.agents_md_hash`).
 - Same agent harness and model.
 - Same `experiment_dimensions`.
 

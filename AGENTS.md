@@ -1,4 +1,4 @@
-# AGENT.md — Rules of the Game
+# AGENTS.md — Rules of the Game
 
 This document defines what agents may and may not do when solving
 hlbench-pro tasks. These rules apply globally to all tasks. Individual
@@ -31,8 +31,7 @@ You operate inside a per-task workspace with this layout:
 
 ```
 workspace/
-├── TASK.md          # task description (delivered by server at run start, read-only)
-├── AGENT.md         # this file (read-only)
+├── AGENTS.md        # this file (read-only)
 ├── system/          # your Python package — fully writable
 │   ├── policy.py    # required entry point (top level, defines Policy class)
 │   ├── controllers/ # example: organize code as packages or flat files
@@ -52,6 +51,10 @@ workspace/
         │       └── error.txt          # only if this episode raised/timed out
         └── errors.txt                  # only if submit-level failure (no episodes ran)
 ```
+
+The **human-readable task description** is NOT staged into your
+workspace. Fetch it from `GET /task` (text/markdown) — it returns
+the env author's `TASK.md` content. Static for the run.
 
 You may organize `system/` as a flat collection of files or as a
 nested Python package (with or without `__init__.py`). When
@@ -182,12 +185,13 @@ submit time. When the budget reaches zero, no more submits are allowed.
 ### 4.0 HTTP Interface
 
 You communicate with the per-run server **via HTTP** (the server runs
-on the same host as you). Three endpoints cover the entire control
+on the same host as you). Four endpoints cover the entire control
 surface:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/info` | GET | Read static config + dynamic state |
+| `/task` | GET | Read human-readable task description (text/markdown) |
 | `/submit` | POST | Run episodes on selected env instances |
 | `/finalize` | POST | Declare run complete, trigger held-out eval |
 
@@ -406,7 +410,7 @@ Configurable parameters (any of which can come from layer 2 or 3):
 - Imports (additional allow or deny entries)
 
 The merged result is served by the per-run server via `GET /info`
-and a prose summary may be reflected in `TASK.md`. **Always call
+and a prose summary may be reflected in `GET /task`. **Always call
 `GET /info` at the start of work** — it is the authoritative
 effective config. The numbers in this document are defaults that
 may have been overridden. The agent does not see which layer

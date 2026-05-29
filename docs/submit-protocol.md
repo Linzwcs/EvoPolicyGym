@@ -40,7 +40,7 @@ Key properties:
 
 - **Sealed**: once submitted, `system/` is snapshotted; subsequent
   edits do not affect the in-flight submission.
-- **Sandboxed**: execution respects all sandbox rules (`AGENT.md §3`).
+- **Sandboxed**: execution respects all sandbox rules (`AGENTS.md §3`).
 - **Verdict-based**: every submission ends with a verdict — one of
   the 10 enumerated values in §3 — plus diagnostic files.
 - **Iterative**: unlike one-shot evaluation, submissions form a
@@ -139,7 +139,7 @@ subsequent edits to `system/` do not affect the in-flight submit.
 
 Validation: the snapshot's total size must not exceed
 `system_total_bytes`; no individual file may exceed
-`system_single_file_bytes`. See `AGENT.md §3.3` for the size
+`system_single_file_bytes`. See `AGENTS.md §3.3` for the size
 calculation rule (source files only; `__pycache__/` etc. excluded).
 
 Failure → `oversize`.
@@ -460,7 +460,7 @@ harness provides data, not advice.
 
 ## 6. Anti-Cheating Provisions Specific to Submit
 
-The full anti-hack rules are in `AGENT.md §5`. This section calls
+The full anti-hack rules are in `AGENTS.md §5`. This section calls
 out submit-related provisions specifically.
 
 ### 6.1 Snapshot isolation

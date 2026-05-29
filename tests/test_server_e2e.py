@@ -37,17 +37,22 @@ def workspace_with_reference_agent(tmp_path: Path):
     return srv, ws
 
 
-def test_workspace_has_required_four_things(tmp_path: Path) -> None:
+def test_workspace_has_required_three_things(tmp_path: Path) -> None:
     """Per CLAUDE.md invariant 5, workspace contains exactly:
-    TASK.md, AGENT.md, system/, feedback/."""
+    AGENTS.md, system/, feedback/. TASK.md is NOT staged — served via
+    GET /task instead."""
     ws = tmp_path / "run"
-    Server(env_id="pendulum", workspace_dir=ws)
-    assert (ws / "TASK.md").is_file()
-    assert (ws / "AGENT.md").is_file()
+    srv = Server(env_id="pendulum", workspace_dir=ws)
+    assert (ws / "AGENTS.md").is_file()
     assert (ws / "system").is_dir()
     assert (ws / "feedback").is_dir()
-    # TASK.md was the env-specific one, not the placeholder.
-    assert "Pendulum" in (ws / "TASK.md").read_text()
+    assert not (ws / "TASK.md").exists()
+    # Top-level workspace entries exactly = {AGENTS.md, system, feedback}.
+    entries = {p.name for p in ws.iterdir()}
+    assert entries == {"AGENTS.md", "system", "feedback"}, entries
+    # Task text is served from the env-specific source via the lib method.
+    task = srv.task_md_text()
+    assert "Pendulum" in task, "env-specific TASK.md should be served, not placeholder"
 
 
 def test_info_hides_baselines_and_seeds(tmp_path: Path) -> None:

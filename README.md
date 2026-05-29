@@ -33,7 +33,7 @@ episode, but that's an outcome of the budget, not a rule.
 
 `torch` and `jax` are available; `transformers`, `huggingface_hub`,
 and `stable_baselines3` are blocked to prevent pretrained-model
-shortcuts. See [`AGENT.md`](./AGENT.md) for the full list.
+shortcuts. See [`AGENTS.md`](./AGENTS.md) for the full list.
 
 ## 60-second quick start
 
@@ -96,15 +96,15 @@ are hidden during and after the run.
 
 ```
 workspace/
-├── TASK.md      env description (delivered by server at run start)
-├── AGENT.md     protocol rules (delivered by server at run start)
+├── AGENTS.md    protocol rules (delivered by server at run start)
 ├── system/      agent-writable; system/policy.py is required
 └── feedback/    populated by server after every submit
 ```
 
 Run config (budget, limits, env metadata, dynamic state) is served
-by the server's `GET /info` endpoint — there's no workspace config
-file. Held-out results live in `run.json` outside the workspace,
+by the server's `GET /info` endpoint; the env's human-readable task
+description by `GET /task` (text/markdown). No workspace config or
+task files. Held-out results live in `run.json` outside the workspace,
 written once at finalize.
 
 ## What you write
@@ -134,7 +134,7 @@ optimizes without targeting a known threshold.
 | File | Audience | Purpose |
 |---|---|---|
 | [`README.md`](./README.md) | First-time reader | Project pitch, quick start |
-| [`AGENT.md`](./AGENT.md) | Benchmark agent | Rules: sandbox, anti-hack, submit protocol |
+| [`AGENTS.md`](./AGENTS.md) | Benchmark agent | Rules: sandbox, anti-hack, submit protocol |
 | [`SPEC.md`](./SPEC.md) | Harness implementer | Wire-level contract: workspace, /info, Policy interface, feedback, scoring |
 | [`docs/quickstart.md`](./docs/quickstart.md) | First-time benchmark user | Working walkthrough |
 | [`docs/findings.md`](./docs/findings.md) | Spec maintainer | Calibration analysis (Day 14) |

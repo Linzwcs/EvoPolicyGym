@@ -13,7 +13,7 @@ we can build that exercises the protocol and gives us real data.
 > past Pendulum, less useful as "what's in the code". For the
 > current code map, prefer `README.md` and `docs/quickstart.md`.
 
-For the full protocol contract, see `SPEC.md`, `AGENT.md`,
+For the full protocol contract, see `SPEC.md`, `AGENTS.md`,
 `docs/output.md`, `docs/submit-protocol.md`.
 
 ---
@@ -94,7 +94,7 @@ hlbench-pro/
 │       ├── registry.py         # register_env(), get_env(), EnvDefinition
 │       └── pendulum/
 │           ├── __init__.py     # register_env(id="pendulum", ...) + factory
-│           ├── TASK.md         # env-specific task description (delivered to workspace)
+│           ├── TASK.md         # env-specific task description (served via GET /task)
 │           ├── train.json      # {"real_seeds": [s0, …, s255]}
 │           └── heldout.json    # {"real_seeds": [h0, …, h255]}
 ├── hlbench_cli/                # CONSUMER: argparse CLI (HTTP client only)
@@ -121,7 +121,7 @@ hlbench-pro/
 │   ├── submit-protocol.md      # 7 phases, 11 verdicts
 │   ├── quickstart.md           # User walkthrough
 │   └── findings.md             # Day 14 calibration analysis
-├── README.md / AGENT.md / SPEC.md / CLAUDE.md
+├── README.md / AGENTS.md / SPEC.md / CLAUDE.md
 └── pyproject.toml
 ```
 
@@ -163,7 +163,7 @@ class Server:
         - Loads env definition (from registry)
         - Loads train.json and heldout.json
         - Creates workspace/ directory structure
-        - Writes AGENT.md and TASK.md to workspace
+        - Writes AGENTS.md to workspace; serves env's TASK.md via GET /task
         - Initializes state (remaining_budget, submit_count, etc.)
         """
         ...
@@ -367,7 +367,7 @@ Minimal CLI:
 
 ```bash
 hlbench init --env pendulum --dir ./my_run
-  # Creates ./my_run/{TASK.md, AGENT.md, system/policy.py.template, feedback/}
+  # Creates ./my_run/{AGENTS.md, system/policy.py.template, feedback/}; TASK.md served via /task
   # Internally: instantiates Server, persists workspace
 
 hlbench info
@@ -562,7 +562,7 @@ By end of Week 2, all of the following should pass:
 
 - [ ] `pip install -e .` succeeds, package imports cleanly
 - [ ] `hlbench init --env pendulum --dir ./run1` creates workspace
-- [ ] Workspace has correct files (TASK.md, AGENT.md, system/, feedback/)
+- [ ] Workspace has correct files (AGENTS.md, system/, feedback/) and `GET /task` returns env's TASK.md content
 - [ ] `hlbench info` returns valid JSON matching SPEC §1.1 schema
 - [ ] PD controller policy written by hand, ~30 LOC
 - [ ] `hlbench submit --env-instances 0-7` returns in <60s
@@ -610,16 +610,15 @@ These come up the moment you start coding:
    Decision: server stores absolute internally, CLI accepts relative
    and resolves to absolute.
 
-4. **AGENT.md delivery**: ship as static file with package, copy on
+4. **AGENTS.md delivery**: ship as static file with package, copy on
    init. (No /agent endpoint for MVP.)
 
-5. **TASK.md generation**: hand-write a Pendulum TASK.md template, copy
-   on init. (Later: auto-generate from env metadata.)
+5. **TASK.md serving**: hand-write a Pendulum TASK.md inside the env package; server reads it on demand for `GET /task` (no longer staged into workspace).
 
 ## 12. References
 
 - Protocol contract: `SPEC.md`
-- Agent rules: `AGENT.md`
+- Agent rules: `AGENTS.md`
 - Run outputs: `docs/output.md`
 - Submit lifecycle: `docs/submit-protocol.md`
 - This implementation plan: `docs/architecture.md` (you are here)

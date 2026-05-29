@@ -54,6 +54,18 @@ def test_health_endpoint_returns_ok(http_server) -> None:
     assert _get(f"{url}/health") == {"ok": True}
 
 
+def test_task_endpoint_returns_markdown(http_server) -> None:
+    """GET /task returns the env's TASK.md as text/markdown (not JSON)."""
+    url, _ = http_server
+    with urllib.request.urlopen(f"{url}/task", timeout=5) as resp:
+        ctype = resp.headers.get("Content-Type", "")
+        body = resp.read().decode("utf-8")
+    assert ctype.startswith("text/markdown"), f"unexpected Content-Type: {ctype!r}"
+    assert "Pendulum" in body, "Pendulum env-specific TASK.md should be served"
+    # Body is raw markdown, not JSON-wrapped.
+    assert not body.lstrip().startswith("{"), "should not be JSON envelope"
+
+
 def test_info_returns_spec_schema(http_server) -> None:
     url, _ = http_server
     info = _get(f"{url}/info")

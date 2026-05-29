@@ -15,7 +15,7 @@ Each document has a single audience and purpose; don't conflate them.
 | File | Audience | Purpose |
 |---|---|---|
 | `README.md` | First-time reader | Project pitch, gap statement, quick start |
-| `AGENT.md` | The benchmark's runtime agent | Rules of the game (sandbox, anti-hack, submit protocol from agent's POV) |
+| `AGENTS.md` | The benchmark's runtime agent | Rules of the game (sandbox, anti-hack, submit protocol from agent's POV) |
 | `SPEC.md` | Harness implementer | Wire-level contract: workspace layout, `/info` endpoint, Policy interface, feedback schemas, scoring, held-out details |
 | `docs/output.md` | Analyst / leaderboard tooling | What `runs/<model>/<env>/<exp-id>/` looks like on disk (runtime output layout) |
 | `docs/submit-protocol.md` | Implementer + sophisticated agent | Submit lifecycle (7 phases, 11 verdicts), anti-cheating provisions |
@@ -31,7 +31,7 @@ These have been argued through and resettled multiple times. Don't relitigate wi
 2. **Held-out is fully invisible.** Agent never sees: held-out size, held-out seeds, individual held-out returns, `expert_baseline`, `random_baseline`, or `final_score` during the run. Held-out lives in env-side `heldout.json` and the server runs it only after `finalize`.
 3. **`env_instance` addressing.** Agents address envs by integer ID `[0, n_env_instances)`. The mapping ID → real seed lives in env-side `train.json` and is server-internal. Never expose real seeds to agents.
 4. **`/info` is the source of truth for config.** No `_run.json` file in workspace. The per-run server's `GET /info` serves merged static config + live dynamic state.
-5. **Workspace contains exactly 4 things:** `TASK.md`, `AGENT.md`, `system/`, `feedback/`. The first two are static (delivered at run start). `system/` is the only agent-writable directory. `feedback/` is populated directly by the server (shared filesystem) after each submit.
+5. **Workspace contains exactly 3 things:** `AGENTS.md`, `system/`, `feedback/`. `AGENTS.md` is static (delivered at run start). `system/` is the only agent-writable directory. `feedback/` is populated directly by the server (shared filesystem) after each submit. Task description is served via `GET /task` (text/markdown), not staged as a file.
 6. **`system/` is a Python package.** Agents organize code freely under `system/`; `policy.py` is the required entry point. `sys.path[0] = workspace/system/` during policy execution. Size limit counts source files only (excludes `__pycache__`, `.pytest_cache`, etc.).
 7. **Per-run server, not multi-tenant.** One `Server` instance per (model, env, exp-id). Sandboxes don't multiplex runs.
 8. **Shared-host architecture, HTTP control plane.** Server and agent run on the same host, sharing the workspace directory. Agent issues commands (submit, info, finalize) **via HTTP only** (sync, no long-poll, no tar bundle); server writes feedback files directly to the shared `workspace/feedback/`. Agent reads feedback as local files. Remote / distributed deployment is **not** a goal.
@@ -42,8 +42,8 @@ These have been argued through and resettled multiple times. Don't relitigate wi
 The user explores design space by raising the same questions repeatedly. Each time they've been resolved, the answer is below:
 
 - **"Do we need `_run.json`?"** → No. Deleted. Use `GET /info`.
-- **"Do we need `TASK.md` in workspace?"** → Yes (kept). Static prose, delivered by server at run start.
-- **"Do we need `AGENT.md` in workspace?"** → Yes (kept). Client-side protocol document.
+- **"Do we need `TASK.md` in workspace?"** → No. Removed in 0.1.0a1. Served via `GET /task` (text/markdown). The env package still ships `TASK.md` as the source; the server reads it on demand. This keeps workspace contents minimal (3 things) and parallels how `/info` replaced `_run.json`.
+- **"Do we need `AGENTS.md` in workspace?"** → Yes (kept). Client-side protocol document.
 - **"Do we need `method_profile.json`?"** → No. Implementer-dependent metrics are not comparable; removed.
 - **"Do we need `diff_from_prev.json`?"** → No. Agent already knows what they changed; AST diffs are implementer-dependent.
 - **"Should `index_width` be in `/info`?"** → No. Derived from `episode_budget`, agents compute themselves.

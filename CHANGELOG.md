@@ -67,7 +67,7 @@ separation rule):
 
 **Documentation**:
 - `README.md` — pitch, quick start, document map.
-- `AGENT.md` — agent rules, sandbox, anti-hack (kept as-shipped).
+- `AGENTS.md` — agent rules, sandbox, anti-hack (kept as-shipped).
 - `SPEC.md` — wire contract, scoring, held-out details.
 - `docs/quickstart.md` — 60-second walkthrough plus agent-loop stub.
 - `docs/architecture.md` — original implementation plan with a

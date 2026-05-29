@@ -31,7 +31,7 @@ class EnvDefinition:
     obs_space: dict[str, Any]
     action_space: dict[str, Any]
     max_episode_steps: int
-    # Server-internal; never exposed via /info or TASK.md.
+    # Server-internal; never exposed via /info, /task, or env_meta.
     expert_baseline: float
     random_baseline: float
     train_seeds_path: Path
@@ -39,8 +39,9 @@ class EnvDefinition:
     n_env_instances: int = 256
     obs_storage: str = "inline"  # "inline" or "external"
     reward_components: dict[str, str] | None = None
-    # Optional per-env TASK.md template; Server copies it to workspace/
-    # at run start. If None, Server writes a generic placeholder.
+    # Optional per-env TASK.md source file; Server reads it on demand for
+    # ``GET /task``. Never staged into the workspace. If None or missing,
+    # the server returns a minimal placeholder.
     task_md_path: Path | None = None
     extras: dict[str, Any] = field(default_factory=dict)
 

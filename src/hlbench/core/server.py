@@ -45,9 +45,9 @@ from hlbench.core.submit_handler import (
 from hlbench.envs.registry import EnvDefinition, get_env
 
 # Located via source-tree walk: src/hlbench/core/server.py → repo root.
-# When packaged into a wheel, the AGENT.md may not be at this location;
-# callers can override via ``agent_md_path``.
-_REPO_ROOT_AGENT_MD = Path(__file__).resolve().parents[3] / "AGENT.md"
+# When packaged into a wheel, the AGENTS.md may not be at this location;
+# callers can override via ``agents_md_path``.
+_REPO_ROOT_AGENTS_MD = Path(__file__).resolve().parents[3] / "AGENTS.md"
 
 
 # --------------------------- result types ---------------------------------
@@ -90,7 +90,7 @@ class Server:
     Lifecycle::
 
         srv = Server(env_id="pendulum", workspace_dir=Path("./run"))
-        # workspace/{TASK.md, AGENT.md, system/, feedback/} now exist.
+        # workspace/{AGENTS.md, system/, feedback/} now exist.
         info = srv.info()                       # config + state snapshot
         result = srv.submit([0, 1, 2, 3])       # 4 episodes; writes feedback
         # ... iterate ...
@@ -107,7 +107,7 @@ class Server:
         workspace_dir: Path,
         *,
         config_overrides: dict[str, Any] | None = None,
-        agent_md_path: Path | None = None,
+        agents_md_path: Path | None = None,
         run_dir: Path | None = None,
         model: str = "unknown",
         exp_id: str | None = None,
@@ -117,15 +117,15 @@ class Server:
         Args:
             env_id: Registered env identifier (e.g. ``"pendulum"``).
             workspace_dir: Local directory; created if missing. Server
-                ensures ``TASK.md``, ``AGENT.md``, ``system/``, and
+                ensures ``AGENTS.md``, ``system/``, and
                 ``feedback/`` exist underneath it. ``system/`` is left
                 empty (ready for the agent to drop ``policy.py``);
                 ``feedback/`` is empty until the first submit.
             config_overrides: Optional dict to override defaults like
                 ``episode_budget``, ``act_wall_s``, ``init_wall_s``.
                 Unknown keys raise. None ⇒ defaults from SPEC §1.1.
-            agent_md_path: Source ``AGENT.md`` to copy into the workspace.
-                Defaults to the repo's ``AGENT.md`` (works in a source
+            agents_md_path: Source ``AGENTS.md`` to copy into the workspace.
+                Defaults to the repo's ``AGENTS.md`` (works in a source
                 checkout). If the source file doesn't exist, a minimal
                 placeholder is written instead — callers running from a
                 wheel should pass an explicit path.
@@ -152,27 +152,19 @@ class Server:
         (self._workspace / "system").mkdir(exist_ok=True)
         (self._workspace / "feedback").mkdir(exist_ok=True)
 
-        # Stage TASK.md.
-        task_dst = self._workspace / "TASK.md"
-        if self._env_def.task_md_path and self._env_def.task_md_path.exists():
-            shutil.copy(self._env_def.task_md_path, task_dst)
-        else:
-            task_dst.write_text(
-                f"# {env_id}\n\n(no TASK.md template registered for this env)\n"
-            )
-
-        # Stage AGENT.md.
-        src = agent_md_path or _REPO_ROOT_AGENT_MD
-        agent_dst = self._workspace / "AGENT.md"
+        # Stage AGENTS.md (the only static doc in the workspace; TASK.md is
+        # served via GET /task per CLAUDE.md invariant 5).
+        src = agents_md_path or _REPO_ROOT_AGENTS_MD
+        agents_dst = self._workspace / "AGENTS.md"
         if src.exists():
-            shutil.copy(src, agent_dst)
+            shutil.copy(src, agents_dst)
         else:
-            agent_dst.write_text(
-                "# AGENT.md\n\n"
+            agents_dst.write_text(
+                "# AGENTS.md\n\n"
                 "(placeholder — install hlbench from source to get the real one)\n"
             )
-        self._agent_md_hash = "sha256:" + hashlib.sha256(
-            agent_dst.read_bytes()
+        self._agents_md_hash = "sha256:" + hashlib.sha256(
+            agents_dst.read_bytes()
         ).hexdigest()
 
         # Build config from overrides.
@@ -225,6 +217,22 @@ class Server:
 
     # ------------- public API -------------------------------------------
 
+    def task_md_text(self) -> str:
+        """Return the env's task description as a markdown string.
+
+        Served via ``GET /task``. The env package ships ``TASK.md`` as a
+        static file; if the env didn't register a path or the file is
+        missing, return a minimal placeholder so the endpoint always
+        succeeds. Per CLAUDE.md invariant 5, this is NOT staged into
+        the workspace — agents fetch it on demand."""
+        path = self._env_def.task_md_path
+        if path is not None and path.exists():
+            return path.read_text()
+        return (
+            f"# {self._env_def.env_id}\n\n"
+            "(no TASK.md template registered for this env)\n"
+        )
+
     def info(self) -> dict[str, Any]:
         """Return ``GET /info`` content (static config + dynamic state).
 
@@ -238,7 +246,7 @@ class Server:
             "env": self._env_def.env_id,
             "env_version": self._env_def.env_version,
             "harness_version": hlbench.__version__,
-            "agent_md_hash": self._agent_md_hash,
+            "agents_md_hash": self._agents_md_hash,
 
             "episode_budget": cfg.episode_budget,
             "min_episodes_per_submit": cfg.min_episodes_per_submit,
@@ -439,7 +447,7 @@ class Server:
             "versions": {
                 "harness": hlbench.__version__,
                 "env": self._env_def.env_version,
-                "agent_md_hash": self._agent_md_hash,
+                "agents_md_hash": self._agents_md_hash,
             },
         }
 

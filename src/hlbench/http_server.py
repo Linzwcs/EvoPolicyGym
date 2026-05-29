@@ -1,8 +1,9 @@
 """Stdlib HTTP wrapper around ``Server``.
 
-Three endpoints, mirroring SPEC §3:
+Four endpoints, mirroring SPEC §3:
 
   GET  /info       → JSON of ``Server.info()``
+  GET  /task       → text/markdown of ``Server.task_md_text()``
   POST /submit     → body: ``{"env_instances": [...]}``;
                      response: ``{"submit_id", "status", "summary"}``
   POST /finalize   → response: full ``run.json`` body
@@ -68,6 +69,14 @@ class HlbenchHandler(BaseHTTPRequestHandler):
         try:
             if self.path == "/info":
                 self._send_json(200, self._server().info())
+                return
+            if self.path == "/task":
+                body = self._server().task_md_text().encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
                 return
             if self.path == "/health":
                 self._send_json(200, {"ok": True})

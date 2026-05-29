@@ -77,7 +77,7 @@ def _print_json(value: object) -> None:
 
 def cmd_init(args: argparse.Namespace) -> int:
     """Create a fresh workspace. Just calls ``Server(...)`` and exits —
-    Server.__init__ stages TASK.md + AGENT.md + system/ + feedback/."""
+    Server.__init__ stages AGENTS.md + system/ + feedback/."""
     from hlbench.core.server import Server  # lazy: only init needs it
 
     workspace = Path(args.dir)
@@ -91,7 +91,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(f"Initialized {args.env} workspace at {workspace.resolve()}")
     print(f"  episode_budget    {info['episode_budget']}")
     print(f"  n_env_instances   {info['env_meta']['n_env_instances']}")
-    print(f"  agent_md_hash     {info['agent_md_hash']}")
+    print(f"  agents_md_hash     {info['agents_md_hash']}")
     print()
     print("Next: drop a Policy at workspace/system/policy.py, then run:")
     print(f"  hlbench serve --workspace {workspace} --env {args.env}")
@@ -133,7 +133,7 @@ def cmd_info(args: argparse.Namespace) -> int:
     state = info["state"]
     print(f"env:           {info['env']} (v{info['env_version']})")
     print(f"harness:       {info['harness_version']}")
-    print(f"agent_md_hash: {info['agent_md_hash']}")
+    print(f"agents_md_hash: {info['agents_md_hash']}")
     print(f"budget:        {state['remaining_budget']} / {info['episode_budget']}")
     print(f"submits:       {state['n_submits']} ({state['n_successful_submits']} ok)")
     last_idx = state["last_submit_index"]

@@ -1,7 +1,7 @@
 # SPEC.md — Technical Specification
 
 This document specifies the contracts between agents, policies, and
-the hlbench-pro harness. `AGENT.md` defines what agents may do; this
+the hlbench-pro harness. `AGENTS.md` defines what agents may do; this
 document defines how the system actually works.
 
 ---
@@ -14,8 +14,7 @@ and the agent and harness share it.
 
 ```
 workspace/
-├── TASK.md              # human-readable task description, delivered by server at run start
-├── AGENT.md             # protocol rules (client-side, shipped with agent harness)
+├── AGENTS.md            # protocol rules (client-side, shipped with agent harness)
 ├── system/              # agent-writable Python package; contains policy.py at minimum
 │   ├── policy.py        # required entry point (top level)
 │   ├── controllers/     # example: agent-organized submodule
@@ -36,8 +35,10 @@ workspace/
 ```
 
 The agent harness creates `feedback/` if it does not exist. It never
-modifies `system/`. The agent never modifies `feedback/`, `TASK.md`,
-or `AGENT.md`.
+modifies `system/`. The agent never modifies `feedback/` or `AGENTS.md`.
+
+The human-readable task description is **not** staged into the workspace —
+agents fetch it from `GET /task` (text/markdown). See §3.2.
 
 **Workspace contents are local to the agent's machine.** Server
 state (config, env metadata, feedback artifacts) reaches the
@@ -46,14 +47,14 @@ workspace is essentially a local mirror of the agent's perspective:
 
 | File / dir | Source | When populated |
 |---|---|---|
-| `TASK.md` | Server | At run start, fetched once |
-| `AGENT.md` | Agent harness | At run start (shipped with harness) |
+| `AGENTS.md` | Agent harness | At run start (shipped with harness) |
 | `system/` | Agent (own writes) | Throughout the run |
 | `feedback/submit_NNN/` | Server (writes directly via shared FS) | After each submit returns |
 
-**Dynamic state** (remaining budget, current submit status, etc.) is
-not persisted as a file — it is fetched on demand via `GET /info`
-(see §1.1).
+The task spec is server-only (not on disk in workspace); fetch via
+`GET /task`. Dynamic state (remaining budget, current submit status,
+etc.) is also not persisted as a file — fetched on demand via
+`GET /info` (see §1.1).
 
 ### 1.1 `GET /info` — Effective Run Config
 
@@ -71,7 +72,7 @@ up-to-date dynamic state (notably `remaining_budget`).
   "env": "halfcheetah",
   "env_version": "0.1",
   "harness_version": "0.1.0",
-  "agent_md_hash": "sha256:...",
+  "agents_md_hash": "sha256:...",
 
   "episode_budget": 256,
   "min_episodes_per_submit": 1,
@@ -120,7 +121,7 @@ up-to-date dynamic state (notably `remaining_budget`).
 
 | Group | Fields | Changes during run? |
 |---|---|---|
-| Identity | `env`, `env_version`, `harness_version`, `agent_md_hash` | Never |
+| Identity | `env`, `env_version`, `harness_version`, `agents_md_hash` | Never |
 | Budget rules | `episode_budget`, `min/max_episodes_per_submit` | Never |
 | Resource limits | `resource_limits.*` | Never |
 | Import policy | `allowed_imports`, `denied_imports` | Never |
@@ -201,10 +202,10 @@ class Policy:
     ) -> None:
         """Constructed once per submit (i.e., shared across the n_episodes
         of a single submit). May read files from system/. Must not read
-        from feedback/, TASK.md, or anywhere outside the workspace.
+        from feedback/ or anywhere outside the workspace.
 
-        env_meta contains fields documented in TASK.md and exposed via
-        `GET /info:env_meta`, plus:
+        env_meta contains fields documented via `GET /task` / `GET /info`
+        and exposed via `GET /info:env_meta`, plus:
             - env: str                   (environment slug, e.g., "halfcheetah")
             - submit_index: int          (0-based, increments per submit)
             - n_episodes_this_submit: int (how many episodes this submit will run)
@@ -223,7 +224,7 @@ class Policy:
     def act(self, obs) -> "action":
         """Called once per step. Must return an action valid for
         action_space. Wall-time limit applies per call (default 10 ms;
-        see AGENT.md §3.3)."""
+        see AGENTS.md §3.3)."""
         ...
 
     def on_episode_end(self, episode_return: float) -> None:
@@ -339,21 +340,22 @@ Both work; Option B is recommended for robustness.
 
 ## 3. Server Interface
 
-The per-run server exposes three HTTP endpoints. Agents control runs
+The per-run server exposes four HTTP endpoints. Agents control runs
 through these endpoints; per-submit feedback artifacts are read from
 the shared `workspace/feedback/` directory (server writes directly).
 
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/info` | GET | Effective config + dynamic state |
+| `/task` | GET | Human-readable task description (text/markdown) |
 | `/submit` | POST | Run a synchronous submit |
 | `/finalize` | POST | Trigger held-out evaluation |
 
 For implementation convenience the same operations are also
 exposed as a Python library (`hlbench.core.Server`) for tests and
 internal tooling. **Agents must use HTTP**; the lib is not an
-agent-facing interface. The HTTP layer is a thin FastAPI wrapper
-over the lib.
+agent-facing interface. The HTTP layer is a thin stdlib wrapper
+over the lib (no FastAPI/uvicorn dependency).
 
 For the **submission lifecycle, verdict system, and behavioral
 contract**, see `docs/submit-protocol.md`.
@@ -370,7 +372,33 @@ Accept: application/json
 
 Response body: see §1.1 for schema.
 
-### 3.2 `POST /submit`
+### 3.2 `GET /task`
+
+Returns the env's human-readable task description as raw markdown
+(no JSON envelope). The body is the same content the env package
+ships as its `TASK.md` source file.
+
+```http
+GET /task HTTP/1.1
+Accept: text/markdown
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/markdown; charset=utf-8
+
+# Pendulum-v1 — Swing-Up and Stabilize
+
+## Goal
+...
+```
+
+Static for the run (the env package's `TASK.md` doesn't change
+mid-run). Always returns 200 with at minimum a placeholder body;
+envs that don't register a task description get
+`# <env_id>\n\n(no TASK.md template registered for this env)\n`.
+
+### 3.3 `POST /submit`
 
 Synchronously runs the requested env instances and writes feedback
 files to `workspace/feedback/submit_NNN/`. Blocks until done.
@@ -423,7 +451,7 @@ For per-episode artifacts (trajectory, video, observations, stdout,
 stderr, error), read them from
 `workspace/feedback/submit_<submit_id>/episodes/ep_<XXX>/` directly.
 
-### 3.3 `POST /finalize`
+### 3.4 `POST /finalize`
 
 Declares the run finished and triggers held-out evaluation. Subsequent
 submits raise an error.
@@ -448,7 +476,7 @@ server MAY auto-finalize without an explicit `POST /finalize` call.
 This is implementation-defined; agents that want explicit control
 should call `/finalize` themselves.
 
-### 3.4 Python library API (internal, for tests and tooling)
+### 3.5 Python library API (internal, for tests and tooling)
 
 Tests and harness internals may call the server lib directly:
 
@@ -464,7 +492,7 @@ final = server.finalize()
 This API is **not for agents**. Benchmark runs whose agents bypass
 HTTP are not valid.
 
-### 3.5 Side Effects of a Submit
+### 3.6 Side Effects of a Submit
 
 When `POST /submit` is invoked, the server performs these steps in
 order:
@@ -899,7 +927,7 @@ directory is created. Typically has **exactly one entry** (the one
 event that caused the failure):
 
 ```jsonl
-{"schema_version":"0.1","timestamp":"2026-05-28T10:01:23.456Z","category":"denied_import","message":"Module 'transformers' is on the denied list (see AGENT.md §3.2)","traceback":null}
+{"schema_version":"0.1","timestamp":"2026-05-28T10:01:23.456Z","category":"denied_import","message":"Module 'transformers' is on the denied list (see AGENTS.md §3.2)","traceback":null}
 ```
 
 Or for an import error:
@@ -1244,7 +1272,7 @@ After the submit budget is exhausted (or the agent calls `finalize`):
    - `expert_baseline`: published expert-level performance for the
      env. Declared in the env registration. **Server-internal: not
      exposed to the agent at any point** (not in `/info`, not in
-     TASK.md). Agents work with raw `mean_return` values and
+     `/task`). Agents work with raw `mean_return` values and
      optimize without knowing the target threshold.
    - The upper clip at 1.2 (120) allows super-expert performance to
      register but bounds outlier contributions.
@@ -1354,8 +1382,8 @@ instance's real seed at the start of `reset()`.
 A benchmark run is reproducible given:
 
 - Env id and version (declared in the env registration; exposed via
-  `GET /info:env` and `GET /info:env_version`, and in TASK.md).
-- AGENT.md version (hash exposed via `GET /info:agent_md_hash`).
+  `GET /info:env` and `GET /info:env_version`, and in `GET /task`).
+- AGENTS.md version (hash exposed via `GET /info:agents_md_hash`).
 - The agent's submit-by-submit code snapshots (preserved by the harness).
 - The harness version.
 

@@ -20,10 +20,12 @@ to its own stdout. Tail those files if you want to watch live.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -140,81 +142,139 @@ class ClaudeAgent:
         1+ we ``--resume`` that same UUID so the conversation history is
         preserved. The agent is free to use any of its allowed tools to
         read files, edit ``policy.py``, and curl the HTTP endpoints.
+
+        Uses ``--output-format=stream-json`` so we capture every
+        assistant message, tool call, and tool result *as they happen*
+        — even if the turn times out, the full thought-process trace
+        up to the timeout is preserved at
+        ``logs/agent_turns/turn_NNN.stream.jsonl``.
         """
         turn_index = self._turn_count
         self._turn_count += 1
 
         cmd = self._build_command(prompt)
         env = self._build_env()
+        stream_path = self._log_dir / f"turn_{turn_index:03d}.stream.jsonl"
         json_path = self._log_dir / f"turn_{turn_index:03d}.json"
         text_path = self._log_dir / f"turn_{turn_index:03d}.txt"
         prompt_path = self._log_dir / f"turn_{turn_index:03d}.prompt.txt"
         prompt_path.write_text(prompt)
 
+        # Spawn claude with line-buffered stdout so the streaming
+        # reader sees events as they're emitted, not in chunks at
+        # process exit.
+        proc = subprocess.Popen(
+            cmd,
+            cwd=self._workspace,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # line-buffered
+        )
+
+        # Holders mutated by the reader thread. We grab the latest
+        # ``type:"result"`` event for cost/text extraction; the stream
+        # file gets every line regardless.
+        last_result: dict[str, Any] | None = None
+        stderr_buf: list[str] = []
         started = time.monotonic()
+
+        assert proc.stdout is not None
+        assert proc.stderr is not None
+        stream_file = stream_path.open("w", encoding="utf-8")
+
+        def _stdout_reader() -> None:
+            nonlocal last_result
+            assert proc.stdout is not None
+            try:
+                for line in proc.stdout:
+                    # Persist every line as it arrives — this is the
+                    # "thought process" capture: thinking blocks, tool
+                    # calls, tool results, assistant messages, etc.
+                    stream_file.write(line)
+                    stream_file.flush()
+                    # Try to parse; on the result event, capture it.
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        obj = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(obj, dict) and obj.get("type") == "result":
+                        last_result = obj
+            except Exception:  # pragma: no cover (defensive)
+                pass
+
+        def _stderr_reader() -> None:
+            assert proc.stderr is not None
+            try:
+                for line in proc.stderr:
+                    stderr_buf.append(line)
+            except Exception:  # pragma: no cover
+                pass
+
+        out_thread = threading.Thread(target=_stdout_reader, daemon=True)
+        err_thread = threading.Thread(target=_stderr_reader, daemon=True)
+        out_thread.start()
+        err_thread.start()
+
+        timed_out = False
         try:
-            completed = subprocess.run(
-                cmd,
-                cwd=self._workspace,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
-                timeout=self._config.timeout_seconds,
-                check=False,
-            )
-            duration = time.monotonic() - started
-            stdout = completed.stdout
-            stderr = completed.stderr
-            returncode = completed.returncode
-            timed_out = False
-        except subprocess.TimeoutExpired as exc:
-            duration = time.monotonic() - started
-            stdout = _bytes_or_text(exc.stdout)
-            stderr = _bytes_or_text(exc.stderr)
+            proc.wait(timeout=self._config.timeout_seconds)
+            returncode = proc.returncode
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            # 5s grace for the kill to land; if claude is wedged we
+            # just give up and continue with returncode=124.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.wait(timeout=5)
             returncode = 124
             timed_out = True
 
-        # Best-effort JSON parse — claude --print --output-format=json
-        # writes a single JSON object on success. Failures (timeouts,
-        # crashes) may write nothing or partial text.
-        raw_json: dict[str, Any] | None = None
+        duration = time.monotonic() - started
+
+        # Drain the reader threads. Stdout/stderr are closed by the
+        # kill, so the threads will hit EOF and exit.
+        out_thread.join(timeout=5)
+        err_thread.join(timeout=5)
+        stream_file.close()
+        stderr = "".join(stderr_buf)
+
+        # Extract cost/usage/text from the captured result event (if any).
+        raw_json: dict[str, Any] | None = last_result
         text_response = ""
         cost_usd: float | None = None
         inner_num_turns: int | None = None
         usage: dict[str, int] | None = None
-        if stdout.strip():
-            try:
-                parsed = json.loads(stdout)
-                if isinstance(parsed, dict):
-                    raw_json = parsed
-                    # The 'result' field holds the agent's final text.
-                    result = parsed.get("result")
-                    if isinstance(result, str):
-                        text_response = result
-                    # Cost / usage are present in real claude responses
-                    # but absent in test stubs; tolerate both.
-                    raw_cost = parsed.get("total_cost_usd")
-                    if isinstance(raw_cost, (int, float)):
-                        cost_usd = float(raw_cost)
-                    raw_turns = parsed.get("num_turns")
-                    if isinstance(raw_turns, int):
-                        inner_num_turns = raw_turns
-                    raw_usage = parsed.get("usage")
-                    if isinstance(raw_usage, dict):
-                        # Keep only the int-valued fields that match
-                        # claude's documented usage shape; drop nested
-                        # dicts (server_tool_use, cache_creation, ...).
-                        usage = {
-                            k: int(v) for k, v in raw_usage.items()
-                            if isinstance(v, int)
-                        }
-            except json.JSONDecodeError:
-                # Non-JSON output (e.g., timeout buffer) — keep raw text.
-                text_response = stdout
+        if last_result is not None:
+            result = last_result.get("result")
+            if isinstance(result, str):
+                text_response = result
+            raw_cost = last_result.get("total_cost_usd")
+            if isinstance(raw_cost, (int, float)):
+                cost_usd = float(raw_cost)
+            raw_turns = last_result.get("num_turns")
+            if isinstance(raw_turns, int):
+                inner_num_turns = raw_turns
+            raw_usage = last_result.get("usage")
+            if isinstance(raw_usage, dict):
+                # Keep only int-valued fields; nested dicts
+                # (server_tool_use, cache_creation) are dropped to
+                # match the dict[str, int] type contract.
+                usage = {
+                    k: int(v) for k, v in raw_usage.items()
+                    if isinstance(v, int)
+                }
 
-        # Always persist what we got. JSON file may be empty on failure.
-        json_path.write_text(stdout if raw_json is None else json.dumps(raw_json, indent=2))
+        # Mirror the result event (or empty) to turn_NNN.json for
+        # backwards-compat — old consumers expect this single-file
+        # summary. Full stream is in turn_NNN.stream.jsonl.
+        json_path.write_text(
+            json.dumps(raw_json, indent=2) if raw_json is not None else ""
+        )
         text_path.write_text(_format_transcript(
             turn_index=turn_index,
             session_id=self._session_id,
@@ -243,7 +303,14 @@ class ClaudeAgent:
 
     def _build_command(self, prompt: str) -> list[str]:
         cfg = self._config
-        cmd: list[str] = [cfg.claude_binary, "--print", "--output-format", "json"]
+        # stream-json is mandatory for thought-process capture;
+        # --verbose is required by claude CLI when combining
+        # --print with stream-json output.
+        cmd: list[str] = [
+            cfg.claude_binary, "--print",
+            "--output-format", "stream-json",
+            "--verbose",
+        ]
         if not self._first_turn_done:
             cmd.extend(["--session-id", self._session_id])
         else:
@@ -278,14 +345,6 @@ def find_claude_binary() -> str | None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _bytes_or_text(value: bytes | str | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode(errors="replace")
-    return value
 
 
 def _format_transcript(

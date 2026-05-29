@@ -87,6 +87,32 @@ sys.stdout.write(json.dumps({
 sys.exit(0)
 """
 
+# Streaming stub: emits multiple JSON events (mimics what real claude
+# does with --output-format=stream-json) — assistant message, tool
+# use, tool result, then the terminal "result" event. Lets us verify
+# the harness captures the whole stream, not just the final event.
+_STUB_STREAMING = """
+import json, sys, os, time
+events = [
+    {"type": "system", "subtype": "init", "session_id": os.environ.get("HLBENCH_SESSION_ID", "?")},
+    {"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "let me write a policy"}]}},
+    {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Write", "input": {"file_path": "system/policy.py"}}]}},
+    {"type": "user", "message": {"content": [{"type": "tool_result", "content": "file written"}]}},
+    {"type": "result",
+     "subtype": "success",
+     "result": "wrote policy + submitted",
+     "session_id": os.environ.get("HLBENCH_SESSION_ID", "?"),
+     "total_cost_usd": 0.05,
+     "num_turns": 1,
+     "usage": {"input_tokens": 50, "output_tokens": 30}},
+]
+for ev in events:
+    sys.stdout.write(json.dumps(ev) + "\\n")
+    sys.stdout.flush()
+sys.exit(0)
+"""
+
+
 _STUB_FAIL = """
 import sys
 sys.stderr.write("simulated failure\\n")
@@ -139,11 +165,17 @@ def test_first_turn_uses_session_id_flag(tmp_path: Path) -> None:
     assert "--resume" not in args1
     assert "--resume" in args2
     assert "--session-id" not in args2
-    # Both must declare --print and JSON output.
+    # Both must declare --print, --verbose, and stream-json output
+    # (stream-json is required for thought-process capture; --verbose
+    # is required by the claude CLI when combining --print with
+    # stream-json output).
     for args in (args1, args2):
         assert "--print" in args
+        assert "--verbose" in args
         assert "--output-format" in args
-        assert "json" in args
+        # The flag value follows --output-format directly.
+        of_idx = args.index("--output-format")
+        assert args[of_idx + 1] == "stream-json"
 
 
 def test_allowed_tools_passed_through(tmp_path: Path) -> None:
@@ -345,3 +377,85 @@ def test_failed_turn_has_no_cost(tmp_path: Path) -> None:
     assert r.ok is False
     assert r.cost_usd is None
     assert r.usage is None
+
+
+# --------------------------- streaming capture ----------------------------
+
+
+def test_stream_jsonl_captures_full_event_stream(tmp_path: Path) -> None:
+    """A streaming stub emits 5 events: system/init, two assistant
+    messages (thinking + tool_use), tool_result, result. All must
+    land verbatim in ``turn_NNN.stream.jsonl`` so analysts can replay
+    the agent's thought process."""
+    stub = _make_stub_claude(tmp_path, body=_STUB_STREAMING)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    log_dir = tmp_path / "logs"
+    agent = ClaudeAgent(
+        workspace_dir=workspace, http_url="http://x", log_dir=log_dir,
+        config=ClaudeAgentConfig(claude_binary=str(stub)),
+    )
+    r = agent.run_turn("hi")
+    assert r.ok
+
+    # Per-turn stream file exists with one JSON object per line.
+    stream_path = log_dir / "turn_000.stream.jsonl"
+    assert stream_path.is_file()
+    events = [json.loads(line) for line in stream_path.read_text().splitlines() if line.strip()]
+    assert len(events) == 5
+    assert events[0]["type"] == "system"
+    assert events[1]["type"] == "assistant"
+    # The thinking block is preserved (this is the whole point).
+    thinking_block = events[1]["message"]["content"][0]
+    assert thinking_block["type"] == "thinking"
+    assert thinking_block["thinking"] == "let me write a policy"
+    # Tool use captured.
+    assert events[2]["message"]["content"][0]["type"] == "tool_use"
+    assert events[3]["message"]["content"][0]["type"] == "tool_result"
+    assert events[4]["type"] == "result"
+
+    # The terminal result event is also surfaced through TurnResult.
+    assert r.text == "wrote policy + submitted"
+    assert r.cost_usd == 0.05
+    assert r.usage == {"input_tokens": 50, "output_tokens": 30}
+
+    # turn_000.json mirrors just the result event (backwards-compat
+    # quick-access view).
+    json_only = json.loads((log_dir / "turn_000.json").read_text())
+    assert json_only["type"] == "result"
+    assert json_only["total_cost_usd"] == 0.05
+
+
+def test_stream_jsonl_exists_even_when_turn_times_out(tmp_path: Path) -> None:
+    """Real motivation for streaming: when a turn times out we still
+    have all events emitted up to the kill, so the agent's progress
+    is recoverable."""
+    # Stub that emits 3 events, then hangs forever. With timeout=1s
+    # the harness will kill after 1s but the 3 events should already
+    # be on disk.
+    stub_body = """
+import json, sys, time
+for i in range(3):
+    sys.stdout.write(json.dumps({"type":"assistant","msg":i}) + "\\n")
+    sys.stdout.flush()
+time.sleep(60)  # would block well past the harness timeout
+"""
+    stub = _make_stub_claude(tmp_path, body=stub_body)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    log_dir = tmp_path / "logs"
+    agent = ClaudeAgent(
+        workspace_dir=workspace, http_url="http://x", log_dir=log_dir,
+        config=ClaudeAgentConfig(claude_binary=str(stub), timeout_seconds=2),
+    )
+    r = agent.run_turn("hi")
+    assert r.timed_out
+    # No result event ⇒ no cost.
+    assert r.cost_usd is None
+    # But the partial stream is preserved.
+    stream_path = log_dir / "turn_000.stream.jsonl"
+    assert stream_path.is_file()
+    events = [json.loads(line) for line in stream_path.read_text().splitlines() if line.strip()]
+    assert len(events) == 3
+    assert all(e["type"] == "assistant" for e in events)
+    assert [e["msg"] for e in events] == [0, 1, 2]

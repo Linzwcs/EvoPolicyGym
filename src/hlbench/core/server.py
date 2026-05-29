@@ -28,6 +28,7 @@ from typing import Any
 import hlbench
 from hlbench.core import feedback as fb
 from hlbench.core import scoring
+from hlbench.core.harness_log import HarnessLog
 from hlbench.core.heldout import (
     HeldoutError,
     HeldoutResult,
@@ -239,12 +240,23 @@ class Server:
 
         # SubmitHandler needs workspace (for snapshot/feedback) and
         # checkpoints_dir (for per-submit code copies).
+        self._harness_log = HarnessLog(self._logs_dir / "harness.log")
         self._handler = SubmitHandler(
             env_def=self._env_def,
             seed_manager=self._sm,
             workspace_dir=self._workspace,
             config=self._submit_cfg,
             checkpoints_dir=self._checkpoints_dir,
+            harness_log=self._harness_log,
+        )
+        self._harness_log.event(
+            "run_start",
+            model=self._model,
+            env=env_id,
+            env_version=self._env_def.env_version,
+            exp_id=self._exp_id,
+            episode_budget=self._submit_cfg.episode_budget,
+            harness_version=hlbench.__version__,
         )
 
     # ------------- public API -------------------------------------------
@@ -344,8 +356,24 @@ class Server:
         if self._is_finalized:
             raise RuntimeError("submit() called after finalize(); run is closed")
 
+        self._harness_log.event(
+            "submit_received",
+            submit_index=self._state.n_submits,
+            n_episodes_requested=len(env_instances),
+            remaining_budget=self._state.remaining_budget,
+        )
         outcome: SubmitOutcome = self._handler.handle(env_instances, self._state)
         self._state = outcome.new_state
+        # Mean return is None on failure; format as "n/a" so the line
+        # stays scannable.
+        mean = outcome.summary.get("mean_return")
+        self._harness_log.event(
+            "submit_completed",
+            submit_index=outcome.submit_index,
+            status=outcome.status,
+            mean_return=mean if mean is not None else "n/a",
+            remaining_budget=outcome.new_state.remaining_budget,
+        )
         return SubmitResult(
             submit_id=outcome.submit_index,
             status=outcome.status,
@@ -382,6 +410,12 @@ class Server:
         # Mark finalized immediately so failures don't leave the door
         # open for more submits in an indeterminate state.
         self._is_finalized = True
+        self._harness_log.event(
+            "finalize_start",
+            n_submits=self._state.n_submits,
+            n_successful_submits=self._state.n_successful_submits,
+            episodes_used=self._state.n_episodes_executed,
+        )
 
         end_monotonic = time.monotonic()
         now = datetime.now(UTC)
@@ -492,7 +526,10 @@ class Server:
                     self._checkpoints_dir.relative_to(self._run_dir)
                 ) if _is_subpath(self._checkpoints_dir, self._run_dir)
                 else str(self._checkpoints_dir),
-                "logs_harness": None,   # not produced by MVP
+                "logs_harness": str(
+                    (self._logs_dir / "harness.log").relative_to(self._run_dir)
+                ) if _is_subpath(self._logs_dir, self._run_dir)
+                else str(self._logs_dir / "harness.log"),
                 "logs_agent": None,     # not produced by MVP
                 "logs_env": None,       # not produced by MVP
             },
@@ -516,6 +553,12 @@ class Server:
             final_submit_index=final_submit_index,
             error=error_obj,
             run_json_path=run_json_path,
+        )
+        self._harness_log.event(
+            "run_end",
+            status=outcome_status,
+            final_score=final_score if final_score is not None else "n/a",
+            wall_time_seconds=round(wall_time, 3),
         )
         return self._final_result
 

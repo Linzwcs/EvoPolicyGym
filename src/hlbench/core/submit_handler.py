@@ -31,6 +31,7 @@ from typing import Any
 
 from hlbench.core import feedback as fb
 from hlbench.core.env_runner import EpisodeRecord
+from hlbench.core.harness_log import HarnessLog
 from hlbench.core.sandbox import (
     Sandbox,
     SandboxConfig,
@@ -140,6 +141,7 @@ class SubmitHandler:
         workspace_dir: Path,
         config: SubmitConfig | None = None,
         checkpoints_dir: Path | None = None,
+        harness_log: HarnessLog | None = None,
     ) -> None:
         self._env_def = env_def
         self._sm = seed_manager
@@ -148,6 +150,7 @@ class SubmitHandler:
         self._checkpoints_dir = (
             Path(checkpoints_dir) if checkpoints_dir is not None else None
         )
+        self._log = harness_log if harness_log is not None else HarnessLog.disabled()
 
         self._system_dir = self._workspace / "system"
         self._feedback_dir = self._workspace / "feedback"
@@ -238,6 +241,17 @@ class SubmitHandler:
             )
             return outcome
 
+        # Snapshot is valid enough to size — log for observability.
+        snapshot_size = sum(
+            p.stat().st_size for p in (snapshot_dir / "system").rglob("*")
+            if p.is_file()
+        )
+        self._log.event(
+            "snapshot_taken",
+            submit_index=submit_index,
+            size_bytes=snapshot_size,
+        )
+
         # ---------- Phase 4-5: Spawn sandbox + init Policy ----------
         sandbox = Sandbox(
             snapshot_dir=snapshot_dir,
@@ -314,6 +328,16 @@ class SubmitHandler:
                 ep_dir.mkdir()
 
                 real_seed = self._sm.real_seed_for_instance(env_inst)
+                # NOTE: real_seed is intentionally NOT included in the
+                # log payload — exposing it would leak the
+                # env_instance→seed mapping (server-internal per
+                # SPEC §6.2 and CLAUDE.md invariant 3).
+                self._log.event(
+                    "episode_start",
+                    submit_index=submit_index,
+                    global_episode=global_i,
+                    env_instance=env_inst,
+                )
                 try:
                     rec = sandbox.run_episode(
                         real_seed=real_seed,
@@ -363,6 +387,14 @@ class SubmitHandler:
 
                 returns.append(rec.return_)
                 episode_lengths.append(rec.length)
+                self._log.event(
+                    "episode_end",
+                    submit_index=submit_index,
+                    global_episode=global_i,
+                    return_=rec.return_,
+                    length=rec.length,
+                    error=rec.error_category or "none",
+                )
 
                 if reward_components_per_episode:
                     for name in reward_components_per_episode:

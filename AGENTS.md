@@ -156,7 +156,7 @@ all files under `system/` that match the following criteria:
 - **Counted**: any file the agent created or modified — `.py`,
   `.json`, `.yaml`, `.yml`, `.npy`, `.npz`, `.csv`, `.txt`, `.md`,
   or any other extension. Hidden files (starting with `.`) are
-  counted too (including the agent's optional `.final_submit`).
+  counted too.
 - **Not counted (auto-excluded by the harness)**:
   - `__pycache__/` and `*.pyc` (Python bytecode cache)
   - `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/` (tool caches)
@@ -333,8 +333,10 @@ no fixed cadence imposed by the harness.
 
 When `remaining_budget == 0`, or when the agent declares the run
 finished, the most recent successful submit is used as the final
-policy for held-out evaluation (unless overridden via
-`system/.final_submit`; see SPEC.md §5.4).
+policy for held-out evaluation. There is no agent-side override; if
+you want to go back to an earlier policy, overwrite `system/` from
+your own backup (or from the run's `checkpoints/submit_NNN/` dir,
+which the harness maintains) and issue a fresh submit.
 
 Held-out evaluation is run by the harness once. The agent does not
 see its seeds, parameters, or per-episode results — only the final

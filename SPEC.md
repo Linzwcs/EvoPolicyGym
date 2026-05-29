@@ -25,9 +25,8 @@ workspace/
 │   │   └── filters.py
 │   ├── memory/          # example: persistent state across submits
 │   │   └── stats.json
-│   ├── tests/           # example: agent-authored self-tests (agent runs them itself)
-│   │   └── test_pid.py
-│   └── .final_submit    # optional: agent designates a specific submit as final
+│   └── tests/           # example: agent-authored self-tests (agent runs them itself)
+│       └── test_pid.py
 └── feedback/            # populated by server directly into shared workspace
     ├── submit_000/
     ├── submit_001/
@@ -1308,13 +1307,23 @@ negative-reward envs (Pendulum, expert ~ -150).
 > (`0.5 × -150 = -75` is *better than* expert). The normalized
 > formulation above is the implementation in `hlbench.core.scoring`.
 
-### 5.4 Explicit Final Submit Designation
+### 5.4 Final Policy Selection
 
-By default, the final policy is the most recent successful submit.
-An agent may override this by writing the desired submit index to
-`system/.final_submit` (a single integer) before the budget is
-exhausted. This is useful when the agent suspects regression in
-recent submits.
+The final policy used for held-out evaluation is **always the most
+recent submit with `status == "ok"`**. There is no per-run override
+file or agent-side designation mechanism.
+
+If an agent wants to "go back" to an earlier policy, it should
+overwrite ``system/`` with the desired code (the per-submit
+``checkpoints/submit_NNN/`` directory under the run dir preserves
+every prior snapshot, so the agent can simply copy from there) and
+issue a fresh submit. The new submit becomes the most recent ok and
+will be used at finalize time.
+
+Rationale: the override mechanism adds spec/UX surface (a magic
+filename, validation rules for the index, a Phase 7 branch in
+finalize) for an edge case that's already addressable via the normal
+submit loop.
 
 ---
 

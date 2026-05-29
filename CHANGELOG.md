@@ -104,8 +104,6 @@ which blocks forever, and the deferred `oom` partial-execute path).
 - `observations.npy` external-obs storage: not implemented (Pendulum
   only needs inline).
 - 64KB error-file truncation cap: not implemented.
-- `system/.final_submit` agent-designated final policy: not
-  honored (always uses the most recent successful submit).
 - Per-submit code snapshots in `checkpoints/`: not produced.
 - `agent.jsonl` / `harness.log` / `env.log`: not produced.
 - Only Pendulum-v1 ships; HalfCheetah / CarRacing / Atari are on

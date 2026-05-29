@@ -218,6 +218,16 @@ class Server:
         self._logs_dir = self._run_dir / "logs"
         self._logs_dir.mkdir(exist_ok=True)
 
+        # Stage the env's starter policy (if it registered one) into
+        # ``workspace/system/policy.py`` — but only when no policy.py
+        # exists yet. This way:
+        #   - first run: agent sees a valid skeleton on turn 0
+        #   - re-init or resumed run: agent's prior edits are preserved
+        policy_dst = self._workspace / "system" / "policy.py"
+        starter_src = self._env_def.starter_policy_path
+        if starter_src is not None and starter_src.exists() and not policy_dst.exists():
+            shutil.copy(starter_src, policy_dst)
+
         # Stage AGENTS.md (the only static doc in the workspace; TASK.md is
         # served via GET /task per CLAUDE.md invariant 5).
         src = agents_md_path or _REPO_ROOT_AGENTS_MD

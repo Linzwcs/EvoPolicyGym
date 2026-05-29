@@ -43,6 +43,12 @@ class EnvDefinition:
     # ``GET /task``. Never staged into the workspace. If None or missing,
     # the server returns a minimal placeholder.
     task_md_path: Path | None = None
+    # Optional per-env starter Policy. Server copies it into
+    # ``workspace/system/policy.py`` at run init *if no policy.py exists
+    # yet*. The starter MUST be a valid (but optionally bad) Policy so
+    # turn 0's first submit can succeed and the agent immediately sees
+    # the contract for ``__init__`` / ``reset`` / ``act``.
+    starter_policy_path: Path | None = None
     extras: dict[str, Any] = field(default_factory=dict)
 
     def public_env_meta(self) -> dict[str, Any]:
@@ -82,6 +88,7 @@ def register_env(
     obs_storage: str = "inline",
     reward_components: dict[str, str] | None = None,
     task_md_path: Path | None = None,
+    starter_policy_path: Path | None = None,
     **extras: Any,
 ) -> None:
     """Register an env. Typically called from envs/<id>/__init__.py."""
@@ -104,6 +111,7 @@ def register_env(
         obs_storage=obs_storage,
         reward_components=reward_components,
         task_md_path=task_md_path,
+        starter_policy_path=starter_policy_path,
         extras=extras,
     )
 

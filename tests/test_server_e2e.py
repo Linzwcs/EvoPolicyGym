@@ -263,9 +263,14 @@ def test_finalize_is_idempotent_and_blocks_further_submits(
 
 def test_finalize_writes_error_when_no_policy_exists(tmp_path: Path) -> None:
     """A run that never had a working Policy still produces run.json,
-    with status='error' rather than crashing in finalize()."""
+    with status='error' rather than crashing in finalize().
+
+    Pendulum now ships a starter policy that ``Server.__init__`` copies
+    into ``workspace/system/policy.py`` — we delete it here to recreate
+    the "no policy at all" scenario."""
     srv = Server(env_id="pendulum", runs_root=tmp_path / "runs")
-    # Don't stage policy.py — heldout init will fail.
+    # Wipe the auto-staged starter so heldout init has nothing to load.
+    (srv.workspace_dir / "system" / "policy.py").unlink()
     result = srv.finalize()
     assert result.status == "error"
     assert result.final_score is None
@@ -276,6 +281,37 @@ def test_finalize_writes_error_when_no_policy_exists(tmp_path: Path) -> None:
     doc = json.loads(result.run_json_path.read_text())
     assert doc["outcome"]["status"] == "error"
     assert doc["outcome"]["error"]["type"] == "HeldoutError"
+
+
+def test_starter_policy_auto_staged(tmp_path: Path) -> None:
+    """``Server.__init__`` copies the env's starter policy into
+    ``workspace/system/policy.py`` so the agent has a valid skeleton on
+    turn 0. Pendulum's starter is the zero-torque baseline shipped at
+    ``src/hlbench/envs/pendulum/starter_policy.py``."""
+    srv = Server(env_id="pendulum", runs_root=tmp_path / "runs")
+    policy_path = srv.workspace_dir / "system" / "policy.py"
+    assert policy_path.is_file()
+    # Sanity check: the starter is a real Policy class, not a placeholder.
+    src = policy_path.read_text()
+    assert "class Policy" in src
+    assert "def act" in src
+    assert "def __init__" in src
+    assert "def reset" in src
+
+
+def test_starter_policy_not_overwritten_if_present(tmp_path: Path) -> None:
+    """Re-instantiating Server on an existing run dir must NOT clobber
+    a policy.py the agent already wrote."""
+    runs_root = tmp_path / "runs"
+    srv1 = Server(env_id="pendulum", runs_root=runs_root, exp_id="reuse")
+    policy_path = srv1.workspace_dir / "system" / "policy.py"
+    policy_path.write_text("# my own policy\nclass Policy: ...\n")
+
+    # Re-init with the same exp_id ⇒ same workspace.
+    srv2 = Server(env_id="pendulum", runs_root=runs_root, exp_id="reuse")
+    assert srv2.workspace_dir == srv1.workspace_dir
+    # Existing content is preserved; starter not re-staged.
+    assert policy_path.read_text() == "# my own policy\nclass Policy: ...\n"
 
 
 # ---------- checkpoints (output.md §5) ----------

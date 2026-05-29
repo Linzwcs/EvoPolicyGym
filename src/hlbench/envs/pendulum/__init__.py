@@ -43,6 +43,7 @@ register_env(
     train_seeds_path=_HERE / "train.json",
     heldout_seeds_path=_HERE / "heldout.json",
     task_md_path=_HERE / "TASK.md",
+    starter_policy_path=_HERE / "starter_policy.py",
     n_env_instances=256,
     obs_storage="inline",
     reward_components=None,

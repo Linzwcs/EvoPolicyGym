@@ -52,10 +52,15 @@ You have these tools available:
 
 ## The loop you should run, in your head and in code
 
-  1. Examine the task. Sketch a policy strategy.
-  2. Write ``workspace/system/policy.py``. The class MUST be named
-     ``Policy`` with ``__init__(obs_space, action_space, env_meta)``,
-     ``reset(episode_index)``, ``act(obs) -> action`` methods.
+  1. Examine the task. **A starter ``Policy`` is already at
+     ``system/policy.py`` with the correct class name + method
+     signatures + a zero-action baseline.** Read it first; the
+     comments inside double as the canonical contract for
+     ``__init__`` / ``reset`` / ``act``.
+  2. Edit ``system/policy.py``. The ``Policy`` class name + method
+     signatures MUST stay as in the starter (``__init__(obs_space,
+     action_space, env_meta)``, ``reset(episode_index)``,
+     ``act(obs) -> action``); only the implementation changes.
   3. POST /submit with a small batch (4–8 env_instances) to probe.
   4. Read ``workspace/feedback/submit_<latest>/summary.json``. Look at
      ``mean_return``, ``std_return``, ``returns`` per episode, plus
@@ -168,10 +173,12 @@ you is one "turn"; you have up to {max_turns} turns total.
 
 ## What to do this turn
 
-Start the loop. On turn 0: read the task, design a starter policy,
-write ``system/policy.py``, POST a small probe submit, read the
-feedback. Future turns will resume this same session, so you can refer
-back to what you did this turn.
+Start the loop. On turn 0: read the task (above), open the
+auto-staged ``system/policy.py`` and skim it to lock in the
+``Policy`` contract, replace the body of ``act()`` with your first
+controller idea, POST a small probe submit (e.g. 4 env_instances),
+and read the feedback. Future turns will resume this same session,
+so you can refer back to what you did this turn.
 
 When you reply, end with a one-line status of what you did so the
 harness can log it.

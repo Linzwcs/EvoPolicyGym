@@ -38,11 +38,11 @@ jobs:
       - name: Lint (ruff)
         # Match the local quality-gate paths from
         # docs/dogfood.md / project_venv_and_test_runner memory.
-        run: ruff check src/ hlbench_cli/ hlbench_harness/ tests/ scripts/
+        run: ruff check src/ tests/ scripts/
 
       - name: Type-check (mypy --strict)
         # tool.mypy in pyproject already pins strict + python_version 3.12.
-        run: mypy src/hlbench/ hlbench_cli/ hlbench_harness/
+        run: mypy src/
 
       - name: Run tests
         # -ra surfaces skipped/xfailed reasons; --strict-markers comes

@@ -149,7 +149,7 @@ def test_parser_requires_subcommand() -> None:
 def test_agent_subcommand_parses() -> None:
     """``hlbench agent ...`` is registered alongside the manual
     subcommands, and the harness flag definitions show up under it
-    (single source of truth in hlbench_harness/__main__.py)."""
+    (single source of truth in src/hlbench_harness/__main__.py)."""
     p = _build_parser()
     args = p.parse_args([
         "agent",

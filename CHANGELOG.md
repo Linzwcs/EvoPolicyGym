@@ -85,12 +85,27 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Consumer packages relocated under `src/` (standard src layout).**
+  ``hlbench_cli/`` and ``hlbench_harness/`` moved from repo root to
+  ``src/hlbench_cli/`` and ``src/hlbench_harness/`` — they're now
+  siblings of ``src/hlbench/`` rather than top-level repo entries.
+  pyproject's ``packages.find.where`` simplifies to just ``["src"]``.
+  Lib/consumer separation is preserved at the package-boundary level:
+  ``hlbench`` is the library, the other two are consumers that import
+  it. Import paths (``from hlbench_cli.main import ...``) are
+  unchanged — setuptools' ``package-dir`` mapping resolves both.
+- **Per-env seed pools moved to ``data/`` subdirectories.**
+  ``src/hlbench/envs/pendulum/{train,heldout}.json`` →
+  ``src/hlbench/envs/pendulum/data/{train,heldout}.json``. Separates
+  frozen seed data from executable env code; future envs follow the
+  same shape (``src/hlbench/envs/<env_id>/data/``). Wheel-install
+  friendly via ``package-data`` glob (``data/*.json``).
 - **Console scripts unified under ``hlbench``**: the standalone
   ``hlbench-agent`` console script is removed; its functionality moves
   to ``hlbench agent`` as a subcommand of the main CLI. Flag
-  definitions still live in ``hlbench_harness/__main__.py`` (the
-  single source of truth) — ``hlbench_cli/main.py`` mounts them via
-  ``add_subparser_args()``. The ``python -m hlbench_harness ...``
+  definitions still live in ``src/hlbench_harness/__main__.py`` (the
+  single source of truth) — ``src/hlbench_cli/main.py`` mounts them
+  via ``add_subparser_args()``. The ``python -m hlbench_harness ...``
   fallback continues to work for ad-hoc invocation without the
   console script. Discoverability win: ``hlbench --help`` now lists
   all six operations (``init`` / ``serve`` / ``info`` / ``submit`` /

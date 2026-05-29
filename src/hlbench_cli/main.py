@@ -280,8 +280,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # The agent subcommand delegates to hlbench_harness. The flag
     # definitions live there (single source of truth) so adding a flag
-    # in hlbench_harness/__main__.py:add_subparser_args() lights it up
-    # here without touching the CLI module.
+    # in src/hlbench_harness/__main__.py:add_subparser_args() lights it
+    # up here without touching the CLI module.
     p_agent = sub.add_parser(
         "agent",
         help="run an automated Claude Code eval loop end-to-end",

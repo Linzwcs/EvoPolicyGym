@@ -15,12 +15,13 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                          consumers (outside src/)                    │
+│         consumer packages (siblings of hlbench under src/)           │
 │                                                                      │
-│  hlbench_cli/        ←─── thin HTTP client (init/serve/info/submit/  │
-│                            finalize subcommands)                     │
+│  src/hlbench_cli/     ←─── thin HTTP client (init/serve/info/submit/ │
+│                            finalize subcommands) + `agent` thin      │
+│                            wrapper that delegates to hlbench_harness │
 │                                                                      │
-│  hlbench_harness/    ←─── automated eval driver; spawns claude       │
+│  src/hlbench_harness/ ←─── automated eval driver; spawns claude      │
 │                            --print and reads back stream events      │
 │                                                                      │
 │  agents/             ←─── reference policies (e.g. pd_pendulum)      │
@@ -88,15 +89,15 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 | `core/harness_log.py` | 104 | Plain-text lifecycle log writer for `<run_dir>/logs/harness.log`. No-op via `.disabled()`. |
 | `http_server.py` | 201 | stdlib `http.server` thin wrapper. 4 endpoints: `GET /info`, `GET /task`, `POST /submit`, `POST /finalize`. |
 | `envs/registry.py` | 128 | `EnvDefinition` dataclass + `register_env()` + `get_env()`. |
-| `envs/pendulum/` | 145 | The only registered env. `__init__.py` (registration call), `starter_policy.py` (zero-torque skeleton), `TASK.md`, `train.json`, `heldout.json`. |
+| `envs/pendulum/` | 145 | The only registered env. `__init__.py` (registration call), `starter_policy.py` (zero-torque skeleton), `TASK.md`, `data/{train,heldout}.json`. |
 
-### 2.2 `hlbench_cli/` — argparse HTTP client
+### 2.2 `src/hlbench_cli/` — argparse HTTP client
 
 | Module | LOC | Role |
 |---|---:|---|
 | `main.py` | 284 | `hlbench {init,serve,info,submit,finalize}`. `init` + `serve` use `Server` directly (lib); the rest are pure HTTP clients. |
 
-### 2.3 `hlbench_harness/` — automated Claude Code driver
+### 2.3 `src/hlbench_harness/` — automated Claude Code driver
 
 | Module | LOC | Role |
 |---|---:|---|
@@ -156,7 +157,7 @@ Each phase's failure is recorded by one of `_fail_pre_consume` /
 inside Phase 6 (`reset_error` / `act_error` / `act_timeout`) DON'T
 change the submit verdict — they go in per-episode `error.txt`.
 
-### 3.3 Harness loop (hlbench_harness/runner.py)
+### 3.3 Harness loop (src/hlbench_harness/runner.py)
 
 ```
 HarnessRunner.run():
@@ -209,10 +210,14 @@ ClaudeAgent.run_turn(prompt):
 
 ### 4.1 Library / consumer separation
 
-`src/hlbench/` contains the server lib only. Anything that USES
-`Server` (CLI, agents, harness, scripts) lives outside. The HTTP
-wrapper (`http_server.py`) is a carve-out — it's transport for the
-lib, not a consumer of it.
+`src/hlbench/` contains the server lib only. Consumer packages
+(`src/hlbench_cli/`, `src/hlbench_harness/`) live as **siblings**
+under `src/`, not nested inside `src/hlbench/`. This keeps the
+"what's the public API of the lib" boundary visible (only modules
+under `src/hlbench/` are part of it) while still enjoying the
+benefits of the standard Python src layout (every Python package
+in one place). The HTTP wrapper (`src/hlbench/http_server.py`) is
+a carve-out — it's transport for the lib, not a consumer of it.
 
 ### 4.2 HTTP-first for agents
 

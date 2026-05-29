@@ -163,6 +163,7 @@ class Server:
         overrides = config_overrides or {}
         unknown = set(overrides) - {
             "episode_budget", "min_episodes_per_submit", "max_episodes_per_submit",
+            "submit_wall_s",
             "act_wall_s", "init_wall_s", "episode_wall_s", "max_rss_bytes",
         }
         if unknown:
@@ -180,6 +181,7 @@ class Server:
             episode_budget=overrides.get("episode_budget", 256),
             min_episodes_per_submit=overrides.get("min_episodes_per_submit", 1),
             max_episodes_per_submit=overrides.get("max_episodes_per_submit", 256),
+            submit_wall_s=overrides.get("submit_wall_s", SubmitConfig.submit_wall_s),
             sandbox=sandbox_cfg,
         )
 
@@ -304,7 +306,7 @@ class Server:
                 "system_single_file_bytes": 5 * 1024 * 1024,
                 "act_wall_ms": int(sb.act_wall_s * 1000),
                 "policy_load_wall_s": int(sb.init_wall_s),
-                "submit_wall_s": int(sb.episode_wall_s * cfg.max_episodes_per_submit),
+                "submit_wall_s": int(cfg.submit_wall_s),
                 "submit_peak_rss_bytes": sb.max_rss_bytes or 0,
             },
 

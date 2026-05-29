@@ -62,13 +62,17 @@ class SubmitConfig:
     """Static run-level limits. Mirrors SPEC §1.1 ``resource_limits`` plus
     budget rules. ``sandbox`` carries the per-process wall-times.
 
-    For MVP, ``system_total_bytes`` and ``denied_imports`` exist as fields
-    but are not enforced (Phase 2/3 oversize and denied_import checks are
-    post-MVP per architecture.md §4.4)."""
+    For MVP, ``system_total_bytes`` exists as an advisory field but is
+    not enforced (Phase 2 oversize check is post-MVP)."""
 
     episode_budget: int = 256
     min_episodes_per_submit: int = 1
     max_episodes_per_submit: int = 256
+    #: SPEC §4.1: total Phase 6 wall-time cap. Exceeding it aborts
+    #: remaining episodes with status=submit_wall_exceeded (partial
+    #: episodes already done are preserved). Default 300s matches the
+    #: SPEC §1.1 ``resource_limits.submit_wall_s`` placeholder.
+    submit_wall_s: float = 300.0
     sandbox: SandboxConfig = field(default_factory=SandboxConfig)
 
 
@@ -273,7 +277,38 @@ class SubmitHandler:
             }
 
             max_steps = self._env_def.max_episode_steps
+            phase6_start = time.monotonic()
             for local_i, env_inst in enumerate(env_instances):
+                # SPEC §4.1: check submit_wall_s budget BEFORE each
+                # episode runs. Partial completion is allowed — any
+                # episodes already in `returns` keep their artifacts
+                # and contribute to the partial summary (submit-protocol
+                # §3.3 dual-existence: episodes/ + errors.txt).
+                if time.monotonic() - phase6_start > cfg.submit_wall_s:
+                    elapsed = time.monotonic() - phase6_start
+                    outcome = self._fail_partial_execute(
+                        state, submit_index, submit_dir, env_instances,
+                        category="submit_wall_exceeded",
+                        message=(
+                            f"submit wall time {elapsed:.1f}s exceeded "
+                            f"{cfg.submit_wall_s}s cap after {local_i} "
+                            f"of {len(env_instances)} episodes"
+                        ),
+                        started_at=started_at, t0=t0,
+                        partial_returns=returns,
+                        partial_lengths=episode_lengths,
+                        partial_timeouts=timeouts,
+                        partial_errors=errors,
+                        first_global=first_global,
+                        episodes_executed=local_i,
+                    )
+                    self._maybe_checkpoint(
+                        outcome, snapshot_dir=snapshot_dir,
+                        started_at=started_at,
+                        remaining_before=state.remaining_budget,
+                    )
+                    return outcome
+
                 global_i = first_global + local_i
                 ep_dir = episodes_dir / fb.episode_dir_name(global_i, self._dir_width)
                 ep_dir.mkdir()

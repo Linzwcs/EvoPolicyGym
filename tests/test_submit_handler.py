@@ -55,6 +55,8 @@ def _make_handler(
     max_per_submit: int = 256,
     act_wall_s: float = 1.0,
     init_wall_s: float = 30.0,
+    episode_wall_s: float = 60.0,
+    submit_wall_s: float = 300.0,
 ) -> SubmitHandler:
     sm = SeedManager(
         pendulum_env_def.train_seeds_path,
@@ -67,7 +69,12 @@ def _make_handler(
         config=SubmitConfig(
             episode_budget=episode_budget,
             max_episodes_per_submit=max_per_submit,
-            sandbox=SandboxConfig(act_wall_s=act_wall_s, init_wall_s=init_wall_s),
+            submit_wall_s=submit_wall_s,
+            sandbox=SandboxConfig(
+                act_wall_s=act_wall_s,
+                init_wall_s=init_wall_s,
+                episode_wall_s=episode_wall_s,
+            ),
         ),
     )
 
@@ -504,3 +511,74 @@ def test_init_print_folded_into_first_episode_stdout(tmp_path, pendulum_env_def)
     assert "hello from __init__" in (ep0_dir / "stdout.txt").read_text()
     # Second episode doesn't re-capture init output.
     assert "hello from __init__" not in (ep1_dir / "stdout.txt").read_text()
+
+
+# -------------------- submit_wall_s enforcement (SPEC §4.1) --------------
+
+
+def test_submit_wall_exceeded_aborts_after_partial_completion(
+    tmp_path, pendulum_env_def,
+):
+    """SPEC §4.1 + submit-protocol §3.3: when total Phase 6 wall time
+    exceeds submit_wall_s, remaining episodes are aborted with verdict
+    submit_wall_exceeded; episodes that already completed retain their
+    artifacts and the partial summary."""
+    body = """
+        import time
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+            def reset(self, episode_index):
+                # ~1.5s per episode → 2 episodes fit in a 3s budget,
+                # 3rd trips the cap.
+                time.sleep(1.5)
+            def act(self, obs):
+                return [0.0]
+    """
+    ws = _write_workspace(tmp_path, body)
+    # episode_wall_s generous (must exceed sleep + 200 fast act() calls);
+    # submit_wall_s tight (kills the loop after ~2 episodes).
+    handler = _make_handler(
+        pendulum_env_def, ws,
+        episode_wall_s=10.0,
+        submit_wall_s=3.0,
+    )
+
+    state = SubmitState(remaining_budget=10)
+    outcome = handler.handle([0, 1, 2, 3, 4], state)
+
+    assert outcome.status == "submit_wall_exceeded"
+    # Full N consumed regardless of partial completion (SPEC §4.1 budget rule).
+    assert outcome.new_state.remaining_budget == 5
+    # At least 1 episode completed before the cap; not all 5.
+    summary = outcome.summary
+    assert summary["returns"] is not None
+    assert 1 <= len(summary["returns"]) < 5, (
+        f"unexpected partial count: {len(summary['returns'])}"
+    )
+    # Both feedback artifacts coexist: errors.txt + episodes/ (the only
+    # verdict-pair where this is allowed, submit-protocol §3.3).
+    submit_dir = ws / "feedback" / "submit_000"
+    assert (submit_dir / "errors.txt").exists()
+    assert (submit_dir / "episodes").is_dir()
+    err = json.loads((submit_dir / "errors.txt").read_text().strip())
+    assert err["category"] == "submit_wall_exceeded"
+    assert "3.0s" in err["message"] or "3s" in err["message"]
+    # Each completed episode has a full directory.
+    n_completed = len(summary["returns"])
+    assert sorted((submit_dir / "episodes").iterdir()) == sorted(
+        (submit_dir / "episodes" / f"ep_{i:03d}") for i in range(n_completed)
+    )
+
+
+def test_submit_wall_s_default_does_not_fire_in_normal_run(
+    tmp_path, pendulum_env_def,
+):
+    """Sanity: with default 300s submit_wall_s, a normal PD submit does
+    NOT trip the cap."""
+    ws = _write_workspace(tmp_path, _GOOD_PD_POLICY)
+    handler = _make_handler(pendulum_env_def, ws)
+    state = SubmitState(remaining_budget=10)
+    outcome = handler.handle([0, 1, 2], state)
+    assert outcome.status == "ok"
+    assert outcome.summary["wall_time_seconds"] < 60.0  # well under 300s

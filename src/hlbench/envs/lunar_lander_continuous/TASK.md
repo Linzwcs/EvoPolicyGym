@@ -75,15 +75,3 @@ average return ≥ +200.
   appropriate bonus/penalty. Truncates at 1000 steps if still aloft.
 - Initial state: lander near top-center with a small random push.
 
-## Strategy hints
-
-A do-nothing policy (`[0, 0]`) falls under gravity and crashes — return
-≈ -150. The classical approaches:
-
-  - **Hover-then-descend PD**: throttle main engine to balance gravity
-    (~0.5), use side thruster to keep angle near 0 and x near 0; throttle
-    down once close to the pad. Cheap to write, gets ~+100.
-  - **Bang-bang reactive controller** on vertical velocity + angle.
-  - **MPC / LQR** around the hover equilibrium.
-  - **Trained PPO/SAC** — also fair game; the dense shaping reward
-    makes this one of the easier RL targets.

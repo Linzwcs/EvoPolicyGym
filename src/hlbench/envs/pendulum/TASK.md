@@ -105,10 +105,3 @@ by `0`. There are no `reward_components`.
   by integer ID in `[0, n_env_instances)`. Submitting to the same ID
   twice gives you the same trajectory under a deterministic policy.
 
-## Strategy hints
-
-A pure linear PD on `(theta, theta_dot)` cannot swing the pendulum up
-from the bottom — control torque saturates (`|u| ≤ 2`) and gravity
-dominates. A common approach is a two-regime controller: energy
-pumping when far from upright, PD when close. Other approaches (LQR,
-MPC, RL trained from rollout data) are also fair game.

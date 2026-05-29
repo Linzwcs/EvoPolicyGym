@@ -19,6 +19,24 @@ game is here. Anything not in this file is not a rule.
 
 Everything else operationalizes this.
 
+## 1.1 Your Goal
+
+**Maximize `final_score` (§9).** Spend the entire episode budget
+iterating; do not settle on the first policy that compiles or merely
+produces non-zero return. The held-out evaluation rewards how high
+you push policy quality, not how quickly you stop.
+
+Concretely:
+- Use the full `episode_budget` — every unspent episode is signal
+  you didn't gather.
+- After each submit, **diagnose** before re-submitting: read
+  per-episode returns, trajectories, errors. Don't just guess.
+- Try different ideas if the current direction plateaus. Re-using
+  the same env_instance IDs across attempts lets you control
+  variance and compare apples-to-apples.
+- You're being judged on the policy's quality on **unseen seeds** —
+  in-loop returns are a proxy, not the target.
+
 ---
 
 ## 2. Workspace Layout
@@ -148,8 +166,8 @@ resolve naturally:
 
 ```python
 # In system/policy.py
-from controllers.pid import PIDController
-from utils.filters import lowpass
+from controllers.main import Controller
+from utils.helpers import preprocess
 import json
 ```
 
@@ -343,16 +361,13 @@ preferences. **Violation disqualifies the run.**
 
 ## 7. Method Neutrality
 
-hlbench-pro does not prescribe how to solve a task. Permitted:
-rule-based controllers, classical control (PID/LQR/MPC), search
-& planning (MCTS/A*/sampling-MPC), networks trained from scratch
-on rollout data, hybrid combinations, anything else within §4
-and §6.
+hlbench-pro does not prescribe how to solve a task. **Any approach
+that respects §4 (sandbox) and §6 (anti-hack) is fair game** — the
+benchmark scores the resulting policy, not the method used to produce
+it.
 
-The rollout budget is intentionally tight. Methods that need many
-trials (e.g., training PPO/SAC from scratch) typically underperform
-methods that extract more information per episode. **This is an
-outcome of the budget, not a prohibition.**
+The rollout budget is intentionally tight. How to spend it
+efficiently is itself part of what's being tested.
 
 ---
 

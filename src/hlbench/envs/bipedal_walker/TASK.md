@@ -72,16 +72,3 @@ Solved threshold per the gym docs: average return ≥ +300.
   terrain. `truncated=true` at step 1600 if still upright;
   `terminated=true` immediately on hull-ground contact.
 
-## Strategy hints
-
-Random torque flops the hull into the ground in a few steps. The
-classical baselines:
-
-  - **Hand-crafted gait**: alternating sinusoidal hip/knee oscillation
-    at the natural step frequency. Gets you walking but not fast.
-  - **Open-loop scripted gait** with phase = step_count: simple
-    function of `t` produces a passable walk on flat terrain.
-  - **Trained PPO/SAC**: state-of-the-art ~+320, takes ~5M steps to
-    train. Out of reach with our submit budget — but a pretrained
-    architecture sketched at small scale can reach +50 to +150.
-  - **Reactive controller using LIDAR**: react to upcoming bumps.

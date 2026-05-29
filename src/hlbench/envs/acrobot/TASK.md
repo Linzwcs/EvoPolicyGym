@@ -99,16 +99,3 @@ therefore in `[-500, -1]`: better policies finish sooner.
 - Initial state at `reset()` is the down-hanging equilibrium with each
   state component perturbed uniformly in `[-0.1, 0.1]`.
 
-## Strategy hints
-
-Naive constant torque does very little — the system has to build energy
-by pumping at the natural frequency. Common approaches:
-
-  - **Energy-based swing-up**: increase total energy until it exceeds
-    the up-equilibrium energy, then switch to stabilization.
-  - **LQR around the up-equilibrium** once linearization holds (close
-    to upright AND low angular velocity).
-  - **Discrete-action heuristic on `theta2_dot` sign** — push elbow
-    in the direction it's already moving when the system is below
-    horizontal, brake when above. Surprisingly effective baseline.
-  - **RL trained from rollout data** (PPO / DQN) — also fair game.

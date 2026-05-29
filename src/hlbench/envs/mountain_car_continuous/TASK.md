@@ -93,19 +93,3 @@ amortized over the swing-up steps).
 - Initial state at `reset()` is `position ∈ [-0.6, -0.4]` uniform,
   `velocity = 0`.
 
-## Strategy hints
-
-Pure positive throttle gets the car partway up the right hill, gravity
-pulls it back, and so on indefinitely — without smart oscillation it
-never reaches the flag and the episode times out at 999 steps.
-
-Common approaches:
-
-  - **Bang-bang on velocity sign**: push in the direction the car is
-    already moving (`u = sign(velocity)`). Simple and surprisingly
-    effective once velocity exceeds a small threshold.
-  - **Energy pumping**: similar idea explicit in physics: `u = sign(velocity)`
-    when total energy is below the threshold needed to reach the flag.
-  - **Constant rightward push** — fails: the car oscillates near
-    the valley but never builds enough energy.
-  - **Trained policy** (PPO / SAC) — also fair game.

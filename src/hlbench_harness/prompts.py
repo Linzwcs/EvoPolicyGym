@@ -64,13 +64,18 @@ You have these tools available:
   3. POST /submit with a small batch (4–8 env_instances) to probe.
   4. Read ``workspace/feedback/submit_<latest>/summary.json``. Look at
      ``mean_return``, ``std_return``, ``returns`` per episode, plus
-     ``timeouts`` / ``errors`` if any.
+     ``timeouts`` / ``errors`` if any. **Diagnose before iterating** —
+     read trajectory.jsonl if mean is bad, look for which episodes
+     went wrong and what step the failure occurred at.
   5. Refine the policy and resubmit. Use larger batches once you trust
      the design (8–16 for high-confidence comparison).
-  6. Keep iterating until ``remaining_budget`` reaches 0. **You do not
-     need to (and should not) trigger finalization yourself** — the
-     harness calls the held-out evaluator automatically once your
-     budget is spent.
+  6. Keep iterating until ``remaining_budget`` reaches 0. **Your goal
+     is to push ``final_score`` as high as you can** — don't stop at
+     the first policy that compiles or merely produces non-zero
+     return. Try different strategies if the current direction
+     plateaus. **You do not need to (and should not) trigger
+     finalization yourself** — the harness calls the held-out
+     evaluator automatically once your budget is spent.
 
 ## Rules of the game
 
@@ -220,10 +225,14 @@ def compose_continuation_prompt(obs: TurnObservation, *, max_turns: int) -> str:
         )
     else:
         nudge = (
-            "Continue iterating: read the latest feedback, refine "
-            "``system/policy.py``, submit again. Use the remaining budget — "
-            "the harness will finalize automatically when it hits 0 or "
-            "the turn cap is reached."
+            "Continue iterating to **maximize final_score**: read the "
+            "latest feedback (per-episode returns in summary.json; step "
+            "details in trajectory.jsonl), diagnose what's still wrong, "
+            "refine ``system/policy.py``, submit again. Use the remaining "
+            "budget — every unspent episode is signal you didn't gather. "
+            "If your current approach has plateaued, try something "
+            "different. The harness will finalize automatically when "
+            "budget hits 0 or the turn cap is reached."
         )
 
     return _CONTINUATION_PROMPT_TEMPLATE.format(

@@ -72,6 +72,20 @@ def test_info_hides_baselines_and_seeds(tmp_path: Path) -> None:
     assert info["state"]["is_finalized"] is False
 
 
+def test_info_exposes_denied_imports_list(tmp_path: Path) -> None:
+    """0.1.0a1: /info:denied_imports surfaces the AGENTS.md §3.2 list
+    that the sandbox actually enforces, so agents don't need to parse
+    the markdown to know what's blocked."""
+    srv = Server(env_id="pendulum", workspace_dir=tmp_path / "run")
+    info = srv.info()
+    denied = info["denied_imports"]
+    assert isinstance(denied, list) and len(denied) > 0
+    # Sample-check that the high-impact entries are present and sorted.
+    assert denied == sorted(denied)
+    for must_contain in ("transformers", "requests", "stable_baselines3"):
+        assert must_contain in denied, f"{must_contain} should be in denied list"
+
+
 def test_info_state_advances_after_submits(workspace_with_reference_agent) -> None:
     """state.remaining_budget / n_submits update between submits."""
     srv, _ = workspace_with_reference_agent

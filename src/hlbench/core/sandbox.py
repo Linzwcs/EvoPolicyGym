@@ -5,7 +5,9 @@ MVP strategy (per docs/architecture.md §4.4):
 - `signal.setitimer(ITIMER_REAL, ...)` inside the subprocess for `act()` wall-time
 - Parent-side `Pipe.poll(timeout)` for `init`/episode wall-time
 - `resource.setrlimit(RLIMIT_AS, ...)` for memory cap (best-effort on macOS)
-- No `denied_imports` enforcement, no network blocking (post-MVP bundle)
+- `_DeniedImportFinder` on `sys.meta_path` enforces AGENTS.md §3.2
+  denied-imports list (0.1.0a1; full list in ``DENIED_IMPORTS``)
+- No network blocking yet (post-MVP)
 
 A new Sandbox is spawned per submit and torn down after. The child holds
 exactly one Policy instance; all episodes in a submit share that instance,
@@ -13,18 +15,19 @@ matching SPEC.md §2 ("Policy persists across episodes within a submit").
 
 Failure → verdict mapping (SPEC.md §4.1, §4.4):
 
-    Stage in submit       | Failure                | Category
-    ----------------------|------------------------|------------------
-    Sandbox.init_policy() | child died before ack  | import_error
-                          | Policy.__init__ raised | init_error
-                          | Policy() exceeded      | init_timeout
-                          |   init_wall_s          |
-    Sandbox.run_episode() | policy.act raised      | act_error (per-ep)
-                          | policy.act over        | act_timeout (per-ep)
-                          |   act_wall_s           |
-                          | env.reset raised       | reset_error (per-ep)
-                          | child died unexpectedly| oom (submit-level —
-                          |                        |   parent surfaces it)
+    Stage in submit       | Failure                  | Category
+    ----------------------|--------------------------|------------------
+    Sandbox.init_policy() | child died before ack    | import_error
+                          | denied import attempted  | denied_import
+                          | Policy.__init__ raised   | init_error
+                          | Policy() exceeded        | init_timeout
+                          |   init_wall_s            |
+    Sandbox.run_episode() | policy.act raised        | act_error (per-ep)
+                          | policy.act over          | act_timeout (per-ep)
+                          |   act_wall_s             |
+                          | env.reset raised         | reset_error (per-ep)
+                          | child died unexpectedly  | oom (submit-level —
+                          |                          |   parent surfaces it)
 
 Failures classified as "per-episode" are reported on the returned
 `EpisodeRecord` (ended_with_error=True with the category); the sandbox
@@ -76,6 +79,70 @@ class SandboxDead(Exception):
     """
 
 
+# ----------------------------- denied imports ------------------------------
+
+
+#: AGENTS.md §3.2 default denied list (enforcement landed in 0.1.0a1).
+#: Matched against the importing module name and every dotted prefix,
+#: so listing ``"urllib"`` also blocks ``urllib.request``. Listing
+#: ``"google.genai"`` blocks the sub-package without blocking the
+#: ``google`` namespace (which other allowed libs may need).
+#:
+#: Limitation (v0.1.0a1): module-level only. AGENTS.md §3.2 also lists
+#: ``os.system`` / ``os.exec*`` as forbidden, but those are function
+#: attributes on the (allowed) ``os`` module. Function-level blocking
+#: requires post-import monkeypatching and is deferred to a future
+#: hardening pass.
+DENIED_IMPORTS: frozenset[str] = frozenset({
+    # Pretrained ML — trivially load model weights, violates Core Invariant.
+    "transformers", "huggingface_hub", "timm", "diffusers",
+    # External LLM APIs — bypass submit interface entirely.
+    "openai", "anthropic", "google.genai", "cohere",
+    # RL frameworks bundling checkpoints / parallel rollout workers.
+    "stable_baselines3", "ray", "rllib", "cleanrl", "sb3_contrib",
+    # Network access — violates AGENTS.md §3.1.
+    "urllib", "requests", "socket", "httpx", "aiohttp",
+    # Sandbox escape vectors.
+    "subprocess",
+})
+
+
+class _DeniedImport(ImportError):
+    """Raised by ``_DeniedImportFinder`` for a denied module name.
+
+    Subclass of ``ImportError`` so policy code that wraps imports in
+    ``try: import x; except ImportError`` still catches it (no leakage
+    of the finder implementation). The sandbox catches this subclass
+    specifically and maps to the ``denied_import`` verdict per SPEC §4.1.
+    """
+
+
+class _DeniedImportFinder:
+    """``sys.meta_path`` finder that vetoes denied imports.
+
+    Installed once at child startup before ``system/`` is added to
+    ``sys.path``, so it sees every import the policy attempts. Returns
+    ``None`` for allowed modules to let the regular finders handle them.
+    """
+
+    def __init__(self, denied: frozenset[str]) -> None:
+        self._denied = denied
+
+    def find_spec(
+        self, name: str, path: Any = None, target: Any = None,
+    ) -> None:
+        # Block name and every dotted prefix.
+        parts = name.split(".")
+        for i in range(len(parts)):
+            prefix = ".".join(parts[: i + 1])
+            if prefix in self._denied:
+                raise _DeniedImport(
+                    f"Module {name!r} is on the denied list (see AGENTS.md §3.2)"
+                )
+        return None  # let regular finders handle
+
+
+
 # ----------------------------- child worker --------------------------------
 
 
@@ -121,6 +188,7 @@ def _child_main(
     max_rss_bytes: int | None,
     record_obs: bool,
     reward_components: dict[str, str] | None,
+    denied_imports: frozenset[str],
 ) -> None:
     """Subprocess entry point. Owns one Policy + one env instance.
 
@@ -149,6 +217,22 @@ def _child_main(
     # SIGALRM handler for act() wall-time.
     signal.signal(signal.SIGALRM, _sigalrm_handler)
 
+    # Install denied-import hook BEFORE adding system/ to sys.path so
+    # the policy can't slip imports past it via load-time aliasing.
+    #
+    # Limitation: Python's import machinery checks sys.modules before
+    # calling meta_path finders, so denied modules that Python startup
+    # already imported (`subprocess` via multiprocessing, transitively
+    # `urllib`/`socket` via SSL/email) bypass our finder when re-imported.
+    # We don't evict them — eviction breaks gymnasium and other env
+    # plumbing that legitimately uses those stdlib modules. The finder
+    # cleanly blocks third-party pretrained / external-API modules
+    # (transformers, requests, httpx, …) and submodule paths
+    # (`urllib.request` triggers because the submodule isn't cached);
+    # full network blocking is a deeper hardening pass.
+    if denied_imports:
+        sys.meta_path.insert(0, _DeniedImportFinder(denied_imports))
+
     # Make `system/policy.py` importable as bare `policy`. SPEC §2: the
     # submitted code lives in system/ and is the only writable dir.
     system_dir = str((snapshot_dir / "system").resolve())
@@ -163,6 +247,14 @@ def _child_main(
             action_space=env_meta.get("action_space"),
             env_meta=env_meta,
         )
+    except _DeniedImport:
+        # Order matters: _DeniedImport is an ImportError subclass, must
+        # be caught first to override the generic import_error verdict.
+        conn.send(("init_error", {
+            "category": "denied_import",
+            "traceback_str": traceback.format_exc(),
+        }))
+        return
     except ImportError:
         conn.send(("init_error", {
             "category": "import_error",
@@ -227,6 +319,9 @@ class SandboxConfig:
     act_wall_s: float = 1.0
     episode_wall_s: float = 60.0
     max_rss_bytes: int | None = 1 << 30  # 1 GiB; None disables
+    #: Module names blocked at import time (AGENTS.md §3.2). Default is the
+    #: full SPEC list; tests can pass ``frozenset()`` to disable.
+    denied_imports: frozenset[str] = DENIED_IMPORTS
 
 
 class Sandbox:
@@ -269,6 +364,7 @@ class Sandbox:
                 self._config.max_rss_bytes,
                 record_obs,
                 reward_components,
+                self._config.denied_imports,
             ),
             daemon=True,
         )

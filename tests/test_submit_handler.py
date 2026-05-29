@@ -323,6 +323,36 @@ def test_init_timeout(tmp_path, pendulum_env_def):
     assert outcome.status == "init_timeout"
 
 
+def test_denied_import_verdict_and_errors_txt(tmp_path, pendulum_env_def):
+    """Policy importing a denied module → status=denied_import, budget
+    consumed (Phase 4 failure), errors.txt carries the verdict."""
+    body = """
+        import transformers  # denied per AGENTS.md §3.2
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+    """
+    ws = _write_workspace(tmp_path, body)
+    handler = _make_handler(pendulum_env_def, ws)
+
+    state = SubmitState(remaining_budget=10)
+    outcome = handler.handle([0, 1, 2], state)
+
+    assert outcome.status == "denied_import"
+    summary = outcome.summary
+    assert summary["status"] == "denied_import"
+    assert summary["returns"] is None
+    # Phase 4 (Compile) failure: full N consumed.
+    assert summary["remaining_budget"] == 7
+    assert outcome.new_state.remaining_budget == 7
+    submit_dir = ws / "feedback" / "submit_000"
+    assert not (submit_dir / "episodes").exists()
+    err = json.loads((submit_dir / "errors.txt").read_text().strip())
+    assert err["category"] == "denied_import"
+    assert "transformers" in (err["traceback"] or "")
+
+
 # -------------------- Phase 6: per-episode errors -------------------------
 
 

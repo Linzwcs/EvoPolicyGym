@@ -253,8 +253,9 @@ class Server:
             "max_episodes_per_submit": cfg.max_episodes_per_submit,
 
             "resource_limits": {
-                # MVP placeholders — Phase 2/3 oversize/denied checks not
-                # yet enforced (see submit_handler.py).
+                # ``system_total_bytes`` / ``system_single_file_bytes``
+                # are advisory in MVP; Phase 2 oversize check is post-MVP
+                # (see submit_handler.py).
                 "system_total_bytes": 50 * 1024 * 1024,
                 "system_single_file_bytes": 5 * 1024 * 1024,
                 "act_wall_ms": int(sb.act_wall_s * 1000),
@@ -263,10 +264,13 @@ class Server:
                 "submit_peak_rss_bytes": sb.max_rss_bytes or 0,
             },
 
-            # MVP: no allow/deny enforcement; surface empty lists so the
-            # field exists and post-MVP wiring is a value swap.
+            # ``allowed_imports`` is informational (the table in
+            # AGENTS.md §3.2 is the authoritative list and we don't enforce
+            # an allow-list). ``denied_imports`` is enforced by the
+            # sandbox import hook; surface it so agents can see what's
+            # blocked without parsing AGENTS.md.
             "allowed_imports": [],
-            "denied_imports": [],
+            "denied_imports": sorted(sb.denied_imports),
 
             "env_meta": self._env_def.public_env_meta(),
 

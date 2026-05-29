@@ -191,6 +191,133 @@ def test_import_error_when_policy_module_broken(make_sandbox) -> None:
     assert exc_info.value.category == "import_error"
 
 
+# ----------------------- denied imports (AGENTS.md §3.2) ------------------
+
+
+def test_denied_import_at_module_level(make_sandbox) -> None:
+    """Top-level `import transformers` → denied_import (overrides import_error)."""
+    body = """
+        import transformers
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+    """
+    sb = make_sandbox(body)
+    with pytest.raises(SandboxInitError) as exc_info:
+        sb.init_policy()
+    assert exc_info.value.category == "denied_import"
+    assert "transformers" in exc_info.value.traceback_str
+    assert "AGENTS.md §3.2" in exc_info.value.traceback_str
+
+
+def test_denied_import_via_dotted_prefix(make_sandbox) -> None:
+    """`import urllib.request` blocked because top-level `urllib` is denied."""
+    body = """
+        import urllib.request
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+    """
+    sb = make_sandbox(body)
+    with pytest.raises(SandboxInitError) as exc_info:
+        sb.init_policy()
+    assert exc_info.value.category == "denied_import"
+
+
+def test_denied_import_inside_init(make_sandbox) -> None:
+    """Lazy `import requests` inside Policy.__init__ still gets caught."""
+    body = """
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                import requests  # noqa: deliberately denied
+    """
+    sb = make_sandbox(body)
+    with pytest.raises(SandboxInitError) as exc_info:
+        sb.init_policy()
+    assert exc_info.value.category == "denied_import"
+    assert "requests" in exc_info.value.traceback_str
+
+
+def test_denied_import_subprocess_caveat(make_sandbox) -> None:
+    """Top-level `import subprocess` is NOT blocked because Python
+    startup imports it transitively (multiprocessing → subprocess) and
+    we don't evict pre-cached stdlib modules. This test pins the known
+    limitation so it surfaces if eviction logic gets re-added.
+
+    See sandbox.py:_child_main comment for the full rationale; full
+    network/escape blocking is deferred to a deeper hardening pass.
+    """
+    body = """
+        import subprocess  # bare import is allowed today
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+            def reset(self, episode_index):
+                pass
+            def act(self, obs):
+                return [0.0]
+    """
+    sb = make_sandbox(body)
+    sb.init_policy()  # NOT raises — bare import bypasses the finder
+    rec = sb.run_episode(real_seed=0, episode_index=0, max_steps=2)
+    assert rec.length == 2
+
+
+def test_allowed_imports_still_work(make_sandbox) -> None:
+    """numpy / math / json / os.path remain importable (sanity check that
+    the hook doesn't over-block)."""
+    body = """
+        import math
+        import json
+        import os.path
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+            def reset(self, episode_index):
+                pass
+            def act(self, obs):
+                return [0.0]
+    """
+    sb = make_sandbox(body)
+    sb.init_policy()  # must not raise
+    rec = sb.run_episode(real_seed=0, episode_index=0, max_steps=3)
+    assert rec.length == 3
+    assert rec.ended_with_error is False
+
+
+def test_denied_imports_can_be_disabled_in_config(
+    pendulum_env_def: object, tmp_path
+) -> None:
+    """Passing an empty frozenset disables enforcement — used by tests
+    that need to import otherwise-denied modules."""
+    body = """
+        import urllib.parse  # would normally be denied
+
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+    """
+    _write_policy(tmp_path, body)
+    sb = Sandbox(
+        snapshot_dir=tmp_path,
+        env_factory=pendulum_env_def.factory,
+        env_meta=pendulum_env_def.public_env_meta(),
+        config=SandboxConfig(denied_imports=frozenset()),
+    )
+    try:
+        sb.init_policy()  # should succeed with the hook disabled
+    finally:
+        sb.close()
+
+
 # ----------------------- per-episode errors -------------------------------
 
 

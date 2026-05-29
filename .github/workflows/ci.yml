@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest + ruff + mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install package + dev extras
+        run: |
+          python -m pip install --upgrade pip
+          # ".[dev]" pulls pytest / ruff / mypy / pytest-cov per pyproject.
+          # numpy + gymnasium are core deps so they install too.
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        # Match the local quality-gate paths from
+        # docs/dogfood.md / project_venv_and_test_runner memory.
+        run: ruff check src/ hlbench_cli/ hlbench_harness/ tests/ scripts/
+
+      - name: Type-check (mypy --strict)
+        # tool.mypy in pyproject already pins strict + python_version 3.12.
+        run: mypy src/hlbench/ hlbench_cli/ hlbench_harness/
+
+      - name: Run tests
+        # -ra surfaces skipped/xfailed reasons; --strict-markers comes
+        # from the addopts in pyproject so we don't repeat it here.
+        run: pytest -q

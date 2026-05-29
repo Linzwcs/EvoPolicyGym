@@ -37,6 +37,10 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   loop control (with in-process `FakeAgent`), and subprocess wrapping
   (with stub `claude` shell script). 119 → 150 tests; mypy strict +
   ruff still clean.
+- **CI workflow** (`.github/workflows/ci.yml`) — runs `pytest -q` +
+  `ruff check` + `mypy --strict` on every push to `main` and every
+  PR. Python 3.12 only (matches `requires-python` in `pyproject`).
+  Will dangle until a remote is configured; harmless until then.
 
 ### Design notes
 

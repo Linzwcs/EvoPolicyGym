@@ -8,8 +8,11 @@ it needs.
 # v0: import envs eagerly. Once we have many, switch to lazy / entry_points.
 from hlbench.envs import (  # noqa: F401  (side effect: register)
     acrobot,
+    bipedal_hardcore,
     bipedal_walker,
+    lunar_hardcore,
     lunar_lander_continuous,
     mountain_car_continuous,
     pendulum,
+    pendulum_hardcore,
 )

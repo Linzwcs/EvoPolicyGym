@@ -82,6 +82,34 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   reasoning" failure mode observed in a live test. The final
   ``type:"result"`` event is still extracted into ``turn_NNN.json``
   for the existing cost/text accessors.
+- **Hardcore env trio landed (`pendulum_hardcore`, `lunar_hardcore`,
+  `bipedal_hardcore`).** First three v1-roster envs (#14-16 per
+  `docs/envs.md`) implemented as new env packages alongside the
+  existing v0 envs (no in-place replacement; v0 envs remain for
+  backward compat). Per-env mechanics:
+  - **`pendulum_hardcore`**: gym.Wrapper around `Pendulum-v1` that
+    reassigns `m`, `l`, `g` per `reset(seed=...)` from train (nominal)
+    or held-out (disjoint OOD) ranges based on seed magnitude.
+    Train: m∈[0.5,2.0], l∈[0.7,1.5], g∈[8.0,12.0]; held-out:
+    m∈[2.0,3.5], l∈[1.5,2.2], g∈[4.0,8.0].
+  - **`lunar_hardcore`**: gym.Wrapper around `LunarLanderContinuous-v3`
+    with `enable_wind=True`, reassigning `wind_power` and
+    `turbulence_power` per seed from train vs held-out OOD ranges.
+  - **`bipedal_hardcore`**: factory targets Gymnasium's
+    `BipedalWalkerHardcore-v3` directly — its built-in procedural
+    terrain (stumps, ladders, pits) provides per-seed variation
+    without a wrapper.
+  - Seed pool convention: train seeds in `[0, 1_000_000)`, held-out
+    in `[1_000_000, 2_000_000)`. The wrapper's seed-magnitude check
+    dispatches to train vs OOD ranges. Bipedal doesn't use this
+    (no wrapper).
+  - `tests/test_hardcore_envs.py` (9 tests) verifies registration,
+    per-seed sampler ranges, train/held-out disjointness, and seed
+    pool split-by-floor invariant. Box2D in-process loading
+    segfaults on macOS pytest, so lunar/bipedal factory + reset is
+    NOT exercised in-process — those envs are validated end-to-end
+    via Sandbox-spawned subprocess tests instead.
+  - 177 → 186 tests; mypy strict + ruff still clean.
 
 ### Changed
 
@@ -153,17 +181,6 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   implementation-prerequisite list (`observations.npy` writer,
   per-env `act_wall_ms` override, anti-cheat extension for vision
   libs). This is a planning artifact — no envs implemented yet.
-- **`docs/intro.md` — conceptual introduction (the why).** New doc
-  positioning HLBench-pro as a capability benchmark for one specific
-  LLM axis: **closed-loop policy evolution under bounded resources**.
-  Articulates the three design pillars (capability framing / budget
-  protocol / anti-cheat package), shows that each pillar is a
-  *necessary condition* for the others to be meaningful, and
-  compares the budget + anti-cheat designs against adjacent benchmarks
-  (Atari 100k / Procgen / MLE-bench / Voyager / Eureka / SWE-bench /
-  AgentBench). Frames the empirical bet (four findings the paper
-  needs to show for the capability axis claim to stand). This is the
-  document a reviewer reads to understand the project's contribution.
 
 ## [0.1.0a1] — 2026-05-29
 

@@ -428,3 +428,79 @@ def test_act_timeout_marks_episode_in_timeouts_array(tmp_path, pendulum_env_def)
     assert err["traceback"] is None
     assert err["step_index"] == 2
     assert "wall time" in err["message"]
+
+
+# -------------------- stdout / stderr capture (SPEC §4.5) ----------------
+
+
+def test_stdout_stderr_always_created_even_when_empty(tmp_path, pendulum_env_def):
+    """Every successful episode dir must contain stdout.txt and stderr.txt,
+    even if the policy printed nothing (zero-byte files)."""
+    ws = _write_workspace(tmp_path, _GOOD_PD_POLICY)
+    handler = _make_handler(pendulum_env_def, ws)
+
+    state = SubmitState(remaining_budget=10)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+
+    for global_ep in (0, 1):
+        ep_dir = ws / "feedback" / "submit_000" / "episodes" / f"ep_{global_ep:03d}"
+        assert (ep_dir / "stdout.txt").exists()
+        assert (ep_dir / "stderr.txt").exists()
+        # PD policy is silent; expect empty.
+        assert (ep_dir / "stdout.txt").stat().st_size == 0
+        assert (ep_dir / "stderr.txt").stat().st_size == 0
+
+
+def test_policy_print_captured_in_stdout(tmp_path, pendulum_env_def):
+    body = """
+        import sys
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                pass
+            def reset(self, episode_index):
+                print(f"reset called with index={episode_index}")
+                print("on stderr", file=sys.stderr)
+            def act(self, obs):
+                return [0.0]
+    """
+    ws = _write_workspace(tmp_path, body)
+    handler = _make_handler(pendulum_env_def, ws)
+
+    state = SubmitState(remaining_budget=5)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+
+    ep0_dir = ws / "feedback" / "submit_000" / "episodes" / "ep_000"
+    ep1_dir = ws / "feedback" / "submit_000" / "episodes" / "ep_001"
+    assert "reset called with index=0" in (ep0_dir / "stdout.txt").read_text()
+    assert "on stderr" in (ep0_dir / "stderr.txt").read_text()
+    # Each episode's capture is isolated (per SPEC §4.5).
+    assert "reset called with index=0" not in (ep1_dir / "stdout.txt").read_text()
+    assert "reset called with index=1" in (ep1_dir / "stdout.txt").read_text()
+
+
+def test_init_print_folded_into_first_episode_stdout(tmp_path, pendulum_env_def):
+    """Policy.__init__ runs once before episodes; its output goes into
+    the FIRST episode's stdout (SPEC §4.5)."""
+    body = """
+        class Policy:
+            def __init__(self, obs_space=None, action_space=None, env_meta=None):
+                print("hello from __init__")
+            def reset(self, episode_index):
+                pass
+            def act(self, obs):
+                return [0.0]
+    """
+    ws = _write_workspace(tmp_path, body)
+    handler = _make_handler(pendulum_env_def, ws)
+
+    state = SubmitState(remaining_budget=5)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+
+    ep0_dir = ws / "feedback" / "submit_000" / "episodes" / "ep_000"
+    ep1_dir = ws / "feedback" / "submit_000" / "episodes" / "ep_001"
+    assert "hello from __init__" in (ep0_dir / "stdout.txt").read_text()
+    # Second episode doesn't re-capture init output.
+    assert "hello from __init__" not in (ep1_dir / "stdout.txt").read_text()

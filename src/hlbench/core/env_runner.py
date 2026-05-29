@@ -44,6 +44,11 @@ class EpisodeRecord:
             on_episode_end_error. `None` for act_timeout (no useful frame —
             execution was interrupted by SIGALRM at an arbitrary point) and
             on success.
+        stdout_captured: text written to sys.stdout during this episode
+            (and during Policy.__init__ for the first episode of a submit).
+            Always set (may be empty). SubmitHandler writes this to
+            ep_<XXX>/stdout.txt per SPEC §4.5.
+        stderr_captured: same for sys.stderr.
     """
 
     trajectory: list[dict[str, Any]]
@@ -55,6 +60,8 @@ class EpisodeRecord:
     error_category: str | None = None
     error_step_index: int | None = None
     error_traceback: str | None = None
+    stdout_captured: str = ""
+    stderr_captured: str = ""
 
 
 def _action_to_jsonable(action: Any, action_space_type: str) -> Any:

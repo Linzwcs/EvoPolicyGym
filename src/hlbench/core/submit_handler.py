@@ -267,6 +267,13 @@ class SubmitHandler:
                     )
 
                 fb.write_trajectory(ep_dir / "trajectory.jsonl", rec.trajectory)
+                # Always create stdout.txt / stderr.txt (may be zero
+                # bytes if the policy didn't print). Per SPEC §4.5,
+                # Policy.__init__ output is folded into the first
+                # episode's stdout — sandbox handles that by not swapping
+                # the capture buffer between init_done and ep 0.
+                fb.write_episode_stream(ep_dir / "stdout.txt", rec.stdout_captured)
+                fb.write_episode_stream(ep_dir / "stderr.txt", rec.stderr_captured)
 
                 if rec.ended_with_error:
                     self._write_episode_error(ep_dir, rec)

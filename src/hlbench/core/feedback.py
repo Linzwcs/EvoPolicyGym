@@ -4,17 +4,23 @@ Schemas live in:
 - ``summary.json``                         → SPEC.md §4.1
 - ``errors.txt`` (submit-level)            → SPEC.md §4.4.2
 - ``episodes/ep_<XXX>/trajectory.jsonl``   → SPEC.md §4.2
+- ``episodes/ep_<XXX>/stdout.txt``         → SPEC.md §4.5
+- ``episodes/ep_<XXX>/stderr.txt``         → SPEC.md §4.5
 - ``episodes/ep_<XXX>/error.txt``          → SPEC.md §4.4.3
 
 Atomicity contract: ``summary.json`` is written via temp-file + rename, so
-the agent never observes a partial file. Other files (trajectory, error)
-are written before ``summary.json`` appears, so the convention "if
-summary.json is there, the rest is too" holds end-to-end.
+the agent never observes a partial file. Other files (trajectory, error,
+stdout, stderr) are written before ``summary.json`` appears, so the
+convention "if summary.json is there, the rest is too" holds end-to-end.
 
 Error files (``errors.txt`` and per-episode ``error.txt``) accept multiple
 appended events (SPEC §4.4.2/§4.4.3) and are capped at 64KB cumulative.
 Once the cap is hit, subsequent events are dropped and a single
 ``category: "truncated"`` sentinel line is appended (SPEC §4.4.5).
+
+Stream files (``stdout.txt`` / ``stderr.txt``) are written once per
+episode and capped at 64KB with a ``... [truncated at 64KB] ...`` marker
+line (SPEC §4.5).
 
 MVP omissions (deferred to post-MVP):
 - ``observations.npy`` (external obs storage)
@@ -36,9 +42,16 @@ _SCHEMA_VERSION = "0.1"
 #: SPEC §4.4.5 — each error file capped at 64 KB cumulative across entries.
 ERROR_FILE_CAP_BYTES = 64 * 1024
 
+#: SPEC §4.5 — each per-episode stdout/stderr file capped at 64 KB.
+STREAM_FILE_CAP_BYTES = 64 * 1024
+
 #: Single-line marker we look for to decide "truncated sentinel already
 #: written" without re-parsing JSON.
 _TRUNCATED_MARKER = b'"category":"truncated"'
+
+#: Appended to stdout.txt / stderr.txt when capture exceeds the cap
+#: (SPEC §4.5 specifies this exact spelling for analyst grep).
+_STREAM_TRUNCATED_MARKER = "\n... [truncated at 64KB] ...\n"
 
 
 # ----------------------- directory / name helpers -------------------------
@@ -211,3 +224,29 @@ def write_episode_error(
         step_index=step_index,
     )
     _append_error_event(path, event)
+
+
+def write_episode_stream(path: Path, text: str) -> None:
+    """Write captured ``stdout.txt`` / ``stderr.txt`` for one episode
+    (SPEC §4.5).
+
+    Always creates the file (may be zero-byte if the policy printed
+    nothing). Truncates at ``STREAM_FILE_CAP_BYTES`` (64 KB) with a
+    final ``... [truncated at 64KB] ...`` marker line appended.
+    """
+    encoded = text.encode("utf-8")
+    if len(encoded) <= STREAM_FILE_CAP_BYTES:
+        path.write_bytes(encoded)
+        return
+    marker = _STREAM_TRUNCATED_MARKER.encode("utf-8")
+    keep = STREAM_FILE_CAP_BYTES - len(marker)
+    truncated = encoded[:keep]
+    # Defensive: a hard byte cut may land in the middle of a multi-byte
+    # UTF-8 char. Back off to the last valid boundary.
+    while truncated:
+        try:
+            truncated.decode("utf-8")
+            break
+        except UnicodeDecodeError as e:
+            truncated = truncated[: e.start]
+    path.write_bytes(truncated + marker)

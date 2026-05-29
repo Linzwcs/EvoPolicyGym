@@ -39,6 +39,7 @@ episodes. Submit-level failures raise `SandboxInitError` or
 from __future__ import annotations
 
 import contextlib
+import io
 import multiprocessing as mp
 import resource
 import signal
@@ -154,6 +155,47 @@ def _sigalrm_handler(_signum: int, _frame: Any) -> None:
     raise _ActTimeout()
 
 
+class _StreamCapture:
+    """Replace ``sys.stdout`` / ``sys.stderr`` with ``io.StringIO`` so the
+    child can hand the captured text back to the parent for SPEC §4.5
+    ``stdout.txt`` / ``stderr.txt`` files.
+
+    The capture buffers are NOT reset by ``install()`` — anything written
+    between install and the first ``swap()`` (i.e., Policy.__init__
+    output) is folded into the first episode's capture, matching the
+    SPEC requirement that "anything Policy.__init__ prints goes into the
+    first episode's stdout.txt".
+    """
+
+    def __init__(self) -> None:
+        self._real_stdout: Any = None
+        self._real_stderr: Any = None
+        self._stdout_buf = io.StringIO()
+        self._stderr_buf = io.StringIO()
+
+    def install(self) -> None:
+        self._real_stdout = sys.stdout
+        self._real_stderr = sys.stderr
+        sys.stdout = self._stdout_buf
+        sys.stderr = self._stderr_buf
+
+    def swap(self) -> tuple[str, str]:
+        """Return current buffer contents, install fresh buffers."""
+        out = self._stdout_buf.getvalue()
+        err = self._stderr_buf.getvalue()
+        self._stdout_buf = io.StringIO()
+        self._stderr_buf = io.StringIO()
+        sys.stdout = self._stdout_buf
+        sys.stderr = self._stderr_buf
+        return out, err
+
+    def uninstall(self) -> None:
+        if self._real_stdout is not None:
+            sys.stdout = self._real_stdout
+        if self._real_stderr is not None:
+            sys.stderr = self._real_stderr
+
+
 class _TimedPolicy:
     """Wrap a policy so act() runs under a SIGALRM-based wall-time guard."""
 
@@ -238,6 +280,13 @@ def _child_main(
     system_dir = str((snapshot_dir / "system").resolve())
     sys.path.insert(0, system_dir)
 
+    # Install stdout/stderr capture right before the policy runs.
+    # __init__ output gets folded into the first episode's capture per
+    # SPEC §4.5 (we don't swap between init_done and the first
+    # run_episode, so the same buffer keeps accumulating).
+    capture = _StreamCapture()
+    capture.install()
+
     # 1. Initialize: import policy module + construct Policy().
     try:
         import policy as _policy_module  # type: ignore[import-not-found]
@@ -250,18 +299,23 @@ def _child_main(
     except _DeniedImport:
         # Order matters: _DeniedImport is an ImportError subclass, must
         # be caught first to override the generic import_error verdict.
+        # Uninstall capture so the parent's logs aren't poisoned by
+        # whatever we send back next.
+        capture.uninstall()
         conn.send(("init_error", {
             "category": "denied_import",
             "traceback_str": traceback.format_exc(),
         }))
         return
     except ImportError:
+        capture.uninstall()
         conn.send(("init_error", {
             "category": "import_error",
             "traceback_str": traceback.format_exc(),
         }))
         return
     except Exception:
+        capture.uninstall()
         conn.send(("init_error", {
             "category": "init_error",
             "traceback_str": traceback.format_exc(),
@@ -298,11 +352,17 @@ def _child_main(
                     reward_components=reward_components,
                     act_timeout_exc_class=_ActTimeout,
                 )
+                # Drain the capture buffers into the record. First
+                # iteration also picks up any Policy.__init__ output.
+                stdout_text, stderr_text = capture.swap()
+                rec.stdout_captured = stdout_text
+                rec.stderr_captured = stderr_text
                 conn.send(("ok", {"event": "episode_done", "record": rec}))
                 continue
 
             conn.send(("ok", {"event": "unknown_command", "cmd": cmd}))
     finally:
+        capture.uninstall()
         with contextlib.suppress(Exception):
             env.close()
         conn.close()

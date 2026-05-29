@@ -16,8 +16,10 @@ import pytest
 from hlbench.core.env_runner import EpisodeRecord, _info_to_jsonable
 from hlbench.core.feedback import (
     ERROR_FILE_CAP_BYTES,
+    STREAM_FILE_CAP_BYTES,
     _jsonify_floats,
     write_episode_error,
+    write_episode_stream,
     write_submit_error,
     write_trajectory,
 )
@@ -291,3 +293,48 @@ def test_error_file_sentinel_written_only_once(tmp_path: Any) -> None:
     # Original event + exactly one sentinel.
     assert len(events) == 2
     assert events[-1]["category"] == "truncated"
+
+
+# --------------------------- stream truncation (SPEC §4.5) ---------------
+
+
+def test_write_episode_stream_handles_empty(tmp_path: Any) -> None:
+    """Empty input → zero-byte file. (Per SPEC §4.5 the file is always
+    created even for silent policies.)"""
+    path = tmp_path / "stdout.txt"
+    write_episode_stream(path, "")
+    assert path.exists()
+    assert path.stat().st_size == 0
+
+
+def test_write_episode_stream_passthrough_under_cap(tmp_path: Any) -> None:
+    text = "hello\nworld\n"
+    path = tmp_path / "stdout.txt"
+    write_episode_stream(path, text)
+    assert path.read_text() == text
+
+
+def test_write_episode_stream_truncates_at_cap(tmp_path: Any) -> None:
+    big = "A" * (100 * 1024)  # 100 KB
+    path = tmp_path / "stdout.txt"
+    write_episode_stream(path, big)
+    contents = path.read_text()
+    assert path.stat().st_size <= STREAM_FILE_CAP_BYTES
+    assert contents.endswith("... [truncated at 64KB] ...\n")
+    assert contents.startswith("A")  # original content preserved at start
+
+
+def test_write_episode_stream_respects_utf8_boundary(tmp_path: Any) -> None:
+    """A naive byte cut may land in the middle of a multi-byte UTF-8
+    char. The truncator backs off to the last valid boundary so the file
+    is still decodable."""
+    # Many copies of '✓' (3 bytes each) until past cap.
+    text = "✓" * 30_000  # ~90 KB
+    path = tmp_path / "stdout.txt"
+    write_episode_stream(path, text)
+    # Must decode cleanly (no UnicodeDecodeError).
+    contents = path.read_text(encoding="utf-8")
+    assert contents.endswith("... [truncated at 64KB] ...\n")
+    # Body still consists of valid ✓ chars (no garbled prefix).
+    body = contents.removesuffix("\n... [truncated at 64KB] ...\n")
+    assert all(c == "✓" for c in body)

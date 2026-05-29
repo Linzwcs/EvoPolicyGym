@@ -374,7 +374,26 @@ class SandboxConfig:
     init_wall_s: float = 30.0
     act_wall_s: float = 1.0
     episode_wall_s: float = 60.0
-    max_rss_bytes: int | None = 1 << 30  # 1 GiB; None disables
+    #: Address-space cap (RLIMIT_AS) for the policy subprocess.
+    #:
+    #: Default ``None`` (disabled) is intentional. Two reasons RLIMIT_AS
+    #: is a poor knob to enforce by default:
+    #:   - macOS: Apple's malloc generally ignores RLIMIT_AS — limit is
+    #:     silently no-op, not actually enforced.
+    #:   - Linux: RLIMIT_AS limits *virtual address space*, not RSS;
+    #:     loading numpy + gymnasium + box2d + mujoco can mmap many GiB
+    #:     of shared-lib pages even when actual RSS stays low. A 1 GiB
+    #:     cap that "looks reasonable" actually kills child processes
+    #:     during ``import`` (visible upstream as ``SandboxDead: child
+    #:     closed pipe before init ack``).
+    #:
+    #: Operators wanting real memory caps should use a cgroup or set
+    #: this to a comfortably large value (e.g. ``8 << 30`` for 8 GiB)
+    #: based on their machine. None by default = trust the OS. The
+    #: ``submit_peak_rss_bytes`` SPEC field is exposed via ``GET /info``
+    #: for downstream observability — the actual enforcement of
+    #: per-submit RSS via psutil polling is post-MVP.
+    max_rss_bytes: int | None = None
     #: Module names blocked at import time (AGENTS.md §3.2). Default is the
     #: full SPEC list; tests can pass ``frozenset()`` to disable.
     denied_imports: frozenset[str] = DENIED_IMPORTS
@@ -454,8 +473,30 @@ class Sandbox:
         try:
             tag, payload = self._parent_conn.recv()
         except EOFError as e:
+            # Capture child exit code + a hint about likely causes before
+            # terminating — saves operators from chasing this blind.
+            self._proc.join(timeout=1.0)
+            exitcode = self._proc.exitcode
             self._terminate()
-            raise SandboxDead("child closed pipe before init ack") from e
+            hint = ""
+            if exitcode is not None and exitcode < 0:
+                # On POSIX, negative exitcode = -signum (process killed
+                # by signal). SIGKILL=9 typically = OS OOM-killer or
+                # RLIMIT_AS hit. SIGSEGV=11 = native-lib crash.
+                signum = -exitcode
+                if signum == 9:
+                    hint = (
+                        " (exitcode=-9 SIGKILL — likely RLIMIT_AS too "
+                        "tight or OS OOM-killer; try Server(config_overrides="
+                        "{'max_rss_bytes': None}) or a larger value)"
+                    )
+                elif signum == 11:
+                    hint = " (exitcode=-11 SIGSEGV — native lib crash; check env install)"
+                else:
+                    hint = f" (exitcode={exitcode} signal={signum})"
+            elif exitcode is not None and exitcode != 0:
+                hint = f" (exitcode={exitcode})"
+            raise SandboxDead(f"child closed pipe before init ack{hint}") from e
 
         if tag == "init_error":
             self._terminate()

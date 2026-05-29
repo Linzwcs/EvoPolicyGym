@@ -1,15 +1,20 @@
 """Generate train.json + heldout.json for an env.
 
-Usage:
-    python scripts/gen_seeds.py <env_dir> \\
+Usage::
+
+    python scripts/gen_seeds.py <env_dir>/data \\
         --master-seed 42 \\
         --n-train 256 --n-heldout 256
 
-Deterministic given the master seed. Writes to <env_dir>/train.json and
-<env_dir>/heldout.json. Held-out seeds are drawn from a disjoint range
-relative to train (offset by 2**24) for transparency, but the values
-themselves are sampled — agents can never see them, so the disjointness
-is belt-and-suspenders.
+Per-env convention: seed pools live at
+``src/hlbench/envs/<env_id>/data/{train,heldout}.json`` so the env
+package can self-contain its training data (the env's ``__init__.py``
+loads them via ``_HERE / "data" / "train.json"``).
+
+Deterministic given the master seed. Held-out seeds are drawn from a
+disjoint range relative to train (offset by 2**24) for transparency,
+but the values themselves are sampled — agents can never see them, so
+the disjointness is belt-and-suspenders.
 """
 
 from __future__ import annotations
@@ -27,7 +32,11 @@ def gen(master_seed: int, n: int, offset: int = 0) -> list[int]:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("env_dir", type=Path, help="Directory to write train.json/heldout.json into")
+    p.add_argument(
+        "env_dir", type=Path,
+        help="Directory to write train.json/heldout.json into "
+             "(typically src/hlbench/envs/<env_id>/data/)",
+    )
     p.add_argument("--master-seed", type=int, default=42)
     p.add_argument("--n-train", type=int, default=256)
     p.add_argument("--n-heldout", type=int, default=256)

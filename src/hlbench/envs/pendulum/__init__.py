@@ -40,8 +40,8 @@ register_env(
     # Random ~ -1200 (uniform action), expert ~ -150 (LQR / good PD).
     expert_baseline=-150.0,
     random_baseline=-1200.0,
-    train_seeds_path=_HERE / "train.json",
-    heldout_seeds_path=_HERE / "heldout.json",
+    train_seeds_path=_HERE / "data" / "train.json",
+    heldout_seeds_path=_HERE / "data" / "heldout.json",
     task_md_path=_HERE / "TASK.md",
     starter_policy_path=_HERE / "starter_policy.py",
     n_env_instances=256,

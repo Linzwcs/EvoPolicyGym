@@ -14,6 +14,7 @@ from hlbench.envs import (  # noqa: F401  (side effect: register)
     cache_replacement,
     car_racing,
     car_racing_pixel,
+    cartpole_balance,
     half_cheetah,
     hopper,
     k_server,

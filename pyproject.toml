@@ -65,6 +65,7 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 "hlbench.envs.car_racing" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.car_racing_pixel" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.pendulum_from_pixels" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.cartpole_balance" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

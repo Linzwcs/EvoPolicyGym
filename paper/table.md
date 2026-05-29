@@ -17,10 +17,10 @@ harness (`scripts/run_matrix.py`).
 
 | # | Category | hlbench-pro env id | Gymnasium env (latest) | Obs | Action | Horizon | Hardness rationale |
 |---|---|---|---|---|---|---|---|
-| 1 | Classic Control | `pendulum` | `Pendulum-v1` | Box(3) state | Box(1) cont. | 200 | textbook PD ceiling; baseline for `pendulum_hardcore` contrast |
-| 2 | Classic Control | `pendulum_hardcore` | `Pendulum-v1` + DR wrapper | Box(3) state | Box(1) cont. | 200 | **domain-randomized (m, l, g)** with OOD held-out — defeats fixed-gain PD |
-| 3 | Classic Control | `acrobot` | `Acrobot-v1` | Box(6) state | Discrete(3) | 500 | non-linear under-actuated swing-up; harder than CartPole |
-| 4 | Classic Control | `mountain_car_continuous` | `MountainCarContinuous-v0` | Box(2) state | Box(1) cont. | 999 | sparse reward — random policy nearly never reaches goal; harder than discrete variant |
+| 1 | Classic Control | `cartpole_balance` | `CartPole-v1` | Box(4) state | Discrete(2) | 500 | **EASY anchor** — angle-based PD hits the 500 ceiling; calibration baseline for score-distribution diagnostics |
+| 2 | Classic Control | `pendulum` | `Pendulum-v1` | Box(3) state | Box(1) cont. | 200 | **MEDIUM** — textbook PD/LQR baseline, continuous action |
+| 3 | Classic Control | `acrobot` | `Acrobot-v1` | Box(6) state | Discrete(3) | 500 | **MEDIUM-HARD** — under-actuated swing-up, 2-link non-linear, sparse-style reward |
+| 4 | Classic Control | `mountain_car_continuous` | `MountainCarContinuous-v0` | Box(2) state | Box(1) cont. | 999 | **HARD** — sparse-reward exploration, random rarely solves |
 | 5 | Box2D | `lunar_hardcore` | `LunarLanderContinuous-v3` + wind/turbulence DR | Box(8) state | Box(2) cont. | 1000 | **wind enabled with per-seed strength** — disjoint OOD held-out wind power |
 | 6 | Box2D | `bipedal_hardcore` | `BipedalWalkerHardcore-v3` | Box(24) state | Box(4) cont. | 2000 | **Gymnasium's hardcore variant** (stumps, ladders, pits) — vs the gentler `BipedalWalker-v3` |
 | 7 | Box2D | `car_racing` | `CarRacing-v3` + 16×16 downsample | Box(16,16,3) uint8 | Box(3) cont. | 1000 | pixel obs, but downsampled to fit inline — lite color-segmentation task |
@@ -43,10 +43,10 @@ envs throughout. We substitute as follows:
 
 | Slot | `hlbench` env | Our v1 env | Why we differ |
 |---|---|---|---|
-| Classic 1 | `cartpole_balance` (CartPole-v1) | `pendulum` (Pendulum-v1) | CartPole is too easy for frontier LLMs; Pendulum is the OG baseline |
+| Classic 1 | `cartpole_balance` (CartPole-v1) | `cartpole_balance` (CartPole-v1) | same — kept as the EASY anchor for score-distribution diagnostics |
 | Classic 2 | `mountain_car` (MountainCar-v0 discrete) | `mountain_car_continuous` | continuous variant is provably harder (sparse + no boost on near-goal) |
 | Classic 3 | `acrobot_swingup` | `acrobot` | same env, different naming |
-| Classic 4 | `pendulum_swingup` | `pendulum_hardcore` | **adds domain randomization** (m, l, g) with OOD held-out |
+| Classic 4 | `pendulum_swingup` | `pendulum` | same env, different naming. (Note: `pendulum_hardcore`, the DR variant, lives in "additional registered envs" below as a v2 extension demo.) |
 | Box2D 1 | `lunar_lander` (LunarLander-v3 discrete) | `lunar_hardcore` | continuous + wind disturbance |
 | Box2D 2 | `lunar_lander_continuous` | `bipedal_hardcore` | **swap to Hardcore terrain** (Gymnasium ships this variant) |
 | Box2D 3 | `bipedal_walker` (BipedalWalker-v3) | `car_racing_pixel` | **full 96×96 pixel obs** (tests `observations.npy` infra) |
@@ -60,11 +60,13 @@ envs throughout. We substitute as follows:
 | MiniGrid 3 | `minigrid_obstructedmaze_2dlhb` (v1) | `minigrid_obstructedmaze` (v1) | same — we match the v1 update from v0 |
 | MiniGrid 4 | `minigrid_lavacrossing_s11n5` | `minigrid_lavacrossing` | same |
 
-**Net direction**: our suite is **strictly harder** than `hlbench`'s
-on 8 of 16 slots, **comparable** on 6, **easier on none**. The two
-new variants (Hardcore Box2D, full-pixel CarRacing) also test
-protocol mechanisms (DR wrapper, external obs storage) that
-`hlbench`'s base envs do not exercise.
+**Net direction**: our suite preserves a deliberate **easy/medium/
+medium-hard/hard difficulty spread** in Classic Control, while going
+strictly harder than `hlbench` on the other three categories
+(Hardcore Box2D, heavier MuJoCo, hardest MiniGrid variants where
+applicable). The two new variants (Hardcore Box2D, full-pixel
+CarRacing) also test protocol mechanisms (DR wrapper, external obs
+storage) that `hlbench`'s base envs do not exercise.
 
 ---
 
@@ -187,12 +189,13 @@ maze structures of the same procedural class."
 
 ## Additional registered envs (not in v1 scored suite)
 
-The benchmark registry also contains **6 additional envs** not part of
+The benchmark registry also contains **7 additional envs** not part of
 this v1 paper table. They are available via the same protocol but are
 not scored in the headline `final_score` matrix:
 
 | Env | Why excluded from v1 paper table | Use |
 |---|---|---|
+| `pendulum_hardcore` | superseded by `pendulum` as the Classic Control swing-up slot; DR is the v2 extension story | **DR demo** for v2 paper / robustness ablation |
 | `bipedal_walker` (base) | superseded by `bipedal_hardcore` | regression test |
 | `lunar_lander_continuous` (base) | superseded by `lunar_hardcore` | regression test |
 | `cache_replacement` | not in 4-Gymnasium-category structure | "online algorithm" extension (v2 paper) |

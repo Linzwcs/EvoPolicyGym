@@ -143,6 +143,7 @@ optimizes without targeting a known threshold.
 | [`docs/architecture.md`](./docs/architecture.md) | Implementer | Package layout, build sequence, validation checklist |
 | [`docs/output.md`](./docs/output.md) | Analyst / leaderboard | What `runs/<...>/` looks like on disk |
 | [`docs/submit-protocol.md`](./docs/submit-protocol.md) | Implementer + agent | Submit lifecycle (7 phases, 11 verdicts) |
+| [`docs/dogfood.md`](./docs/dogfood.md) | Operator | Drive Claude Code through a full run with `hlbench-agent` |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Reviewer | What shipped in this release |
 
 ## Status

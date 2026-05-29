@@ -6,7 +6,32 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`hlbench_harness` package + `hlbench-agent` CLI** — automated
+  evaluation driver that runs Claude Code through one full
+  `init → submit → finalize` loop on any registered env, preserving
+  the inner agent's conversation context across iterations via
+  `claude --print --resume <session_id>`. Contrast with
+  `../hlbench`'s per-epoch fresh-subprocess design: state lives in the
+  Claude session, not just in workspace files. See
+  [`docs/dogfood.md`](./docs/dogfood.md).
+  - `hlbench_harness.prompts` — initial + continuation prompt
+    composition; pure functions, golden-tested.
+  - `hlbench_harness.state` — bridges live `Server.info()` and
+    on-disk `submit_NNN/summary.json` into a single `TurnObservation`.
+  - `hlbench_harness.claude_agent` — `subprocess`-based wrapper
+    around `claude --print --output-format=json`. Pre-allocates the
+    session UUID so we never have to scrape it from the first reply.
+    Per-turn artifacts: `<run_dir>/logs/agent_turns/turn_NNN.{json,txt,prompt.txt}`.
+  - `hlbench_harness.runner` — `HarnessRunner` loop. Termination
+    on agent finalize, max-turns, or N consecutive failures.
+    Always force-finalizes if the agent didn't, so `run.json` exists.
+    Persists `<run_dir>/logs/harness_runner.json` for analyst tooling.
+- **30 new tests** covering prompt composition, state observation,
+  loop control (with in-process `FakeAgent`), and subprocess wrapping
+  (with stub `claude` shell script). 119 → 149 tests; mypy strict +
+  ruff still clean.
 
 ## [0.1.0a1] — 2026-05-29
 

@@ -110,6 +110,40 @@ this project adheres to [Semantic Versioning](https://semver.org/).
     NOT exercised in-process — those envs are validated end-to-end
     via Sandbox-spawned subprocess tests instead.
   - 177 → 186 tests; mypy strict + ruff still clean.
+- **Online algorithm env trio landed (`cache_replacement`,
+  `k_server`, `online_bipartite_matching`).** Three more v1-roster
+  envs (#11-13 per `docs/envs.md`). All custom-built pure-Python
+  envs (no gymnasium dependency for game logic) — pass duck-typed
+  Gymnasium API (reset/step/spec/observation_space/action_space).
+  Each ships with a train pool drawn from a "natural" distribution
+  and a held-out pool drawn from an adversarial / structured
+  distribution disjoint from train, so a greedy/textbook policy
+  that wins train will demonstrably degrade on held-out:
+  - **`cache_replacement`**: capacity-8 cache, 64 object IDs, trace
+    length 500. Train: Zipfian (LRU-friendly). Held-out: scan-heavy
+    (cycles a permutation, LRU-hostile). `act()` returns a slot
+    index to evict on miss.
+  - **`k_server`**: 3 servers on `[-1,1]²` plane, 200 requests per
+    episode. Train: 2-Gaussian mix at `(±0.4, ±0.4)`. Held-out:
+    4 corners with 75% weight on one corner, defeating greedy
+    nearest-server. `act()` returns server index `[0, K)`.
+  - **`online_bipartite_matching`**: 16 left vertices, 24 online
+    arrivals. Train: random `G(N, M, p=0.25)`. Held-out: KVV-style
+    adversarial structure (first M/2 arrivals only see left half;
+    second half adds "honey trap" edges that punish greedy).
+    `act()` returns left vertex `[0, N)` to match, or `N` to skip.
+  - All three use the same seed-magnitude convention: train seeds
+    `[0, 1_000_000)`, held-out `[1_000_000, 2_000_000)`. The env's
+    trace/request/graph generator reads the seed magnitude to
+    dispatch distribution selection.
+  - `tests/test_online_algo_envs.py` (15 tests): registration,
+    factory + step round-trip, determinism, train-vs-held-out
+    distribution divergence (quantitative — e.g. unique-IDs-in-100
+    for cache, quadrant-fraction for k_server, structural-edge
+    presence for matching), seed pool split-by-floor invariant.
+  - 186 → 201 tests; mypy strict + ruff still clean. These envs
+    use `Discrete` action spaces — first non-Box action types in
+    the roster.
 
 ### Changed
 

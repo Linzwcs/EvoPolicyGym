@@ -50,6 +50,9 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 "hlbench.envs.pendulum_hardcore" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.lunar_hardcore" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.bipedal_hardcore" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.cache_replacement" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.k_server" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.online_bipartite_matching" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

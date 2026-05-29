@@ -10,9 +10,12 @@ from hlbench.envs import (  # noqa: F401  (side effect: register)
     acrobot,
     bipedal_hardcore,
     bipedal_walker,
+    cache_replacement,
+    k_server,
     lunar_hardcore,
     lunar_lander_continuous,
     mountain_car_continuous,
+    online_bipartite_matching,
     pendulum,
     pendulum_hardcore,
 )

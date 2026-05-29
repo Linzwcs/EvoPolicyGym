@@ -58,6 +58,30 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   ``<run_dir>/logs/agent.jsonl``. Disable via
   ``HarnessRunner(agent_log=AgentLog.disabled())``. Failed writes are
   swallowed — observability never breaks the run.
+- **Per-env starter policy auto-staged into the workspace.**
+  ``EnvDefinition.starter_policy_path`` (registered via
+  ``register_env(..., starter_policy_path=...)``) is copied into
+  ``workspace/system/policy.py`` by ``Server.__init__`` if no
+  policy.py exists yet. Pendulum ships
+  ``src/hlbench/envs/pendulum/starter_policy.py`` (zero-torque
+  baseline) — the contract is unambiguous from turn 0. Re-init on an
+  existing run preserves the agent's edits.
+- **Pendulum TASK.md tightened with explicit ``act()`` contract.**
+  Added Python-level interface block, explicit input/output type
+  table (np.ndarray (3,) float32 → np.ndarray (1,) float32), worked
+  single-step example, and a JSON dump of obs_space + action_space
+  matching ``GET /info``. Removes the "what does ``act()`` actually
+  return" guesswork that wasted tokens in earlier live runs.
+- **Streaming claude output (``--output-format=stream-json``).**
+  ``ClaudeAgent`` now uses Popen + a line-buffered reader thread,
+  writing every event (assistant thinking blocks, tool_use,
+  tool_result, system, result) to
+  ``logs/agent_turns/turn_NNN.stream.jsonl`` in real time. When a
+  turn times out the agent's full thought-process trace up to the
+  kill is preserved on disk — fixing the "we lost the agent's
+  reasoning" failure mode observed in a live test. The final
+  ``type:"result"`` event is still extracted into ``turn_NNN.json``
+  for the existing cost/text accessors.
 
 ### Design notes
 

@@ -87,7 +87,12 @@ runs/claude-code-auto/pendulum/dogfood-1/
     │                                     agent_start / completion / agent_end
     └── agent_turns/
         ├── turn_000.prompt.txt         ← exact prompt sent on turn N
-        ├── turn_000.json               ← claude --output-format json reply
+        ├── turn_000.stream.jsonl       ← FULL streaming events (thinking,
+        │                                 tool_use, tool_result, result) —
+        │                                 captured live so partial runs are
+        │                                 recoverable on timeout
+        ├── turn_000.json               ← just the terminal `result` event
+        │                                 (quick-access mirror)
         └── turn_000.txt                ← human-readable transcript
 ```
 

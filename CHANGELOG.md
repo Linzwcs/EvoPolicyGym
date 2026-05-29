@@ -138,6 +138,22 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   validation moves entirely into Phase 3. ``snapshot_size_bytes``
   is still recorded in ``checkpoints/_meta.json`` as a diagnostic.
 
+### Planning
+
+- **`docs/envs.md` — v1 environment roster (16 envs).** New doc
+  specifying the v1 evaluation suite: 16 envs across 6 categories
+  (visual control, procedural visual, spatial reasoning, visual
+  game, online algorithms, hardcore state-based control), with
+  per-env description / role / current solutions / policy-synthesis
+  testability / expected discrimination / implementation cost. Each
+  env is chosen such that "policy synthesis is the bottleneck" and
+  "held-out generalization matters" — the two design pressures of
+  the suite. Includes migration plan from v0's 5 envs (3 evolve
+  into hardcore variants, 2 retire from the scored suite) and
+  implementation-prerequisite list (`observations.npy` writer,
+  per-env `act_wall_ms` override, anti-cheat extension for vision
+  libs). This is a planning artifact — no envs implemented yet.
+
 ## [0.1.0a1] — 2026-05-29
 
 Audit-and-polish release. Closes most of the post-MVP "known

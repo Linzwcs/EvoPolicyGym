@@ -139,6 +139,7 @@ optimizes without targeting a known threshold.
 | [`AGENTS.md`](./AGENTS.md) | Benchmark agent | Rules: sandbox, anti-hack, submit protocol |
 | [`SPEC.md`](./SPEC.md) | Harness implementer | Wire-level contract: workspace, /info, Policy interface, feedback, scoring |
 | [`docs/quickstart.md`](./docs/quickstart.md) | First-time benchmark user | Working walkthrough |
+| [`docs/envs.md`](./docs/envs.md) | Env author / suite designer | v1 environment roster (16 envs across 6 categories) with per-env discrimination + cost analysis |
 | [`docs/findings.md`](./docs/findings.md) | Spec maintainer | Calibration analysis (Day 14) |
 | [`docs/architecture.md`](./docs/architecture.md) | Implementer | Package layout, build sequence, validation checklist |
 | [`docs/output.md`](./docs/output.md) | Analyst / leaderboard | What `runs/<...>/` looks like on disk |

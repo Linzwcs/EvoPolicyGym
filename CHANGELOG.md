@@ -144,6 +144,44 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   - 186 → 201 tests; mypy strict + ruff still clean. These envs
     use `Discrete` action spaces — first non-Box action types in
     the roster.
+- **9 new gym-category envs landed (MuJoCo trio + MiniGrid quartet +
+  CarRacing-lite).** Expands the registry's category coverage to all
+  four major Gymnasium categories (Classic Control, Box2D, MuJoCo,
+  MiniGrid). Per-env mechanics:
+  - **MuJoCo locomotion (4)**: `half_cheetah` (HalfCheetah-v5,
+    17-D obs / 6-D action), `hopper` (Hopper-v5, 11/3),
+    `walker2d` (Walker2d-v5, 17/6), `ant` (Ant-v5, 105/8).
+    Direct Gymnasium wraps; per-seed variation = initial-state
+    perturbation only (no domain randomization wrapper). Held-out
+    generalization is "robustness to init-state distribution".
+  - **MiniGrid POMDP navigation (4)**: `minigrid_doorkey`
+    (DoorKey-16x16-v0), `minigrid_keycorridor` (KeyCorridorS6R3-v0),
+    `minigrid_lavacrossing` (LavaCrossingS11N5-v0),
+    `minigrid_obstructedmaze` (ObstructedMaze-2Dlhb-v0). Each wraps
+    MiniGrid's Dict obs into a flat 148-D uint8 Box (7×7×3 image +
+    direction). Mission text is static per env (in TASK.md). Action
+    space is the standard 7-action MiniGrid set.
+  - **CarRacing-lite (1)**: `car_racing` wraps Gymnasium's
+    `CarRacing-v3` with a block-average downsample from 96×96×3 →
+    16×16×3. The downsampled obs fits inline (~3 KB serialized,
+    under the 10 KB cap), avoiding the `observations.npy` infra
+    dependency. The full 96×96 variant (`car_racing_pixel`) is
+    deferred until external-storage infra lands.
+  - 3 of the 9 (MuJoCo) require the `mujoco` optional dep
+    (`pip install -e .[mujoco]`); 4 (MiniGrid) require `minigrid`;
+    1 (CarRacing) uses already-required `gymnasium[box2d]`. All
+    are registered if their import succeeds; partial-install setups
+    will skip the corresponding env factories.
+  - `tests/test_gym_category_envs.py` (25 tests): registration,
+    seed pool sanity, obs/action shape matches Gymnasium spec,
+    wrapper presence verification (for envs whose factory can't
+    safely run in pytest main process). Factory + reset for
+    MuJoCo/MiniGrid/CarRacing are validated end-to-end via
+    Sandbox-spawned subprocess tests (existing
+    test_submit_handler.py pattern).
+  - 201 → 226 tests; mypy strict + ruff still clean across 63
+    source files. Total registry: **20 envs** (5 v0 + 6 v1-batch1 +
+    9 v1-batch2).
 
 ### Changed
 

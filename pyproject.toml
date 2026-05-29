@@ -17,6 +17,7 @@ classifiers = [
 dependencies = [
     "numpy>=1.26",
     "gymnasium[box2d]>=0.29",
+    "minigrid>=2.3",
 ]
 
 [project.optional-dependencies]
@@ -53,6 +54,15 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 "hlbench.envs.cache_replacement" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.k_server" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.online_bipartite_matching" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.half_cheetah" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.hopper" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.walker2d" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.ant" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.minigrid_doorkey" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.minigrid_keycorridor" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.minigrid_lavacrossing" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.minigrid_obstructedmaze" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.car_racing" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

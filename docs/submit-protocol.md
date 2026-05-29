@@ -193,13 +193,11 @@ pool. For each episode:
 5. Open `video.mp4` writer if env supports rendering.
 6. Call `Policy.reset(episode_index)`.
 7. Loop: `obs = env.step(action)`, record step, until terminated/truncated.
-8. Call `Policy.on_episode_end(episode_return)`.
-9. Close all files.
+8. Close all files.
 
-Per-episode failures (`reset_error`, `act_error`, `act_timeout`,
-`on_episode_end_error`) are recorded in `ep_<global_id>/error.txt`
-but do NOT change the submit-level verdict; subsequent episodes
-still run.
+Per-episode failures (`reset_error`, `act_error`, `act_timeout`)
+are recorded in `ep_<global_id>/error.txt` but do NOT change the
+submit-level verdict; subsequent episodes still run.
 
 Submit-level failures in Phase 6:
 - `oom` — combined process RSS exceeded `submit_peak_rss_bytes`.
@@ -274,7 +272,6 @@ itself:
 | `reset_error` | `Policy.reset()` raised | None; submit continues |
 | `act_error` | `Policy.act()` raised | None; submit continues |
 | `act_timeout` | `act()` exceeded `act_wall_ms` | None; submit continues |
-| `on_episode_end_error` | `Policy.on_episode_end()` raised | None; submit continues |
 
 These never appear in `summary.json:status` (which is submit-level).
 They appear in `summary.json:errors` / `summary.json:timeouts`

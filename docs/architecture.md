@@ -248,7 +248,6 @@ def run_episode(
         obs = next_obs
         if terminated or truncated:
             break
-    policy.on_episode_end(total_reward)
     return EpisodeRecord(trajectory=traj, return_=total_reward, length=t+1)
 ```
 

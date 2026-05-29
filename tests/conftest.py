@@ -24,8 +24,7 @@ class PendulumPDPolicy:
 
     Reliably beats ~-300 mean return on Pendulum-v1 across random init states.
 
-    Implements the Policy interface from SPEC.md §2 (`reset`, `act`,
-    `on_episode_end`).
+    Implements the Policy interface from SPEC.md §2 (`reset`, `act`).
     """
 
     KP = 30.0
@@ -41,7 +40,7 @@ class PendulumPDPolicy:
         env_meta: dict[str, Any] | None = None,
     ) -> None:
         self._episode_count = 0
-        self._final_returns: list[float] = []
+        self._last_episode_index: int | None = None
 
     def reset(self, episode_index: int) -> None:
         self._episode_count += 1
@@ -68,9 +67,6 @@ class PendulumPDPolicy:
             return np.array([u], dtype=np.float32)
         except ImportError:  # pragma: no cover
             return [u]
-
-    def on_episode_end(self, episode_return: float) -> None:
-        self._final_returns.append(episode_return)
 
 
 class CrashingPolicy:

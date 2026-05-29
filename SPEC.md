@@ -225,23 +225,25 @@ class Policy:
         action_space. Wall-time limit applies per call (default 10 ms;
         see AGENTS.md §3.3)."""
         ...
-
-    def on_episode_end(self, episode_return: float) -> None:
-        """Optional. Called once at the end of each episode with the
-        episode's total undiscounted return. May update internal state
-        (e.g., running statistics in system/)."""
-        ...
 ```
+
+There is intentionally **no** `on_episode_end` hook. Episode-level
+signals (return, length, termination flag) reach the agent through
+`feedback/submit_NNN/summary.json` after the submit completes — the
+LLM-driven outer loop is the optimization mechanism, so within-submit
+exposure of `episode_return` would only duplicate that channel and
+muddy the "what did the agent actually do" attribution. Policies that
+want running statistics across episodes within a submit can compute
+them inside `reset()` / `act()` from the obs they already see.
 
 ### 2.1 State Persistence
 
 - **Within a submit:** instance attributes of `Policy` persist across
   the `n_episodes_this_submit` episodes. `__init__` is called once;
-  `reset()`/`act()`/`on_episode_end()` are called per episode.
+  `reset()`/`act()` are called per episode.
 - **Across submits:** the `Policy` instance is destroyed after each
   submit. To carry state across submits, write to `system/` files
-  inside `on_episode_end()` or by structuring `__init__` to read from
-  `system/`.
+  from inside `act()` / `reset()` or read in `__init__`.
 
 ### 2.2 Action and Observation Spaces
 
@@ -282,9 +284,6 @@ actions as a 1-D `numpy.ndarray` of correct shape and dtype.
   `action_space.sample()`, the episode continues, and an entry with
   `category: "act_timeout"` is appended to `error.txt`. Repeated
   timeouts within the same episode are all logged.
-- If `on_episode_end()` raises, an entry with
-  `category: "on_episode_end_error"` is recorded but the episode's
-  return and other artifacts are preserved.
 
 In all cases, each error becomes one line in the appropriate file
 using the JSON Lines schema defined in §4.4.
@@ -319,7 +318,7 @@ prepares the import environment as follows:
 
 The harness also sets the working directory (`os.getcwd()`) to
 `workspace/system/` for the duration of `Policy.__init__`,
-`reset()`, `act()`, and `on_episode_end()`. This means relative
+`reset()`, and `act()`. This means relative
 file paths inside agent code resolve against `system/`. Agents
 needing to read their own data files SHOULD use either:
 
@@ -915,7 +914,6 @@ episode-level categories):
 | `reset_error` | per-episode | `Policy.reset()` raised |
 | `act_error` | per-episode | `Policy.act()` raised |
 | `act_timeout` | per-episode | `act()` exceeded `act_wall_ms` |
-| `on_episode_end_error` | per-episode | `Policy.on_episode_end()` raised |
 | `truncated` | submit-level | Sentinel for additional events when error file is truncated (see §4.4.5) |
 
 #### 4.4.2 Submit-level `errors.txt`
@@ -986,8 +984,7 @@ appended.
 
 `XXX` is the global episode index (see §4.0). Capture the **policy's
 own** standard output and standard error streams during this specific
-episode (from the matching `reset()` through to `on_episode_end()`,
-or to episode termination).
+episode (from the matching `reset()` through to episode termination).
 
 - `stdout.txt` collects everything written to `sys.stdout` (e.g.,
   `print("debug: x=", x)` from inside the policy).
@@ -1167,7 +1164,7 @@ Legend:  ✅ unconditionally created   ◯ conditional   XOR = mutually exclusiv
 | `episodes/ep_<XXX>/stderr.txt` | Each `ep_<XXX>/` | Zero bytes if policy didn't print |
 | `episodes/ep_<XXX>/observations.npy` | `env_meta.obs_storage == "external"` | May also be `.npz` (§4.6) |
 | `episodes/ep_<XXX>/video.mp4` | Env's `render(mode="rgb_array")` returns non-null | Absent (not empty) if env can't render |
-| `episodes/ep_<XXX>/error.txt` | Episode failed mid-flight (`reset_error`, `act_error`, `act_timeout`, `on_episode_end_error`) | JSON Lines; one or more entries (§4.4) |
+| `episodes/ep_<XXX>/error.txt` | Episode failed mid-flight (`reset_error`, `act_error`, `act_timeout`) | JSON Lines; one or more entries (§4.4) |
 
 #### 4.8.3 Mutual exclusion (per submit)
 

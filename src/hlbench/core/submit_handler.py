@@ -357,7 +357,7 @@ class SubmitHandler:
                     if rec.error_category == "act_timeout":
                         timeouts.append(local_i)
                     elif rec.error_category in (
-                        "act_error", "reset_error", "on_episode_end_error"
+                        "act_error", "reset_error"
                     ):
                         errors.append(local_i)
 
@@ -668,8 +668,6 @@ class SubmitHandler:
             msg = f"act() raised at step {step}"
         elif cat == "reset_error":
             msg = "Policy.reset() raised"
-        elif cat == "on_episode_end_error":
-            msg = "Policy.on_episode_end() raised"
         else:  # pragma: no cover (defensive)
             msg = f"episode failed: {cat}"
 

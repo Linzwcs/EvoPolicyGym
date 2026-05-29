@@ -111,10 +111,10 @@ written once at finalize.
 
 ## What you write
 
-Minimum: `system/policy.py` defining a `Policy` class with `reset`,
-`act`, and (optionally) `on_episode_end`. You may add helper modules
-anywhere under `system/`. See [`SPEC.md §2`](./SPEC.md) for the
-interface and [`agents/pd_pendulum/policy.py`](./agents/pd_pendulum/policy.py)
+Minimum: `system/policy.py` defining a `Policy` class with `reset`
+and `act`. You may add helper modules anywhere under `system/`. See
+[`SPEC.md §2`](./SPEC.md) for the interface and
+[`agents/pd_pendulum/policy.py`](./agents/pd_pendulum/policy.py)
 for a working reference.
 
 ## Scoring

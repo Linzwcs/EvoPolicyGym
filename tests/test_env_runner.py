@@ -119,21 +119,6 @@ def test_episode_index_is_passed_to_policy_reset(pendulum_env: object) -> None:
     assert policy._episode_count == 1
 
 
-def test_on_episode_end_receives_total_return(pendulum_env: object) -> None:
-    """policy.on_episode_end gets the same return as EpisodeRecord.return_."""
-    policy = PendulumPDPolicy()
-    rec = run_episode(
-        policy,
-        pendulum_env,
-        real_seed=0,
-        episode_index=0,
-        action_space_type="Box",
-        max_steps=20,
-    )
-    assert len(policy._final_returns) == 1
-    assert policy._final_returns[0] == rec.return_
-
-
 # ---------- behavior tests ----------
 
 

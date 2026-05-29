@@ -52,7 +52,3 @@ class Policy:
 
         u = max(-self.A_MAX, min(self.A_MAX, u))
         return [u]
-
-    def on_episode_end(self, episode_return: float) -> None:
-        # Stateless controller — no learning signal to record.
-        del episode_return

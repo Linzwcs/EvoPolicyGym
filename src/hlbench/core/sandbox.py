@@ -216,10 +216,6 @@ class _TimedPolicy:
         finally:
             signal.setitimer(signal.ITIMER_REAL, 0)
 
-    def on_episode_end(self, episode_return: float) -> None:
-        if hasattr(self._inner, "on_episode_end"):
-            self._inner.on_episode_end(episode_return)
-
 
 def _child_main(
     conn: Any,
@@ -480,9 +476,9 @@ class Sandbox:
         """Run one episode in the child, blocking until done.
 
         The returned EpisodeRecord may have `ended_with_error=True` with
-        `error_category` ∈ {"act_error", "act_timeout", "reset_error",
-        "on_episode_end_error"} — those are per-episode failures, NOT
-        sandbox failures, so this method does not raise on them.
+        `error_category` ∈ {"act_error", "act_timeout", "reset_error"} —
+        those are per-episode failures, NOT sandbox failures, so this
+        method does not raise on them.
 
         Raises:
             SandboxDead: child died mid-episode (e.g. OOM, segfault, or

@@ -36,14 +36,13 @@ class EpisodeRecord:
             a partial record. Caller is responsible for recording the error
             in `episodes/ep_<XXX>/error.txt`.
         error_category: when ended_with_error, one of SPEC.md §4.4 per-episode
-            categories: "act_error", "act_timeout", "reset_error",
-            "on_episode_end_error". `None` on success.
+            categories: "act_error", "act_timeout", "reset_error".
+            `None` on success.
         error_step_index: 0-based step at which the failure occurred (the step
             that was attempted but not completed). `None` on success.
-        error_traceback: Python traceback string for act_error / reset_error /
-            on_episode_end_error. `None` for act_timeout (no useful frame —
-            execution was interrupted by SIGALRM at an arbitrary point) and
-            on success.
+        error_traceback: Python traceback string for act_error / reset_error.
+            `None` for act_timeout (no useful frame — execution was
+            interrupted by SIGALRM at an arbitrary point) and on success.
         stdout_captured: text written to sys.stdout during this episode
             (and during Policy.__init__ for the first episode of a submit).
             Always set (may be empty). SubmitHandler writes this to
@@ -135,7 +134,6 @@ def run_episode(
         policy: object satisfying the Policy interface (see SPEC.md §2):
             `.reset(episode_index: int) -> None`
             `.act(obs) -> action`
-            `.on_episode_end(episode_return: float) -> None` (optional)
         env: gymnasium.Env (or compatible). Must support reset(seed=...) and
             step(action) returning (obs, reward, terminated, truncated, info).
         real_seed: passed to env.reset(seed=...). Determines initial state.
@@ -247,18 +245,6 @@ def run_episode(
 
         if terminated or truncated:
             break
-
-    if hasattr(policy, "on_episode_end"):
-        try:
-            policy.on_episode_end(total_reward)
-        except Exception:
-            ended_with_error = True
-            # Don't clobber an earlier act_error / act_timeout — that one
-            # is what actually killed the episode.
-            if error_category is None:
-                error_category = "on_episode_end_error"
-                error_step_index = len(trajectory)
-                error_traceback = _traceback.format_exc()
 
     return EpisodeRecord(
         trajectory=trajectory,

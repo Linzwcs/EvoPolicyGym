@@ -107,7 +107,8 @@ def test_submit_propagates_verdict_in_summary(http_server) -> None:
     """Phase 1 failures (invalid_env_instance) still return 200 — the
     failure rides on summary.status per SPEC §4.1."""
     url, _ = http_server
-    result = _post(f"{url}/submit", {"env_instances": [0, 999]})
+    # 99999 is above the 10000-id Pendulum train pool ⇒ invalid_env_instance.
+    result = _post(f"{url}/submit", {"env_instances": [0, 99999]})
     assert result["status"] == "invalid_env_instance"
     assert result["summary"]["remaining_budget"] == 256  # Phase 1: no consume
 

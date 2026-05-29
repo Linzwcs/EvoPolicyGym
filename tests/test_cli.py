@@ -111,7 +111,8 @@ def test_submit_command_returns_one_on_failure(live_server) -> None:
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = main([
-            "submit", "--env-instances", "999", "--url", live_server,
+            # 99999 is well above the 10000-id train pool ⇒ invalid_env_instance.
+            "submit", "--env-instances", "99999", "--url", live_server,
         ])
     assert rc == 1  # invalid_env_instance → status != "ok"
     assert "invalid_env_instance" in buf.getvalue()

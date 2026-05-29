@@ -97,7 +97,7 @@ def test_info_hides_baselines_and_seeds(tmp_path: Path) -> None:
     assert "heldout" not in flat
     # But the legitimate fields are present.
     assert info["env"] == "pendulum"
-    assert info["env_meta"]["n_env_instances"] == 256
+    assert info["env_meta"]["n_env_instances"] == 10000
     assert info["state"]["remaining_budget"] == 256
     assert info["state"]["is_finalized"] is False
 

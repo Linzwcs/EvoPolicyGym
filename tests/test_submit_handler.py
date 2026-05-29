@@ -209,12 +209,16 @@ def test_consecutive_submits_advance_global_episode_counter(
 
 
 def test_invalid_env_instance(tmp_path, pendulum_env_def):
-    """env_instance 999 → status=invalid_env_instance, budget UNCHANGED."""
+    """env_instance 99999 → status=invalid_env_instance, budget UNCHANGED.
+
+    99999 is well above the 10000-id Pendulum train pool. We use a value
+    clearly above the pool ceiling so this test stays honest if the pool
+    grows again."""
     ws = _write_workspace(tmp_path, _GOOD_PD_POLICY)
     handler = _make_handler(pendulum_env_def, ws)
 
     state = SubmitState(remaining_budget=256)
-    outcome = handler.handle([0, 999, 1], state)
+    outcome = handler.handle([0, 99999, 1], state)
 
     assert outcome.status == "invalid_env_instance"
     submit_dir = ws / "feedback" / "submit_000"
@@ -234,7 +238,7 @@ def test_invalid_env_instance(tmp_path, pendulum_env_def):
     assert not (submit_dir / "episodes").exists()
     err = json.loads((submit_dir / "errors.txt").read_text().strip())
     assert err["category"] == "invalid_env_instance"
-    assert "999" in err["message"]
+    assert "99999" in err["message"]
 
 
 def test_budget_invalid_when_over_remaining(tmp_path, pendulum_env_def):

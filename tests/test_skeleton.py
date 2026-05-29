@@ -22,7 +22,7 @@ def test_envs_registers_pendulum() -> None:
     env = get_env("pendulum")
     assert env.env_id == "pendulum"
     assert env.env_version == "0.1"
-    assert env.n_env_instances == 256
+    assert env.n_env_instances == 10000
     assert env.obs_storage == "inline"
     # Server-internal baselines exist but never appear in public_env_meta.
     assert env.expert_baseline == -150.0
@@ -125,16 +125,16 @@ def test_seed_resolver_loads_pendulum() -> None:
     env = get_env("pendulum")
     sm = SeedResolver(env.train_seeds_path, env.heldout_seeds_path)
 
-    assert sm.n_env_instances == 256
+    assert sm.n_env_instances == 10000
     assert sm.n_held_out == 256
 
     # Range check works.
     assert isinstance(sm.real_seed_for_instance(0), int)
-    assert isinstance(sm.real_seed_for_instance(255), int)
+    assert isinstance(sm.real_seed_for_instance(9999), int)
 
 
 def test_seed_resolver_rejects_out_of_range() -> None:
-    """env_instance 256 (out of [0, 256)) → ValueError → invalid_env_instance verdict."""
+    """env_instance 10000 (out of [0, 10000)) → ValueError → invalid_env_instance verdict."""
     import pytest
 
     from hlbench.core.seed_resolver import SeedResolver
@@ -144,7 +144,7 @@ def test_seed_resolver_rejects_out_of_range() -> None:
     sm = SeedResolver(env.train_seeds_path, env.heldout_seeds_path)
 
     with pytest.raises(ValueError):
-        sm.real_seed_for_instance(256)
+        sm.real_seed_for_instance(10000)
     with pytest.raises(ValueError):
         sm.real_seed_for_instance(-1)
 

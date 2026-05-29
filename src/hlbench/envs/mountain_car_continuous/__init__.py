@@ -61,7 +61,7 @@ register_env(
     heldout_seeds_path=_HERE / "data" / "heldout.json",
     task_md_path=_HERE / "TASK.md",
     starter_policy_path=_HERE / "starter_policy.py",
-    n_env_instances=256,
+    n_env_instances=10000,
     obs_storage="inline",
     reward_components=None,
 )

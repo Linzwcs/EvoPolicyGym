@@ -136,7 +136,6 @@ optimizes without targeting a known threshold.
 | File | Audience | Purpose |
 |---|---|---|
 | [`README.md`](./README.md) | First-time reader | Project pitch, quick start |
-| [`docs/intro.md`](./docs/intro.md) | Reviewer / paper reader | The **why**: capability axis being measured, three design pillars, novelty rationale |
 | [`AGENTS.md`](./AGENTS.md) | Benchmark agent | Rules: sandbox, anti-hack, submit protocol |
 | [`SPEC.md`](./SPEC.md) | Harness implementer | Wire-level contract: workspace, /info, Policy interface, feedback, scoring |
 | [`docs/quickstart.md`](./docs/quickstart.md) | First-time benchmark user | Working walkthrough |

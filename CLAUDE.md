@@ -27,7 +27,6 @@ Each document has a single audience and purpose; don't conflate them.
 | File | Audience | Purpose |
 |---|---|---|
 | `README.md` | First-time reader | Project pitch, gap statement, quick start |
-| `docs/intro.md` | Reviewer / paper reader | The why: capability axis, three design pillars (capability framing / budget protocol / anti-cheat), novelty rationale |
 | `AGENTS.md` | The benchmark's runtime agent | Rules of the game (sandbox, anti-hack, submit protocol from agent's POV) |
 | `SPEC.md` | Harness implementer | Wire-level contract: workspace layout, `/info` endpoint, Policy interface, feedback schemas, scoring, held-out details |
 | `docs/output.md` | Analyst / leaderboard tooling | What `runs/<model>/<env>/<exp-id>/` looks like on disk (runtime output layout) |

@@ -29,6 +29,46 @@ def test_envs_registers_pendulum() -> None:
     assert env.random_baseline == -1200.0
 
 
+def test_envs_registers_classic_control_set() -> None:
+    """Acrobot + MountainCarContinuous register alongside Pendulum.
+
+    These exercise the Discrete action serialization (acrobot) and a
+    different Box action range (mountain_car_continuous) that
+    pendulum doesn't cover."""
+    import hlbench.envs  # noqa: F401  side effect: trigger registrations
+    from hlbench.envs.registry import get_env, list_envs
+
+    ids = set(list_envs())
+    assert {"pendulum", "acrobot", "mountain_car_continuous"} <= ids
+
+    acro = get_env("acrobot")
+    assert acro.action_space["type"] == "Discrete"
+    assert acro.action_space["n"] == 3
+    assert acro.obs_space["shape"] == [6]
+    assert acro.max_episode_steps == 500
+
+    mcc = get_env("mountain_car_continuous")
+    assert mcc.action_space["type"] == "Box"
+    assert mcc.action_space["shape"] == [1]
+    assert mcc.action_space["low"] == [-1.0] and mcc.action_space["high"] == [1.0]
+    assert mcc.obs_space["shape"] == [2]
+    assert mcc.max_episode_steps == 999
+
+
+def test_classic_control_envs_have_starter_and_task_md() -> None:
+    """Every env ships TASK.md + starter_policy.py + seed pools per the
+    convention in [[feedback_lib_consumer_separation]] / env packaging.
+    Regression guard so a new env can't ship missing these."""
+    from hlbench.envs.registry import get_env
+
+    for env_id in ("acrobot", "mountain_car_continuous"):
+        env = get_env(env_id)
+        assert env.task_md_path is not None and env.task_md_path.is_file()
+        assert env.starter_policy_path is not None and env.starter_policy_path.is_file()
+        assert env.train_seeds_path.is_file()
+        assert env.heldout_seeds_path.is_file()
+
+
 def test_public_env_meta_hides_baselines() -> None:
     """expert_baseline / random_baseline MUST NOT leak via public_env_meta.
 

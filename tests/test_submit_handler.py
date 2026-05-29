@@ -582,3 +582,79 @@ def test_submit_wall_s_default_does_not_fire_in_normal_run(
     outcome = handler.handle([0, 1, 2], state)
     assert outcome.status == "ok"
     assert outcome.summary["wall_time_seconds"] < 60.0  # well under 300s
+
+
+# -------------------- new env smoke tests --------------------------------
+# Each new env's starter_policy is auto-staged by Server, so an end-to-end
+# submit through SubmitHandler exercises (1) env factory wiring,
+# (2) action-space serialization (Discrete for acrobot, Box for mcc),
+# (3) starter_policy import-and-instantiate path, (4) full episode loop.
+
+
+@pytest.fixture(scope="module")
+def acrobot_env_def():
+    import hlbench.envs  # noqa: F401  registration side effect
+    return get_env("acrobot")
+
+
+@pytest.fixture(scope="module")
+def mcc_env_def():
+    import hlbench.envs  # noqa: F401  registration side effect
+    return get_env("mountain_car_continuous")
+
+
+def _stage_env_starter(env_def, tmp_path: Path) -> Path:
+    """Mimic what Server.__init__ does for the starter: copy
+    env.starter_policy_path into workspace/system/policy.py."""
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    (ws / "feedback").mkdir()
+    (ws / "system").mkdir()
+    assert env_def.starter_policy_path is not None
+    (ws / "system" / "policy.py").write_text(
+        env_def.starter_policy_path.read_text()
+    )
+    return ws
+
+
+def test_acrobot_discrete_action_smoke(tmp_path, acrobot_env_def):
+    """Acrobot starter (no-op torque) runs 2 episodes to completion;
+    trajectory records `action` as an int (Discrete serialization path)."""
+    ws = _stage_env_starter(acrobot_env_def, tmp_path)
+    handler = _make_handler(
+        acrobot_env_def, ws,
+        episode_budget=4, max_per_submit=4,
+        # Acrobot can run up to 500 steps; give the submit room.
+        submit_wall_s=120.0, episode_wall_s=60.0,
+    )
+    state = SubmitState(remaining_budget=4)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+    assert outcome.summary["n_episodes"] == 2
+    # Each action in trajectory.jsonl is an int (Discrete serialization).
+    traj_path = ws / "feedback" / "submit_000" / "episodes" / "ep_000" / "trajectory.jsonl"
+    lines = traj_path.read_text().splitlines()
+    first = json.loads(lines[0])
+    assert isinstance(first["action"], int)
+    assert first["action"] in (0, 1, 2)
+
+
+def test_mountain_car_continuous_box_action_smoke(tmp_path, mcc_env_def):
+    """MountainCarContinuous starter (u=0) runs 2 episodes; trajectory
+    records `action` as a 1-elem list (Box[1] serialization)."""
+    ws = _stage_env_starter(mcc_env_def, tmp_path)
+    handler = _make_handler(
+        mcc_env_def, ws,
+        episode_budget=4, max_per_submit=4,
+        # 999-step episodes; budget the wall time accordingly.
+        submit_wall_s=180.0, episode_wall_s=120.0,
+    )
+    state = SubmitState(remaining_budget=4)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+    assert outcome.summary["n_episodes"] == 2
+    traj_path = ws / "feedback" / "submit_000" / "episodes" / "ep_000" / "trajectory.jsonl"
+    first = json.loads(traj_path.read_text().splitlines()[0])
+    assert isinstance(first["action"], list)
+    assert len(first["action"]) == 1
+    assert -1.0 <= first["action"][0] <= 1.0

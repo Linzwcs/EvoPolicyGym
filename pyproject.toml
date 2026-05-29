@@ -43,6 +43,8 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 
 [tool.setuptools.package-data]
 "hlbench.envs.pendulum" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.acrobot" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.mountain_car_continuous" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

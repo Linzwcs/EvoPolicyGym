@@ -41,6 +41,14 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   `ruff check` + `mypy --strict` on every push to `main` and every
   PR. Python 3.12 only (matches `requires-python` in `pyproject`).
   Will dangle until a remote is configured; harmless until then.
+- **Cost + usage tracking.** ``ClaudeAgent`` now parses ``total_cost_usd``,
+  ``num_turns``, and ``usage`` from claude's ``--output-format=json``
+  envelope. Surfaces on ``TurnResult``, ``TurnLogEntry``, and as
+  ``total_cost_usd`` + ``total_usage`` aggregates on ``RunSummary``
+  (persisted in ``logs/harness_runner.json``). The CLI summary block
+  prints total cost + input/output tokens when present. Test stubs
+  that omit these fields yield ``None`` (and ``$0.00`` aggregate)
+  rather than crashing.
 
 ### Design notes
 

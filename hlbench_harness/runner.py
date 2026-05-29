@@ -60,6 +60,9 @@ class TurnLogEntry:
     exit_code: int
     timed_out: bool
     text_len: int
+    cost_usd: float | None = None
+    inner_num_turns: int | None = None
+    usage: dict[str, int] | None = None
     state_after: dict[str, Any] = field(default_factory=dict)
 
 
@@ -88,11 +91,30 @@ class RunSummary:
     started_at_monotonic: float = 0.0
     ended_at_monotonic: float = 0.0
 
+    @property
+    def total_cost_usd(self) -> float:
+        """Sum of per-turn ``cost_usd`` across the run; turns with no
+        cost field (test stubs, timed-out turns) contribute 0."""
+        return round(sum(t.cost_usd or 0.0 for t in self.turns), 6)
+
+    def total_usage(self) -> dict[str, int]:
+        """Sum of per-turn ``usage`` across the run, by key."""
+        out: dict[str, int] = {}
+        for t in self.turns:
+            if not t.usage:
+                continue
+            for k, v in t.usage.items():
+                out[k] = out.get(k, 0) + v
+        return out
+
     def to_record(self) -> dict[str, Any]:
         out = asdict(self)
         out["wall_time_seconds"] = round(
             self.ended_at_monotonic - self.started_at_monotonic, 3
         )
+        # Add the derived totals so consumers don't have to recompute.
+        out["total_cost_usd"] = self.total_cost_usd
+        out["total_usage"] = self.total_usage()
         del out["started_at_monotonic"]
         del out["ended_at_monotonic"]
         return out
@@ -171,6 +193,9 @@ class HarnessRunner:
                 exit_code=getattr(result, "exit_code", 0),
                 timed_out=getattr(result, "timed_out", False),
                 text_len=len(getattr(result, "text", "")),
+                cost_usd=getattr(result, "cost_usd", None),
+                inner_num_turns=getattr(result, "inner_num_turns", None),
+                usage=getattr(result, "usage", None),
                 state_after={
                     "remaining_budget": post_info["state"]["remaining_budget"],
                     "n_submits": post_info["state"]["n_submits"],

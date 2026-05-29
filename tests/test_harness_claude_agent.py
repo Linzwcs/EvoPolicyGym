@@ -65,6 +65,28 @@ sys.stdout.write("\\n")
 sys.exit(0)
 """
 
+# Like _STUB_SUCCESS but also emits cost/usage fields the real claude
+# CLI returns. Lets us verify the harness parses them when present.
+_STUB_SUCCESS_WITH_COST = """
+import json, sys, os
+sys.stdout.write(json.dumps({
+    "type": "result",
+    "subtype": "success",
+    "result": "ok with cost",
+    "session_id": os.environ.get("HLBENCH_SESSION_ID", "unknown"),
+    "total_cost_usd": 0.1234,
+    "num_turns": 3,
+    "usage": {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cache_creation_input_tokens": 12345,
+        "cache_read_input_tokens": 0,
+        "server_tool_use": {"web_search_requests": 0},
+    },
+}))
+sys.exit(0)
+"""
+
 _STUB_FAIL = """
 import sys
 sys.stderr.write("simulated failure\\n")
@@ -258,3 +280,68 @@ def test_turn_result_dataclass_round_trip() -> None:
     # Frozen — cannot mutate.
     with pytest.raises(dataclasses.FrozenInstanceError):
         r.exit_code = 1  # type: ignore[misc]
+
+
+# --------------------------- cost / usage parsing ----------------------------
+
+
+def test_cost_and_usage_extracted_from_json(tmp_path: Path) -> None:
+    """When claude's JSON envelope includes total_cost_usd / num_turns /
+    usage, the TurnResult surfaces them."""
+    stub = _make_stub_claude(tmp_path, body=_STUB_SUCCESS_WITH_COST)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    log_dir = tmp_path / "logs"
+    agent = ClaudeAgent(
+        workspace_dir=workspace, http_url="http://x",
+        log_dir=log_dir,
+        config=ClaudeAgentConfig(claude_binary=str(stub)),
+    )
+    r = agent.run_turn("hi")
+    assert r.ok
+    assert r.cost_usd == 0.1234
+    assert r.inner_num_turns == 3
+    # usage is filtered to int-valued keys only (server_tool_use is a
+    # nested dict and must be excluded).
+    assert r.usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cache_creation_input_tokens": 12345,
+        "cache_read_input_tokens": 0,
+    }
+
+
+def test_cost_absent_yields_none(tmp_path: Path) -> None:
+    """The standard test stub doesn't emit cost; the harness must
+    tolerate that and leave the fields as None (rather than 0.0)."""
+    stub = _make_stub_claude(tmp_path, body=_STUB_SUCCESS)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    log_dir = tmp_path / "logs"
+    agent = ClaudeAgent(
+        workspace_dir=workspace, http_url="http://x",
+        log_dir=log_dir,
+        config=ClaudeAgentConfig(claude_binary=str(stub)),
+    )
+    r = agent.run_turn("hi")
+    assert r.ok
+    assert r.cost_usd is None
+    assert r.inner_num_turns is None
+    assert r.usage is None
+
+
+def test_failed_turn_has_no_cost(tmp_path: Path) -> None:
+    """A turn that exited non-zero with no JSON output also leaves the
+    cost fields None — defensive against partial-write scenarios."""
+    stub = _make_stub_claude(tmp_path, body=_STUB_FAIL)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    log_dir = tmp_path / "logs"
+    agent = ClaudeAgent(
+        workspace_dir=workspace, http_url="http://x", log_dir=log_dir,
+        config=ClaudeAgentConfig(claude_binary=str(stub)),
+    )
+    r = agent.run_turn("x")
+    assert r.ok is False
+    assert r.cost_usd is None
+    assert r.usage is None

@@ -39,6 +39,9 @@ class _TurnResult:
     timed_out: bool = False
     duration_seconds: float = 0.01
     text: str = ""
+    cost_usd: float | None = None
+    inner_num_turns: int | None = None
+    usage: dict[str, int] | None = None
 
     @property
     def ok(self) -> bool:
@@ -54,14 +57,24 @@ class FakeAgent:
     """Test-only agent. Holds a list of actions; one per ``run_turn``.
 
     Each action receives the live Server and may submit / finalize on
-    it, simulating what the inner Claude would have curl'd to do."""
+    it, simulating what the inner Claude would have curl'd to do.
 
-    def __init__(self, *, server: Server, actions: list[Action], session_id: str = "test-uuid") -> None:
+    ``cost_per_turn`` lets tests verify cumulative cost flowing through
+    to RunSummary."""
+
+    def __init__(
+        self, *, server: Server, actions: list[Action],
+        session_id: str = "test-uuid",
+        cost_per_turn: float | None = None,
+        usage_per_turn: dict[str, int] | None = None,
+    ) -> None:
         self.session_id = session_id
         self.turn_count = 0
         self.prompts_seen: list[str] = []
         self._server = server
         self._actions = actions
+        self._cost_per_turn = cost_per_turn
+        self._usage_per_turn = usage_per_turn
 
     def run_turn(self, prompt: str) -> _TurnResult:
         idx = self.turn_count
@@ -76,6 +89,8 @@ class FakeAgent:
         return _TurnResult(
             turn_index=idx, session_id=self.session_id,
             exit_code=0 if ok else 1, timed_out=False, text=f"turn {idx}",
+            cost_usd=self._cost_per_turn,
+            usage=dict(self._usage_per_turn) if self._usage_per_turn else None,
         )
 
 
@@ -291,3 +306,50 @@ def test_no_submits_at_all_still_finalizes_without_crashing(server_with_policy: 
     # comes from the staged policy.
     assert summary.final_result["status"] == "completed"
     assert summary.final_result["final_submit_index"] is None
+
+
+def test_cost_and_usage_aggregate_across_turns(server_with_policy: Server) -> None:
+    """Per-turn cost + usage flow into RunSummary aggregates and into
+    the persisted ``harness_runner.json`` totals."""
+    agent = FakeAgent(
+        server=server_with_policy,
+        actions=[_submit([0, 1, 2, 3]), _submit([4, 5, 6, 7])],
+        cost_per_turn=0.05,
+        usage_per_turn={"input_tokens": 100, "output_tokens": 40},
+    )
+    runner = HarnessRunner(
+        server=server_with_policy, agent=agent,
+        http_url="http://x", max_turns=10,
+    )
+    summary = runner.run()
+    assert summary.termination_reason == "budget_exhausted"
+    # Two turns at $0.05 each.
+    assert summary.total_cost_usd == 0.10
+    # Per-key token sum.
+    assert summary.total_usage() == {"input_tokens": 200, "output_tokens": 80}
+    # Persisted JSON carries the same totals.
+    data = json.loads(
+        (server_with_policy.run_dir / "logs" / "harness_runner.json").read_text()
+    )
+    assert data["total_cost_usd"] == 0.10
+    assert data["total_usage"] == {"input_tokens": 200, "output_tokens": 80}
+    # Per-turn entries carry cost too.
+    assert all(t["cost_usd"] == 0.05 for t in data["turns"])
+
+
+def test_zero_cost_when_agent_omits_fields(server_with_policy: Server) -> None:
+    """An agent that doesn't surface cost (test stubs, custom agents)
+    aggregates to total_cost_usd == 0.0 without crashing."""
+    agent = FakeAgent(
+        server=server_with_policy,
+        actions=[_submit([0, 1, 2, 3]), _submit([4, 5, 6, 7])],
+        cost_per_turn=None,
+        usage_per_turn=None,
+    )
+    runner = HarnessRunner(
+        server=server_with_policy, agent=agent,
+        http_url="http://x", max_turns=10,
+    )
+    summary = runner.run()
+    assert summary.total_cost_usd == 0.0
+    assert summary.total_usage() == {}

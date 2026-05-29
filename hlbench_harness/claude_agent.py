@@ -49,7 +49,12 @@ class TurnResult:
     ``raw_json`` is the full ``--output-format=json`` response (when
     parseable); ``text`` is the agent's final message. ``exit_code``
     is the subprocess return code; ``timed_out`` is set if subprocess
-    timed out (caller decides whether to abort the loop or retry)."""
+    timed out (caller decides whether to abort the loop or retry).
+
+    ``cost_usd``, ``inner_num_turns``, and ``usage`` are extracted
+    from claude's JSON envelope when available — the real
+    ``--output-format=json`` body carries them, but stub binaries used
+    in tests may omit them, hence the ``None`` defaults."""
 
     turn_index: int
     session_id: str
@@ -59,6 +64,9 @@ class TurnResult:
     text: str
     raw_json: dict[str, Any] | None = None
     stderr: str = ""
+    cost_usd: float | None = None
+    inner_num_turns: int | None = None
+    usage: dict[str, int] | None = None
 
     @property
     def ok(self) -> bool:
@@ -172,6 +180,9 @@ class ClaudeAgent:
         # crashes) may write nothing or partial text.
         raw_json: dict[str, Any] | None = None
         text_response = ""
+        cost_usd: float | None = None
+        inner_num_turns: int | None = None
+        usage: dict[str, int] | None = None
         if stdout.strip():
             try:
                 parsed = json.loads(stdout)
@@ -181,6 +192,23 @@ class ClaudeAgent:
                     result = parsed.get("result")
                     if isinstance(result, str):
                         text_response = result
+                    # Cost / usage are present in real claude responses
+                    # but absent in test stubs; tolerate both.
+                    raw_cost = parsed.get("total_cost_usd")
+                    if isinstance(raw_cost, (int, float)):
+                        cost_usd = float(raw_cost)
+                    raw_turns = parsed.get("num_turns")
+                    if isinstance(raw_turns, int):
+                        inner_num_turns = raw_turns
+                    raw_usage = parsed.get("usage")
+                    if isinstance(raw_usage, dict):
+                        # Keep only the int-valued fields that match
+                        # claude's documented usage shape; drop nested
+                        # dicts (server_tool_use, cache_creation, ...).
+                        usage = {
+                            k: int(v) for k, v in raw_usage.items()
+                            if isinstance(v, int)
+                        }
             except json.JSONDecodeError:
                 # Non-JSON output (e.g., timeout buffer) — keep raw text.
                 text_response = stdout
@@ -208,6 +236,9 @@ class ClaudeAgent:
             text=text_response,
             raw_json=raw_json,
             stderr=stderr,
+            cost_usd=cost_usd,
+            inner_num_turns=inner_num_turns,
+            usage=usage,
         )
 
     def _build_command(self, prompt: str) -> list[str]:

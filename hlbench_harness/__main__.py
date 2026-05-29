@@ -226,6 +226,13 @@ def _print_summary(summary: RunSummary, server: Server) -> None:
     print(f"  session_id:        {summary.session_id}")
     print(f"  turns:             {summary.n_turns}")
     print(f"  termination:       {summary.termination_reason}")
+    if summary.total_cost_usd > 0:
+        print(f"  total_cost_usd:    ${summary.total_cost_usd:.4f}")
+        usage = summary.total_usage()
+        if usage:
+            in_t = usage.get("input_tokens", 0)
+            out_t = usage.get("output_tokens", 0)
+            print(f"  tokens (in/out):   {in_t} / {out_t}")
     print(f"  status:            {final.get('status')}")
     if final.get("status") == "completed":
         score = final.get("final_score")

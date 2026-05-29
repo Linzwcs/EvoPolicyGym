@@ -24,9 +24,8 @@ _REFERENCE_POLICY = _REPO_ROOT / "agents" / "pd_pendulum" / "policy.py"
 def http_server(tmp_path: Path):
     """Yield (base_url, server) for a live HTTP wrapper around a fresh
     Pendulum Server with the reference PD agent staged."""
-    ws = tmp_path / "run"
-    srv = Server(env_id="pendulum", workspace_dir=ws)
-    shutil.copy(_REFERENCE_POLICY, ws / "system" / "policy.py")
+    srv = Server(env_id="pendulum", runs_root=tmp_path / "runs")
+    shutil.copy(_REFERENCE_POLICY, srv.workspace_dir / "system" / "policy.py")
     # port=0 → OS picks a free port; HTTP server reports the real one.
     with HlbenchHTTPServer(srv, port=0) as http:
         yield f"http://{http.host}:{http.port}", srv

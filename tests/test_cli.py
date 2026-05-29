@@ -43,14 +43,25 @@ def test_parse_env_instances_mix() -> None:
 
 
 def test_init_creates_workspace(tmp_path: Path) -> None:
-    ws = tmp_path / "run"
-    rc = main(["init", "--env", "pendulum", "--dir", str(ws)])
+    runs_root = tmp_path / "runs"
+    rc = main([
+        "init", "--env", "pendulum",
+        "--runs-root", str(runs_root),
+        "--model", "test-model",
+        "--exp-id", "myrun",
+    ])
     assert rc == 0
+    # Canonical layout: runs_root/<model>/<env>/<exp-id>/workspace/
+    ws = runs_root / "test-model" / "pendulum" / "myrun" / "workspace"
     assert (ws / "AGENTS.md").is_file()
     assert (ws / "system").is_dir()
     assert (ws / "feedback").is_dir()
     # TASK.md is NOT staged into workspace (served via GET /task).
     assert not (ws / "TASK.md").exists()
+    # And the sibling dirs (checkpoints/, logs/) are created at run_dir.
+    run_dir = ws.parent
+    assert (run_dir / "checkpoints").is_dir()
+    assert (run_dir / "logs").is_dir()
 
 
 # --------------------------- HTTP-using subcommands ----------------------
@@ -58,9 +69,8 @@ def test_init_creates_workspace(tmp_path: Path) -> None:
 
 @pytest.fixture
 def live_server(tmp_path: Path):
-    ws = tmp_path / "run"
-    srv = Server(env_id="pendulum", workspace_dir=ws)
-    shutil.copy(_REFERENCE_POLICY, ws / "system" / "policy.py")
+    srv = Server(env_id="pendulum", runs_root=tmp_path / "runs")
+    shutil.copy(_REFERENCE_POLICY, srv.workspace_dir / "system" / "policy.py")
     with HlbenchHTTPServer(srv, port=0) as http:
         yield f"http://{http.host}:{http.port}"
 

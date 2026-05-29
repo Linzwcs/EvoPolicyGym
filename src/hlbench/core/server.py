@@ -104,41 +104,51 @@ class Server:
     def __init__(
         self,
         env_id: str,
-        workspace_dir: Path,
+        runs_root: Path,
         *,
-        config_overrides: dict[str, Any] | None = None,
-        agents_md_path: Path | None = None,
-        run_dir: Path | None = None,
         model: str = "unknown",
         exp_id: str | None = None,
+        config_overrides: dict[str, Any] | None = None,
+        agents_md_path: Path | None = None,
     ) -> None:
-        """Initialize the run and stage workspace files.
+        """Initialize the run and stage workspace files under the canonical
+        ``runs/<model>/<env>/<exp-id>/`` layout (output.md §1).
 
         Args:
             env_id: Registered env identifier (e.g. ``"pendulum"``).
-            workspace_dir: Local directory; created if missing. Server
-                ensures ``AGENTS.md``, ``system/``, and
-                ``feedback/`` exist underneath it. ``system/`` is left
-                empty (ready for the agent to drop ``policy.py``);
-                ``feedback/`` is empty until the first submit.
+            runs_root: Root directory under which all runs live. The
+                actual run dir is computed as
+                ``runs_root / model / env_id / exp_id``. Created if
+                missing. Per ``hlbench check`` invariants the layout
+                must be exactly this triple-nested form.
+            model: Slug for the agent identity (output.md §2.1).
+                Recorded as ``run.json:model``. Default ``"unknown"``
+                for ad-hoc lib usage.
+            exp_id: Distinguishes multiple runs of the same
+                ``(model, env_id)`` pair. Defaults to
+                ``<ISO timestamp>__<6-hex>`` per output.md §2.3, where
+                the hash bakes in model/env/config to break ties
+                within the same second.
             config_overrides: Optional dict to override defaults like
                 ``episode_budget``, ``act_wall_s``, ``init_wall_s``.
                 Unknown keys raise. None ⇒ defaults from SPEC §1.1.
-            agents_md_path: Source ``AGENTS.md`` to copy into the workspace.
-                Defaults to the repo's ``AGENTS.md`` (works in a source
-                checkout). If the source file doesn't exist, a minimal
-                placeholder is written instead — callers running from a
-                wheel should pass an explicit path.
-            run_dir: Directory where ``run.json`` will be written by
-                ``finalize()``. Defaults to the workspace's parent
-                directory (so ``runs/<model>/<env>/<exp-id>/`` layouts
-                that put workspace at ``runs/<...>/workspace/`` work
-                out of the box). Created if missing.
-            model: Recorded as ``run.json:model``. Free-form identifier
-                for whatever produced ``system/policy.py``.
-            exp_id: Recorded as ``run.json:exp_id``. Defaults to the
-                ISO timestamp of run start so consecutive runs of the
-                same model/env don't collide.
+            agents_md_path: Source ``AGENTS.md`` to copy into the
+                workspace. Defaults to the repo's ``AGENTS.md`` (works
+                in a source checkout). If the source file doesn't
+                exist, a minimal placeholder is written instead —
+                callers running from a wheel should pass an explicit
+                path.
+
+        Resulting layout::
+
+            <runs_root>/<model>/<env_id>/<exp_id>/
+                ├── workspace/            # agent's local view
+                │   ├── AGENTS.md
+                │   ├── system/
+                │   └── feedback/
+                ├── checkpoints/          # per-submit code snapshots
+                ├── logs/                 # harness.log etc. (post-MVP)
+                └── run.json              # written at finalize()
         """
         # Resolve env + seeds.
         self._env_def: EnvDefinition = get_env(env_id)
@@ -147,27 +157,9 @@ class Server:
             self._env_def.heldout_seeds_path,
         )
 
-        self._workspace = Path(workspace_dir).resolve()
-        self._workspace.mkdir(parents=True, exist_ok=True)
-        (self._workspace / "system").mkdir(exist_ok=True)
-        (self._workspace / "feedback").mkdir(exist_ok=True)
-
-        # Stage AGENTS.md (the only static doc in the workspace; TASK.md is
-        # served via GET /task per CLAUDE.md invariant 5).
-        src = agents_md_path or _REPO_ROOT_AGENTS_MD
-        agents_dst = self._workspace / "AGENTS.md"
-        if src.exists():
-            shutil.copy(src, agents_dst)
-        else:
-            agents_dst.write_text(
-                "# AGENTS.md\n\n"
-                "(placeholder — install hlbench from source to get the real one)\n"
-            )
-        self._agents_md_hash = "sha256:" + hashlib.sha256(
-            agents_dst.read_bytes()
-        ).hexdigest()
-
-        # Build config from overrides.
+        # Build config from overrides first so it's available to the
+        # exp_id hash (output.md §2.3 bakes effective config into the
+        # tiebreaker hex).
         overrides = config_overrides or {}
         unknown = set(overrides) - {
             "episode_budget", "min_episodes_per_submit", "max_episodes_per_submit",
@@ -191,10 +183,9 @@ class Server:
             sandbox=sandbox_cfg,
         )
 
-        # Mutable run state.
-        self._state = SubmitState(remaining_budget=self._submit_cfg.episode_budget)
-        self._is_finalized = False
-        self._final_result: FinalResult | None = None
+        # Timestamps. self._started_at is the ISO string written into
+        # run.json:timing.start_time; self._start_monotonic is for
+        # accurate wall-time deltas.
         self._start_monotonic = time.monotonic()
         now = datetime.now(UTC)
         self._started_at = (
@@ -202,16 +193,50 @@ class Server:
             + f"{now.microsecond // 1000:03d}Z"
         )
 
-        # Run identity (used by run.json on finalize).
+        # Compute the canonical run directory.
         self._model = model
-        self._exp_id = exp_id or self._started_at.replace(":", "-").replace(".", "-")
-        self._run_dir = (Path(run_dir).resolve() if run_dir
-                         else self._workspace.parent)
+        self._exp_id = exp_id or _autogen_exp_id(
+            model=model, env=env_id,
+            episode_budget=self._submit_cfg.episode_budget,
+            timestamp_iso=self._started_at,
+        )
+        self._run_dir = (
+            Path(runs_root).resolve() / model / env_id / self._exp_id
+        )
         self._run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Set up workspace / checkpoints / logs under run_dir.
+        self._workspace = self._run_dir / "workspace"
+        self._workspace.mkdir(exist_ok=True)
+        (self._workspace / "system").mkdir(exist_ok=True)
+        (self._workspace / "feedback").mkdir(exist_ok=True)
         self._checkpoints_dir = self._run_dir / "checkpoints"
         self._checkpoints_dir.mkdir(exist_ok=True)
-        # SubmitHandler needs both workspace_dir (for snapshot/feedback)
-        # and checkpoints_dir (so it persists per-submit code copies).
+        self._logs_dir = self._run_dir / "logs"
+        self._logs_dir.mkdir(exist_ok=True)
+
+        # Stage AGENTS.md (the only static doc in the workspace; TASK.md is
+        # served via GET /task per CLAUDE.md invariant 5).
+        src = agents_md_path or _REPO_ROOT_AGENTS_MD
+        agents_dst = self._workspace / "AGENTS.md"
+        if src.exists():
+            shutil.copy(src, agents_dst)
+        else:
+            agents_dst.write_text(
+                "# AGENTS.md\n\n"
+                "(placeholder — install hlbench from source to get the real one)\n"
+            )
+        self._agents_md_hash = "sha256:" + hashlib.sha256(
+            agents_dst.read_bytes()
+        ).hexdigest()
+
+        # Mutable run state.
+        self._state = SubmitState(remaining_budget=self._submit_cfg.episode_budget)
+        self._is_finalized = False
+        self._final_result: FinalResult | None = None
+
+        # SubmitHandler needs workspace (for snapshot/feedback) and
+        # checkpoints_dir (for per-submit code copies).
         self._handler = SubmitHandler(
             env_def=self._env_def,
             seed_manager=self._sm,
@@ -221,6 +246,20 @@ class Server:
         )
 
     # ------------- public API -------------------------------------------
+
+    @property
+    def run_dir(self) -> Path:
+        """Canonical ``<runs_root>/<model>/<env>/<exp-id>/`` directory."""
+        return self._run_dir
+
+    @property
+    def workspace_dir(self) -> Path:
+        """The agent's workspace = ``run_dir / "workspace"``."""
+        return self._workspace
+
+    @property
+    def exp_id(self) -> str:
+        return self._exp_id
 
     def task_md_text(self) -> str:
         """Return the env's task description as a markdown string.
@@ -480,6 +519,24 @@ class Server:
 
 
 # --------------------------- helpers --------------------------------------
+
+
+def _autogen_exp_id(
+    *, model: str, env: str, episode_budget: int, timestamp_iso: str,
+) -> str:
+    """Per output.md §2.3: ``<YYYY-MM-DDTHH-MM-SS>__<6-hex>``.
+
+    The hex breaks ties when two runs of the same (model, env) start
+    in the same second; we hash model/env/budget/timestamp into the
+    digest so cross-run identity is reproducible from those inputs."""
+    safe_ts = (
+        timestamp_iso.split(".", 1)[0]   # drop millis + Z
+        .replace(":", "-")
+    )
+    digest = hashlib.sha256(
+        f"{model}|{env}|budget={episode_budget}|{timestamp_iso}".encode()
+    ).hexdigest()[:6]
+    return f"{safe_ts}__{digest}"
 
 
 def _is_subpath(path: Path, parent: Path) -> bool:

@@ -42,19 +42,21 @@ shortcuts. See [`AGENTS.md`](./AGENTS.md) for the full list.
 uv venv --python 3.12 .venv
 .venv/bin/pip install -e .
 
-# 2. Create a workspace
-.venv/bin/hlbench init --env pendulum --dir ./run
+# 2. Create a run dir at runs/<model>/<env>/<exp-id>/
+.venv/bin/hlbench init --env pendulum --model reference-pd --exp-id demo
 
 # 3. Drop the reference policy into the workspace
-cp agents/pd_pendulum/policy.py run/system/policy.py
+RUN_DIR=./runs/reference-pd/pendulum/demo
+cp agents/pd_pendulum/policy.py $RUN_DIR/workspace/system/policy.py
 
 # 4. Start the server (foreground, in one terminal)
-.venv/bin/hlbench serve --workspace ./run --env pendulum
+.venv/bin/hlbench serve --run-dir $RUN_DIR --env pendulum
 
 # 5. From another terminal, submit and finalize
 .venv/bin/hlbench info
 .venv/bin/hlbench submit --env-instances 0-7
 .venv/bin/hlbench finalize
+# → run.json at $RUN_DIR/run.json with outcome.final_score
 ```
 
 For a deeper walkthrough including the lib API, see

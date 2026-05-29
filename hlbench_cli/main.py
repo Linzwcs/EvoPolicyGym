@@ -76,30 +76,35 @@ def _print_json(value: object) -> None:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Create a fresh workspace. Just calls ``Server(...)`` and exits —
-    Server.__init__ stages AGENTS.md + system/ + feedback/."""
+    """Create a fresh run directory under
+    ``runs_root/<model>/<env>/<exp-id>/`` and stage AGENTS.md +
+    system/ + feedback/ inside its workspace/. Output the resulting
+    paths so subsequent ``serve`` knows where to point."""
     from hlbench.core.server import Server  # lazy: only init needs it
 
-    workspace = Path(args.dir)
     server = Server(
         env_id=args.env,
-        workspace_dir=workspace,
+        runs_root=Path(args.runs_root),
         model=args.model,
         exp_id=args.exp_id,
     )
     info = server.info()
-    print(f"Initialized {args.env} workspace at {workspace.resolve()}")
-    print(f"  episode_budget    {info['episode_budget']}")
-    print(f"  n_env_instances   {info['env_meta']['n_env_instances']}")
-    print(f"  agents_md_hash     {info['agents_md_hash']}")
+    print(f"Initialized {args.env} run at {server.run_dir}")
+    print(f"  workspace:        {server.workspace_dir}")
+    print(f"  exp_id:           {server.exp_id}")
+    print(f"  model:            {args.model}")
+    print(f"  episode_budget:   {info['episode_budget']}")
+    print(f"  n_env_instances:  {info['env_meta']['n_env_instances']}")
+    print(f"  agents_md_hash:   {info['agents_md_hash']}")
     print()
     print("Next: drop a Policy at workspace/system/policy.py, then run:")
-    print(f"  hlbench serve --workspace {workspace} --env {args.env}")
+    print(f"  hlbench serve --run-dir {server.run_dir} --env {args.env}")
     return 0
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    """Spin up the HTTP server in the foreground. Blocks until Ctrl-C."""
+    """Spin up the HTTP server in the foreground for an existing run dir.
+    Blocks until Ctrl-C. The run dir must already exist (from ``init``)."""
     import logging
 
     from hlbench.core.server import Server
@@ -107,15 +112,32 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
+    # ``serve`` re-opens an existing run dir. Reverse-engineer the
+    # canonical ``runs_root / model / env_id / exp_id`` from the path.
+    run_dir = Path(args.run_dir).resolve()
+    if not run_dir.is_dir():
+        print(f"error: run dir does not exist: {run_dir}", file=sys.stderr)
+        return 2
+    exp_id = run_dir.name
+    env_dir = run_dir.parent
+    if env_dir.name != args.env:
+        print(
+            f"error: run dir env segment {env_dir.name!r} != "
+            f"--env {args.env!r}", file=sys.stderr,
+        )
+        return 2
+    model_dir = env_dir.parent
+    runs_root = model_dir.parent
+    model = model_dir.name
+
     server = Server(
-        env_id=args.env,
-        workspace_dir=Path(args.workspace),
-        model=args.model,
-        exp_id=args.exp_id,
+        env_id=args.env, runs_root=runs_root,
+        model=model, exp_id=exp_id,
     )
     http = HlbenchHTTPServer(server, host=args.host, port=args.port)
     print(f"hlbench server listening on http://{args.host}:{args.port}")
-    print(f"  workspace: {Path(args.workspace).resolve()}")
+    print(f"  run_dir:   {server.run_dir}")
+    print(f"  workspace: {server.workspace_dir}")
     print(f"  env:       {args.env}")
     print("Ctrl-C to stop.")
     try:
@@ -205,20 +227,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_init = sub.add_parser("init", help="create a fresh workspace")
+    p_init = sub.add_parser(
+        "init", help="create a fresh run dir (runs/<model>/<env>/<exp-id>/)",
+    )
     p_init.add_argument("--env", required=True, help="registered env id (e.g. 'pendulum')")
-    p_init.add_argument("--dir", required=True, help="path to create the workspace at")
-    p_init.add_argument("--model", default="unknown", help="recorded as run.json:model")
-    p_init.add_argument("--exp-id", default=None, help="recorded as run.json:exp_id")
+    p_init.add_argument(
+        "--runs-root", default="./runs",
+        help="root directory for all runs (default: ./runs)",
+    )
+    p_init.add_argument("--model", default="unknown",
+                        help="agent identity slug; recorded as run.json:model")
+    p_init.add_argument("--exp-id", default=None,
+                        help="run identifier; auto-generated if absent "
+                             "(<timestamp>__<6-hex> per output.md §2.3)")
     p_init.set_defaults(func=cmd_init)
 
-    p_serve = sub.add_parser("serve", help="start HTTP server (foreground)")
-    p_serve.add_argument("--workspace", required=True, help="path to existing workspace")
-    p_serve.add_argument("--env", required=True, help="env id matching the workspace")
+    p_serve = sub.add_parser("serve", help="start HTTP server for an existing run dir")
+    p_serve.add_argument("--run-dir", required=True,
+                         help="full path to runs/<model>/<env>/<exp-id>/")
+    p_serve.add_argument("--env", required=True, help="env id matching the run dir")
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8765)
-    p_serve.add_argument("--model", default="unknown")
-    p_serve.add_argument("--exp-id", default=None)
     p_serve.set_defaults(func=cmd_serve)
 
     p_info = sub.add_parser("info", help="GET /info")

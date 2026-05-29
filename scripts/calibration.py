@@ -34,17 +34,16 @@ from hlbench.core.server import Server  # noqa: E402
 def _run_one(*, budget: int, max_per_submit: int, model: str) -> dict:
     """Run a single hlbench run at the given budget; return summary dict."""
     with tempfile.TemporaryDirectory() as td:
-        ws = Path(td) / "run"
         srv = Server(
             env_id="pendulum",
-            workspace_dir=ws,
+            runs_root=Path(td) / "runs",
             model=model,
             config_overrides={
                 "episode_budget": budget,
                 "max_episodes_per_submit": max_per_submit,
             },
         )
-        shutil.copy(REFERENCE_POLICY, ws / "system" / "policy.py")
+        shutil.copy(REFERENCE_POLICY, srv.workspace_dir / "system" / "policy.py")
 
         # Submit in chunks of max_per_submit until budget is exhausted.
         submit_means: list[float] = []

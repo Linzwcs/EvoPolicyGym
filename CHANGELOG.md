@@ -153,6 +153,17 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   implementation-prerequisite list (`observations.npy` writer,
   per-env `act_wall_ms` override, anti-cheat extension for vision
   libs). This is a planning artifact — no envs implemented yet.
+- **`docs/intro.md` — conceptual introduction (the why).** New doc
+  positioning HLBench-pro as a capability benchmark for one specific
+  LLM axis: **closed-loop policy evolution under bounded resources**.
+  Articulates the three design pillars (capability framing / budget
+  protocol / anti-cheat package), shows that each pillar is a
+  *necessary condition* for the others to be meaningful, and
+  compares the budget + anti-cheat designs against adjacent benchmarks
+  (Atari 100k / Procgen / MLE-bench / Voyager / Eureka / SWE-bench /
+  AgentBench). Frames the empirical bet (four findings the paper
+  needs to show for the capability axis claim to stand). This is the
+  document a reviewer reads to understand the project's contribution.
 
 ## [0.1.0a1] — 2026-05-29
 

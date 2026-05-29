@@ -35,9 +35,15 @@ There are two terminals: one runs the server, the other drives it.
 **Terminal A — set up + serve:**
 
 ```bash
-.venv/bin/hlbench init --env pendulum --dir ./run --model reference-pd
-cp agents/pd_pendulum/policy.py run/system/policy.py
-.venv/bin/hlbench serve --workspace ./run --env pendulum
+# Creates ./runs/reference-pd/pendulum/<auto-id>/ with workspace/, checkpoints/, logs/
+.venv/bin/hlbench init --env pendulum --model reference-pd --exp-id demo
+
+# Drop the reference policy into the workspace under the run dir.
+RUN_DIR=./runs/reference-pd/pendulum/demo
+cp agents/pd_pendulum/policy.py $RUN_DIR/workspace/system/policy.py
+
+# Start the HTTP server pointing at that run dir.
+.venv/bin/hlbench serve --run-dir $RUN_DIR --env pendulum
 ```
 
 **Terminal B — submit and finalize:**
@@ -57,15 +63,16 @@ finalize: completed
   held_out_mean:      -168.00
   held_out_std:       107.78
   final_submit:       #1
-  run.json:           /.../run.json
+  run.json:           ./runs/reference-pd/pendulum/demo/run.json
 ```
 
 Inspect:
 
 ```bash
-ls run/feedback/                                    # one dir per submit
-cat run/feedback/submit_000/summary.json | jq '.mean_return'
-cat run/run.json | jq '.outcome.final_score'        # 98.3
+ls $RUN_DIR/workspace/feedback/                     # one dir per submit
+cat $RUN_DIR/workspace/feedback/submit_000/summary.json | jq '.mean_return'
+cat $RUN_DIR/run.json | jq '.outcome.final_score'   # 98.3
+ls $RUN_DIR/checkpoints/                            # per-submit code snapshots
 ```
 
 ## 3. The same flow via the lib API
@@ -80,9 +87,16 @@ import shutil
 from pathlib import Path
 from hlbench.core.server import Server
 
-ws = Path("./run")
-srv = Server(env_id="pendulum", workspace_dir=ws, model="reference-pd")
-shutil.copy("agents/pd_pendulum/policy.py", ws / "system" / "policy.py")
+srv = Server(
+    env_id="pendulum",
+    runs_root=Path("./runs"),
+    model="reference-pd",
+    exp_id="demo",
+)
+shutil.copy(
+    "agents/pd_pendulum/policy.py",
+    srv.workspace_dir / "system" / "policy.py",
+)
 
 for i in range(5):
     result = srv.submit(list(range(i * 4, i * 4 + 4)))

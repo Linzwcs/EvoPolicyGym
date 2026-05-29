@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hlbench-pro · 评测设计</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --fg-muted: #59636e;
+    --accent: #0969da;
+    --border: #d0d7de;
+    --code-bg: #f6f8fa;
+    --hl: #fff8c5;
+    --ok: #1a7f37;
+    --warn: #9a6700;
+    --danger: #cf222e;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --fg-muted: #8b949e;
+      --accent: #58a6ff;
+      --border: #30363d;
+      --code-bg: #161b22;
+      --hl: #3a2a00;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --danger: #f85149;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 3rem;
+  }
+  @media (max-width: 900px) {
+    .page { grid-template-columns: 1fr; gap: 1.5rem; }
+    nav.toc { position: static !important; max-height: none !important; }
+  }
+
+  header.hero {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+  header.hero h1 {
+    font-size: 2rem;
+    margin: 0 0 0.4rem;
+    letter-spacing: -0.01em;
+  }
+  header.hero .tagline {
+    color: var(--fg-muted);
+    font-size: 1.05rem;
+    margin: 0 0 0.8rem;
+  }
+  .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.82rem; }
+  .badge {
+    background: var(--code-bg);
+    color: var(--fg-muted);
+    padding: 0.18rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+
+  nav.toc {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    font-size: 0.92rem;
+  }
+  nav.toc h3 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+    margin: 0 0 0.6rem;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+  nav.toc li { margin: 0.25rem 0; counter-increment: toc; }
+  nav.toc a {
+    color: var(--fg-muted);
+    text-decoration: none;
+    display: block;
+    padding: 0.18rem 0;
+    border-left: 2px solid transparent;
+    padding-left: 0.6rem;
+    margin-left: -0.6rem;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc a::before {
+    content: counter(toc) ". ";
+    color: var(--border);
+  }
+
+  main { min-width: 0; }
+  section {
+    margin-bottom: 3rem;
+    scroll-margin-top: 1rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    margin: 0 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 1.15rem;
+    margin: 1.5rem 0 0.6rem;
+  }
+  p { margin: 0.6rem 0; }
+  a { color: var(--accent); }
+
+  /* code */
+  pre, code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas,
+                 "PingFang SC", monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    line-height: 1.45;
+    font-size: 0.88rem;
+    margin: 0.8rem 0;
+  }
+  :not(pre) > code {
+    background: var(--code-bg);
+    padding: 0.12rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.92em;
+    border: 1px solid var(--border);
+  }
+
+  /* tables */
+  table {
+    border-collapse: collapse;
+    margin: 0.8rem 0;
+    font-size: 0.92rem;
+    width: 100%;
+  }
+  th, td {
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 0.86rem;
+    border-bottom: 2px solid var(--border);
+  }
+  tr:hover td { background: var(--code-bg); }
+
+  /* boxes */
+  .invariant {
+    background: var(--code-bg);
+    border-left: 4px solid var(--accent);
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.96rem;
+  }
+  .invariant strong { color: var(--accent); }
+  .note {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--warn);
+    padding: 0.7rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.8rem 0;
+    font-size: 0.92rem;
+  }
+  .note .label { color: var(--warn); font-weight: 600; margin-right: 0.4rem; }
+
+  .status-ok { color: var(--ok); font-weight: 600; }
+  .status-wip { color: var(--warn); font-weight: 600; }
+  .status-no { color: var(--fg-muted); }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.86rem;
+  }
+  .pipeline .step {
+    padding: 0.7rem 0.6rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    position: relative;
+  }
+  .pipeline .step .num {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pipeline .step h4 {
+    margin: 0.15rem 0 0.4rem;
+    font-size: 0.96rem;
+  }
+  .pipeline .step p { margin: 0; color: var(--fg-muted); font-size: 0.84rem; }
+  @media (max-width: 900px) {
+    .pipeline { grid-template-columns: 1fr 1fr; }
+  }
+
+  .tree {
+    font-family: ui-monospace, "SF Mono", monospace;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.9rem 1rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .tree .comment { color: var(--fg-muted); }
+
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: 0.2rem 0; }
+
+  details {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    margin: 0.6rem 0;
+    background: var(--code-bg);
+  }
+  details summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: 0.6rem; }
+
+  footer {
+    grid-column: 1 / -1;
+    margin-top: 4rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: 0.86rem;
+  }
+
+  /* anchor link */
+  .anchor {
+    color: var(--border);
+    text-decoration: none;
+    margin-left: 0.4rem;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <h1>hlbench-pro</h1>
+  <p class="tagline">评测编码 Agent 在紧预算 rollout 下迭代合成控制策略的能力</p>
+  <div class="badges">
+    <span class="badge ok">v0.1.0a0 shipped</span>
+    <span class="badge warn">v0.1.0a1 in progress</span>
+    <span class="badge">110/110 tests · mypy strict · ruff clean</span>
+    <span class="badge">reference PD on Pendulum-v1 → final_score 98.3</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <h3>目录</h3>
+  <ol>
+    <li><a href="#what">这是评测什么</a></li>
+    <li><a href="#gap">跟其他 benchmark 的关系</a></li>
+    <li><a href="#core">核心不变量</a></li>
+    <li><a href="#flow">端到端测试流</a></li>
+    <li><a href="#workspace">Workspace 与 HTTP 控制面</a></li>
+    <li><a href="#policy">Policy 接口</a></li>
+    <li><a href="#submit">Submit 生命周期与 Verdict</a></li>
+    <li><a href="#feedback">Feedback 工件</a></li>
+    <li><a href="#scoring">打分公式</a></li>
+    <li><a href="#heldout">Held-out 隐藏机制</a></li>
+    <li><a href="#sandbox">沙箱与反作弊</a></li>
+    <li><a href="#runs">运行产物 runs/</a></li>
+    <li><a href="#invariants">9 条设计不变量</a></li>
+    <li><a href="#status">实现状态</a></li>
+    <li><a href="#quickstart">快速开始</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ============================================================ -->
+<section id="what">
+  <h2>1. 这是评测什么 <a class="anchor" href="#what">#</a></h2>
+  <p>给定一个控制任务、一个紧的 rollout 预算、一个跨 iteration 持久的 workspace,
+  <strong>编码 Agent 能多好地改进它提交的策略代码?</strong></p>
+  <p>评测分数来自一个隐藏的 held-out episode 池 —— 用一个独立、agent
+  不可见的 seed pool 跑最终策略并打分。</p>
+
+  <h3>关键测量目标</h3>
+  <ul>
+    <li><strong>iterative code refinement</strong> —— Agent 不是一次性产物,而是 read-feedback / edit-code 多轮循环</li>
+    <li><strong>tight rollout budget</strong> —— 默认 256 episodes 总预算,逼出「每一次 rollout 都贵」的策略选择</li>
+    <li><strong>method neutrality</strong> —— heuristic / classical control / 神经网络 / search 都允许;不规定如何解</li>
+    <li><strong>generalization</strong> —— 最终用 disjoint hidden seeds 评测,排除 in-loop 过拟合</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="gap">
+  <h2>2. 跟其他 benchmark 的关系 <a class="anchor" href="#gap">#</a></h2>
+  <table>
+    <thead>
+      <tr><th>Benchmark</th><th>Closed loop?</th><th>Env feedback?</th><th>Code iteration?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>SWE-bench</td><td>no</td><td>only test pass/fail</td><td>one-shot fix</td></tr>
+      <tr><td>MLE-bench</td><td>no</td><td>validation score</td><td>one-shot script</td></tr>
+      <tr><td>AgentBench / GAIA</td><td>partial</td><td>tool returns</td><td>varies</td></tr>
+      <tr><td>HumanEval / GPQA</td><td>no</td><td>none</td><td>none</td></tr>
+      <tr><td>RL benchmarks</td><td colspan="3">measures algorithms, not coding agents</td></tr>
+      <tr><td><strong>hlbench-pro</strong></td><td><strong>yes</strong></td><td><strong>rich replays</strong></td><td><strong>yes, budgeted</strong></td></tr>
+    </tbody>
+  </table>
+  <p>定位是「coding agent + iterative refinement + environmental feedback」三者交集
+  里的空白格子。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="core">
+  <h2>3. 核心不变量 <a class="anchor" href="#core">#</a></h2>
+  <div class="invariant">
+    <strong>Core Invariant.</strong> Agent 与其提交的策略所使用的所有环境信息,必须流经
+    submit-feedback 循环;最终提交的策略必须在 disjoint、hidden seed pool 上泛化。
+  </div>
+  <p>这一条是设计的中枢。后面所有规则(/info 不暴露 baselines、env 用 ID
+  寻址、held-out 完全不可见、denied_imports 强制等)都是把这条 invariant 落地的
+  机制。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="flow">
+  <h2>4. 端到端测试流 <a class="anchor" href="#flow">#</a></h2>
+
+  <div class="pipeline">
+    <div class="step"><div class="num">① OPERATOR</div><h4>起 harness</h4><p>hlbench init + serve,workspace 与 HTTP server 就绪</p></div>
+    <div class="step"><div class="num">② AGENT</div><h4>探查</h4><p>GET /info、GET /task、读 AGENTS.md</p></div>
+    <div class="step"><div class="num">③ AGENT</div><h4>首次提交</h4><p>写 system/policy.py,POST /submit</p></div>
+    <div class="step"><div class="num">④ AGENT</div><h4>迭代</h4><p>读 feedback,改代码,再 submit,直到预算耗尽</p></div>
+    <div class="step"><div class="num">⑤ AGENT</div><h4>finalize</h4><p>POST /finalize 触发隐藏 held-out 评测</p></div>
+    <div class="step"><div class="num">⑥ OPERATOR</div><h4>取分</h4><p>读 runs/&lt;…&gt;/run.json:final_score</p></div>
+  </div>
+
+  <p>每一步都同步阻塞:POST /submit 阻塞到 N episodes 全部跑完 + feedback 落盘
+  才返回。POST /finalize 阻塞到 held-out 评测全部跑完 + run.json 落盘才返回。
+  没有长轮询、没有 tar bundle —— 共享文件系统 + 同机 HTTP 是协议的永久承诺
+  (CLAUDE.md invariant 8)。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="workspace">
+  <h2>5. Workspace 与 HTTP 控制面 <a class="anchor" href="#workspace">#</a></h2>
+
+  <h3>Workspace 内容(恰好 3 件)</h3>
+<pre class="tree">workspace/
+├── AGENTS.md      <span class="comment"># 协议规则,run start 时 server staging 进来</span>
+├── system/        <span class="comment"># agent 唯一可写目录;policy.py 必备</span>
+│   ├── policy.py
+│   ├── controllers/   <span class="comment"># 任意子模块组织</span>
+│   ├── memory/        <span class="comment"># 跨 submit 持久状态</span>
+│   ├── tests/
+│   └── .final_submit  <span class="comment"># 可选:指定某个 submit 为 final</span>
+└── feedback/      <span class="comment"># server 直写,只读;每次 submit 一个新目录</span>
+    ├── submit_000/
+    └── submit_001/</pre>
+
+  <p>v0.1.0a1 起 <code>TASK.md</code> 不再 staging 到 workspace —— 任务规约改由
+  <code>GET /task</code> 返回 text/markdown,与 <code>GET /info</code> 替代
+  <code>_run.json</code> 平行。</p>
+
+  <h3>4 个 HTTP endpoint(协议唯一控制面)</h3>
+  <table>
+    <thead>
+      <tr><th>Endpoint</th><th>Method</th><th>Purpose</th><th>Body / Response</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/info</code></td>
+        <td>GET</td>
+        <td>静态配置 + 动态状态 (SPEC §1.1)</td>
+        <td>JSON:env、env_version、episode_budget、resource_limits、env_meta、state.{remaining_budget, n_submits, …}</td>
+      </tr>
+      <tr>
+        <td><code>/task</code></td>
+        <td>GET</td>
+        <td>env 任务规约 (SPEC §3.2)</td>
+        <td>text/markdown body,从 env 包内 TASK.md 读取</td>
+      </tr>
+      <tr>
+        <td><code>/submit</code></td>
+        <td>POST</td>
+        <td>同步执行 N 个 episode (SPEC §3.3)</td>
+        <td>请求 <code>{"env_instances":[int,...]}</code>;响应 <code>{submit_id, status, summary}</code></td>
+      </tr>
+      <tr>
+        <td><code>/finalize</code></td>
+        <td>POST</td>
+        <td>触发 held-out 评测 + 写 run.json (SPEC §3.4)</td>
+        <td>响应 FinalResult (status / final_score / held_out_returns / final_submit_index / …)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <span class="label">注意</span>
+    Agent 必须走 HTTP;<code>hlbench.core.Server</code> Python lib 仅用于测试和
+    内部工具。详见 <a href="#invariants">设计不变量 #9</a>。
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="policy">
+  <h2>6. Policy 接口 <a class="anchor" href="#policy">#</a></h2>
+  <p><code>system/policy.py</code> 必须定义一个名为 <code>Policy</code> 的类,
+  实现以下 4 个方法 (SPEC §2):</p>
+
+<pre>class Policy:
+    def __init__(
+        self,
+        obs_space: gymnasium.Space,
+        action_space: gymnasium.Space,
+        env_meta: Mapping[str, Any],
+    ) -> None:
+        """每个 submit 构造一次,跨 episode 共享。
+        env_meta 含 submit_index / n_episodes_this_submit /
+        remaining_budget_after / max_episode_steps 等。"""
+
+    def reset(self, episode_index: int) -> None:
+        """每个 episode 开始时调用。episode_index 是 submit 内的本地索引
+        (0..n_episodes_this_submit-1)。env 真实 seed 不暴露,不可推断。"""
+
+    def act(self, obs) -> action:
+        """每步调用一次。返回 action_space 合法的 action。
+        默认 wall-time 上限 10ms (env 可放宽)。"""
+
+    def on_episode_end(self, episode_return: float) -> None:
+        """可选。episode 结束时调用,可用来更新跨 episode 持久状态
+        (写 system/ 文件)。"""</pre>
+
+  <h3>状态持久化的两个层级</h3>
+  <ul>
+    <li><strong>Submit 内</strong>: Policy 实例的 attribute 跨 episode 持久
+    (init 一次,reset/act/on_episode_end 多次)</li>
+    <li><strong>跨 submit</strong>: Policy 实例销毁。要持久必须写
+    <code>system/</code> 下的文件,下次 submit init 再读回</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="submit">
+  <h2>7. Submit 生命周期与 Verdict <a class="anchor" href="#submit">#</a></h2>
+
+  <h3>7 阶段 (docs/submit-protocol.md §2)</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Phase</th><th>做什么</th><th>失败 verdict</th><th>失败时是否扣预算?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Request</td><td>校验 env_instances 列表 / 计数 / 预算</td><td><code>budget_invalid</code> / <code>invalid_env_instance</code></td><td><strong>否 ✓</strong></td></tr>
+      <tr><td>2</td><td>Snapshot</td><td>copytree workspace/system/ 到隔离区</td><td><code>oversize</code></td><td>是</td></tr>
+      <tr><td>3</td><td>Validate</td><td>policy.py 存在、Policy 类可见、import 静态扫描</td><td><code>missing_policy</code> / <code>denied_import</code></td><td>是</td></tr>
+      <tr><td>4</td><td>Compile</td><td>Python <code>import policy</code></td><td><code>import_error</code></td><td>是</td></tr>
+      <tr><td>5</td><td>Initialize</td><td>构造 Policy(obs_space, action_space, env_meta)</td><td><code>init_error</code> / <code>init_timeout</code></td><td>是</td></tr>
+      <tr><td>6</td><td>Execute</td><td>跑 N 个 episode</td><td><code>oom</code> / <code>submit_wall_exceeded</code></td><td>是</td></tr>
+      <tr><td>7</td><td>Commit</td><td>原子写 summary.json</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>预算消费规则:</strong>Phase 1 拒绝是唯一「免费」的 ——
+  其他任何阶段失败,完整的 N 个 episode 预算被扣光。这条「snapshot 之后预算必扣」
+  把「试探系统找漏洞」的攻击面砍掉了。</p>
+
+  <h3>11 个 Verdict (SPEC §4.1)</h3>
+  <table>
+    <thead>
+      <tr><th>Verdict</th><th>Phase</th><th>含义</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>ok</code></td><td>6 → 7</td><td>所有 episode 跑完</td></tr>
+      <tr><td><code>budget_invalid</code></td><td>1</td><td>请求计数不在 [min, max, remaining] 区间</td></tr>
+      <tr><td><code>invalid_env_instance</code></td><td>1</td><td>env_instance ID 不在 [0, n_env_instances)</td></tr>
+      <tr><td><code>oversize</code></td><td>2</td><td>system/ 总体或单文件超限</td></tr>
+      <tr><td><code>missing_policy</code></td><td>3</td><td>policy.py 不在或 Policy 类缺失</td></tr>
+      <tr><td><code>denied_import</code></td><td>3 / 4</td><td>引入了 AGENTS.md §3.2 禁用模块</td></tr>
+      <tr><td><code>import_error</code></td><td>4</td><td>Python import 抛异常 (语法/依赖等)</td></tr>
+      <tr><td><code>init_timeout</code></td><td>5</td><td>Policy.__init__ 超过 policy_load_wall_s</td></tr>
+      <tr><td><code>init_error</code></td><td>5</td><td>Policy.__init__ raise</td></tr>
+      <tr><td><code>oom</code></td><td>6</td><td>子进程 RSS 超过 submit_peak_rss_bytes</td></tr>
+      <tr><td><code>submit_wall_exceeded</code></td><td>6</td><td>累计墙挂时间超 submit_wall_s</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Per-episode 错误类别(不影响 submit-level verdict)</h3>
+  <table>
+    <thead><tr><th>Category</th><th>触发</th></tr></thead>
+    <tbody>
+      <tr><td><code>reset_error</code></td><td>Policy.reset() raise</td></tr>
+      <tr><td><code>act_error</code></td><td>Policy.act() raise</td></tr>
+      <tr><td><code>act_timeout</code></td><td>act() 超过 act_wall_ms;harness 用 sample() 兜底,episode 继续</td></tr>
+      <tr><td><code>on_episode_end_error</code></td><td>Policy.on_episode_end() raise</td></tr>
+    </tbody>
+  </table>
+  <p>这些都被记录在 <code>ep_&lt;XXX&gt;/error.txt</code>,但 submit 整体仍是
+  <code>ok</code>;后续 episode 用 fresh reset 继续跑。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="feedback">
+  <h2>8. Feedback 工件 <a class="anchor" href="#feedback">#</a></h2>
+
+<pre class="tree">feedback/submit_NNN/
+├── summary.json                 <span class="comment"># submit 级聚合 (SPEC §4.1)</span>
+├── errors.txt                   <span class="comment"># 仅 submit 级失败时;JSONL,64KB cap</span>
+└── episodes/                    <span class="comment"># 与 errors.txt 互斥(oom/wall 例外)</span>
+    └── ep_&lt;XXX&gt;/                <span class="comment"># XXX = run-global episode index</span>
+        ├── trajectory.jsonl     <span class="comment"># 逐步 (SPEC §4.2)</span>
+        ├── stdout.txt           <span class="comment"># 0.1.0a1: 始终创建,64KB cap</span>
+        ├── stderr.txt           <span class="comment"># 同上</span>
+        ├── observations.npy     <span class="comment"># 仅 obs_storage=external</span>
+        ├── video.mp4            <span class="comment"># 仅 env 可 render</span>
+        └── error.txt            <span class="comment"># 仅本 episode 中途失败</span></pre>
+
+  <h3>summary.json 关键字段</h3>
+  <table>
+    <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>status</code></td><td>string</td><td>11 verdict 之一</td></tr>
+      <tr><td><code>n_episodes</code></td><td>int</td><td>本次请求数(=扣预算数,不论成败)</td></tr>
+      <tr><td><code>first_global_episode</code></td><td>int|null</td><td>returns[0] 对应的 run-global 索引</td></tr>
+      <tr><td><code>env_instances</code></td><td>int[]</td><td>本次请求的 env_instance ID 列表(顺序一致)</td></tr>
+      <tr><td><code>remaining_budget</code></td><td>int</td><td>扣完后的剩余</td></tr>
+      <tr><td><code>returns / mean_return / std_return / min / max</code></td><td>float[] / float</td><td>本 submit 内 raw episode return</td></tr>
+      <tr><td><code>episode_lengths</code></td><td>int[]</td><td>每 episode 的步数</td></tr>
+      <tr><td><code>timeouts / errors</code></td><td>int[]</td><td>local index 数组,对应失败的 episode</td></tr>
+      <tr><td><code>reward_components_per_episode</code></td><td>object|null</td><td>仅 env 声明 reward_components 时</td></tr>
+    </tbody>
+  </table>
+
+  <p>所有「失败时为 null」的字段在 <code>status != "ok"</code> 时用 null
+  而非空数组。这样 <code>status == "ok"</code> 是「这次 submit 跑了吗」的
+  trivial 判定。</p>
+
+  <h3>Episode 索引 (SPEC §4.0)</h3>
+  <p>Episode 索引是 <strong>run-global</strong> 而非 submit-local —— 一次 run
+  内全程递增。这让「ep_142」这种引用全局唯一,replay/backtest/cross-submit join
+  都不会歧义。每尝试一个 episode 计数器加 1,失败的 submit (没跑任何 episode)
+  不消费索引。</p>
+
+  <h3>Trajectory schema (SPEC §4.2)</h3>
+<pre>{"t": 0,   "obs": [...], "action": [...], "reward": 0.12,
+ "terminated": false, "truncated": false, "info": {}}
+{"t": 1,   "obs": [...], "action": [...], "reward": 0.15, ...}
+...
+{"t": 998, ...}</pre>
+  <p>Field 顺序固定方便 grep。NaN/Inf 编码为 <code>"NaN"</code> /
+  <code>"Inf"</code> / <code>"-Inf"</code> 字符串。<code>action</code> 记的是
+  policy 返回值(pre-clip),env 的 clipping 是确定性变换,可由
+  <code>action_space</code> 复原。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="scoring">
+  <h2>9. 打分公式 <a class="anchor" href="#scoring">#</a></h2>
+
+  <h3>Final Score (Headline) — SPEC §5.2</h3>
+<pre>final_submit = .final_submit override or 最近一个 status=="ok" 的 submit
+mean_held_out = mean over M held-out episodes (M default 256, hidden)
+
+normalized = (mean_held_out - random_baseline)
+           / (expert_baseline - random_baseline)
+final_score = clip(normalized, 0.0, 1.2) * 100</pre>
+
+  <ul>
+    <li><code>random_baseline</code>: uniform-random policy 在同 M 个 held-out seed 上的平均</li>
+    <li><code>expert_baseline</code>: env 注册时声明的 expert 水平</li>
+    <li>两个 baseline 都是 <strong>server-internal</strong>:agent 在任何时候(/info、/task、feedback、run.json)都看不到。这迫使 agent 在不知道目标阈值的情况下优化</li>
+    <li>上界 clip 到 1.2 (=120 分):允许超 expert 表现登记,但限制 outlier 拉爆均值</li>
+  </ul>
+
+  <h3>Auxiliary Metrics — SPEC §5.3</h3>
+  <table>
+    <thead><tr><th>指标</th><th>定义</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><code>auc_in_loop</code></td><td>累计 episode × normalized_score 的梯形 AUC, (0,0) 锚定,/总 episode 数,缩放到 [0,100]</td><td>同预算下 agent 比较;不适合跨预算比较(锚点结构性偏置小预算)</td></tr>
+      <tr><td><code>episodes_to_50pct</code></td><td>累计 episode 数到首次 normalized_score ≥ 0.5</td><td>「学到一半」</td></tr>
+      <tr><td><code>episodes_to_80pct</code></td><td>同上,≥ 0.8</td><td>「学到 80%」</td></tr>
+      <tr><td><code>held_out_gap</code></td><td>mean_in_loop_final − mean_held_out_final</td><td>正 = in-loop 好但 held-out 差(过拟合可能);负 = 反之</td></tr>
+      <tr><td><code>n_submits / n_successful_submits</code></td><td>提交次数(含失败 / 仅成功)</td><td>—</td></tr>
+      <tr><td><code>episodes_used / mean_episodes_per_submit</code></td><td>消耗预算 / 平均每次 submit 大小</td><td>策略颗粒度</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <span class="label">Day 14 spec 修正</span>
+    早期 SPEC 把 <code>episodes_to_Npct</code> 写成 <code>mean_return ≥ 0.5 × expert</code>,
+    在负奖励 env (Pendulum expert ≈ −150) 下变成「比 expert 还好」的不可达阈值。
+    现规约为 normalized form:<code>normalized_score(mean) ≥ N</code>。
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="heldout">
+  <h2>10. Held-out 隐藏机制 <a class="anchor" href="#heldout">#</a></h2>
+
+  <h3>两个 disjoint 静态 seed 池</h3>
+  <table>
+    <thead><tr><th>文件</th><th>用途</th><th>Agent 可见?</th></tr></thead>
+    <tbody>
+      <tr><td><code>envs/&lt;id&gt;/train.json</code></td><td>N 个 agent 可寻址 env_instance 的 real seed</td><td>仅个数 (<code>n_env_instances</code>) 可见;ID→seed 映射不暴露</td></tr>
+      <tr><td><code>envs/&lt;id&gt;/heldout.json</code></td><td>M 个 held-out 评测 seed</td><td><strong>完全不可见</strong>(包括池大小、seed 值、单 episode return)</td></tr>
+    </tbody>
+  </table>
+
+  <p>两个池由 env 作者用单一 master_seed 一次性生成、commit 进 env 包、与
+  <code>env_version</code> 绑死。改 seed 池 = bump env_version。</p>
+
+  <h3>Seed 间接寻址</h3>
+<pre>agent submit --env-instances 5
+                    │
+                    ▼
+   harness 读 train.json[5] → real_seed = (例如) 1097
+                    │
+                    ▼
+   env 用 real_seed=1097 reset</pre>
+
+  <p>两层好处:</p>
+  <ol>
+    <li><strong>可复现</strong>:同 env_version 内,env_instance 5 始终对应同一 real seed,跨 run 比较 bit-exact</li>
+    <li><strong>抽象</strong>:agent 永远不见 real seed 值。即使 env 作者重新生成 seed 池(bump env_version),agent 代码不变 —— 它一直只用 ID</li>
+  </ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="sandbox">
+  <h2>11. 沙箱与反作弊 <a class="anchor" href="#sandbox">#</a></h2>
+
+  <h3>沙箱实现 (src/hlbench/core/sandbox.py)</h3>
+  <ul>
+    <li><strong>子进程隔离</strong>: <code>multiprocessing(spawn)</code>,每个 submit 一个 fresh child,持有一个 Policy 实例</li>
+    <li><strong>act() 墙挂时间</strong>: 子进程内 <code>signal.setitimer(ITIMER_REAL, act_wall_s)</code>;超时抛 <code>_ActTimeout</code> → 分类为 <code>act_timeout</code></li>
+    <li><strong>init/episode 墙挂时间</strong>: 父端 <code>Pipe.poll(timeout)</code>;超时强制终止子进程</li>
+    <li><strong>内存上限</strong>: <code>resource.setrlimit(RLIMIT_AS, max_rss_bytes)</code>。Linux 上有效;macOS 下 Apple's malloc 经常忽略 → best-effort</li>
+    <li><strong>Stdout/stderr 捕获</strong> (0.1.0a1): 子进程内 <code>sys.stdout/stderr</code> 重定向到 StringIO,每 episode 完后 swap 回父进程,写到 <code>ep_&lt;XXX&gt;/{stdout,stderr}.txt</code></li>
+  </ul>
+
+  <h3>Anti-hack (AGENTS.md §5)</h3>
+  <ol>
+    <li><strong>禁载 pretrained 模型权重</strong> —— 不能加载 system/ 之外、非本次 run 自己产生的模型/参数文件</li>
+    <li><strong>禁拿 held-out seed</strong> —— 不通过任何 env 变量、文件、信道暴露;不能枚举/猜测</li>
+    <li><strong>禁外部 compute</strong> —— policy.py 完全在沙箱内运行;禁开子进程、socket、外部服务</li>
+    <li><strong>禁读 workspace 外</strong> —— policy.py 只读 system/;读 feedback/、/tmp、$HOME 等都报错</li>
+  </ol>
+
+  <h3>禁用 import 列表 (AGENTS.md §3.2,0.1.0a1 起强制)</h3>
+  <p>Sandbox 子进程在 <code>sys.path</code> 注入 system/ 之前,先在
+  <code>sys.meta_path</code> 装一个 <code>_DeniedImportFinder</code>。任何匹配
+  以下集合的顶层 / dotted-prefix import 触发
+  <code>_DeniedImport(ImportError)</code>,被分类为 <code>denied_import</code> verdict。</p>
+
+  <table>
+    <thead><tr><th>类别</th><th>模块</th><th>原因</th></tr></thead>
+    <tbody>
+      <tr><td>Pretrained ML</td><td>transformers, huggingface_hub, timm, diffusers</td><td>载预训练权重 → 违反 Core Invariant</td></tr>
+      <tr><td>External LLM API</td><td>openai, anthropic, google.genai, cohere</td><td>外部模型调用 → 违反 Core Invariant</td></tr>
+      <tr><td>RL framework</td><td>stable_baselines3, ray, rllib, cleanrl, sb3_contrib</td><td>捆绑 checkpoints / 旁路 submit 接口</td></tr>
+      <tr><td>HTTP client</td><td>requests, httpx, aiohttp</td><td>触发网络访问</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <span class="label">已知限制</span>
+    AGENTS.md §3.2 还列了 <code>urllib</code> / <code>socket</code> /
+    <code>subprocess</code> 等 stdlib。这些在 Python 启动期就被
+    multiprocessing/SSL 等被动加载到 sys.modules,粗暴驱逐会破坏
+    gymnasium。当前仅靠 finder 拦截「首次」import:
+    <code>urllib.request</code> 等子模块(未预加载)能拦,顶层
+    <code>import subprocess</code> 拦不住。完整 stdlib 阻断需要更深的
+    sandbox 加固(后续工作)。
+  </div>
+
+  <h3>AGENTS.md §3.3 资源上限默认值</h3>
+  <table>
+    <thead><tr><th>限制</th><th>默认</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>system/ 总大小</td><td>50 KB</td><td><code>resource_limits.system_total_bytes</code> (advisory in MVP)</td></tr>
+      <tr><td>单文件大小</td><td>25 KB</td><td><code>system_single_file_bytes</code></td></tr>
+      <tr><td>act() 墙挂</td><td>10 ms</td><td><code>act_wall_ms</code></td></tr>
+      <tr><td>Policy.__init__</td><td>1 s</td><td><code>policy_load_wall_s</code></td></tr>
+      <tr><td>per-submit 墙挂</td><td>5 min</td><td><code>submit_wall_s</code></td></tr>
+      <tr><td>per-submit RSS</td><td>1 GB</td><td><code>submit_peak_rss_bytes</code></td></tr>
+    </tbody>
+  </table>
+  <p>Env registration 可调宽(planning-heavy 任务可能需要 100 ms act);CLI 可继续覆盖。Effective values 永远在 <code>GET /info:resource_limits</code>。</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="runs">
+  <h2>12. 运行产物 runs/ <a class="anchor" href="#runs">#</a></h2>
+
+  <p>所有 run artifacts 都落在 <code>runs/&lt;model&gt;/&lt;env&gt;/&lt;exp-id&gt;/</code> 这个
+  三级嵌套目录下。Server 在构造时只需要 <code>runs_root</code> + (model, env_id, exp_id),
+  会自动算出 run_dir 并 mkdir。</p>
+
+<pre class="tree">runs/
+└── &lt;model&gt;/                    <span class="comment"># claude-opus-4-7 / random / ppo-1m / ...</span>
+    └── &lt;env&gt;/                   <span class="comment"># pendulum / halfcheetah / breakout / ...</span>
+        └── &lt;exp-id&gt;/            <span class="comment"># 用户指定 or YYYY-MM-DDTHH-MM-SS__&lt;6-hex&gt;</span>
+            ├── run.json         <span class="comment"># 顶层 run metadata + final_score</span>
+            ├── workspace/       <span class="comment"># agent 的 local view</span>
+            │   ├── AGENTS.md
+            │   ├── system/
+            │   └── feedback/    <span class="comment"># 每次 submit 一个 submit_NNN/</span>
+            ├── checkpoints/     <span class="comment"># 每个 submit 的代码快照</span>
+            │   ├── submit_000/
+            │   │   ├── _meta.json       <span class="comment"># validation_status / 文件列表 / 等</span>
+            │   │   ├── policy.py
+            │   │   └── (其他 system/ 子文件)
+            │   └── submit_001/
+            └── logs/
+                ├── harness.log  <span class="comment"># harness 执行日志(0.1.0a1 计划)</span>
+                ├── agent.jsonl  <span class="comment"># agent 活动日志(deferred)</span>
+                └── env.log      <span class="comment"># env 警告(通常空)</span></pre>
+
+  <h3>exp-id 命名规则 (output.md §2.3)</h3>
+  <p>用户可以传 <code>exp_id="my_experiment"</code>;不传时 Server 自动生成
+  <code>YYYY-MM-DDTHH-MM-SS__&lt;6-hex&gt;</code>,其中 hex 部分是
+  <code>SHA-256(model | env | budget | timestamp)</code> 的前 6 位 ——
+  让同一秒内多个 (model, env) run 不会撞名,且确定性可复现。</p>
+
+  <h3>run.json — 顶层元数据 (output.md §3)</h3>
+  <p>读单个 <code>run.json</code> 必须够回答:这是哪个 run?最终分多少?所有 artifacts
+  在哪?所有数据指标怎样?字段组:</p>
+  <ul>
+    <li><strong>identity</strong>: model / env / exp_id / versions.{harness, env, agents_md_hash}</li>
+    <li><strong>experiment_dimensions</strong>: episode_budget / min/max_per_submit / agent_harness 等</li>
+    <li><strong>timing</strong>: start / end / wall_time_seconds</li>
+    <li><strong>outcome.status</strong>: <code>completed</code> / <code>aborted</code> / <code>error</code></li>
+    <li><strong>outcome.final_score</strong>: 见 <a href="#scoring">§9 打分公式</a></li>
+    <li><strong>outcome.held_out_returns</strong>: M 个 raw return 数组(供 variance/outlier 分析)</li>
+    <li><strong>outcome.auxiliary</strong>: 见 <a href="#scoring">§9 表</a></li>
+    <li><strong>artifacts</strong>: 相对路径,指向同目录的 workspace/、checkpoints/、logs/*</li>
+  </ul>
+
+  <h3>Logs 与 feedback 的隔离 (output.md §6)</h3>
+  <div class="note">
+    <span class="label">不变量 9</span>
+    <code>logs/</code> 下的文件 <strong>agent 永远读不到</strong>。任何 agent
+    迭代时需要的诊断信息都必须经 <code>workspace/feedback/</code> 投递,不能
+    抄近路写到 <code>logs/</code>。
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="invariants">
+  <h2>13. 9 条设计不变量 <a class="anchor" href="#invariants">#</a></h2>
+  <p>这些是反复推敲、settled 的核心假设。改动其中任何一条都需要明确的用户授权
+  (CLAUDE.md)。</p>
+  <ol>
+    <li><strong>Method neutrality</strong>: 不规定 heuristic vs learned。<code>torch</code>/<code>jax</code> 允许;<code>transformers</code>/<code>HF</code>/<code>SB3</code> 禁。</li>
+    <li><strong>Held-out 完全不可见</strong>: agent 任何时候看不见 size、seeds、单 episode return、baselines、final_score(run 进行中)。</li>
+    <li><strong>env_instance 整数寻址</strong>: agent 用 [0, n) 整数 ID;ID→real seed 映射 server-side,永不暴露。</li>
+    <li><strong>/info 是配置唯一真相</strong>: 没有 _run.json;merged static config + live state 都从这里来。</li>
+    <li><strong>Workspace 恰好 3 件</strong>: AGENTS.md / system/ / feedback/。Task 规约由 GET /task 服务,不 staging 进 workspace。</li>
+    <li><strong>system/ 是 Python 包</strong>: policy.py 是 required 入口;<code>sys.path[0] = workspace/system/</code> 期间运行。</li>
+    <li><strong>Per-run server</strong>: 一个 Server 对应一个 (model, env, exp-id);沙箱不复用 run。</li>
+    <li><strong>共享主机 + HTTP 控制面</strong>: agent 与 server 同机,共享 workspace 文件系统;agent 走 HTTP 控制,文件系统读 feedback。<strong>分布式部署永久 out of scope</strong>。</li>
+    <li><strong>Lib-first internals</strong>: 核心是 <code>hlbench.core.Server</code> 类;HTTP 是薄包装。Tests / dev / orchestration 可直接用 lib;agent 必须走 HTTP。</li>
+  </ol>
+</section>
+
+<!-- ============================================================ -->
+<section id="status">
+  <h2>14. 实现状态 <a class="anchor" href="#status">#</a></h2>
+
+  <h3>已 ship — v0.1.0a0 (87/87 tests, 14 天 MVP)</h3>
+  <table>
+    <thead><tr><th>组件</th><th>位置</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>Server</td><td><code>src/hlbench/core/server.py</code></td><td>per-run 类:info / submit / finalize</td></tr>
+      <tr><td>SubmitHandler</td><td><code>src/hlbench/core/submit_handler.py</code></td><td>7 阶段生命周期 + 11 verdicts</td></tr>
+      <tr><td>Sandbox</td><td><code>src/hlbench/core/sandbox.py</code></td><td>multiprocessing(spawn) + setitimer</td></tr>
+      <tr><td>EnvRunner</td><td><code>src/hlbench/core/env_runner.py</code></td><td>单 episode 执行,trajectory schema</td></tr>
+      <tr><td>Held-out 评测</td><td><code>src/hlbench/core/heldout.py</code></td><td>finalize 时跑 M held-out seeds</td></tr>
+      <tr><td>Scoring</td><td><code>src/hlbench/core/scoring.py</code></td><td>final_score + AUC + episodes_to_Npct</td></tr>
+      <tr><td>Feedback</td><td><code>src/hlbench/core/feedback.py</code></td><td>summary.json / trajectory.jsonl 原子写入</td></tr>
+      <tr><td>HTTP wrapper</td><td><code>src/hlbench/http_server.py</code></td><td>stdlib http.server,无 FastAPI 依赖</td></tr>
+      <tr><td>Pendulum env</td><td><code>src/hlbench/envs/pendulum/</code></td><td>256 train + 256 held-out seeds</td></tr>
+      <tr><td>CLI</td><td><code>hlbench_cli/</code></td><td>init / serve / info / submit / finalize</td></tr>
+      <tr><td>Reference PD</td><td><code>agents/pd_pendulum/policy.py</code></td><td>能量整形 swing-up + PD 稳定 → final_score 98.3</td></tr>
+    </tbody>
+  </table>
+
+  <h3>v0.1.0a1 进行中(本分支)</h3>
+  <table>
+    <thead><tr><th>项</th><th>状态</th><th>Commit</th></tr></thead>
+    <tbody>
+      <tr><td>Spec 改动: TASK.md → /task + AGENT.md → AGENTS.md</td><td><span class="status-ok">✓ 已落地</span></td><td><code>3127bb3</code></td></tr>
+      <tr><td>64KB 错误文件截断 (SPEC §4.4.5)</td><td><span class="status-ok">✓ 已落地</span></td><td><code>2ddeba4</code></td></tr>
+      <tr><td>denied_imports 强制 (AGENTS.md §3.2)</td><td><span class="status-ok">✓ 已落地</span></td><td><code>1cf071c</code></td></tr>
+      <tr><td>stdout.txt / stderr.txt 每 episode 捕获 (SPEC §4.5)</td><td><span class="status-ok">✓ 已落地</span></td><td><code>3b65fee</code></td></tr>
+      <tr><td>checkpoints/ 每 submit 代码快照 (output.md §5)</td><td><span class="status-ok">✓ 已落地</span></td><td><code>14b7815</code></td></tr>
+      <tr><td>Server 改用 <code>runs/&lt;model&gt;/&lt;env&gt;/&lt;exp-id&gt;/</code> 规范布局 (output.md §1)</td><td><span class="status-ok">✓ 已落地</span></td><td>lib + CLI + tests + scripts 全部对齐</td></tr>
+      <tr><td>system/.final_submit 尊重 (SPEC §5.4)</td><td><span class="status-wip">⏳ 进行中</span></td><td>—</td></tr>
+      <tr><td>submit_wall_s 总墙挂时长强制 (SPEC §4.1)</td><td><span class="status-wip">⏳ 进行中</span></td><td>—</td></tr>
+      <tr><td>harness.log 写入 (output.md §6.1)</td><td><span class="status-wip">⏳ 进行中</span></td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Deferred(post-0.1.0a1 工作)</h3>
+  <ul>
+    <li><strong>真 RSS-poll OOM 检测</strong>: 当前用 <code>RLIMIT_AS</code>,macOS 不可靠;需要 psutil 轮询</li>
+    <li><strong>网络阻断</strong>: 需要 socket 层 monkeypatch 或 namespace,深度 sandbox 工作</li>
+    <li><strong>video.mp4 渲染</strong>: 需要 imageio/moviepy + env 渲染对接</li>
+    <li><strong>observations.npy 外存</strong>: 像素 env (CarRacing 等) 需要</li>
+    <li><strong>agent.jsonl 写入</strong>: agent harness 活动日志(每个 LLM agent 实现自己写)</li>
+    <li><strong>第二个 env</strong>: HalfCheetah(验证 reward_components / 长 episode / MuJoCo 路径)</li>
+    <li><strong>容器化 sandbox</strong>: 生产级隔离(Docker / firejail / nsjail)</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="quickstart">
+  <h2>15. 快速开始 <a class="anchor" href="#quickstart">#</a></h2>
+
+  <h3>用 reference PD 跑一遍端到端 (lib 模式)</h3>
+<pre>uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python --no-deps -e .
+uv pip install --python .venv/bin/python gymnasium numpy pytest</pre>
+
+<pre>from pathlib import Path
+import shutil
+from hlbench.core.server import Server
+
+srv = Server(
+    env_id="pendulum",
+    runs_root=Path("./runs"),
+    model="reference-pd",
+    exp_id="demo",          # 不传则自动 YYYY-...__<hex>
+)
+# 此时 ./runs/reference-pd/pendulum/demo/{workspace,checkpoints,logs}/ 已建好
+# Server 暴露三个只读属性: srv.run_dir / srv.workspace_dir / srv.exp_id
+
+shutil.copy("agents/pd_pendulum/policy.py",
+            srv.workspace_dir / "system" / "policy.py")
+
+for i in range(5):
+    result = srv.submit(list(range(i*4, i*4+4)))
+    print(f"submit {i}: mean_return = {result.summary['mean_return']:.1f}")
+
+final = srv.finalize()
+print(f"final_score = {final.final_score}")
+print(f"run.json    = {final.run_json_path}")
+# → ./runs/reference-pd/pendulum/demo/run.json</pre>
+
+  <h3>HTTP 模式 (CLI)</h3>
+<pre># 1) init: 在 runs/&lt;model&gt;/&lt;env&gt;/&lt;exp-id&gt;/ 建好 workspace
+hlbench init --env pendulum \
+  --runs-root ./runs --model reference-pd --exp-id demo
+
+# 2) 投放策略代码 (写到 init 输出的 workspace 路径)
+cp agents/pd_pendulum/policy.py \
+  ./runs/reference-pd/pendulum/demo/workspace/system/policy.py
+
+# 3) serve: 起 HTTP server (Terminal A)
+hlbench serve --env pendulum \
+  --run-dir ./runs/reference-pd/pendulum/demo
+
+# 4) Drive (Terminal B) — server URL 默认 http://127.0.0.1:8765
+hlbench info
+hlbench submit --env-instances 0-7
+hlbench submit --env-instances 8,16,32
+hlbench finalize
+
+# 5) 读分
+cat ./runs/reference-pd/pendulum/demo/run.json | jq '.outcome.final_score'</pre>
+
+  <h3>检验仓库当前状态</h3>
+<pre>.venv/bin/python -m pytest -q
+.venv/bin/python -m mypy --strict src/hlbench hlbench_cli
+.venv/bin/python -m ruff check .
+git log --oneline -10
+git status</pre>
+</section>
+
+</main>
+
+<footer>
+  <p>本文档梳理 hlbench-pro v0.1.0a1 in-progress 分支的评测设计。
+  对应源文件:<code>README.md</code> / <code>AGENTS.md</code> /
+  <code>SPEC.md</code> / <code>CLAUDE.md</code> / <code>docs/output.md</code> /
+  <code>docs/submit-protocol.md</code> / <code>docs/architecture.md</code> /
+  <code>docs/findings.md</code> / <code>CHANGELOG.md</code>。
+  以源码为准,本文档过时则修;反之亦然。</p>
+</footer>
+
+</div>
+</body>
+</html>

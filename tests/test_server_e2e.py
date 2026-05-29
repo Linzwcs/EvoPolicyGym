@@ -391,3 +391,52 @@ def test_unknown_config_override_rejected(tmp_path: Path) -> None:
             runs_root=tmp_path / "runs",
             config_overrides={"epiosde_budget": 8},  # typo
         )
+
+
+def test_concurrent_submits_serialize_safely(workspace_with_reference_agent) -> None:
+    """Two POST /submit threads launched simultaneously must NOT race on
+    ``mkdir submit_NNN/`` — the second waits on Server's lock, then
+    proceeds with the now-incremented ``state.n_submits``.
+
+    Bug this guards against: ThreadingHTTPServer + retry-happy HTTP
+    client. Without the lock, both threads read state.n_submits=0,
+    both try mkdir submit_000/, second crashes with
+    ``FileExistsError`` (Errno 17), HTTP returns 500."""
+    import threading
+
+    srv, _ = workspace_with_reference_agent
+    results: list[Exception | int] = []
+    barrier = threading.Barrier(2)  # release both threads at the same instant
+
+    def _submit_burst(env_instances: list[int]) -> None:
+        try:
+            barrier.wait(timeout=5)  # both threads enter submit() back-to-back
+            r = srv.submit(env_instances)
+            results.append(r.submit_id)
+        except Exception as e:
+            results.append(e)
+
+    t1 = threading.Thread(target=_submit_burst, args=([0, 1],))
+    t2 = threading.Thread(target=_submit_burst, args=([2, 3],))
+    t1.start()
+    t2.start()
+    t1.join(timeout=120)
+    t2.join(timeout=120)
+    assert not t1.is_alive() and not t2.is_alive(), "submit threads timed out"
+
+    # Both must have completed without exception — the lock serialized
+    # them rather than letting them race.
+    assert all(isinstance(r, int) for r in results), f"got exceptions: {results}"
+    assert sorted(results) == [0, 1], f"expected submit_ids 0 and 1, got {results}"
+
+    # Both submit dirs exist on disk + each has a summary.json.
+    fb = srv.workspace_dir / "feedback"
+    assert (fb / "submit_000" / "summary.json").is_file()
+    assert (fb / "submit_001" / "summary.json").is_file()
+
+    # Server state advanced to 2 successful submits; remaining_budget
+    # decremented by 4 episodes total.
+    info = srv.info()
+    assert info["state"]["n_submits"] == 2
+    assert info["state"]["n_successful_submits"] == 2
+    assert info["state"]["remaining_budget"] == 256 - 4

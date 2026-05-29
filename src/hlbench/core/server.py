@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import statistics
+import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -248,6 +249,20 @@ class Server:
         self._is_finalized = False
         self._final_result: FinalResult | None = None
 
+        # Serialize submit() + finalize(): the HTTP layer is threaded
+        # (ThreadingHTTPServer), so a misbehaving client that retries
+        # a hung submit before the server returns can otherwise put two
+        # ``handle()`` calls in flight against the same SubmitState —
+        # both read ``state.n_submits == 0``, both try to mkdir
+        # ``submit_000/``, and the second one crashes with
+        # ``FileExistsError`` (Errno 17). The lock makes the second
+        # caller BLOCK until the first finishes, then it proceeds
+        # normally with the incremented state. ``info()`` does NOT
+        # take this lock — it just reads a local snapshot of
+        # ``self._state`` (frozen dataclass, atomically replaceable)
+        # so it stays cheap even while a long submit is running.
+        self._lock = threading.Lock()
+
         # SubmitHandler needs workspace (for snapshot/feedback) and
         # checkpoints_dir (for per-submit code copies).
         self._harness_log = HarnessLog(self._logs_dir / "harness.log")
@@ -356,39 +371,49 @@ class Server:
         }
 
     def submit(self, env_instances: list[int]) -> SubmitResult:
-        """Run one submit (sync). Writes ``feedback/submit_NNN/`` artifacts
-        and updates the in-memory ``SubmitState``.
+        """Run one submit (sync, blocking). Returns only after all
+        requested episodes have run and ``feedback/submit_NNN/`` is
+        fully written (per Phase 7 atomic commit).
+
+        Serialized via ``self._lock``: if a second ``submit()`` arrives
+        while one is in flight (e.g., a retry-happy HTTP client), the
+        second call BLOCKS on the lock until the first returns, then
+        proceeds normally with the now-incremented ``state.n_submits``.
+        Without this lock the two concurrent calls would both try to
+        ``mkdir submit_000/`` and the second crashes with
+        ``FileExistsError`` (Errno 17).
 
         Raises:
-            RuntimeError: if ``finalize()`` has already been called — the
-                run is closed (per submit-protocol.md §2.2 Phase 7).
+            RuntimeError: if ``finalize()`` has already been called —
+                the run is closed.
         """
-        if self._is_finalized:
-            raise RuntimeError("submit() called after finalize(); run is closed")
+        with self._lock:
+            if self._is_finalized:
+                raise RuntimeError("submit() called after finalize(); run is closed")
 
-        self._harness_log.event(
-            "submit_received",
-            submit_index=self._state.n_submits,
-            n_episodes_requested=len(env_instances),
-            remaining_budget=self._state.remaining_budget,
-        )
-        outcome: _SubmitOutcome = self._handler.handle(env_instances, self._state)
-        self._state = outcome.new_state
-        # Mean return is None on failure; format as "n/a" so the line
-        # stays scannable.
-        mean = outcome.summary.get("mean_return")
-        self._harness_log.event(
-            "submit_completed",
-            submit_index=outcome.submit_index,
-            status=outcome.status,
-            mean_return=mean if mean is not None else "n/a",
-            remaining_budget=outcome.new_state.remaining_budget,
-        )
-        return SubmitResult(
-            submit_id=outcome.submit_index,
-            status=outcome.status,
-            summary=outcome.summary,
-        )
+            self._harness_log.event(
+                "submit_received",
+                submit_index=self._state.n_submits,
+                n_episodes_requested=len(env_instances),
+                remaining_budget=self._state.remaining_budget,
+            )
+            outcome: _SubmitOutcome = self._handler.handle(env_instances, self._state)
+            self._state = outcome.new_state
+            # Mean return is None on failure; format as "n/a" so the line
+            # stays scannable.
+            mean = outcome.summary.get("mean_return")
+            self._harness_log.event(
+                "submit_completed",
+                submit_index=outcome.submit_index,
+                status=outcome.status,
+                mean_return=mean if mean is not None else "n/a",
+                remaining_budget=outcome.new_state.remaining_budget,
+            )
+            return SubmitResult(
+                submit_id=outcome.submit_index,
+                status=outcome.status,
+                summary=outcome.summary,
+            )
 
     def finalize(self) -> FinalResult:
         """Run held-out evaluation and write ``run.json``. Idempotent.
@@ -412,7 +437,37 @@ class Server:
 
         Held-out results never reach the agent — they live in
         ``run.json`` outside the workspace.
+
+        Acquires ``self._lock`` so a finalize() can never overlap with
+        an in-flight submit() — heldout snapshotting + scoring would
+        otherwise race with a Phase-6 sandbox running episodes for a
+        late submit. The early-return on already-finalized happens
+        without the lock for cheapness; it's safe because both
+        ``self._is_finalized`` flips and ``self._final_result``
+        assignment happen inside the lock below.
         """
+        # Cheap path: already finalized. self._is_finalized is set to
+        # True under the lock below, and never goes back to False, so
+        # checking it without the lock is safe (worst case we see
+        # False just before it flips True, then take the lock and
+        # re-check).
+        if self._is_finalized:
+            assert self._final_result is not None
+            return self._final_result
+
+        with self._lock:
+            # Re-check inside the lock in case another thread finalized
+            # between our cheap check and acquiring.
+            if self._is_finalized:
+                assert self._final_result is not None
+                return self._final_result
+            return self._do_finalize()
+
+    def _do_finalize(self) -> FinalResult:
+        """Inner finalize body, called under ``self._lock`` exactly
+        once per Server. Mutates ``self._is_finalized`` /
+        ``self._final_result`` under the lock so concurrent callers
+        see consistent state."""
         if self._is_finalized:
             assert self._final_result is not None
             return self._final_result

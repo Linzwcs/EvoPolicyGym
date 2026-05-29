@@ -26,6 +26,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
 from hlbench.core.server import FinalResult, Server
+from hlbench_harness.agent_log import AgentLog
 from hlbench_harness.prompts import (
     AGENTS_MD_EXCERPT,
     compose_continuation_prompt,
@@ -145,12 +146,27 @@ class HarnessRunner:
         http_url: str,
         max_turns: int = 12,
         max_consecutive_failures: int = 3,
+        agent_log: AgentLog | None = None,
+        model_slug: str | None = None,
     ) -> None:
+        """Create a runner.
+
+        ``agent_log``: optional ``AgentLog`` writer for
+        ``<run_dir>/logs/agent.jsonl`` (output.md §6.2). Default (``None``)
+        auto-creates one writing to ``server.run_dir/logs/agent.jsonl``.
+        Pass ``AgentLog.disabled()`` to suppress.
+
+        ``model_slug``: human-readable model identifier embedded in the
+        ``agent_start`` event. Defaults to the agent's class name."""
         self._server = server
         self._agent = agent
         self._http_url = http_url
         self._max_turns = max_turns
         self._max_consec_failures = max_consecutive_failures
+        if agent_log is None:
+            agent_log = AgentLog(server.run_dir / "logs" / "agent.jsonl")
+        self._agent_log = agent_log
+        self._model_slug = model_slug or type(agent).__name__
 
     def run(self) -> RunSummary:
         """Drive the loop until terminal, then auto-finalize.
@@ -170,6 +186,14 @@ class HarnessRunner:
         turns: list[TurnLogEntry] = []
         termination_reason = "max_turns"  # default if loop exhausts naturally
         consecutive_failures = 0
+
+        # Emit `agent_start` per output.md §6.2.
+        self._agent_log.agent_start(
+            model=self._model_slug,
+            session_id=self._agent.session_id,
+            max_turns=self._max_turns,
+            run_dir=str(self._server.run_dir),
+        )
 
         for turn_idx in range(self._max_turns):
             prompt = self._build_prompt(turn_idx)
@@ -205,6 +229,20 @@ class HarnessRunner:
                 },
             )
             turns.append(entry)
+
+            # Emit `completion` per output.md §6.2. Token/cost fields
+            # are None on test stubs; AgentLog drops Nones, so the
+            # emitted line stays compact.
+            usage = entry.usage or {}
+            self._agent_log.completion(
+                turn_index=turn_idx,
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                cost_usd=entry.cost_usd,
+                latency_ms=int(entry.duration_seconds * 1000),
+                exit_code=entry.exit_code,
+                timed_out=entry.timed_out,
+            )
 
             ok = getattr(result, "ok", entry.exit_code == 0 and not entry.timed_out)
             if not ok:
@@ -248,6 +286,19 @@ class HarnessRunner:
             turns=turns,
             started_at_monotonic=started,
             ended_at_monotonic=time.monotonic(),
+        )
+
+        # Emit `agent_end` per output.md §6.2. Surface key totals so
+        # consumers don't need to read run.json + harness_runner.json
+        # to summarise the run from agent.jsonl alone.
+        final_status = (final.status if final is not None else "unknown")
+        final_score = final.final_score if final is not None else None
+        self._agent_log.agent_end(
+            reason=termination_reason,
+            n_turns=len(turns),
+            total_cost_usd=summary.total_cost_usd,
+            final_status=final_status,
+            final_score=final_score,
         )
 
         self._persist(summary)

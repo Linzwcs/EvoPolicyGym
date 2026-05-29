@@ -108,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
             http_url=url,
             max_turns=args.max_turns,
             max_consecutive_failures=args.max_consecutive_failures,
+            model_slug=f"claude:{args.model}",
         )
         summary = runner.run()
     finally:

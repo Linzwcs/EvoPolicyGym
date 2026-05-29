@@ -81,8 +81,10 @@ runs/claude-code-auto/pendulum/dogfood-1/
 │       └── episodes/ep_*/...
 ├── checkpoints/submit_*/                ← every snapshot the agent shipped
 └── logs/
-    ├── harness.log                     ← lifecycle events
+    ├── harness.log                     ← lifecycle events (output.md §6.1)
     ├── harness_runner.json             ← per-turn timeline + final result
+    ├── agent.jsonl                     ← agent activity (output.md §6.2):
+    │                                     agent_start / completion / agent_end
     └── agent_turns/
         ├── turn_000.prompt.txt         ← exact prompt sent on turn N
         ├── turn_000.json               ← claude --output-format json reply
@@ -96,9 +98,14 @@ Two files give you the whole picture quickly:
   `consecutive_failures` / `max_turns` / `agent_finalized`),
   per-turn server-state snapshots, the final `run.json` payload
   mirrored.
-- `logs/agent_turns/turn_000.txt` — the agent's view of turn 0
-  (initial prompt + Claude's response). `turn_001.txt` etc. for
-  later turns.
+- `logs/agent.jsonl` — the agent's view (per `output.md §6.2`):
+  one line per event. `agent_start` carries model + session_id;
+  one `completion` per turn with token + cost + latency; `agent_end`
+  with the termination reason and totals. Append-only, line-oriented
+  — easy to `jq`/`grep`.
+- `logs/agent_turns/turn_000.txt` — full transcript of turn 0 (the
+  initial prompt + Claude's response). `turn_001.txt` etc. for later
+  turns.
 
 ## Knobs
 

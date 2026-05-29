@@ -49,6 +49,15 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   prints total cost + input/output tokens when present. Test stubs
   that omit these fields yield ``None`` (and ``$0.00`` aggregate)
   rather than crashing.
+- **``agent.jsonl`` writer** (``hlbench_harness/agent_log.py``) —
+  closes the ``output.md §6.2`` known-limitation. ``HarnessRunner``
+  now emits ``agent_start`` (model + session_id at run begin),
+  one ``completion`` per turn (turn_index + input_tokens +
+  output_tokens + cost_usd + latency_ms), and ``agent_end`` (reason +
+  totals) on exit. Writes append-only to
+  ``<run_dir>/logs/agent.jsonl``. Disable via
+  ``HarnessRunner(agent_log=AgentLog.disabled())``. Failed writes are
+  swallowed — observability never breaks the run.
 
 ### Design notes
 

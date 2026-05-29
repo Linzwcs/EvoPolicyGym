@@ -353,3 +353,63 @@ def test_zero_cost_when_agent_omits_fields(server_with_policy: Server) -> None:
     summary = runner.run()
     assert summary.total_cost_usd == 0.0
     assert summary.total_usage() == {}
+
+
+def test_agent_jsonl_emits_lifecycle_events(server_with_policy: Server) -> None:
+    """Runner writes agent.jsonl per output.md §6.2 with at minimum
+    one agent_start, N completions (one per turn), and one agent_end."""
+    agent = FakeAgent(
+        server=server_with_policy,
+        actions=[_submit([0, 1, 2, 3]), _submit([4, 5, 6, 7])],
+        cost_per_turn=0.07,
+        usage_per_turn={"input_tokens": 10, "output_tokens": 5},
+    )
+    runner = HarnessRunner(
+        server=server_with_policy, agent=agent,
+        http_url="http://x", max_turns=10,
+        model_slug="test-fake-agent",
+    )
+    summary = runner.run()
+    assert summary.termination_reason == "budget_exhausted"
+
+    log_path = server_with_policy.run_dir / "logs" / "agent.jsonl"
+    assert log_path.is_file()
+    lines = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    events = [e["event"] for e in lines]
+
+    # Exactly one agent_start, one agent_end, n_turns completions.
+    assert events.count("agent_start") == 1
+    assert events.count("agent_end") == 1
+    n_completions = events.count("completion")
+    assert n_completions == summary.n_turns == 2
+
+    start = next(e for e in lines if e["event"] == "agent_start")
+    assert start["model"] == "test-fake-agent"
+    assert start["session_id"] == agent.session_id
+
+    completions = [e for e in lines if e["event"] == "completion"]
+    assert all(c["cost_usd"] == 0.07 for c in completions)
+    assert all(c["input_tokens"] == 10 for c in completions)
+
+    end = next(e for e in lines if e["event"] == "agent_end")
+    assert end["reason"] == "budget_exhausted"
+    assert end["n_turns"] == 2
+    assert end["total_cost_usd"] == 0.14
+
+
+def test_agent_jsonl_disabled_when_passed_disabled_writer(server_with_policy: Server) -> None:
+    """Operators who want to suppress agent.jsonl pass ``AgentLog.disabled()``."""
+    from hlbench_harness.agent_log import AgentLog
+
+    agent = FakeAgent(
+        server=server_with_policy,
+        actions=[_submit([0, 1, 2, 3]), _submit([4, 5, 6, 7])],
+    )
+    runner = HarnessRunner(
+        server=server_with_policy, agent=agent,
+        http_url="http://x", max_turns=10,
+        agent_log=AgentLog.disabled(),
+    )
+    runner.run()
+    # No file created when disabled.
+    assert not (server_with_policy.run_dir / "logs" / "agent.jsonl").exists()

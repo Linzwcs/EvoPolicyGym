@@ -83,6 +83,20 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   ``type:"result"`` event is still extracted into ``turn_NNN.json``
   for the existing cost/text accessors.
 
+### Changed
+
+- **Console scripts unified under ``hlbench``**: the standalone
+  ``hlbench-agent`` console script is removed; its functionality moves
+  to ``hlbench agent`` as a subcommand of the main CLI. Flag
+  definitions still live in ``hlbench_harness/__main__.py`` (the
+  single source of truth) — ``hlbench_cli/main.py`` mounts them via
+  ``add_subparser_args()``. The ``python -m hlbench_harness ...``
+  fallback continues to work for ad-hoc invocation without the
+  console script. Discoverability win: ``hlbench --help`` now lists
+  all six operations (``init`` / ``serve`` / ``info`` / ``submit`` /
+  ``finalize`` / ``agent``). Old scripts calling ``hlbench-agent ...``
+  must update to ``hlbench agent ...``.
+
 ### Design notes
 
 - **Finalize is harness-only in automated mode.** The agent's prompt

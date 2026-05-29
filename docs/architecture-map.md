@@ -100,7 +100,7 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 
 | Module | LOC | Role |
 |---|---:|---|
-| `__main__.py` | 252 | `hlbench-agent` CLI. Spins up Server + HTTP background thread + ClaudeAgent + HarnessRunner. |
+| `__main__.py` | 252 | `hlbench agent` subcommand handler (also reachable standalone via `python -m hlbench_harness`). Exports `add_subparser_args` + `run_with_args` so `hlbench_cli.main` can mount the flags on its own parser. Spins up Server + HTTP background thread + ClaudeAgent + HarnessRunner. |
 | `runner.py` | 353 | `HarnessRunner` loop. Termination priority: `budget_exhausted` → `agent_finalized` → `consecutive_failures` → `max_turns`. Always auto-finalizes. |
 | `claude_agent.py` | 409 | `ClaudeAgent` subprocess wrapper around `claude --print --output-format=stream-json`. Pre-allocates UUID; `--session-id` on turn 0, `--resume` on turn 1+. Streams events to `turn_NNN.stream.jsonl` in real time. |
 | `prompts.py` | 303 | `compose_initial_prompt()` (full task + /info JSON + AGENTS.md excerpt + ops instructions) and `compose_continuation_prompt()` (terse: turn header + last submit recap + nudge). |
@@ -248,7 +248,7 @@ at 64KB per episode with `... [truncated at 64KB] ...` marker.
 
 ## 5. On-disk artifact map
 
-After a complete run with `hlbench-agent`:
+After a complete run with `hlbench agent`:
 
 ```
 runs/<model>/<env>/<exp-id>/

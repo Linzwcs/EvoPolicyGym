@@ -1,24 +1,32 @@
-"""``hlbench-agent`` — automated evaluation CLI.
+"""Automated evaluation entry point.
 
-Drives one full run end-to-end:
+Two ways to invoke:
 
-    hlbench-agent --env pendulum --budget 32 --max-turns 12 \\
-                  --model sonnet --runs-root ./runs \\
-                  --exp-id dogfood-1
+  hlbench agent --env pendulum --budget 32 --max-turns 12 ...
+        (preferred — via the unified ``hlbench`` CLI)
 
-Internally:
-  1. ``Server(env_id, runs_root, model, exp_id, episode_budget=...)``
+  python -m hlbench_harness --env pendulum --budget 32 ...
+        (standalone fallback — same flags, useful for ad-hoc invocation
+        without installing the console script)
+
+The ``hlbench agent`` subcommand is implemented by ``hlbench_cli.main``
+calling ``add_subparser_args()`` + ``run_with_args()`` from this
+module, so flag definitions live here once.
+
+Internally a run does:
+  1. ``Server(env_id, runs_root, model, exp_id, config_overrides=...)``
   2. ``HlbenchHTTPServer`` on a background thread (port=0 by default
      so parallel runs don't collide).
   3. ``ClaudeAgent`` with a fresh UUID; cwd = workspace.
-  4. ``HarnessRunner.run()`` — blocks until the agent finalizes or
-     ``max_turns`` is hit.
+  4. ``HarnessRunner.run()`` — blocks until budget exhausts /
+     max_turns hit / N consecutive failures, then auto-finalizes.
 
-Logs:
-  - ``<run_dir>/logs/agent_turns/turn_NNN.{json,txt,prompt.txt}``
-  - ``<run_dir>/logs/harness_runner.json`` (per-turn timeline + final)
-  - ``<run_dir>/logs/harness.log`` (existing lifecycle events)
-  - ``<run_dir>/run.json`` (the headline; finalize is always called)
+Logs (under ``<run_dir>/logs/``):
+  - ``agent_turns/turn_NNN.{stream.jsonl,json,txt,prompt.txt}``
+  - ``harness_runner.json`` (per-turn timeline + final summary)
+  - ``harness.log`` (Server-side lifecycle events)
+  - ``agent.jsonl`` (operator-side activity per output.md §6.2)
+  - ``../run.json`` (the headline; finalize is always called)
 """
 
 from __future__ import annotations
@@ -42,8 +50,111 @@ from hlbench_harness.runner import HarnessRunner, RunSummary
 log = logging.getLogger("hlbench_harness")
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parse_args(argv)
+# ---------------------------------------------------------------------------
+# Public — used by both the standalone main() below and by
+# hlbench_cli.main's "agent" subparser.
+# ---------------------------------------------------------------------------
+
+
+def add_subparser_args(p: argparse.ArgumentParser) -> None:
+    """Attach the ~17 agent flags to ``p`` and set its handler to
+    ``run_with_args``.
+
+    Called by:
+      - this module's standalone ``main()`` (so flags exist on the
+        top-level argparse for ``python -m hlbench_harness ...``)
+      - ``hlbench_cli.main:_build_parser()`` (so the same flags appear
+        on ``hlbench agent ...``)
+
+    Single source of truth for the agent CLI surface — adding a flag
+    in one place lights it up in both invocations."""
+    # ----- run identity -----
+    p.add_argument("--env", default="pendulum", help="registered env id (default: pendulum)")
+    p.add_argument(
+        "--model-slug", default="claude-code-auto",
+        help="run.json:model slug (default: claude-code-auto)",
+    )
+    p.add_argument(
+        "--exp-id", default=None,
+        help="distinguish multiple runs of the same (model_slug, env); "
+             "auto-generated if omitted",
+    )
+    p.add_argument(
+        "--runs-root", default="./runs",
+        help="root for runs/<model>/<env>/<exp-id>/ (default: ./runs)",
+    )
+
+    # ----- budget overrides -----
+    p.add_argument(
+        "--budget", type=int, default=None,
+        help="episode_budget override (default: env's default, usually 256)",
+    )
+    p.add_argument(
+        "--max-episodes-per-submit", type=int, default=None,
+        help="cap per single /submit call (default: env's default)",
+    )
+
+    # ----- harness loop -----
+    p.add_argument(
+        "--max-turns", type=int, default=12,
+        help="hard cap on agent turns; auto-finalize on overrun (default: 12)",
+    )
+    p.add_argument(
+        "--max-consecutive-failures", type=int, default=3,
+        help="break the loop after N consecutive failed agent turns (default: 3)",
+    )
+
+    # ----- claude agent -----
+    p.add_argument(
+        "--model", default="sonnet",
+        help="claude --model (alias 'opus'/'sonnet'/'haiku' or full id; default: sonnet)",
+    )
+    p.add_argument(
+        "--permission-mode", default="bypassPermissions",
+        choices=("bypassPermissions", "acceptEdits", "default", "auto", "dontAsk", "plan"),
+        help="claude --permission-mode (default: bypassPermissions)",
+    )
+    p.add_argument(
+        "--allowed-tools", default="",
+        help=(
+            "comma-separated claude --allowedTools (default: "
+            f"{','.join(DEFAULT_ALLOWED_TOOLS)})"
+        ),
+    )
+    p.add_argument(
+        "--turn-timeout", type=int, default=600,
+        help="seconds before a single claude --print invocation times out (default: 600)",
+    )
+    p.add_argument(
+        "--claude-binary", default="claude",
+        help="path/name of the claude binary (default: 'claude' on PATH)",
+    )
+    p.add_argument(
+        "--session-id", default=None,
+        help="reuse an explicit UUID for the agent session (default: auto-generated)",
+    )
+
+    # ----- http server -----
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument(
+        "--port", type=int, default=0,
+        help="0 = ephemeral OS-assigned port (default; lets parallel runs coexist)",
+    )
+
+    # ----- misc -----
+    p.add_argument("--log-level", default="INFO")
+    p.add_argument(
+        "--no-require-claude", dest="require_claude", action="store_false",
+        help="skip the PATH check for 'claude' (only useful if you're using --claude-binary "
+             "to a custom binary)",
+    )
+    p.set_defaults(require_claude=True, func=run_with_args)
+
+
+def run_with_args(args: argparse.Namespace) -> int:
+    """Core agent-run logic. Takes a parsed Namespace (from either
+    invocation path) and drives one full eval to completion. Returns
+    a shell exit code (0 = run.json:outcome.status == "completed")."""
     logging.basicConfig(
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         format="%(asctime)s %(name)s %(levelname)s: %(message)s",
@@ -119,109 +230,32 @@ def main(argv: list[str] | None = None) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Standalone entry — kept so ``python -m hlbench_harness`` still works
+# even though the ``hlbench-agent`` console script was removed in favor
+# of the unified ``hlbench agent`` subcommand.
+# ---------------------------------------------------------------------------
 
 
-def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="hlbench-agent",
+        prog="python -m hlbench_harness",
         description=(
             "Drive a Claude Code session through one hlbench-pro run. "
             "Preserves the agent's conversation across iterations via "
-            "claude --resume. Writes per-turn logs under "
-            "<run_dir>/logs/agent_turns/."
+            "claude --resume. For the preferred invocation use "
+            "``hlbench agent`` (same flags)."
         ),
     )
-
-    # ----- run identity -----
-    p.add_argument("--env", default="pendulum", help="registered env id (default: pendulum)")
-    p.add_argument(
-        "--model-slug", default="claude-code-auto",
-        help="run.json:model slug (default: claude-code-auto)",
-    )
-    p.add_argument(
-        "--exp-id", default=None,
-        help="distinguish multiple runs of the same (model_slug, env); "
-             "auto-generated if omitted",
-    )
-    p.add_argument(
-        "--runs-root", default="./runs",
-        help="root for runs/<model>/<env>/<exp-id>/ (default: ./runs)",
-    )
-
-    # ----- budget overrides -----
-    p.add_argument(
-        "--budget", type=int, default=None,
-        help="episode_budget override (default: env's default, usually 256)",
-    )
-    p.add_argument(
-        "--max-episodes-per-submit", type=int, default=None,
-        help="cap per single /submit call (default: env's default)",
-    )
-
-    # ----- harness loop -----
-    p.add_argument(
-        "--max-turns", type=int, default=12,
-        help="hard cap on agent turns; force-finalize on overrun (default: 12)",
-    )
-    p.add_argument(
-        "--max-consecutive-failures", type=int, default=3,
-        help="break the loop after N consecutive failed agent turns (default: 3)",
-    )
-
-    # ----- claude agent -----
-    p.add_argument(
-        "--model", default="sonnet",
-        help="claude --model (alias 'opus'/'sonnet'/'haiku' or full id; default: sonnet)",
-    )
-    p.add_argument(
-        "--permission-mode", default="bypassPermissions",
-        choices=("bypassPermissions", "acceptEdits", "default", "auto", "dontAsk", "plan"),
-        help="claude --permission-mode (default: bypassPermissions)",
-    )
-    p.add_argument(
-        "--allowed-tools", default="",
-        help=(
-            "comma-separated claude --allowedTools (default: "
-            f"{','.join(DEFAULT_ALLOWED_TOOLS)})"
-        ),
-    )
-    p.add_argument(
-        "--turn-timeout", type=int, default=600,
-        help="seconds before a single claude --print invocation times out (default: 600)",
-    )
-    p.add_argument(
-        "--claude-binary", default="claude",
-        help="path/name of the claude binary (default: 'claude' on PATH)",
-    )
-    p.add_argument(
-        "--session-id", default=None,
-        help="reuse an explicit UUID for the agent session (default: auto-generated)",
-    )
-
-    # ----- http server -----
-    p.add_argument("--host", default="127.0.0.1")
-    p.add_argument(
-        "--port", type=int, default=0,
-        help="0 = ephemeral OS-assigned port (default; lets parallel runs coexist)",
-    )
-
-    # ----- misc -----
-    p.add_argument("--log-level", default="INFO")
-    p.add_argument(
-        "--no-require-claude", dest="require_claude", action="store_false",
-        help="skip the PATH check for 'claude' (only useful if you're using --claude-binary "
-             "to a custom binary)",
-    )
-    p.set_defaults(require_claude=True)
-
-    return p.parse_args(argv)
+    add_subparser_args(p)
+    args = p.parse_args(argv)
+    return run_with_args(args)
 
 
 def _print_summary(summary: RunSummary, server: Server) -> None:
     final = summary.final_result or {}
     print()
     print("=" * 60)
-    print("hlbench-agent run complete")
+    print("hlbench agent run complete")
     print("=" * 60)
     print(f"  run_dir:           {server.run_dir}")
     print(f"  session_id:        {summary.session_id}")

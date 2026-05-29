@@ -144,3 +144,28 @@ def test_parser_requires_subcommand() -> None:
     with pytest.raises(SystemExit):
         # No args → argparse exits because subparser is required.
         p.parse_args([])
+
+
+def test_agent_subcommand_parses() -> None:
+    """``hlbench agent ...`` is registered alongside the manual
+    subcommands, and the harness flag definitions show up under it
+    (single source of truth in hlbench_harness/__main__.py)."""
+    p = _build_parser()
+    args = p.parse_args([
+        "agent",
+        "--env", "pendulum",
+        "--budget", "8",
+        "--max-turns", "3",
+        "--model", "haiku",
+        "--no-require-claude",
+    ])
+    assert args.cmd == "agent"
+    assert args.env == "pendulum"
+    assert args.budget == 8
+    assert args.max_turns == 3
+    assert args.model == "haiku"
+    assert args.require_claude is False
+    # The handler resolves to hlbench_harness.__main__.run_with_args
+    # (via add_subparser_args' set_defaults(func=...)).
+    from hlbench_harness.__main__ import run_with_args
+    assert args.func is run_with_args

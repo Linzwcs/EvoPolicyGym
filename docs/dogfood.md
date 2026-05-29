@@ -1,6 +1,6 @@
 # Automated Evaluation with Claude Code
 
-The `hlbench-agent` CLI drives a complete `init → submit → finalize`
+The `hlbench agent` subcommand drives a complete `init → submit → finalize`
 loop end-to-end against any registered hlbench-pro env, using
 [Claude Code](https://claude.com/claude-code) as the policy author.
 
@@ -24,7 +24,7 @@ workspace files alone to carry state forward).
 ## One-shot: drive a Pendulum run
 
 ```bash
-.venv/bin/hlbench-agent \
+.venv/bin/hlbench agent \
     --env pendulum \
     --budget 32 \
     --max-turns 8 \

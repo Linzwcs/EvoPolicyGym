@@ -129,7 +129,7 @@ not partially populated mid-run. For mid-run state inspection, see
     "min_episodes_per_submit": 1,
     "max_episodes_per_submit": 200,
     "seed_pool_id": "default",
-    "agent_harness": "hlbench-agent@0.1.0",
+    "agent_harness": "hlbench@0.1.0a1",
     "model_config": {
       "temperature": 1.0,
       "max_tokens": 8192

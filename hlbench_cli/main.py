@@ -1,15 +1,24 @@
 """hlbench CLI entry point. Run ``hlbench --help`` for subcommands.
 
-Workflow::
+Manual workflow (human operator)::
 
-    hlbench init --env pendulum --dir ./run         # one-time setup
-    hlbench serve --workspace ./run                 # in foreground
+    hlbench init --env pendulum --model me --exp-id trial-1
+    hlbench serve --run-dir runs/me/pendulum/trial-1 --env pendulum
     # ... in another terminal ...
     hlbench info
     hlbench submit --env-instances 0-3
     hlbench finalize
 
-The CLI is just a thin HTTP client (no shared state with the server).
+Automated workflow (Claude Code drives a full run end-to-end)::
+
+    hlbench agent --env pendulum --budget 8 --max-turns 4 --model sonnet
+
+The manual subcommands (``info`` / ``submit`` / ``finalize``) are pure
+HTTP clients of a running ``hlbench serve`` process. ``init`` and
+``serve`` use ``hlbench.core.Server`` directly. The ``agent`` subcommand
+delegates to the ``hlbench_harness`` package which spawns
+``claude --print`` in a closed loop.
+
 For programmatic use, drive ``hlbench.core.Server`` directly.
 """
 
@@ -268,6 +277,26 @@ def _build_parser() -> argparse.ArgumentParser:
     p_fin.add_argument("--url", default=DEFAULT_URL)
     p_fin.add_argument("--raw", action="store_true")
     p_fin.set_defaults(func=cmd_finalize)
+
+    # The agent subcommand delegates to hlbench_harness. The flag
+    # definitions live there (single source of truth) so adding a flag
+    # in hlbench_harness/__main__.py:add_subparser_args() lights it up
+    # here without touching the CLI module.
+    p_agent = sub.add_parser(
+        "agent",
+        help="run an automated Claude Code eval loop end-to-end",
+        description=(
+            "Drive a Claude Code session through one hlbench-pro run. "
+            "Preserves the agent's conversation across iterations via "
+            "claude --resume. Writes per-turn logs under "
+            "<run_dir>/logs/agent_turns/."
+        ),
+    )
+    # Lazy import — avoids paying the harness import cost (gymnasium,
+    # multiprocessing setup) for non-agent subcommands.
+    from hlbench_harness.__main__ import add_subparser_args as _add_agent_args
+    _add_agent_args(p_agent)
+    # add_subparser_args already calls p.set_defaults(func=run_with_args).
 
     return p
 

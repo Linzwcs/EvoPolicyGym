@@ -7,4 +7,4 @@ Public API (lib mode, for tests and tooling — agents use HTTP):
 For agents, the canonical interface is HTTP. See AGENTS.md §4.0.
 """
 
-__version__ = "0.1.0a0"
+__version__ = "0.1.0a1"

@@ -4,9 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This is a **docs-only repository at the design stage** — no source code exists yet. The five markdown files below define the protocol, behavior, and a 2-week MVP implementation plan. The plan targets Pendulum-v1 end-to-end as the first working slice.
+The harness has shipped through **0.1.0a1** (May 2026) — single env
+(Pendulum-v1), full `init → submit → finalize` pipeline, canonical
+`runs/<model>/<env>/<exp-id>/` layout, per-submit `checkpoints/`,
+per-episode `stdout.txt` / `stderr.txt` capture, 64 KB error-file
+truncation, `denied_imports` enforced via meta-path import hook,
+`submit_wall_s` enforced, `harness.log` lifecycle log, `GET /task`
+endpoint. 119 tests + mypy strict + ruff clean. See `CHANGELOG.md` for
+the full 0.1.0a0 → 0.1.0a1 delta.
 
-When asked to "start implementing", follow `docs/architecture.md` Day 1: scaffold `src/hlbench/` per its package layout (§3), then the env registry + Pendulum env (Day 2). Don't go off-plan without flagging it.
+The next deferred items (per `CHANGELOG.md` "Known limitations"):
+network blocking, RSS-poll OOM, pixel envs (`observations.npy` /
+`video.mp4`), `agent.jsonl`, additional envs (HalfCheetah / CarRacing /
+Atari). When asked to extend, prefer one focused addition per commit,
+keep tests / mypy / ruff green throughout, and log spec changes in
+`CHANGELOG.md`'s `[Unreleased]` section.
 
 ## Document map
 
@@ -53,20 +65,29 @@ The user explores design space by raising the same questions repeatedly. Each ti
 - **"HTTP or Python lib for agent control?"** → HTTP only for agents. Lib mode exists for tests/dev but is not an agent-facing interface.
 - **"Hash verification on seed files?"** → No. `env_version` already binds the seed files; hash is paranoia without a public leaderboard.
 
-## When implementing (per architecture.md)
+## When implementing (history + open items)
 
-The MVP plan in `docs/architecture.md` deliberately defers many real spec items:
-- No `denied_imports` enforcement (Pendulum + numpy doesn't need it)
-- No network blocking (same)
-- No `checkpoints/` directory
-- No `agent.jsonl` logging
-- No container (subprocess sandbox only)
+The 0.1.0a0 MVP plan in `docs/architecture.md` deliberately deferred
+many SPEC items; 0.1.0a1 closed most of them (`denied_imports`,
+`checkpoints/`, `submit_wall_s`, `stdout/stderr` capture, 64 KB error
+truncation, harness.log, canonical run-dir layout, `GET /task`).
 
-(HTTP wrapper **is** in MVP — it's the agent's only control channel.
+Still deferred — pick from this list when extending:
+- Network blocking (socket-level, harder than module-level imports)
+- RSS-poll OOM detection (psutil dependency or `RLIMIT_AS` tightening)
+- `observations.npy` external-obs storage (needed for CarRacing /
+  pixel Atari)
+- `video.mp4` per-episode rendering
+- `agent.jsonl` agent-harness activity log (`output.md §6.2`)
+- Additional envs (HalfCheetah → MuJoCo extras; CarRacing → pixels;
+  Atari → discrete actions)
+
+(HTTP wrapper **is** the agent's only control channel.
 Async + long-poll + tar bundle are **permanently** out of scope per
 the shared-host commitment, not just deferred.)
 
-These are **real spec items**, just not needed to validate the core loop on Pendulum. When extending past MVP (HalfCheetah → CarRacing → etc.), each addition forces filling in one of these. Don't try to implement the full spec in one go.
+When extending past Pendulum, each new env tends to force filling in
+one of these gaps. Don't try to implement the full spec in one go.
 
 ## Style notes for doc edits
 

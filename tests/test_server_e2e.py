@@ -241,7 +241,7 @@ def test_finalize_runs_heldout_and_writes_run_json(
     # thresholds tripped at the first successful submit.
     assert aux["episodes_to_50pct"] == 4
     assert aux["episodes_to_80pct"] == 4
-    assert doc["versions"]["harness"] == "0.1.0a0"
+    assert doc["versions"]["harness"] == "0.1.0a1"
     assert doc["versions"]["env"] == "0.1"
 
 

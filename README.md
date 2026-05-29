@@ -147,14 +147,20 @@ optimizes without targeting a known threshold.
 
 ## Status
 
-MVP — Pendulum-v1 only. The harness end-to-end pipeline (init → submit
-→ finalize → run.json) is working. Held-out evaluation, normalized
-scoring, and all auxiliary metrics ship.
+**`0.1.0a1`** (May 2026) — single env (Pendulum-v1), full
+init → submit → finalize pipeline, canonical
+`runs/<model>/<env>/<exp-id>/` layout, per-submit `checkpoints/`,
+per-episode `stdout.txt` / `stderr.txt` capture, 64 KB error-file
+truncation, `denied_imports` enforced, `submit_wall_s` enforced,
+`harness.log` lifecycle log, `GET /task` endpoint, Policy interface
+narrowed to `__init__` / `reset` / `act`. 119 tests + mypy strict +
+ruff clean.
 
 Reference PD on Pendulum-v1: `final_score = 98.3`, held-out mean
 return = -168 (random ~ -1200, expert ~ -150). See
-[`docs/findings.md`](./docs/findings.md) for the calibration sweep.
+[`docs/findings.md`](./docs/findings.md) for the calibration sweep
+and [`CHANGELOG.md`](./CHANGELOG.md) for the full delta from 0.1.0a0.
 
-Post-MVP roadmap (deferred): denied-import enforcement, network
-sandbox, RSS-poll OOM, video / external-obs storage, additional envs
-(HalfCheetah, CarRacing, Atari).
+Post-0.1.0a1 roadmap (deferred): network blocking, RSS-poll OOM,
+`observations.npy` / `video.mp4` for pixel envs, `agent.jsonl`
+agent-harness log, additional envs (HalfCheetah, CarRacing, Atari).

@@ -11,7 +11,7 @@ def test_package_imports() -> None:
     """The top-level package imports cleanly."""
     import hlbench
 
-    assert hlbench.__version__ == "0.1.0a0"
+    assert hlbench.__version__ == "0.1.0a1"
 
 
 def test_envs_registers_pendulum() -> None:

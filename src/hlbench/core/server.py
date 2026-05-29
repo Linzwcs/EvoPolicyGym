@@ -36,12 +36,12 @@ from hlbench.core.heldout import (
     snapshot_workspace_system,
 )
 from hlbench.core.sandbox import SandboxConfig
-from hlbench.core.seed_manager import SeedManager
+from hlbench.core.seed_resolver import SeedResolver
 from hlbench.core.submit_handler import (
     SubmitConfig,
     SubmitHandler,
-    SubmitOutcome,
     SubmitState,
+    _SubmitOutcome,
 )
 from hlbench.envs.registry import EnvDefinition, get_env
 
@@ -58,7 +58,7 @@ _REPO_ROOT_AGENTS_MD = Path(__file__).resolve().parents[3] / "AGENTS.md"
 class SubmitResult:
     """Returned from ``Server.submit()``. Mirrors the HTTP /submit body.
 
-    Schema-wise this is a thin wrapper around ``SubmitOutcome`` for the
+    Schema-wise this is a thin wrapper around ``_SubmitOutcome`` for the
     network layer; the full ``summary.json`` content is reachable on
     disk and via ``info()`` callers don't need it inline."""
 
@@ -153,7 +153,7 @@ class Server:
         """
         # Resolve env + seeds.
         self._env_def: EnvDefinition = get_env(env_id)
-        self._sm = SeedManager(
+        self._sm = SeedResolver(
             self._env_def.train_seeds_path,
             self._env_def.heldout_seeds_path,
         )
@@ -253,7 +253,7 @@ class Server:
         self._harness_log = HarnessLog(self._logs_dir / "harness.log")
         self._handler = SubmitHandler(
             env_def=self._env_def,
-            seed_manager=self._sm,
+            seed_resolver=self._sm,
             workspace_dir=self._workspace,
             config=self._submit_cfg,
             checkpoints_dir=self._checkpoints_dir,
@@ -372,7 +372,7 @@ class Server:
             n_episodes_requested=len(env_instances),
             remaining_budget=self._state.remaining_budget,
         )
-        outcome: SubmitOutcome = self._handler.handle(env_instances, self._state)
+        outcome: _SubmitOutcome = self._handler.handle(env_instances, self._state)
         self._state = outcome.new_state
         # Mean return is None on failure; format as "n/a" so the line
         # stays scannable.
@@ -443,7 +443,7 @@ class Server:
                 result_obj = evaluate_heldout(
                     snapshot_dir=snapshot_dir,
                     env_def=self._env_def,
-                    seed_manager=self._sm,
+                    seed_resolver=self._sm,
                     sandbox_config=self._submit_cfg.sandbox,
                 )
             except HeldoutError as e:

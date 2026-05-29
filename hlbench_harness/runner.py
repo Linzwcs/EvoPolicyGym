@@ -53,7 +53,7 @@ class AgentLike(Protocol):
 
 
 @dataclass
-class TurnLogEntry:
+class TurnRecord:
     """One row in ``harness_runner.json:turns``."""
 
     turn_index: int
@@ -88,7 +88,7 @@ class RunSummary:
     n_turns: int
     termination_reason: str
     final_result: dict[str, Any] | None
-    turns: list[TurnLogEntry] = field(default_factory=list)
+    turns: list[TurnRecord] = field(default_factory=list)
     started_at_monotonic: float = 0.0
     ended_at_monotonic: float = 0.0
 
@@ -183,7 +183,7 @@ class HarnessRunner:
         The harness always calls ``Server.finalize()`` after the loop
         regardless of reason — ``run.json`` always exists."""
         started = time.monotonic()
-        turns: list[TurnLogEntry] = []
+        turns: list[TurnRecord] = []
         termination_reason = "max_turns"  # default if loop exhausts naturally
         consecutive_failures = 0
 
@@ -211,7 +211,7 @@ class HarnessRunner:
             # Snapshot live server state immediately after the turn so
             # the entry captures what the agent's actions produced.
             post_info = self._server.info()
-            entry = TurnLogEntry(
+            entry = TurnRecord(
                 turn_index=turn_idx,
                 duration_seconds=getattr(result, "duration_seconds", 0.0),
                 exit_code=getattr(result, "exit_code", 0),
@@ -350,4 +350,4 @@ def _final_result_to_dict(final: FinalResult) -> dict[str, Any]:
     }
 
 
-__all__ = ["AgentLike", "HarnessRunner", "RunSummary", "TurnLogEntry"]
+__all__ = ["AgentLike", "HarnessRunner", "RunSummary", "TurnRecord"]

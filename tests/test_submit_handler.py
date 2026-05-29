@@ -16,12 +16,12 @@ import pytest
 gym = pytest.importorskip("gymnasium")
 
 from hlbench.core.sandbox import SandboxConfig  # noqa: E402
-from hlbench.core.seed_manager import SeedManager  # noqa: E402
+from hlbench.core.seed_resolver import SeedResolver  # noqa: E402
 from hlbench.core.submit_handler import (  # noqa: E402
     SubmitConfig,
     SubmitHandler,
-    SubmitOutcome,
     SubmitState,
+    _SubmitOutcome,
 )
 from hlbench.envs.registry import get_env  # noqa: E402
 
@@ -58,13 +58,13 @@ def _make_handler(
     episode_wall_s: float = 60.0,
     submit_wall_s: float = 300.0,
 ) -> SubmitHandler:
-    sm = SeedManager(
+    sm = SeedResolver(
         pendulum_env_def.train_seeds_path,
         pendulum_env_def.heldout_seeds_path,
     )
     return SubmitHandler(
         env_def=pendulum_env_def,
-        seed_manager=sm,
+        seed_resolver=sm,
         workspace_dir=workspace,
         config=SubmitConfig(
             episode_budget=episode_budget,
@@ -120,7 +120,7 @@ def test_ok_path_writes_full_feedback_layout(tmp_path, pendulum_env_def):
     state = SubmitState(remaining_budget=256)
     outcome = handler.handle([0, 1, 2, 3], state)
 
-    assert isinstance(outcome, SubmitOutcome)
+    assert isinstance(outcome, _SubmitOutcome)
     assert outcome.status == "ok"
     assert outcome.submit_index == 0
 

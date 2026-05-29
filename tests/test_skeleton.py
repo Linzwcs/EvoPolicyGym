@@ -45,13 +45,13 @@ def test_public_env_meta_hides_baselines() -> None:
         assert required in meta, f"missing {required}"
 
 
-def test_seed_manager_loads_pendulum() -> None:
+def test_seed_resolver_loads_pendulum() -> None:
     """train.json and heldout.json load and have the expected sizes."""
-    from hlbench.core.seed_manager import SeedManager
+    from hlbench.core.seed_resolver import SeedResolver
     from hlbench.envs.registry import get_env
 
     env = get_env("pendulum")
-    sm = SeedManager(env.train_seeds_path, env.heldout_seeds_path)
+    sm = SeedResolver(env.train_seeds_path, env.heldout_seeds_path)
 
     assert sm.n_env_instances == 256
     assert sm.n_held_out == 256
@@ -61,15 +61,15 @@ def test_seed_manager_loads_pendulum() -> None:
     assert isinstance(sm.real_seed_for_instance(255), int)
 
 
-def test_seed_manager_rejects_out_of_range() -> None:
+def test_seed_resolver_rejects_out_of_range() -> None:
     """env_instance 256 (out of [0, 256)) → ValueError → invalid_env_instance verdict."""
     import pytest
 
-    from hlbench.core.seed_manager import SeedManager
+    from hlbench.core.seed_resolver import SeedResolver
     from hlbench.envs.registry import get_env
 
     env = get_env("pendulum")
-    sm = SeedManager(env.train_seeds_path, env.heldout_seeds_path)
+    sm = SeedResolver(env.train_seeds_path, env.heldout_seeds_path)
 
     with pytest.raises(ValueError):
         sm.real_seed_for_instance(256)
@@ -82,11 +82,11 @@ def test_train_and_heldout_seeds_disjoint() -> None:
 
     Spec invariant: held-out is a separate pool, not a slice of train.
     """
-    from hlbench.core.seed_manager import SeedManager
+    from hlbench.core.seed_resolver import SeedResolver
     from hlbench.envs.registry import get_env
 
     env = get_env("pendulum")
-    sm = SeedManager(env.train_seeds_path, env.heldout_seeds_path)
+    sm = SeedResolver(env.train_seeds_path, env.heldout_seeds_path)
 
     train_set = {sm.real_seed_for_instance(i) for i in range(sm.n_env_instances)}
     heldout_set = set(sm.held_out_seeds())

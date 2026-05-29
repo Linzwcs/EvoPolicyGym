@@ -145,9 +145,9 @@ def test_log_never_contains_real_seed_values(server_with_log: Server) -> None:
     log_text = (srv.run_dir / "logs" / "harness.log").read_text()
     # Read the actual real seeds the env would have used, verify NONE
     # appear in the log (the file is small enough to substring-scan).
-    from hlbench.core.seed_manager import SeedManager
+    from hlbench.core.seed_resolver import SeedResolver
     from hlbench.envs.registry import get_env
-    sm = SeedManager(
+    sm = SeedResolver(
         get_env("pendulum").train_seeds_path,
         get_env("pendulum").heldout_seeds_path,
     )

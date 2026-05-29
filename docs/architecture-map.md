@@ -84,7 +84,7 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 | `core/feedback.py` | 252 | Atomic writers for `summary.json`, `trajectory.jsonl`, `error.txt`, `stdout/stderr.txt`. Filename + width helpers. NaN/Inf JSON encoding. |
 | `core/heldout.py` | 127 | One-shot held-out evaluator. Snapshots `workspace/system/`, runs M held-out seeds in a fresh Sandbox. Server.finalize() calls this once. |
 | `core/scoring.py` | 151 | Pure functions: `normalized_score`, `final_score` (clip 0..1.2 × 100), `auc_in_loop`, `episodes_to_threshold`, `build_auxiliary`. |
-| `core/seed_manager.py` | 50 | Loads `train.json` + `heldout.json`. Resolves agent-facing integer IDs → hidden real seeds. |
+| `core/seed_resolver.py` | 50 | Loads `train.json` + `heldout.json`. Resolves agent-facing integer IDs → hidden real seeds. |
 | `core/harness_log.py` | 104 | Plain-text lifecycle log writer for `<run_dir>/logs/harness.log`. No-op via `.disabled()`. |
 | `http_server.py` | 201 | stdlib `http.server` thin wrapper. 4 endpoints: `GET /info`, `GET /task`, `POST /submit`, `POST /finalize`. |
 | `envs/registry.py` | 128 | `EnvDefinition` dataclass + `register_env()` + `get_env()`. |
@@ -122,7 +122,7 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 ```
 Server(env_id, runs_root, model, exp_id, config_overrides)
   ├── get_env(env_id)              → EnvDefinition
-  ├── SeedManager(train, heldout)  → ID → real_seed resolver
+  ├── SeedResolver(train, heldout)  → ID → real_seed resolver
   ├── compute run_dir              = runs_root / model / env_id / exp_id
   ├── mkdir workspace + checkpoints + logs
   ├── copy env.starter_policy_path → workspace/system/policy.py  (if missing)
@@ -228,7 +228,7 @@ The agent NEVER sees:
 - the env_instance → real seed mapping
 
 `EnvDefinition.public_env_meta()` strips these before they reach
-`/info:env_meta`. SeedManager keeps the held-out array internal.
+`/info:env_meta`. SeedResolver keeps the held-out array internal.
 
 ### 4.4 Atomic feedback writes
 

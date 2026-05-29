@@ -1,4 +1,4 @@
-"""Map env_instance ID -> hidden real seed; load static seed pools.
+"""Resolve env_instance ID -> hidden real seed; load static seed pools.
 
 Each env ships:
 - train.json  : agent-addressable instances. Format `{"real_seeds": [int, ...]}`,
@@ -8,7 +8,9 @@ Each env ships:
 The mapping is read-only and bound to env_version. See SPEC.md §6.
 
 Anti-cheating: real seeds are server-internal. Agents address by integer ID
-in [0, n_env_instances).
+in [0, n_env_instances). The name is ``Resolver`` because that's the only
+operation we expose — there's no creation, deletion, caching, or
+invalidation, so ``Manager`` would overstate what this does.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ import json
 from pathlib import Path
 
 
-class SeedManager:
+class SeedResolver:
     """Loads train.json and heldout.json for one env."""
 
     def __init__(self, train_path: Path, heldout_path: Path) -> None:

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hlbench.core.sandbox import Sandbox, SandboxConfig, SandboxDead, SandboxInitError
-from hlbench.core.seed_manager import SeedManager
+from hlbench.core.seed_resolver import SeedResolver
 from hlbench.envs.registry import EnvDefinition
 
 
@@ -39,7 +39,7 @@ def evaluate_heldout(
     *,
     snapshot_dir: Path,
     env_def: EnvDefinition,
-    seed_manager: SeedManager,
+    seed_resolver: SeedResolver,
     sandbox_config: SandboxConfig,
 ) -> HeldoutResult:
     """Run all held-out episodes against the policy in ``snapshot_dir``.
@@ -49,7 +49,7 @@ def evaluate_heldout(
             of the final successful submit's snapshot.
         env_def: Used for the env factory, action-space type, and
             ``max_episode_steps``.
-        seed_manager: ``held_out_seeds()`` provides the M hidden seeds.
+        seed_resolver: ``held_out_seeds()`` provides the M hidden seeds.
         sandbox_config: Pass-through to ``Sandbox``; usually shares the
             run's submit-time wall-time settings so finalize doesn't
             accidentally accept a policy that would have failed a
@@ -65,7 +65,7 @@ def evaluate_heldout(
             success (some episodes ran, some failed) is reported via
             ``n_failed_episodes`` — not raised.
     """
-    held_out_seeds = seed_manager.held_out_seeds()
+    held_out_seeds = seed_resolver.held_out_seeds()
     max_steps = env_def.max_episode_steps
 
     sandbox = Sandbox(

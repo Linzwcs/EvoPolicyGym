@@ -38,7 +38,7 @@ from hlbench.core.sandbox import (
     SandboxDead,
     SandboxInitError,
 )
-from hlbench.core.seed_manager import SeedManager
+from hlbench.core.seed_resolver import SeedResolver
 from hlbench.envs.registry import EnvDefinition
 
 # AGENTS.md §3.3 lists these as auto-excluded from system/ size accounting.
@@ -114,7 +114,7 @@ class SubmitState:
 
 
 @dataclass(frozen=True)
-class SubmitOutcome:
+class _SubmitOutcome:
     """Return value of ``SubmitHandler.handle``.
 
     The HTTP /submit response is built from ``summary``; the Server
@@ -137,14 +137,14 @@ class SubmitHandler:
         self,
         *,
         env_def: EnvDefinition,
-        seed_manager: SeedManager,
+        seed_resolver: SeedResolver,
         workspace_dir: Path,
         config: SubmitConfig | None = None,
         checkpoints_dir: Path | None = None,
         harness_log: HarnessLog | None = None,
     ) -> None:
         self._env_def = env_def
-        self._sm = seed_manager
+        self._sm = seed_resolver
         self._workspace = Path(workspace_dir)
         self._config = config or SubmitConfig()
         self._checkpoints_dir = (
@@ -162,7 +162,7 @@ class SubmitHandler:
         self,
         env_instances: list[int],
         state: SubmitState,
-    ) -> SubmitOutcome:
+    ) -> _SubmitOutcome:
         """Run one submit. Always writes ``summary.json`` (and on failure
         ``errors.txt``) under ``feedback/submit_<NNN>/``.
 
@@ -461,7 +461,7 @@ class SubmitHandler:
             last_submit_status="ok",
             submit_history=state.submit_history + (history_entry,),
         )
-        outcome = SubmitOutcome(
+        outcome = _SubmitOutcome(
             submit_index=submit_index, status="ok", summary=summary, new_state=new_state,
         )
         self._maybe_checkpoint(
@@ -483,7 +483,7 @@ class SubmitHandler:
         message: str,
         started_at: str,
         t0: float,
-    ) -> SubmitOutcome:
+    ) -> _SubmitOutcome:
         """Phase 1 failure: budget NOT consumed, no episodes ran."""
         completed_at = fb.now_iso_utc()
         wall = time.monotonic() - t0
@@ -516,7 +516,7 @@ class SubmitHandler:
             last_submit_status=category,
             submit_history=state.submit_history + (history_entry,),
         )
-        return SubmitOutcome(
+        return _SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,
         )
 
@@ -532,7 +532,7 @@ class SubmitHandler:
         started_at: str,
         t0: float,
         traceback_str: str | None = None,
-    ) -> SubmitOutcome:
+    ) -> _SubmitOutcome:
         """Phase 2-5 failure: full N consumed from budget, no episodes ran."""
         completed_at = fb.now_iso_utc()
         wall = time.monotonic() - t0
@@ -568,7 +568,7 @@ class SubmitHandler:
             last_submit_status=category,
             submit_history=state.submit_history + (history_entry,),
         )
-        return SubmitOutcome(
+        return _SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,
         )
 
@@ -589,7 +589,7 @@ class SubmitHandler:
         partial_errors: list[int],
         first_global: int,
         episodes_executed: int,
-    ) -> SubmitOutcome:
+    ) -> _SubmitOutcome:
         """Phase 6 partial failure (oom / submit_wall_exceeded): full N
         consumed, some episodes wrote successfully, both ``episodes/`` and
         ``errors.txt`` exist (the only verdict pair where this happens —
@@ -642,7 +642,7 @@ class SubmitHandler:
             last_submit_status=category,
             submit_history=state.submit_history + (history_entry,),
         )
-        return SubmitOutcome(
+        return _SubmitOutcome(
             submit_index=submit_index, status=category, summary=summary, new_state=new_state,
         )
 
@@ -715,7 +715,7 @@ class SubmitHandler:
 
     def _maybe_checkpoint(
         self,
-        outcome: SubmitOutcome,
+        outcome: _SubmitOutcome,
         *,
         snapshot_dir: Path | None,
         started_at: str,

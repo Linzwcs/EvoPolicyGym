@@ -8,5 +8,5 @@ Modules:
   system/policy.py from the snapshot dir, so there's no separate
   policy_loader module — see sandbox._child_main)
 - feedback: write summary.json + per-episode artifacts
-- seed_manager: load train.json / heldout.json, map env_instance ID -> real seed
+- seed_resolver: load train.json / heldout.json, resolve env_instance ID -> real seed
 """

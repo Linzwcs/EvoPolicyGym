@@ -30,7 +30,7 @@ from hlbench.core.server import Server
 log = logging.getLogger(__name__)
 
 
-class HlbenchHandler(BaseHTTPRequestHandler):
+class RequestHandler(BaseHTTPRequestHandler):
     """One handler per request. The shared Server lives on the
     ThreadingHTTPServer instance (``self.server.hlbench_server``)."""
 
@@ -155,7 +155,7 @@ class HlbenchHTTPServer:
     def __init__(
         self, server: Server, *, host: str = "127.0.0.1", port: int = 8765,
     ) -> None:
-        self._http = ThreadingHTTPServer((host, port), HlbenchHandler)
+        self._http = ThreadingHTTPServer((host, port), RequestHandler)
         # Stash the hlbench Server on the http server so handlers can find it.
         self._http.hlbench_server = server  # type: ignore[attr-defined]
         self._thread: threading.Thread | None = None

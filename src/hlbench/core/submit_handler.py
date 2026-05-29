@@ -40,6 +40,20 @@ from hlbench.core.sandbox import (
 from hlbench.core.seed_manager import SeedManager
 from hlbench.envs.registry import EnvDefinition
 
+# AGENTS.md §3.3 lists these as auto-excluded from system/ size accounting.
+# We strip them at snapshot time so sandbox/checkpoint/storage all agree.
+_SNAPSHOT_IGNORE_DIRS: frozenset[str] = frozenset({
+    "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".git",
+})
+
+
+def _ignore_caches(_src: str, names: list[str]) -> list[str]:
+    """shutil.copytree ignore callable. Excludes tool caches and *.pyc."""
+    return [
+        n for n in names
+        if n in _SNAPSHOT_IGNORE_DIRS or n.endswith(".pyc") or n.endswith(".pyo")
+    ]
+
 # --------------------------- config / state -------------------------------
 
 
@@ -121,11 +135,15 @@ class SubmitHandler:
         seed_manager: SeedManager,
         workspace_dir: Path,
         config: SubmitConfig | None = None,
+        checkpoints_dir: Path | None = None,
     ) -> None:
         self._env_def = env_def
         self._sm = seed_manager
         self._workspace = Path(workspace_dir)
         self._config = config or SubmitConfig()
+        self._checkpoints_dir = (
+            Path(checkpoints_dir) if checkpoints_dir is not None else None
+        )
 
         self._system_dir = self._workspace / "system"
         self._feedback_dir = self._workspace / "feedback"
@@ -185,23 +203,36 @@ class SubmitHandler:
         # ---------- Phase 2: Snapshot (budget consumed from here) ----------
         snapshot_dir = submit_dir / ".snapshot"
         try:
-            shutil.copytree(self._system_dir, snapshot_dir / "system")
+            shutil.copytree(
+                self._system_dir, snapshot_dir / "system",
+                ignore=_ignore_caches,
+            )
         except FileNotFoundError:
-            return self._fail_post_consume(
+            outcome = self._fail_post_consume(
                 state, submit_index, submit_dir, env_instances,
                 category="missing_policy",
                 message=f"workspace/system/ does not exist at {self._system_dir}",
                 started_at=started_at, t0=t0,
             )
+            self._maybe_checkpoint(
+                outcome, snapshot_dir=snapshot_dir,
+                started_at=started_at, remaining_before=state.remaining_budget,
+            )
+            return outcome
 
         # ---------- Phase 3: Static validate ----------
         if not (snapshot_dir / "system" / "policy.py").exists():
-            return self._fail_post_consume(
+            outcome = self._fail_post_consume(
                 state, submit_index, submit_dir, env_instances,
                 category="missing_policy",
                 message="system/policy.py not found in snapshot",
                 started_at=started_at, t0=t0,
             )
+            self._maybe_checkpoint(
+                outcome, snapshot_dir=snapshot_dir,
+                started_at=started_at, remaining_before=state.remaining_budget,
+            )
+            return outcome
 
         # ---------- Phase 4-5: Spawn sandbox + init Policy ----------
         sandbox = Sandbox(
@@ -215,13 +246,18 @@ class SubmitHandler:
             try:
                 sandbox.init_policy()
             except SandboxInitError as e:
-                return self._fail_post_consume(
+                outcome = self._fail_post_consume(
                     state, submit_index, submit_dir, env_instances,
                     category=e.category,
                     message=f"Policy initialization failed: {e}",
                     started_at=started_at, t0=t0,
                     traceback_str=e.traceback_str,
                 )
+                self._maybe_checkpoint(
+                    outcome, snapshot_dir=snapshot_dir,
+                    started_at=started_at, remaining_before=state.remaining_budget,
+                )
+                return outcome
 
             # ---------- Phase 6: Execute episodes ----------
             episodes_dir = submit_dir / "episodes"
@@ -253,7 +289,7 @@ class SubmitHandler:
                     # MVP: surface as a fatal at the submit level. Treat as
                     # oom for SPEC purposes (real RSS poll comes post-MVP).
                     # Episodes already written stay; mark partial completion.
-                    return self._fail_partial_execute(
+                    outcome = self._fail_partial_execute(
                         state, submit_index, submit_dir, env_instances,
                         category="oom",
                         message=f"sandbox died mid-execute: {e}",
@@ -265,6 +301,12 @@ class SubmitHandler:
                         first_global=first_global,
                         episodes_executed=local_i,
                     )
+                    self._maybe_checkpoint(
+                        outcome, snapshot_dir=snapshot_dir,
+                        started_at=started_at,
+                        remaining_before=state.remaining_budget,
+                    )
+                    return outcome
 
                 fb.write_trajectory(ep_dir / "trajectory.jsonl", rec.trajectory)
                 # Always create stdout.txt / stderr.txt (may be zero
@@ -352,9 +394,14 @@ class SubmitHandler:
             last_submit_status="ok",
             submit_history=state.submit_history + (history_entry,),
         )
-        return SubmitOutcome(
+        outcome = SubmitOutcome(
             submit_index=submit_index, status="ok", summary=summary, new_state=new_state,
         )
+        self._maybe_checkpoint(
+            outcome, snapshot_dir=snapshot_dir,
+            started_at=started_at, remaining_before=state.remaining_budget,
+        )
+        return outcome
 
     # ------------- failure helpers ---------------------------------------
 
@@ -598,6 +645,79 @@ class SubmitHandler:
             step_index=step,
             traceback_str=rec.error_traceback,
         )
+
+    # ------------- checkpoints ------------------------------------------
+
+    def _maybe_checkpoint(
+        self,
+        outcome: SubmitOutcome,
+        *,
+        snapshot_dir: Path | None,
+        started_at: str,
+        remaining_before: int,
+    ) -> None:
+        """Persist a copy of the snapshot into ``checkpoints/submit_NNN/``
+        per output.md §5.
+
+        Skipped if no checkpoints_dir was wired (lib-mode users don't
+        always want them) or if the snapshot never materialized
+        (Phase 1 failures, Phase 2 source-missing). Failed submits still
+        get a checkpoint — output.md §5.3 explicitly preserves the
+        snapshot the agent submitted, alongside the failure status."""
+        if self._checkpoints_dir is None:
+            return
+        if snapshot_dir is None or not (snapshot_dir / "system").exists():
+            return
+
+        cp_dir = self._checkpoints_dir / fb.submit_dir_name(
+            outcome.submit_index, self._dir_width
+        )
+        cp_dir.mkdir(parents=True, exist_ok=False)
+
+        # Flat layout per output.md §5 — no nested system/ directory.
+        # Preserve subdirectories under system/ (utils/, memory/, etc.).
+        # Skip caches: sandbox creates __pycache__ when it imports
+        # policy.py, but per AGENTS.md §3.3 those aren't part of the
+        # agent's submission and shouldn't pollute the checkpoint.
+        src_system = snapshot_dir / "system"
+        snapshot_files: list[str] = []
+        total_bytes = 0
+        for src in sorted(src_system.rglob("*")):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(src_system)
+            if any(part in _SNAPSHOT_IGNORE_DIRS for part in rel.parts):
+                continue
+            if src.suffix in (".pyc", ".pyo"):
+                continue
+            dst = cp_dir / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(src, dst)
+            snapshot_files.append(str(rel))
+            total_bytes += src.stat().st_size
+
+        validation_errors: list[dict[str, Any]] = []
+        if outcome.status != "ok":
+            validation_errors.append({
+                "category": outcome.status,
+                "message": outcome.summary.get("status") or outcome.status,
+            })
+
+        meta: dict[str, Any] = {
+            "schema_version": "0.1",
+            "submit_index": outcome.submit_index,
+            "submit_time": started_at,
+            "n_episodes_requested": outcome.summary["n_episodes"],
+            "remaining_budget_before": remaining_before,
+            "remaining_budget_after": outcome.new_state.remaining_budget,
+            "snapshot_size_bytes": total_bytes,
+            "snapshot_files": snapshot_files,
+            # MVP: skip AST-based import_scan (post-MVP work).
+            "import_scan": None,
+            "validation_status": outcome.status,
+            "validation_errors": validation_errors,
+        }
+        fb.write_summary(cp_dir / "_meta.json", meta)
 
 
 # --------------------------- helpers --------------------------------------

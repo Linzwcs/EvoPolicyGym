@@ -248,6 +248,75 @@ def test_finalize_writes_error_when_no_policy_exists(tmp_path: Path) -> None:
     assert doc["outcome"]["error"]["type"] == "HeldoutError"
 
 
+# ---------- checkpoints (output.md §5) ----------
+
+
+def test_checkpoint_written_per_successful_submit(
+    workspace_with_reference_agent,
+) -> None:
+    """Every successful submit copies its snapshot to
+    run_dir/checkpoints/submit_NNN/ with _meta.json metadata."""
+    srv, ws = workspace_with_reference_agent
+    srv.submit([0, 1])
+    srv.submit([2, 3, 4])
+
+    cp_root = ws.parent / "checkpoints"
+    assert cp_root.is_dir()
+    assert sorted(p.name for p in cp_root.iterdir()) == ["submit_000", "submit_001"]
+
+    # The policy file is preserved at the top level (flat layout per
+    # output.md §5 — no nested system/).
+    cp0 = cp_root / "submit_000"
+    assert (cp0 / "policy.py").is_file()
+    assert not (cp0 / "system").exists()
+    # Content matches what we shipped to system/.
+    assert (cp0 / "policy.py").read_text() == (ws / "system" / "policy.py").read_text()
+
+    # _meta.json schema (output.md §5.2).
+    meta = json.loads((cp0 / "_meta.json").read_text())
+    assert meta["schema_version"] == "0.1"
+    assert meta["submit_index"] == 0
+    assert meta["validation_status"] == "ok"
+    assert meta["validation_errors"] == []
+    assert meta["n_episodes_requested"] == 2
+    assert meta["remaining_budget_before"] == 256
+    assert meta["remaining_budget_after"] == 254
+    assert meta["snapshot_files"] == ["policy.py"]
+    assert meta["snapshot_size_bytes"] > 0
+
+
+def test_checkpoint_written_for_failed_submit(tmp_path: Path) -> None:
+    """Failed submits also produce a checkpoint — output.md §5.3 says
+    the snapshot is preserved so the agent can see what they submitted."""
+    ws = tmp_path / "run"
+    srv = Server(env_id="pendulum", workspace_dir=ws)
+    # Bad policy.py → init_error verdict, snapshot still preserved.
+    (ws / "system" / "policy.py").write_text(
+        "class Policy:\n"
+        "    def __init__(self, **kw):\n"
+        "        raise ValueError('boom')\n"
+    )
+    result = srv.submit([0, 1])
+    assert result.status == "init_error"
+
+    cp0 = ws.parent / "checkpoints" / "submit_000"
+    assert (cp0 / "policy.py").is_file()
+    meta = json.loads((cp0 / "_meta.json").read_text())
+    assert meta["validation_status"] == "init_error"
+    assert meta["validation_errors"] == [{"category": "init_error", "message": "init_error"}]
+    assert meta["remaining_budget_after"] == 254  # full N consumed (Phase 5)
+
+
+def test_run_json_artifacts_checkpoints_path(workspace_with_reference_agent) -> None:
+    """run.json:artifacts.checkpoints is the relative path to the
+    checkpoints directory (not None as in MVP)."""
+    srv, ws = workspace_with_reference_agent
+    srv.submit([0, 1])
+    final = srv.finalize()
+    doc = json.loads(final.run_json_path.read_text())
+    assert doc["artifacts"]["checkpoints"] == "checkpoints"
+
+
 def test_unknown_config_override_rejected(tmp_path: Path) -> None:
     """Misspelled override keys must fail loudly, not silently fall through."""
     with pytest.raises(ValueError, match="unknown config_overrides"):

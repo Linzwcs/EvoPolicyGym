@@ -190,12 +190,6 @@ class Server:
             max_episodes_per_submit=overrides.get("max_episodes_per_submit", 256),
             sandbox=sandbox_cfg,
         )
-        self._handler = SubmitHandler(
-            env_def=self._env_def,
-            seed_manager=self._sm,
-            workspace_dir=self._workspace,
-            config=self._submit_cfg,
-        )
 
         # Mutable run state.
         self._state = SubmitState(remaining_budget=self._submit_cfg.episode_budget)
@@ -214,6 +208,17 @@ class Server:
         self._run_dir = (Path(run_dir).resolve() if run_dir
                          else self._workspace.parent)
         self._run_dir.mkdir(parents=True, exist_ok=True)
+        self._checkpoints_dir = self._run_dir / "checkpoints"
+        self._checkpoints_dir.mkdir(exist_ok=True)
+        # SubmitHandler needs both workspace_dir (for snapshot/feedback)
+        # and checkpoints_dir (so it persists per-submit code copies).
+        self._handler = SubmitHandler(
+            env_def=self._env_def,
+            seed_manager=self._sm,
+            workspace_dir=self._workspace,
+            config=self._submit_cfg,
+            checkpoints_dir=self._checkpoints_dir,
+        )
 
     # ------------- public API -------------------------------------------
 
@@ -442,7 +447,10 @@ class Server:
                     self._workspace.relative_to(self._run_dir)
                 ) if _is_subpath(self._workspace, self._run_dir)
                 else str(self._workspace),
-                "checkpoints": None,    # not produced by MVP
+                "checkpoints": str(
+                    self._checkpoints_dir.relative_to(self._run_dir)
+                ) if _is_subpath(self._checkpoints_dir, self._run_dir)
+                else str(self._checkpoints_dir),
                 "logs_harness": None,   # not produced by MVP
                 "logs_agent": None,     # not produced by MVP
                 "logs_env": None,       # not produced by MVP

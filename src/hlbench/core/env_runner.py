@@ -61,6 +61,14 @@ class EpisodeRecord:
     error_traceback: str | None = None
     stdout_captured: str = ""
     stderr_captured: str = ""
+    #: Per-step observations as a list of numpy arrays, populated when
+    #: ``run_episode`` is called with ``record_obs=False`` (i.e. external
+    #: obs storage). ``None`` when ``record_obs=True`` (inline mode) —
+    #: the obs are already in ``trajectory[i]["obs"]`` instead.
+    #: Length equals ``length`` on success; truncated to step count on
+    #: mid-episode failure. SubmitHandler writes this to
+    #: ``ep_<XXX>/observations.npy`` (SPEC §4.6) when present.
+    observations: list[Any] | None = None
 
 
 def _action_to_jsonable(action: Any, action_space_type: str) -> Any:
@@ -160,6 +168,7 @@ def run_episode(
         error.txt entry. (Programming bugs in env_runner itself still raise.)
     """
     trajectory: list[dict[str, Any]] = []
+    observations: list[Any] | None = None if record_obs else []
     total_reward = 0.0
     terminated = False
     truncated = False
@@ -189,6 +198,7 @@ def run_episode(
             error_category="reset_error",
             error_step_index=0,
             error_traceback=_traceback.format_exc(),
+            observations=observations,
         )
 
     while t < max_steps:
@@ -238,6 +248,14 @@ def run_episode(
                 name: float(info[key]) for name, key in reward_components.items() if key in info
             }
         trajectory.append(entry)
+        # Accumulate obs for external storage (SPEC §4.6). The obs we
+        # just consumed (input to act()) is what gets written to
+        # observations.npy[t]. Convert to numpy for consistent typing
+        # downstream; defensive copy so subsequent env mutations don't
+        # alias.
+        if observations is not None:
+            import numpy as _np
+            observations.append(_np.asarray(obs).copy())
 
         total_reward += float(reward)
         obs = next_obs
@@ -256,4 +274,5 @@ def run_episode(
         error_category=error_category,
         error_step_index=error_step_index,
         error_traceback=error_traceback,
+        observations=observations,
     )

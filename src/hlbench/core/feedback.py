@@ -23,8 +23,12 @@ episode and capped at 64KB with a ``... [truncated at 64KB] ...`` marker
 line (SPEC §4.5).
 
 MVP omissions (deferred to post-MVP):
-- ``observations.npy`` (external obs storage)
 - ``video.mp4``
+
+External obs storage:
+- ``write_observations(path, obs_list)`` writes ``observations.npy``
+  (SPEC §4.6) when an env declares ``obs_storage="external"``.
+  ``trajectory.jsonl`` then has ``"obs": null`` for every step.
 """
 
 from __future__ import annotations
@@ -36,6 +40,8 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 _SCHEMA_VERSION = "0.1"
 
@@ -132,6 +138,30 @@ def write_trajectory(path: Path, entries: Iterable[dict[str, Any]]) -> None:
     """Write ``trajectory.jsonl`` (SPEC §4.2). One JSON object per line."""
     lines = [_dumps(e) for e in entries]
     path.write_text("\n".join(lines) + ("\n" if lines else ""))
+
+
+def write_observations(path: Path, obs_list: list[Any]) -> None:
+    """Write ``observations.npy`` (SPEC §4.6) for external-obs envs.
+
+    ``obs_list`` is a list of per-step observations as numpy arrays.
+    On disk: a single uncompressed numpy array of shape
+    ``(len(obs_list), *obs_shape)``. Length MUST equal the number of
+    steps in the corresponding ``trajectory.jsonl`` (SPEC §4.6
+    "Length consistency"); the caller is responsible for honoring
+    this when the episode ended mid-flight (truncate the obs list to
+    the same length as the trajectory).
+
+    Empty obs_list (e.g., reset_error before any step) writes a
+    zero-row array with shape ``(0,)`` so the file always exists when
+    obs_storage="external".
+    """
+    if not obs_list:
+        # No steps recorded: write empty array so consumers can rely
+        # on the file being present.
+        np.save(path, np.empty((0,), dtype=np.float32))
+        return
+    arr = np.stack([np.asarray(o) for o in obs_list], axis=0)
+    np.save(path, arr)
 
 
 def _error_event(

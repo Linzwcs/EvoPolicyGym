@@ -63,6 +63,8 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 "hlbench.envs.minigrid_lavacrossing" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.minigrid_obstructedmaze" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.car_racing" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.car_racing_pixel" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.pendulum_from_pixels" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

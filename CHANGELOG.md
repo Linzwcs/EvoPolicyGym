@@ -182,6 +182,46 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   - 201 → 226 tests; mypy strict + ruff still clean across 63
     source files. Total registry: **20 envs** (5 v0 + 6 v1-batch1 +
     9 v1-batch2).
+- **`observations.npy` infrastructure landed (closes the SPEC §4.6
+  known-limitation).** Implements the `obs_storage="external"`
+  side-car mechanism for envs whose per-step observations are too
+  large to serialize inline (typically pixel envs > 10 KB JSON).
+  Changes:
+  - `EpisodeRecord` gains an optional `observations: list[np.ndarray]
+    | None` field, populated by `run_episode` when called with
+    `record_obs=False` (the existing flag the sandbox already pipes
+    based on `env_meta.obs_storage`).
+  - `feedback.write_observations(path, obs_list)` writes the per-step
+    obs as `(episode_length, *obs_shape)` numpy arrays to
+    `observations.npy`. Empty obs (e.g. reset_error before any step)
+    write a zero-row file so consumers can rely on its presence.
+  - `SubmitHandler` calls `write_observations` after `write_trajectory`
+    when `rec.observations is not None`. `trajectory.jsonl` carries
+    `"obs": null` for every step in this mode (already implemented).
+  - End-to-end verified by `tests/test_visual_envs.py::
+    test_pendulum_from_pixels_e2e_writes_observations_npy` — drives
+    a real submit through the Sandbox subprocess and asserts
+    `(episode_length, 64, 64, 3) uint8` shape on the resulting
+    `observations.npy`, plus matching length to `trajectory.jsonl`.
+- **2 new full-resolution visual envs (`car_racing_pixel`,
+  `pendulum_from_pixels`).** First envs to use the new external-obs
+  infrastructure:
+  - **`car_racing_pixel`**: full 96×96×3 CarRacing-v3 (vs. the
+    16×16 downsampled `car_racing` lite variant). `obs_storage =
+    "external"`. Expert baseline ~900 (full resolution
+    headroom is bigger than the lite's ~500).
+  - **`pendulum_from_pixels`**: Pendulum-v1 with rendered RGB obs
+    (64×64×3 from a `render_mode="rgb_array"` Gymnasium env,
+    block-averaged from native 500×500). Tests visual extraction
+    of physics state — angle from one frame, angular velocity from
+    a 2-frame history (cached in Policy instance state across
+    `act()` calls).
+  - 12 new tests in `tests/test_visual_envs.py` covering the
+    infra and both envs, including the slow but authoritative
+    end-to-end Sandbox-driven submit test.
+  - 226 → 238 tests; mypy strict + ruff still clean. Total
+    registry: **22 envs** (20 prior + car_racing_pixel +
+    pendulum_from_pixels).
 
 ### Changed
 

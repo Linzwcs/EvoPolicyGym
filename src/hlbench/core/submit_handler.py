@@ -368,6 +368,13 @@ class SubmitHandler:
                     return outcome
 
                 fb.write_trajectory(ep_dir / "trajectory.jsonl", rec.trajectory)
+                # External obs storage (SPEC §4.6): if the env declared
+                # obs_storage="external", env_runner accumulated per-step
+                # obs into rec.observations. Write the side-car .npy here.
+                if rec.observations is not None:
+                    fb.write_observations(
+                        ep_dir / "observations.npy", rec.observations
+                    )
                 # Always create stdout.txt / stderr.txt (may be zero
                 # bytes if the policy didn't print). Per SPEC §4.5,
                 # Policy.__init__ output is folded into the first

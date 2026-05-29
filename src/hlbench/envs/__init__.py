@@ -13,6 +13,7 @@ from hlbench.envs import (  # noqa: F401  (side effect: register)
     bipedal_walker,
     cache_replacement,
     car_racing,
+    car_racing_pixel,
     half_cheetah,
     hopper,
     k_server,
@@ -25,6 +26,7 @@ from hlbench.envs import (  # noqa: F401  (side effect: register)
     mountain_car_continuous,
     online_bipartite_matching,
     pendulum,
+    pendulum_from_pixels,
     pendulum_hardcore,
     walker2d,
 )

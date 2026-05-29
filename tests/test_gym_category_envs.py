@@ -111,11 +111,12 @@ def test_mujoco_obs_shapes_match_gym() -> None:
 
 
 def test_total_env_count_after_landing() -> None:
-    """After this batch lands, registry has 20 envs: 5 v0 + 6 v1-batch1
-    (hardcore + online algo) + 9 v1-batch2 (this PR: mujoco + minigrid +
-    car_racing)."""
+    """After this batch lands, registry has 22 envs: 5 v0 + 6 v1-batch1
+    (hardcore + online algo) + 9 v1-batch2 (mujoco + minigrid +
+    car_racing) + 2 v1-batch3 (visual: car_racing_pixel +
+    pendulum_from_pixels)."""
     from hlbench.envs.registry import _REGISTRY
-    assert len(_REGISTRY) == 20, f"expected 20 envs, got {len(_REGISTRY)}"
+    assert len(_REGISTRY) == 22, f"expected 22 envs, got {len(_REGISTRY)}"
 
 
 def test_minigrid_factory_returns_wrapped_env() -> None:

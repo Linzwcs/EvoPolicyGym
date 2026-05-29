@@ -30,7 +30,7 @@ Each document has a single audience and purpose; don't conflate them.
 | `AGENTS.md` | The benchmark's runtime agent | Rules of the game (sandbox, anti-hack, submit protocol from agent's POV) |
 | `SPEC.md` | Harness implementer | Wire-level contract: workspace layout, `/info` endpoint, Policy interface, feedback schemas, scoring, held-out details |
 | `docs/output.md` | Analyst / leaderboard tooling | What `runs/<model>/<env>/<exp-id>/` looks like on disk (runtime output layout) |
-| `docs/submit-protocol.md` | Implementer + sophisticated agent | Submit lifecycle (7 phases, 11 verdicts), anti-cheating provisions |
+| `docs/submit-protocol.md` | Implementer + sophisticated agent | Submit lifecycle (7 phases, 10 verdicts), anti-cheating provisions |
 | `docs/architecture.md` | Whoever writes the first line of code | MVP implementation plan: package layout, component sketches, 2-week schedule, validation checklist |
 
 When changing one of these docs, **scan the others for cross-references**. The user has been bitten multiple times by orphan references after rename/restructure (e.g., `total_episode_budget` → `episode_budget`, deleting `_run.json`, deleting `method_profile.json`).

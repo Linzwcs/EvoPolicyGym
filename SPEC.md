@@ -78,8 +78,6 @@ up-to-date dynamic state (notably `remaining_budget`).
   "max_episodes_per_submit": 256,
 
   "resource_limits": {
-    "system_total_bytes": 51200,
-    "system_single_file_bytes": 25600,
     "act_wall_ms": 10,
     "policy_load_wall_s": 1,
     "submit_wall_s": 300,
@@ -583,7 +581,7 @@ Rules:
 | `act()` times out mid-flight | yes | yes (artifacts up to failure + `error.txt`) |
 | `Policy.reset()` raises at episode start | yes | yes (empty `trajectory.jsonl` + `error.txt`) |
 | `Policy.__init__` raises (submit-level) | **no** | no — no `episodes/` directory exists |
-| Snapshot validation fails (e.g., `oversize`) | **no** | no — no `episodes/` directory exists |
+| Snapshot validation fails (e.g., `denied_import`) | **no** | no — no `episodes/` directory exists |
 | Submit's `act()` exceeds `submit_wall_s` mid-flight | yes (for episodes that ran) | yes (full or partial per episode) |
 
 **Within-submit partial execution**: if a submit requests 8 episodes
@@ -650,7 +648,6 @@ entirely (see §4.7).
 |---|---|
 | `ok` | Submit ran and episodes executed |
 | `budget_invalid` | Rejected: requested episodes outside `[min, max, remaining]` |
-| `oversize` | Rejected: snapshot exceeded `system_total_bytes` |
 | `missing_policy` | Rejected: no `policy.py` or no `Policy` class |
 | `denied_import` | Rejected: snapshot imported a forbidden module |
 | `import_error` | Rejected: snapshot import raised (syntax, missing module, etc.) |
@@ -902,7 +899,6 @@ episode-level categories):
 
 | Value | Where used | Meaning |
 |---|---|---|
-| `oversize` | submit-level | Snapshot exceeded `system_total_bytes` |
 | `missing_policy` | submit-level | No `policy.py` or no `Policy` class |
 | `denied_import` | submit-level | Forbidden module imported |
 | `import_error` | submit-level | Import raised (syntax, missing module, etc.) |

@@ -496,7 +496,7 @@
     </thead>
     <tbody>
       <tr><td>1</td><td>Request</td><td>校验 env_instances 列表 / 计数 / 预算</td><td><code>budget_invalid</code> / <code>invalid_env_instance</code></td><td><strong>否 ✓</strong></td></tr>
-      <tr><td>2</td><td>Snapshot</td><td>copytree workspace/system/ 到隔离区</td><td><code>oversize</code></td><td>是</td></tr>
+      <tr><td>2</td><td>Snapshot</td><td>copytree workspace/system/ 到隔离区</td><td>—</td><td>n/a</td></tr>
       <tr><td>3</td><td>Validate</td><td>policy.py 存在、Policy 类可见、import 静态扫描</td><td><code>missing_policy</code> / <code>denied_import</code></td><td>是</td></tr>
       <tr><td>4</td><td>Compile</td><td>Python <code>import policy</code></td><td><code>import_error</code></td><td>是</td></tr>
       <tr><td>5</td><td>Initialize</td><td>构造 Policy(obs_space, action_space, env_meta)</td><td><code>init_error</code> / <code>init_timeout</code></td><td>是</td></tr>
@@ -509,7 +509,7 @@
   其他任何阶段失败,完整的 N 个 episode 预算被扣光。这条「snapshot 之后预算必扣」
   把「试探系统找漏洞」的攻击面砍掉了。</p>
 
-  <h3>11 个 Verdict (SPEC §4.1)</h3>
+  <h3>10 个 Verdict (SPEC §4.1)</h3>
   <table>
     <thead>
       <tr><th>Verdict</th><th>Phase</th><th>含义</th></tr>
@@ -518,7 +518,6 @@
       <tr><td><code>ok</code></td><td>6 → 7</td><td>所有 episode 跑完</td></tr>
       <tr><td><code>budget_invalid</code></td><td>1</td><td>请求计数不在 [min, max, remaining] 区间</td></tr>
       <tr><td><code>invalid_env_instance</code></td><td>1</td><td>env_instance ID 不在 [0, n_env_instances)</td></tr>
-      <tr><td><code>oversize</code></td><td>2</td><td>system/ 总体或单文件超限</td></tr>
       <tr><td><code>missing_policy</code></td><td>3</td><td>policy.py 不在或 Policy 类缺失</td></tr>
       <tr><td><code>denied_import</code></td><td>3 / 4</td><td>引入了 AGENTS.md §3.2 禁用模块</td></tr>
       <tr><td><code>import_error</code></td><td>4</td><td>Python import 抛异常 (语法/依赖等)</td></tr>
@@ -721,8 +720,6 @@ final_score = clip(normalized, 0.0, 1.2) * 100</pre>
   <table>
     <thead><tr><th>限制</th><th>默认</th><th>来源</th></tr></thead>
     <tbody>
-      <tr><td>system/ 总大小</td><td>50 KB</td><td><code>resource_limits.system_total_bytes</code> (advisory in MVP)</td></tr>
-      <tr><td>单文件大小</td><td>25 KB</td><td><code>system_single_file_bytes</code></td></tr>
       <tr><td>act() 墙挂</td><td>10 ms</td><td><code>act_wall_ms</code></td></tr>
       <tr><td>Policy.__init__</td><td>1 s</td><td><code>policy_load_wall_s</code></td></tr>
       <tr><td>per-submit 墙挂</td><td>5 min</td><td><code>submit_wall_s</code></td></tr>
@@ -816,7 +813,7 @@ final_score = clip(normalized, 0.0, 1.2) * 100</pre>
     <thead><tr><th>组件</th><th>位置</th><th>说明</th></tr></thead>
     <tbody>
       <tr><td>Server</td><td><code>src/hlbench/core/server.py</code></td><td>per-run 类:info / submit / finalize</td></tr>
-      <tr><td>SubmitHandler</td><td><code>src/hlbench/core/submit_handler.py</code></td><td>7 阶段生命周期 + 11 verdicts</td></tr>
+      <tr><td>SubmitHandler</td><td><code>src/hlbench/core/submit_handler.py</code></td><td>7 阶段生命周期 + 10 verdicts</td></tr>
       <tr><td>Sandbox</td><td><code>src/hlbench/core/sandbox.py</code></td><td>multiprocessing(spawn) + setitimer</td></tr>
       <tr><td>EnvRunner</td><td><code>src/hlbench/core/env_runner.py</code></td><td>单 episode 执行,trajectory schema</td></tr>
       <tr><td>Held-out 评测</td><td><code>src/hlbench/core/heldout.py</code></td><td>finalize 时跑 M held-out seeds</td></tr>

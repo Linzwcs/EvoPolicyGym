@@ -336,11 +336,6 @@ class Server:
             "max_episodes_per_submit": cfg.max_episodes_per_submit,
 
             "resource_limits": {
-                # ``system_total_bytes`` / ``system_single_file_bytes``
-                # are advisory in MVP; Phase 2 oversize check is post-MVP
-                # (see submit_handler.py).
-                "system_total_bytes": 50 * 1024 * 1024,
-                "system_single_file_bytes": 5 * 1024 * 1024,
                 "act_wall_ms": int(sb.act_wall_s * 1000),
                 "policy_load_wall_s": int(sb.init_wall_s),
                 "submit_wall_s": int(cfg.submit_wall_s),

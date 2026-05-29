@@ -3,14 +3,13 @@
 Phase 1: Request    — validate env_instances list (range, count vs budget)
 Phase 2: Snapshot   — copy ``workspace/system/`` to an isolated location
 Phase 3: Validate   — ``policy.py`` exists with a ``Policy`` class
-                      (denied-import scan and oversize check are post-MVP)
 Phase 4: Compile    — Python ``import policy`` (sandboxed)
 Phase 5: Initialize — construct ``Policy(obs_space, action_space, env_meta)``
 Phase 6: Execute    — run episodes via ``Sandbox.run_episode``
 Phase 7: Commit     — write ``summary.json`` atomically
 
 Failure at any phase short-circuits later phases and returns the
-appropriate verdict (SPEC.md §4.1, 11-value enum). Phase 1 failures
+appropriate verdict (SPEC.md §4.1, 10-value enum). Phase 1 failures
 do NOT consume budget; everything from Phase 2 onward consumes the
 full requested ``N`` (see submit-protocol.md §4.1).
 
@@ -63,8 +62,9 @@ class SubmitConfig:
     """Static run-level limits. Mirrors SPEC §1.1 ``resource_limits`` plus
     budget rules. ``sandbox`` carries the per-process wall-times.
 
-    For MVP, ``system_total_bytes`` exists as an advisory field but is
-    not enforced (Phase 2 oversize check is post-MVP)."""
+    No ``system/`` size cap is enforced — agents may grow ``system/`` as
+    needed (the snapshot is still recorded in ``checkpoints/_meta.json``
+    as ``snapshot_size_bytes`` for diagnostics)."""
 
     episode_budget: int = 256
     min_episodes_per_submit: int = 1

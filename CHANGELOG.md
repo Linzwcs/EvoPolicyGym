@@ -121,6 +121,23 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   human/scripted use (see ``hlbench`` CLI), but ``hlbench-agent``
   never instructs the inner Claude to call it.
 
+### Removed
+
+- **`system/` size limits dropped.** ``system_total_bytes`` and
+  ``system_single_file_bytes`` removed from
+  ``GET /info:resource_limits`` and from ``AGENTS.md §4.3`` /
+  ``SPEC §1.1`` — agents may grow ``system/`` without a cap. The
+  fields had been advisory-only in code while documents claimed
+  50KB/25KB enforcement; the discrepancy is resolved by deleting
+  rather than enforcing. Heuristic-style policies (search, pattern
+  databases, eval-function tables) need the headroom.
+- **`oversize` verdict dropped.** With no size cap, the verdict
+  has no trigger. Verdict enum drops from 11 → 10. Also removed
+  from the per-event ``category`` enum in ``error.txt``. Phase 2
+  (Snapshot) is now infallible from the agent's perspective —
+  validation moves entirely into Phase 3. ``snapshot_size_bytes``
+  is still recorded in ``checkpoints/_meta.json`` as a diagnostic.
+
 ## [0.1.0a1] — 2026-05-29
 
 Audit-and-polish release. Closes most of the post-MVP "known

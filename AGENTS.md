@@ -209,18 +209,10 @@ Defaults below; effective values at `GET /info:resource_limits`.
 
 | Limit | Default | Notes |
 |---|---|---|
-| `system/` total size | 50 KB | Source files only (rule below) |
-| Single file in `system/` | 25 KB | |
 | `act()` wall time | 10 ms | per call |
 | `Policy.__init__` wall time | 1 s | from import to first `reset()` |
 | Per-submit wall time | 5 min | total across all episodes in the submit |
 | Per-submit peak RSS | 1 GB | |
-
-**`system/` size rule**: counted = any file the agent created or
-modified (`.py`, `.json`, `.npy`, `.csv`, `.md`, etc., including
-hidden). Auto-excluded: `__pycache__/`, `*.pyc`, `.pytest_cache/`,
-`.mypy_cache/`, `.ruff_cache/`, `.git/`, symlinks. Limit governs your
-deliberate code + data, not transient runtime artifacts.
 
 ### 4.4 Persistence
 
@@ -292,7 +284,6 @@ Commit**) and emits exactly one **verdict** in `summary.json:status`.
 | `ok` | All requested episodes ran | yes (`N` requested) |
 | `budget_invalid` | requested count outside `[min, max, remaining]` | **no** (free retry) |
 | `invalid_env_instance` | requested ID outside `[0, n_env_instances)` | **no** (free retry) |
-| `oversize` | snapshot exceeded `system_total_bytes` | yes (`N`) |
 | `missing_policy` | no `policy.py` or no `Policy` class | yes (`N`) |
 | `denied_import` | snapshot imported a forbidden module | yes (`N`) |
 | `import_error` | snapshot import raised (syntax / missing module / etc.) | yes (`N`) |
@@ -332,8 +323,7 @@ harness decides to finalize), the **most recent successful submit**
 (`status == "ok"`) is used as the final policy for held-out
 evaluation. There is no agent-side override mechanism — to "go
 back" to an earlier policy you must keep your own backup under
-`system/` and re-submit it (this counts toward the size limit
-in §4.3).
+`system/` and re-submit it.
 
 Held-out runs once. You don't see its seeds, parameters, or
 per-episode results.

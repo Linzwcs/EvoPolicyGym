@@ -118,7 +118,7 @@ hlbench-pro/
 ├── docs/
 │   ├── architecture.md         # This file
 │   ├── output.md               # runs/<...>/ layout
-│   ├── submit-protocol.md      # 7 phases, 11 verdicts
+│   ├── submit-protocol.md      # 7 phases, 10 verdicts
 │   ├── quickstart.md           # User walkthrough
 │   └── findings.md             # Day 14 calibration analysis
 ├── README.md / AGENTS.md / SPEC.md / CLAUDE.md

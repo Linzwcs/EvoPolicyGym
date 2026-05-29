@@ -338,7 +338,6 @@ server's effective `episode_budget`) and never changes during a run.
 |---|---|
 | `ok` | Snapshot passed all checks, episodes ran |
 | `budget_invalid` | Rejected: requested episodes outside `[min, max, remaining]` |
-| `oversize` | Rejected: snapshot exceeded `system_total_bytes` |
 | `missing_policy` | Rejected: no `policy.py` or no `Policy` class |
 | `denied_import` | Rejected: snapshot imported a forbidden module |
 | `import_error` | Rejected: snapshot import raised (syntax, missing module, etc.) |

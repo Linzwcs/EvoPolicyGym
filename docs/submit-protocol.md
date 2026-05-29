@@ -75,8 +75,7 @@ remaining phases.
                      ┌─────────────┐
                      │  Snapshot   │  ◀── copy system/ to isolated location
                      └──────┬──────┘
-                            │ size ok? ─── no ─→ oversize
-                            │ yes
+                            │
                             ▼
                      ┌─────────────┐
                      │  Validate   │  ◀── policy.py present? imports allowed?
@@ -137,12 +136,9 @@ The harness recursively copies `system/` to an isolated location.
 The snapshot becomes the authoritative version for this submission;
 subsequent edits to `system/` do not affect the in-flight submit.
 
-Validation: the snapshot's total size must not exceed
-`system_total_bytes`; no individual file may exceed
-`system_single_file_bytes`. See `AGENTS.md §3.3` for the size
-calculation rule (source files only; `__pycache__/` etc. excluded).
-
-Failure → `oversize`.
+`__pycache__/`, `*.pyc`, `.pytest_cache/`, `.mypy_cache/`,
+`.ruff_cache/`, `.git/`, and symlinks are excluded from the copy
+(they're transient runtime artifacts, not agent code).
 
 #### Phase 3: Validate
 
@@ -225,8 +221,8 @@ Verdict: `ok` (or one of the Phase 6 verdicts if Phase 6 failed).
 
 | # | Phase | What runs | Possible verdicts | Budget consumed if fail? |
 |---|---|---|---|---|
-| 1 | Request | parameter validation | `budget_invalid` | **No** |
-| 2 | Snapshot | filesystem copy + size check | `oversize` | Yes |
+| 1 | Request | parameter validation | `budget_invalid`, `invalid_env_instance` | **No** |
+| 2 | Snapshot | filesystem copy | (no agent-facing failure) | n/a |
 | 3 | Validate | static import scan | `missing_policy`, `denied_import` | Yes |
 | 4 | Compile | Python `import` | `import_error` | Yes |
 | 5 | Initialize | `Policy.__init__` | `init_error`, `init_timeout` | Yes |
@@ -245,14 +241,13 @@ and resources have been committed.
 ### 3.1 Complete enum
 
 The `status` field of `summary.json` and the `category` field of
-error entries use a unified enum of **11 verdicts**:
+error entries use a unified enum of **10 verdicts**:
 
 | Verdict | Phase | What it means |
 |---|---|---|
 | `ok` | 6 (success) → 7 | Submit ran all requested episodes |
 | `budget_invalid` | 1 | Requested episode count outside `[min, max, remaining]` |
 | `invalid_env_instance` | 1 | Requested env instance ID outside `[0, n_env_instances)` |
-| `oversize` | 2 | Snapshot exceeded `system_total_bytes` or `system_single_file_bytes` |
 | `missing_policy` | 3 | No `policy.py` or no `Policy` class at expected location |
 | `denied_import` | 3 | Snapshot imports a forbidden module |
 | `import_error` | 4 | Python `import` raised (syntax, missing module, circular, etc.) |
@@ -284,7 +279,6 @@ They appear in `summary.json:errors` / `summary.json:timeouts`
 | `ok` | Yes (`status: "ok"`, full fields) | No | Yes |
 | `budget_invalid` | Yes (minimal: status + remaining_budget) | Yes (one entry) | No |
 | `invalid_env_instance` | Yes (minimal) | Yes (one entry) | No |
-| `oversize` | Yes | Yes | No |
 | `missing_policy` | Yes | Yes | No |
 | `denied_import` | Yes | Yes | No |
 | `import_error` | Yes | Yes | No |
@@ -518,7 +512,7 @@ submit's `feedback/submit_NNN/` directory:
 - If `status` ∈ {`oom`, `submit_wall_exceeded`}: both `episodes/`
   and `errors.txt` may exist; `episodes/` contains 0 to `n_episodes`
   fully-formed episode directories.
-- Otherwise (`budget_invalid`, `oversize`, etc.): `errors.txt`
+- Otherwise (`budget_invalid`, `denied_import`, etc.): `errors.txt`
   exists, `episodes/` does NOT exist.
 
 ### 7.2 Budget accounting
@@ -550,7 +544,6 @@ agent issue.
 ok                     → submit ran, episodes executed (success)
 budget_invalid         → bad request count, no resources consumed
 invalid_env_instance   → ID out of [0, n_env_instances), no resources consumed
-oversize               → system/ too big
 missing_policy         → no policy.py / no Policy class
 denied_import          → forbidden import detected
 import_error           → Python import failed
@@ -567,7 +560,6 @@ submit_wall_exceeded   → total wall time exceeded during execution
 | `ok` | Read `summary.json`, decide refinement |
 | `budget_invalid` | Reduce `--env-instances` count; submit again (no cost) |
 | `invalid_env_instance` | Use IDs in `[0, n_env_instances)`; submit again (no cost) |
-| `oversize` | Trim `system/` (delete cached files, simplify code) |
 | `missing_policy` | Restore `system/policy.py` with valid `Policy` class |
 | `denied_import` | Replace the denied module with an allowed one |
 | `import_error` | Fix the import / syntax error (read `errors.txt` for the traceback) |

@@ -195,6 +195,6 @@ is not used.
 - Read [`SPEC.md §2`](../SPEC.md) for the `Policy` interface and how
   observation and action shapes are conveyed.
 - Read [`docs/submit-protocol.md`](./submit-protocol.md) for the
-  7-phase submit lifecycle and 11 verdicts you may encounter.
+  7-phase submit lifecycle and 10 verdicts you may encounter.
 - Read [`docs/findings.md`](./findings.md) for what calibration
   revealed about the metric definitions.

@@ -33,14 +33,16 @@ mujoco = [
 
 [project.scripts]
 hlbench = "hlbench_cli.main:main"
+hlbench-agent = "hlbench_harness.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["hlbench*", "hlbench_cli*"]
+include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
 "hlbench_cli" = "hlbench_cli"
+"hlbench_harness" = "hlbench_harness"
 
 [tool.setuptools.package-data]
 "hlbench.envs.pendulum" = ["*.json", "*.md"]

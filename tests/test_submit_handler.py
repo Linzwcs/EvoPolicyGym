@@ -658,3 +658,60 @@ def test_mountain_car_continuous_box_action_smoke(tmp_path, mcc_env_def):
     assert isinstance(first["action"], list)
     assert len(first["action"]) == 1
     assert -1.0 <= first["action"][0] <= 1.0
+
+
+@pytest.fixture(scope="module")
+def bipedal_walker_env_def():
+    import hlbench.envs  # noqa: F401
+    return get_env("bipedal_walker")
+
+
+@pytest.fixture(scope="module")
+def lunar_lander_env_def():
+    import hlbench.envs  # noqa: F401
+    return get_env("lunar_lander_continuous")
+
+
+def test_bipedal_walker_4d_box_action_smoke(tmp_path, bipedal_walker_env_def):
+    """BipedalWalker starter (4-D zeros) — robot collapses quickly under
+    gravity. Validates 4-D Box action serialization (action.shape==4)."""
+    ws = _stage_env_starter(bipedal_walker_env_def, tmp_path)
+    handler = _make_handler(
+        bipedal_walker_env_def, ws,
+        episode_budget=4, max_per_submit=4,
+        # Walker timing-out on 1600-step episodes is unlikely with zero
+        # action (it falls in <100 steps), but give the wall budget room.
+        submit_wall_s=180.0, episode_wall_s=120.0,
+    )
+    state = SubmitState(remaining_budget=4)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+    assert outcome.summary["n_episodes"] == 2
+    traj = (ws / "feedback" / "submit_000" / "episodes" / "ep_000"
+            / "trajectory.jsonl")
+    first = json.loads(traj.read_text().splitlines()[0])
+    assert isinstance(first["action"], list)
+    assert len(first["action"]) == 4
+    # Hull-on-ground penalty: reward in the final step should be <= -100
+    last = json.loads(traj.read_text().splitlines()[-1])
+    assert last["terminated"] is True
+    assert last["reward"] < -50  # crash penalty kicked in
+
+
+def test_lunar_lander_2d_box_action_smoke(tmp_path, lunar_lander_env_def):
+    """LunarLanderContinuous starter ([0,0] engines off) — free-fall +
+    crash. Validates 2-D Box action serialization."""
+    ws = _stage_env_starter(lunar_lander_env_def, tmp_path)
+    handler = _make_handler(
+        lunar_lander_env_def, ws,
+        episode_budget=4, max_per_submit=4,
+        submit_wall_s=120.0, episode_wall_s=60.0,
+    )
+    state = SubmitState(remaining_budget=4)
+    outcome = handler.handle([0, 1], state)
+    assert outcome.status == "ok"
+    traj = (ws / "feedback" / "submit_000" / "episodes" / "ep_000"
+            / "trajectory.jsonl")
+    first = json.loads(traj.read_text().splitlines()[0])
+    assert isinstance(first["action"], list)
+    assert len(first["action"]) == 2

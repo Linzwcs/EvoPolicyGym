@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.26",
-    "gymnasium>=0.29",
+    "gymnasium[box2d]>=0.29",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +45,8 @@ include = ["hlbench*", "hlbench_cli*", "hlbench_harness*"]
 "hlbench.envs.pendulum" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.acrobot" = ["*.md", "starter_policy.py", "data/*.json"]
 "hlbench.envs.mountain_car_continuous" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.bipedal_walker" = ["*.md", "starter_policy.py", "data/*.json"]
+"hlbench.envs.lunar_lander_continuous" = ["*.md", "starter_policy.py", "data/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -69,6 +69,38 @@ def test_classic_control_envs_have_starter_and_task_md() -> None:
         assert env.heldout_seeds_path.is_file()
 
 
+def test_envs_registers_box2d_set() -> None:
+    """BipedalWalker + LunarLanderContinuous register. Cover the
+    higher-dim continuous action space (action_dim 4 and 2)."""
+    import hlbench.envs  # noqa: F401
+    from hlbench.envs.registry import get_env, list_envs
+
+    assert {"bipedal_walker", "lunar_lander_continuous"} <= set(list_envs())
+
+    bw = get_env("bipedal_walker")
+    assert bw.action_space["type"] == "Box"
+    assert bw.action_space["shape"] == [4]
+    assert bw.obs_space["shape"] == [24]
+    assert bw.max_episode_steps == 1600
+
+    ll = get_env("lunar_lander_continuous")
+    assert ll.action_space["type"] == "Box"
+    assert ll.action_space["shape"] == [2]
+    assert ll.obs_space["shape"] == [8]
+    assert ll.max_episode_steps == 1000
+
+
+def test_box2d_envs_have_starter_and_task_md() -> None:
+    from hlbench.envs.registry import get_env
+
+    for env_id in ("bipedal_walker", "lunar_lander_continuous"):
+        env = get_env(env_id)
+        assert env.task_md_path is not None and env.task_md_path.is_file()
+        assert env.starter_policy_path is not None and env.starter_policy_path.is_file()
+        assert env.train_seeds_path.is_file()
+        assert env.heldout_seeds_path.is_file()
+
+
 def test_public_env_meta_hides_baselines() -> None:
     """expert_baseline / random_baseline MUST NOT leak via public_env_meta.
 

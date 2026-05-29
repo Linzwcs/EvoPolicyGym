@@ -1,6 +1,7 @@
-"""MiniGrid-ObstructedMaze-2Dlhb-v0 env registration (MiniGrid-ObstructedMaze-2Dlhb-v0).
+"""MiniGrid-ObstructedMaze-2Dlhb-v1 env registration.
 
 MiniGrid task: Navigate a maze with locked doors hidden behind boxes; find
+the blue ball. v1 (latest as of Gymnasium 1.x) replaces the deprecated v0.
 
 Wraps the Gymnasium MiniGrid env. MiniGrid returns a Dict obs
 ``{image: (7,7,3) uint8, direction: int, mission: str}``. Our
@@ -29,7 +30,7 @@ def _factory() -> object:
     import gymnasium
     import minigrid  # noqa: F401 — registers MiniGrid envs
 
-    base = gymnasium.make("MiniGrid-ObstructedMaze-2Dlhb-v0", render_mode=None)
+    base = gymnasium.make("MiniGrid-ObstructedMaze-2Dlhb-v1", render_mode=None)
 
     class _MiniGridFlattenWrapper(gymnasium.Wrapper[Any, Any, Any, Any]):
         """Flatten MiniGrid Dict obs to a uint8 Box(148,)."""

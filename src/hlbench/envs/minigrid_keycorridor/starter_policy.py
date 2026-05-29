@@ -30,10 +30,16 @@ class Policy:
         """Per-step action.
 
         Args:
-            obs: np.ndarray shape (148,) dtype uint8.
-                 First 147 = flattened 7x7x3 egocentric image
-                 (channel 0: object_type, 1: color, 2: state).
-                 Last 1 = agent direction in {0, 1, 2, 3}.
+            obs: np.ndarray shape (50,) dtype uint16.
+                 First 49 = packed 7x7 egocentric grid; each cell is
+                 ``type * 100 + color * 10 + state`` (decode below).
+                 Position 49 = agent direction in {0, 1, 2, 3}.
+
+                 Decoding example:
+                     grid = obs[:49].reshape(7, 7)
+                     cell_type  = grid // 100      # MiniGrid object_type id
+                     cell_color = (grid // 10) % 10  # color id
+                     cell_state = grid % 10           # state id
 
         Returns:
             int in [0, 7):

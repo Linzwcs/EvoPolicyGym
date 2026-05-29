@@ -31,8 +31,8 @@ register_env(
     obs_space={
         "type": "Box",
         "shape": [105],
-        "low": [-float("inf")] * 105,
-        "high": [float("inf")] * 105,
+        "low": -float("inf"),
+        "high": float("inf"),
         "dtype": "float64",
     },
     action_space={

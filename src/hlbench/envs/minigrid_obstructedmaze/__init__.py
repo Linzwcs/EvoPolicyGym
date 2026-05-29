@@ -1,13 +1,14 @@
-"""MiniGrid-ObstructedMaze-2Dlhb-v1 env registration.
+"""MiniGrid-ObstructedMaze-2Dlhb-v1 env registration (MiniGrid-ObstructedMaze-2Dlhb-v1).
 
-MiniGrid task: Navigate a maze with locked doors hidden behind boxes; find
-the blue ball. v1 (latest as of Gymnasium 1.x) replaces the deprecated v0.
+MiniGrid task: Navigate a maze with locked doors hidden behind boxes; find the blue ball.
 
 Wraps the Gymnasium MiniGrid env. MiniGrid returns a Dict obs
 ``{image: (7,7,3) uint8, direction: int, mission: str}``. Our
-wrapper flattens this to a uint8 ``Box(0, 255, (148,))``:
-``image.flatten() + [direction]``. The mission string is static
-per env (see TASK.md) and not included in obs.
+wrapper packs each cell's (type, color, state) into a single
+uint16 (``type * 100 + color * 10 + state``, max ~1200) and
+flattens to ``Box(0, 1500, (50,))``: ``packed_image.flatten() +
+[direction]``. Information-preserving (no channel loss); the
+mission string is static per env (see TASK.md) and not in obs.
 
 Side effect: importing this module registers ``minigrid_obstructedmaze``.
 """
@@ -23,7 +24,7 @@ from hlbench.envs.registry import register_env
 
 _HERE = Path(__file__).parent
 
-OBS_DIM: int = 7 * 7 * 3 + 1  # 148
+OBS_DIM: int = 7 * 7 + 1  # 50: 49 packed cells + 1 direction
 
 
 def _factory() -> object:
@@ -32,19 +33,28 @@ def _factory() -> object:
 
     base = gymnasium.make("MiniGrid-ObstructedMaze-2Dlhb-v1", render_mode=None)
 
-    class _MiniGridFlattenWrapper(gymnasium.Wrapper[Any, Any, Any, Any]):
-        """Flatten MiniGrid Dict obs to a uint8 Box(148,)."""
+    class _MiniGridPackedWrapper(gymnasium.Wrapper[Any, Any, Any, Any]):
+        """Pack MiniGrid Dict obs into a uint16 Box(50,).
+
+        Each of 49 cells gets a single uint16 = type * 100 + color * 10 + state.
+        Position 49 is the agent direction (0-3).
+        """
 
         def __init__(self, env: gymnasium.Env[Any, Any]) -> None:
             super().__init__(env)
             self.observation_space = gymnasium.spaces.Box(
-                low=0, high=255, shape=(OBS_DIM,), dtype=np.uint8,
+                low=0, high=1500, shape=(OBS_DIM,), dtype=np.uint16,
             )
 
-        def _flatten(self, obs: dict[str, Any]) -> np.ndarray:
-            img = np.asarray(obs["image"], dtype=np.uint8).flatten()
-            direction = np.array([obs["direction"]], dtype=np.uint8)
-            return np.concatenate([img, direction]).astype(np.uint8)
+        def _pack(self, obs: dict[str, Any]) -> np.ndarray:
+            img = np.asarray(obs["image"], dtype=np.uint16)  # (7, 7, 3)
+            packed = (
+                img[:, :, 0] * 100 +  # type
+                img[:, :, 1] * 10 +   # color
+                img[:, :, 2]           # state
+            ).flatten()  # (49,)
+            direction = np.array([obs["direction"]], dtype=np.uint16)
+            return np.concatenate([packed, direction]).astype(np.uint16)
 
         def reset(
             self,
@@ -53,27 +63,27 @@ def _factory() -> object:
             options: dict[str, Any] | None = None,
         ) -> tuple[np.ndarray, dict[str, Any]]:
             obs, info = self.env.reset(seed=seed, options=options)
-            return self._flatten(obs), info
+            return self._pack(obs), info
 
         def step(
             self, action: int
         ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
             obs, r, term, trunc, info = self.env.step(action)
-            return self._flatten(obs), float(r), bool(term), bool(trunc), info
+            return self._pack(obs), float(r), bool(term), bool(trunc), info
 
-    return _MiniGridFlattenWrapper(base)
+    return _MiniGridPackedWrapper(base)
 
 
 register_env(
     env_id="minigrid_obstructedmaze",
-    env_version="0.1",
+    env_version="0.2",  # bumped from 0.1 — obs encoding changed
     factory=_factory,
     obs_space={
         "type": "Box",
         "shape": [OBS_DIM],
-        "low": [0] * OBS_DIM,
-        "high": [255] * OBS_DIM,
-        "dtype": "uint8",
+        "low": 0,
+        "high": 1500,
+        "dtype": "uint16",
     },
     action_space={
         "type": "Discrete",

@@ -36,8 +36,8 @@ register_env(
     obs_space={
         "type": "Box",
         "shape": [96, 96, 3],
-        "low": [[[0] * 3] * 96] * 96,
-        "high": [[[255] * 3] * 96] * 96,
+        "low": 0,
+        "high": 255,
         "dtype": "uint8",
     },
     action_space={

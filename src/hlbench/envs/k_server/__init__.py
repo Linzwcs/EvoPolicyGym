@@ -162,8 +162,8 @@ register_env(
     obs_space={
         "type": "Box",
         "shape": [2 * K_SERVERS + 2],
-        "low": [-PLANE_BOUND] * (2 * K_SERVERS + 2),
-        "high": [PLANE_BOUND] * (2 * K_SERVERS + 2),
+        "low": -PLANE_BOUND,
+        "high": PLANE_BOUND,
         "dtype": "float32",
     },
     action_space={

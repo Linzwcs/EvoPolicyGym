@@ -98,8 +98,8 @@ register_env(
     obs_space={
         "type": "Box",
         "shape": [DOWNSAMPLE_H, DOWNSAMPLE_W, 3],
-        "low": [[[0] * 3] * DOWNSAMPLE_W] * DOWNSAMPLE_H,
-        "high": [[[255] * 3] * DOWNSAMPLE_W] * DOWNSAMPLE_H,
+        "low": 0,
+        "high": 255,
         "dtype": "uint8",
     },
     action_space={

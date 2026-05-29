@@ -155,8 +155,8 @@ register_env(
     obs_space={
         "type": "Box",
         "shape": [CACHE_CAPACITY + HISTORY_WINDOW + 1],
-        "low": [-1] * (CACHE_CAPACITY + HISTORY_WINDOW + 1),
-        "high": [N_OBJECTS - 1] * (CACHE_CAPACITY + HISTORY_WINDOW + 1),
+        "low": -1,
+        "high": N_OBJECTS - 1,
         "dtype": "int32",
     },
     action_space={

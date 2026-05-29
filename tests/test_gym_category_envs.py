@@ -42,7 +42,9 @@ def test_gym_env_registered(env_id: str) -> None:
     """Each env must register cleanly with correct metadata."""
     d = get_env(env_id)
     assert d.env_id == env_id
-    assert d.env_version == "0.1"
+    # MiniGrid envs bumped to 0.2 with the packed obs encoding refactor
+    expected_version = "0.2" if env_id.startswith("minigrid_") else "0.1"
+    assert d.env_version == expected_version
     assert d.n_env_instances == 10000
     assert d.train_seeds_path.exists()
     assert d.heldout_seeds_path.exists()
@@ -62,14 +64,19 @@ def test_gym_env_seed_pools(env_id: str) -> None:
 
 
 def test_minigrid_obs_dim() -> None:
-    """All 4 MiniGrid envs expose flat 148-D obs (7*7*3 image + 1 direction)."""
+    """All 4 MiniGrid envs expose flat 50-D obs (49 packed cells + 1 direction).
+
+    Packed encoding (v0.2): each cell is a single uint16 =
+    type * 100 + color * 10 + state, compressing the original
+    7x7x3 uint8 array (148 ints) to a 50-D uint16 vector (3x reduction).
+    Information-preserving."""
     for env_id in [
         "minigrid_doorkey", "minigrid_keycorridor",
         "minigrid_lavacrossing", "minigrid_obstructedmaze",
     ]:
         d = get_env(env_id)
-        assert d.obs_space["shape"] == [148], f"{env_id} obs shape mismatch"
-        assert d.obs_space["dtype"] == "uint8"
+        assert d.obs_space["shape"] == [50], f"{env_id} obs shape mismatch"
+        assert d.obs_space["dtype"] == "uint16"
         assert d.action_space["type"] == "Discrete"
         assert d.action_space["n"] == 7
 
@@ -121,14 +128,14 @@ def test_total_env_count_after_landing() -> None:
 
 
 def test_minigrid_factory_returns_wrapped_env() -> None:
-    """MiniGrid factory must produce an env with flat 148-D Box obs space
-    (not the raw Dict obs). Verified via source inspection rather than
-    factory call to avoid in-process MiniGrid/numpy interaction risk
-    on some pytest configurations."""
+    """MiniGrid factory must produce an env with flat 50-D uint16 Box obs space
+    (packed encoding, not raw Dict obs). Verified via source inspection
+    rather than factory call to avoid in-process MiniGrid/numpy interaction
+    risk on some pytest configurations."""
     src = Path(__file__).parent.parent / "src/hlbench/envs/minigrid_doorkey/__init__.py"
     text = src.read_text()
     assert "OBS_DIM" in text
-    assert "_MiniGridFlattenWrapper" in text
+    assert "_MiniGridPackedWrapper" in text
     assert "import minigrid" in text
 
 

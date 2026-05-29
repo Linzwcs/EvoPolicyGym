@@ -118,53 +118,56 @@ def server_with_policy(tmp_path: Path) -> Server:
 # --------------------------- tests --------------------------------------
 
 
-def test_agent_submits_then_finalizes(server_with_policy: Server) -> None:
-    """Happy path: 2 submits + agent calls finalize → finalized_by_agent."""
+def test_budget_exhausted_terminates_naturally(server_with_policy: Server) -> None:
+    """Preferred path: agent uses the whole budget, harness auto-finalizes.
+
+    budget=8 with 4 episodes per submit → 2 submits drains the budget.
+    After turn 1 (the 2nd submit), remaining_budget==0 so the loop ends
+    with termination_reason=budget_exhausted. The agent never calls
+    /finalize itself."""
     agent = FakeAgent(server=server_with_policy, actions=[
         _submit([0, 1, 2, 3]),
         _submit([4, 5, 6, 7]),
-        _finalize_action,
+        # max_turns=10 leaves headroom; loop must STILL break at turn 2
+        # because budget is gone.
+        _submit([0, 1, 2, 3]),  # never executed
     ])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
         http_url="http://test", max_turns=10,
     )
     summary = runner.run()
-    assert summary.finalized_by_agent is True
-    assert summary.forced_finalize is False
-    assert summary.max_turns_reached is False
-    assert summary.n_turns == 3
-    assert agent.turn_count == 3
+    assert summary.termination_reason == "budget_exhausted"
+    assert summary.n_turns == 2
+    assert agent.turn_count == 2  # third action never invoked
     assert summary.final_result is not None
     assert summary.final_result["status"] == "completed"
     assert summary.final_result["final_score"] is not None
 
 
-def test_force_finalize_when_max_turns_exhausted(server_with_policy: Server) -> None:
-    """Agent never finalizes → harness force-finalizes after max_turns."""
+def test_max_turns_caps_the_loop_when_budget_unused(server_with_policy: Server) -> None:
+    """Safety net: agent does nothing useful → max_turns ends the loop,
+    harness still auto-finalizes."""
     agent = FakeAgent(server=server_with_policy, actions=[
-        _submit([0, 1, 2, 3]),
-        _submit([4, 5, 6, 7]),
-        # No finalize; agent does nothing on turns 2+.
+        _submit([0, 1, 2, 3]),  # 4 of 8 budget
+        # No more submits; budget never reaches 0.
     ])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
         http_url="http://test", max_turns=4,
     )
     summary = runner.run()
-    assert summary.finalized_by_agent is False
-    assert summary.forced_finalize is True
-    assert summary.max_turns_reached is True
-    assert summary.n_turns == 4  # all 4 turns executed
-    # run.json was still written.
+    assert summary.termination_reason == "max_turns"
+    assert summary.n_turns == 4  # all 4 turns ran (agent submits once, noops 3x)
     assert summary.final_result is not None
     assert summary.final_result["status"] == "completed"
 
 
 def test_consecutive_failures_break_loop(server_with_policy: Server) -> None:
-    """3 consecutive failed turns → loop bails out (default cap=3)."""
+    """3 consecutive failed turns → loop bails with the
+    ``consecutive_failures`` reason; harness still auto-finalizes."""
     agent = FakeAgent(server=server_with_policy, actions=[
-        _fail, _fail, _fail,  # noqa: E501  three back-to-back failures
+        _fail, _fail, _fail,
         _submit([0, 1, 2, 3]),  # would succeed but loop bailed
     ])
     runner = HarnessRunner(
@@ -173,20 +176,19 @@ def test_consecutive_failures_break_loop(server_with_policy: Server) -> None:
         max_consecutive_failures=3,
     )
     summary = runner.run()
-    assert summary.consecutive_failures_hit is True
+    assert summary.termination_reason == "consecutive_failures"
     assert summary.n_turns == 3
-    # Force-finalize still fires; status reflects no successful submit.
-    assert summary.forced_finalize is True
 
 
 def test_failure_counter_resets_on_success(server_with_policy: Server) -> None:
-    """A successful turn between failures keeps the loop alive."""
+    """A successful turn between failures keeps the loop alive until
+    budget hits 0."""
     agent = FakeAgent(server=server_with_policy, actions=[
         _fail,
-        _submit([0, 1, 2, 3]),  # resets counter
+        _submit([0, 1, 2, 3]),  # resets counter; budget now 4 of 8
         _fail,
         _fail,
-        _finalize_action,
+        _submit([4, 5, 6, 7]),  # drains budget
     ])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
@@ -194,9 +196,27 @@ def test_failure_counter_resets_on_success(server_with_policy: Server) -> None:
         max_consecutive_failures=3,
     )
     summary = runner.run()
-    assert summary.consecutive_failures_hit is False
-    assert summary.finalized_by_agent is True
+    assert summary.termination_reason == "budget_exhausted"
     assert summary.n_turns == 5
+
+
+def test_agent_finalized_honored_defensively(server_with_policy: Server) -> None:
+    """The prompt tells the agent NOT to call /finalize, but if the
+    agent does anyway we honor it (Server.finalize is idempotent)."""
+    agent = FakeAgent(server=server_with_policy, actions=[
+        _submit([0, 1, 2, 3]),
+        _finalize_action,  # agent prematurely finalizes despite prompt
+        _submit([4, 5, 6, 7]),  # never executes — run is over
+    ])
+    runner = HarnessRunner(
+        server=server_with_policy, agent=agent,
+        http_url="http://test", max_turns=10,
+    )
+    summary = runner.run()
+    assert summary.termination_reason == "agent_finalized"
+    assert summary.n_turns == 2
+    assert summary.final_result is not None
+    assert summary.final_result["status"] == "completed"
 
 
 def test_initial_prompt_then_continuations(server_with_policy: Server) -> None:
@@ -205,7 +225,6 @@ def test_initial_prompt_then_continuations(server_with_policy: Server) -> None:
     agent = FakeAgent(server=server_with_policy, actions=[
         _submit([0, 1, 2, 3]),
         _submit([4, 5, 6, 7]),
-        _finalize_action,
     ])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
@@ -215,28 +234,28 @@ def test_initial_prompt_then_continuations(server_with_policy: Server) -> None:
 
     initial = agent.prompts_seen[0]
     cont1 = agent.prompts_seen[1]
-    cont2 = agent.prompts_seen[2]
 
     # Initial: full task / rules / info.
     assert "GET /info" in initial or '"episode_budget"' in initial
     assert "transformers" in initial  # rules excerpt
     assert str(server_with_policy.workspace_dir) in initial
+    # Initial prompt must NOT instruct the agent to call /finalize —
+    # the harness handles that.
+    assert "POST /finalize" not in initial
+    assert "POST ``/finalize``" not in initial
 
-    # Continuations: concise turn header + last submit recap.
+    # Continuation: concise turn header + last submit recap.
     assert "Turn 1/" in cont1
     assert "remaining_budget" in cont1
-    assert "Turn 2/" in cont2
-    # Continuations should NOT re-embed the full task/rules (they're way
-    # shorter than the initial prompt).
+    # Continuation should NOT re-embed the full task/rules.
     assert len(cont1) < len(initial) // 2
-    assert len(cont2) < len(initial) // 2
 
 
 def test_summary_persisted_to_logs(server_with_policy: Server) -> None:
     """``logs/harness_runner.json`` is written for analyst tooling."""
     agent = FakeAgent(server=server_with_policy, actions=[
         _submit([0, 1, 2, 3]),
-        _finalize_action,
+        _submit([4, 5, 6, 7]),
     ])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
@@ -248,7 +267,7 @@ def test_summary_persisted_to_logs(server_with_policy: Server) -> None:
     data = json.loads(persisted.read_text())
     assert data["session_id"] == agent.session_id
     assert data["n_turns"] == summary.n_turns
-    assert data["finalized_by_agent"] is True
+    assert data["termination_reason"] == "budget_exhausted"
     assert isinstance(data["turns"], list)
     assert len(data["turns"]) == 2
     # Each turn entry has post-turn server state snapshot.
@@ -256,15 +275,16 @@ def test_summary_persisted_to_logs(server_with_policy: Server) -> None:
 
 
 def test_no_submits_at_all_still_finalizes_without_crashing(server_with_policy: Server) -> None:
-    """Agent never submits anything → force-finalize completes (the
-    workspace has the reference PD policy staged so heldout runs fine)."""
+    """Agent never submits anything → max_turns ends the loop; harness
+    still auto-finalizes (workspace has the reference PD policy staged
+    so heldout runs)."""
     agent = FakeAgent(server=server_with_policy, actions=[_noop, _noop])
     runner = HarnessRunner(
         server=server_with_policy, agent=agent,
         http_url="http://x", max_turns=2,
     )
     summary = runner.run()
-    assert summary.forced_finalize is True
+    assert summary.termination_reason == "max_turns"
     assert summary.final_result is not None
     # Pendulum reference PD will score normally on held-out even with
     # zero successful submits; final_submit_index is None but final_score

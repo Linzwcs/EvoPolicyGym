@@ -66,14 +66,23 @@ class TurnLogEntry:
 @dataclass
 class RunSummary:
     """Returned by ``HarnessRunner.run()`` and persisted to
-    ``logs/harness_runner.json``."""
+    ``logs/harness_runner.json``.
+
+    ``termination_reason`` is one of (priority order if multiple apply):
+
+      - ``budget_exhausted`` — preferred natural termination; remaining
+        budget hit 0 after the most recent turn.
+      - ``agent_finalized`` — defensive: the agent called POST /finalize
+        despite the prompt telling it not to. Rare.
+      - ``consecutive_failures`` — N back-to-back failed agent turns.
+      - ``max_turns`` — turn cap hit before budget exhausted (fallback).
+
+    The harness always calls ``Server.finalize()`` after the loop ends,
+    regardless of reason, so ``run.json`` is always written."""
 
     session_id: str
     n_turns: int
-    finalized_by_agent: bool
-    forced_finalize: bool
-    max_turns_reached: bool
-    consecutive_failures_hit: bool
+    termination_reason: str
     final_result: dict[str, Any] | None
     turns: list[TurnLogEntry] = field(default_factory=list)
     started_at_monotonic: float = 0.0
@@ -122,15 +131,23 @@ class HarnessRunner:
         self._max_consec_failures = max_consecutive_failures
 
     def run(self) -> RunSummary:
-        """Drive the loop until terminal. Always attempts to finalize
-        (so ``run.json`` exists even if the agent never called it)."""
+        """Drive the loop until terminal, then auto-finalize.
+
+        Termination priority (after each turn):
+
+          1. ``remaining_budget == 0`` → ``budget_exhausted``. Preferred
+             natural termination.
+          2. Server reports ``is_finalized == true`` → ``agent_finalized``.
+             Defensive: agent shouldn't be calling /finalize per the prompt.
+          3. N consecutive failed agent turns → ``consecutive_failures``.
+          4. ``max_turns`` reached without any of the above → ``max_turns``.
+
+        The harness always calls ``Server.finalize()`` after the loop
+        regardless of reason — ``run.json`` always exists."""
         started = time.monotonic()
         turns: list[TurnLogEntry] = []
-        finalized_by_agent = False
-        forced_finalize = False
-        max_turns_reached = False
+        termination_reason = "max_turns"  # default if loop exhausts naturally
         consecutive_failures = 0
-        consecutive_failures_hit = False
 
         for turn_idx in range(self._max_turns):
             prompt = self._build_prompt(turn_idx)
@@ -141,7 +158,7 @@ class HarnessRunner:
                 log.exception("turn %d: agent raised; aborting loop", turn_idx)
                 consecutive_failures += 1
                 if consecutive_failures >= self._max_consec_failures:
-                    consecutive_failures_hit = True
+                    termination_reason = "consecutive_failures"
                     break
                 continue
 
@@ -173,40 +190,35 @@ class HarnessRunner:
                     consecutive_failures, self._max_consec_failures,
                 )
                 if consecutive_failures >= self._max_consec_failures:
-                    consecutive_failures_hit = True
+                    termination_reason = "consecutive_failures"
                     break
             else:
                 consecutive_failures = 0
 
+            # Defensive — the prompt tells the agent NOT to call /finalize,
+            # but if it did anyway we honor the request.
             if entry.state_after["is_finalized"]:
-                finalized_by_agent = True
-                log.info("turn %d: agent finalized", turn_idx)
+                termination_reason = "agent_finalized"
+                log.info("turn %d: agent unexpectedly finalized", turn_idx)
                 break
 
-        else:
-            # for-else: loop exhausted without break
-            max_turns_reached = True
-            log.info("max_turns=%d reached without finalize", self._max_turns)
+            # Primary natural termination: budget exhausted.
+            if entry.state_after["remaining_budget"] <= 0:
+                termination_reason = "budget_exhausted"
+                log.info("turn %d: budget exhausted; harness will finalize", turn_idx)
+                break
 
-        # Always ensure a run.json exists. Server.finalize() is
-        # idempotent (returns cached FinalResult on second call), so
-        # this is safe whether or not the agent already called it.
-        final: FinalResult
+        # Always finalize. ``Server.finalize()`` is idempotent so the
+        # ``agent_finalized`` branch above is harmless.
         post_info = self._server.info()
-        if post_info["state"]["is_finalized"]:
-            final = self._server.finalize()
-        else:
-            log.info("force-finalize: agent did not call POST /finalize")
-            forced_finalize = True
-            final = self._server.finalize()
+        if not post_info["state"]["is_finalized"]:
+            log.info("auto-finalize: termination_reason=%s", termination_reason)
+        final: FinalResult = self._server.finalize()
 
         summary = RunSummary(
             session_id=self._agent.session_id,
             n_turns=len(turns),
-            finalized_by_agent=finalized_by_agent,
-            forced_finalize=forced_finalize,
-            max_turns_reached=max_turns_reached,
-            consecutive_failures_hit=consecutive_failures_hit,
+            termination_reason=termination_reason,
             final_result=_final_result_to_dict(final),
             turns=turns,
             started_at_monotonic=started,

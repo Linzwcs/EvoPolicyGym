@@ -35,7 +35,8 @@ _OPS_INSTRUCTIONS = """\
 
 You are the *agent* in an hlbench-pro run. Your goal: write a Python
 ``Policy`` class at ``workspace/system/policy.py`` that scores well on
-the held-out evaluation that runs after you call ``POST /finalize``.
+the held-out evaluation that the harness runs automatically after you
+exhaust your episode budget.
 
 You have these tools available:
 
@@ -48,7 +49,6 @@ You have these tools available:
       curl -s $HLBENCH_URL/info
       curl -sX POST $HLBENCH_URL/submit -H 'Content-Type: application/json' \\
            -d '{"env_instances": [0,1,2,3]}'
-      curl -sX POST $HLBENCH_URL/finalize
 
 ## The loop you should run, in your head and in code
 
@@ -62,9 +62,10 @@ You have these tools available:
      ``timeouts`` / ``errors`` if any.
   5. Refine the policy and resubmit. Use larger batches once you trust
      the design (8–16 for high-confidence comparison).
-  6. When you're satisfied, or remaining_budget reaches 0, POST
-     ``/finalize``. The held-out score is then computed; you will NOT
-     see it (it's hidden by design).
+  6. Keep iterating until ``remaining_budget`` reaches 0. **You do not
+     need to (and should not) trigger finalization yourself** — the
+     harness calls the held-out evaluator automatically once your
+     budget is spent.
 
 ## Rules of the game
 
@@ -80,15 +81,17 @@ You have these tools available:
   - Address env instances by integer ID in [0, n_env_instances). The
     real seed is server-internal.
 
-## How to know when you're done
+## How the run ends
 
-  - Budget exhausted (remaining_budget reaches 0), OR
-  - You explicitly decide to stop iterating, OR
-  - The harness will not call you again after ``is_finalized`` becomes
-    true.
+The harness terminates your loop when **either**:
 
-Use POST /finalize to lock in the most recent successful submit as the
-final policy. After /finalize, no more submits are accepted.
+  - ``remaining_budget`` hits 0 after your most recent turn completes, OR
+  - the per-run turn cap is reached (also exposed as ``max_turns`` in
+    the turn header).
+
+Whichever fires first, the harness then runs held-out evaluation on
+your most recent successful submit and writes ``run.json``. You will
+not see the held-out result during the run.
 """
 
 # ---------------------------------------------------------------------------
@@ -184,7 +187,12 @@ def compose_continuation_prompt(obs: TurnObservation, *, max_turns: int) -> str:
     The resumed Claude session already has the task description and
     rules from the initial prompt. We just tell it the current state
     delta and nudge it to continue.
-    """
+
+    Note: the runner breaks the loop as soon as ``remaining_budget``
+    hits 0, so under normal flow this prompt is only ever rendered
+    while budget remains. The ``<= 0`` branch is defensive — useful
+    only if the agent somehow drained budget mid-turn without the
+    runner re-observing in between (it can't, but be safe)."""
     last = obs.last_submit
     if last is None:
         last_block = "  - No submits recorded yet (last turn did not call POST /submit)."
@@ -193,9 +201,9 @@ def compose_continuation_prompt(obs: TurnObservation, *, max_turns: int) -> str:
 
     if obs.remaining_budget <= 0 and not obs.is_finalized:
         nudge = (
-            "Budget exhausted (remaining_budget == 0). You can no longer "
-            "submit. Call ``POST /finalize`` now to lock in the most "
-            "recent successful submit as the final policy."
+            "Budget exhausted (remaining_budget == 0). Nothing more to "
+            "submit; the harness will finalize automatically after this "
+            "turn returns. Reply with a one-line summary and exit."
         )
     elif obs.is_finalized:
         nudge = (
@@ -206,8 +214,9 @@ def compose_continuation_prompt(obs: TurnObservation, *, max_turns: int) -> str:
     else:
         nudge = (
             "Continue iterating: read the latest feedback, refine "
-            "``system/policy.py``, submit again. If you think the policy "
-            "has converged you may call ``POST /finalize`` early."
+            "``system/policy.py``, submit again. Use the remaining budget — "
+            "the harness will finalize automatically when it hits 0 or "
+            "the turn cap is reached."
         )
 
     return _CONTINUATION_PROMPT_TEMPLATE.format(

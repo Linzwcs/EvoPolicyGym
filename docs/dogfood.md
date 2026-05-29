@@ -49,13 +49,22 @@ What this does:
    `claude --print --resume <uuid>` so the conversation continues.
    The continuation prompt is short — just the delta state
    (remaining budget, last submit's verdict + mean) and a nudge to
-   keep iterating or finalize.
-5. Stops when **any** of:
-   - the agent calls `POST /finalize` (preferred — the agent
-     decides when to stop),
-   - `--max-turns` is exhausted (harness force-finalizes),
-   - the agent's subprocess fails or times out 3 turns in a row
-     (`--max-consecutive-failures 3`).
+   keep iterating.
+5. Stops when **any** of (in priority order):
+   - `remaining_budget` hits 0 after the most recent turn returns
+     (`termination_reason: budget_exhausted` — the preferred path),
+   - the agent's subprocess fails or times out N turns in a row
+     (`termination_reason: consecutive_failures`, default cap 3),
+   - `--max-turns` is reached without budget being spent
+     (`termination_reason: max_turns` — safety net),
+   - the agent calls `POST /finalize` itself despite the prompt
+     telling it not to (`termination_reason: agent_finalized` —
+     defensive; rare in practice).
+
+   In every case the harness then calls `Server.finalize()` itself
+   (which runs the held-out evaluation and writes `run.json`).
+   **The agent never has to call `POST /finalize`** — finalization
+   is the harness's job.
 6. Prints the headline (`final_score`, `held_out_mean_return`) and
    exits non-zero on errored runs.
 
@@ -83,8 +92,10 @@ runs/claude-code-auto/pendulum/dogfood-1/
 Two files give you the whole picture quickly:
 
 - `logs/harness_runner.json` — the harness's view: how many turns,
-  whether the agent finalized voluntarily, per-turn server-state
-  snapshots, the final `run.json` payload mirrored.
+  the `termination_reason` (one of `budget_exhausted` /
+  `consecutive_failures` / `max_turns` / `agent_finalized`),
+  per-turn server-state snapshots, the final `run.json` payload
+  mirrored.
 - `logs/agent_turns/turn_000.txt` — the agent's view of turn 0
   (initial prompt + Claude's response). `turn_001.txt` etc. for
   later turns.
@@ -96,7 +107,7 @@ Two files give you the whole picture quickly:
 | `--env` | `pendulum` | Which registered env to run |
 | `--budget` | env's default (256 for Pendulum) | `episode_budget` override |
 | `--max-episodes-per-submit` | env's default | Per-submit cap |
-| `--max-turns` | 12 | Hard cap on harness turns; force-finalize on overrun |
+| `--max-turns` | 12 | Hard cap on harness turns; auto-finalize on overrun |
 | `--model` | `sonnet` | `claude --model` (alias `opus`/`sonnet`/`haiku` or full id) |
 | `--turn-timeout` | 600 s | Per-turn subprocess timeout |
 | `--permission-mode` | `bypassPermissions` | claude tool-permission mode |
@@ -143,7 +154,7 @@ tiny Python stub that mimics `--print --output-format=json`. See
 `tests/test_harness_claude_agent.py` for the pattern. The runner
 itself uses an in-process `FakeAgent` (`tests/test_harness_runner.py`)
 that performs scripted Server actions per turn — useful for
-verifying loop control (termination, force-finalize, failure
+verifying loop control (termination, auto-finalize, failure
 counter) without an LLM in the loop.
 
 ## Why one continuous session?

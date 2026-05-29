@@ -66,10 +66,14 @@ def test_initial_prompt_embeds_workspace_url_info_task_excerpt() -> None:
     assert '"episode_budget": 32' in prompt
     # Rules excerpt (transformers/anthropic block at a minimum).
     assert "transformers" in prompt
-    # Operating instructions reference the three core tools.
+    # Operating instructions reference the two HTTP endpoints the
+    # agent actually uses.
     assert "/info" in prompt
     assert "/submit" in prompt
-    assert "/finalize" in prompt
+    # The agent must NOT be told to call /finalize — the harness does
+    # that automatically once budget hits 0.
+    assert "POST /finalize" not in prompt
+    assert "POST ``/finalize``" not in prompt
     # Max turns is surfaced so the agent can pace itself.
     assert "12" in prompt
 
@@ -143,7 +147,10 @@ def test_continuation_with_failed_submit_points_to_errors_txt() -> None:
     assert "no returns" in prompt
 
 
-def test_continuation_budget_exhausted_nudges_finalize() -> None:
+def test_continuation_budget_exhausted_tells_agent_harness_will_finalize() -> None:
+    """Defensive path: under normal flow the runner breaks before this
+    prompt renders, but if the agent somehow reaches turn N with
+    remaining_budget==0, we tell it the harness will finalize itself."""
     obs = _obs_with_last({
         "submit_index": 7,
         "status": "ok",
@@ -153,7 +160,11 @@ def test_continuation_budget_exhausted_nudges_finalize() -> None:
     }, remaining=0, turn=8)
     prompt = compose_continuation_prompt(obs, max_turns=12)
     assert "Budget exhausted" in prompt
-    assert "POST /finalize" in prompt
+    # Must NOT tell agent to call /finalize themselves.
+    assert "POST /finalize" not in prompt
+    assert "POST ``/finalize``" not in prompt
+    # Must tell agent the harness handles finalize.
+    assert "harness will finalize" in prompt
     # Must NOT also tell agent to keep iterating.
     assert "Continue iterating" not in prompt
 

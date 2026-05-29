@@ -225,9 +225,7 @@ def _print_summary(summary: RunSummary, server: Server) -> None:
     print(f"  run_dir:           {server.run_dir}")
     print(f"  session_id:        {summary.session_id}")
     print(f"  turns:             {summary.n_turns}")
-    print(f"  finalized_by_agent: {summary.finalized_by_agent}")
-    print(f"  forced_finalize:    {summary.forced_finalize}")
-    print(f"  max_turns_reached:  {summary.max_turns_reached}")
+    print(f"  termination:       {summary.termination_reason}")
     print(f"  status:            {final.get('status')}")
     if final.get("status") == "completed":
         score = final.get("final_score")

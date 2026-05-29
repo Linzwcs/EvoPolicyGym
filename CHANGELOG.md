@@ -25,13 +25,27 @@ this project adheres to [Semantic Versioning](https://semver.org/).
     session UUID so we never have to scrape it from the first reply.
     Per-turn artifacts: `<run_dir>/logs/agent_turns/turn_NNN.{json,txt,prompt.txt}`.
   - `hlbench_harness.runner` — `HarnessRunner` loop. Termination
-    on agent finalize, max-turns, or N consecutive failures.
-    Always force-finalizes if the agent didn't, so `run.json` exists.
-    Persists `<run_dir>/logs/harness_runner.json` for analyst tooling.
+    priority: ``budget_exhausted`` (preferred, when ``remaining_budget``
+    hits 0 after the most recent turn) → ``consecutive_failures`` (N
+    back-to-back failed turns) → ``max_turns`` (safety cap) →
+    ``agent_finalized`` (defensive — agent shouldn't be calling
+    ``/finalize`` per the prompt). Harness always calls
+    ``Server.finalize()`` after the loop so ``run.json`` is always
+    written. Persists ``<run_dir>/logs/harness_runner.json`` for
+    analyst tooling.
 - **30 new tests** covering prompt composition, state observation,
   loop control (with in-process `FakeAgent`), and subprocess wrapping
-  (with stub `claude` shell script). 119 → 149 tests; mypy strict +
+  (with stub `claude` shell script). 119 → 150 tests; mypy strict +
   ruff still clean.
+
+### Design notes
+
+- **Finalize is harness-only in automated mode.** The agent's prompt
+  explicitly says NOT to call ``POST /finalize`` — finalization is the
+  harness's responsibility, triggered when the agent's budget is
+  spent. The ``/finalize`` HTTP endpoint stays on the server for
+  human/scripted use (see ``hlbench`` CLI), but ``hlbench-agent``
+  never instructs the inner Claude to call it.
 
 ## [0.1.0a1] — 2026-05-29
 

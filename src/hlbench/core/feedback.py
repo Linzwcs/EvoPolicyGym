@@ -11,11 +11,14 @@ the agent never observes a partial file. Other files (trajectory, error)
 are written before ``summary.json`` appears, so the convention "if
 summary.json is there, the rest is too" holds end-to-end.
 
+Error files (``errors.txt`` and per-episode ``error.txt``) accept multiple
+appended events (SPEC §4.4.2/§4.4.3) and are capped at 64KB cumulative.
+Once the cap is hit, subsequent events are dropped and a single
+``category: "truncated"`` sentinel line is appended (SPEC §4.4.5).
+
 MVP omissions (deferred to post-MVP):
 - ``observations.npy`` (external obs storage)
 - ``video.mp4``
-- ``stdout.txt`` / ``stderr.txt`` capture
-- 64 KB error-file truncation cap
 """
 
 from __future__ import annotations
@@ -29,6 +32,13 @@ from pathlib import Path
 from typing import Any
 
 _SCHEMA_VERSION = "0.1"
+
+#: SPEC §4.4.5 — each error file capped at 64 KB cumulative across entries.
+ERROR_FILE_CAP_BYTES = 64 * 1024
+
+#: Single-line marker we look for to decide "truncated sentinel already
+#: written" without re-parsing JSON.
+_TRUNCATED_MARKER = b'"category":"truncated"'
 
 
 # ----------------------- directory / name helpers -------------------------
@@ -130,6 +140,39 @@ def _error_event(
     return event
 
 
+def _append_error_event(path: Path, event: dict[str, Any]) -> None:
+    """Append one JSONL line to ``path``, enforcing the SPEC §4.4.5 cap.
+
+    Semantics:
+    - First write: always succeeds (the failure that produced the event is
+      important enough to record in full even if it alone exceeds the cap).
+    - Subsequent writes: appended if cumulative size stays ≤ 64 KB.
+      Otherwise dropped, and a single ``category: "truncated"`` sentinel
+      is appended (only once per file).
+    """
+    line = (_dumps(event) + "\n").encode("utf-8")
+    if not path.exists():
+        path.write_bytes(line)
+        return
+    current = path.read_bytes()
+    if _TRUNCATED_MARKER in current:
+        # Already capped; drop silently — sentinel is already on disk.
+        return
+    if len(current) + len(line) <= ERROR_FILE_CAP_BYTES:
+        with path.open("ab") as f:
+            f.write(line)
+        return
+    # Would overflow; write sentinel and drop this event.
+    sentinel = _error_event(
+        category="truncated",
+        message="additional events omitted",
+        traceback_str=None,
+    )
+    sentinel_line = (_dumps(sentinel) + "\n").encode("utf-8")
+    with path.open("ab") as f:
+        f.write(sentinel_line)
+
+
 def write_submit_error(
     path: Path,
     *,
@@ -137,11 +180,15 @@ def write_submit_error(
     message: str,
     traceback_str: str | None = None,
 ) -> None:
-    """Write submit-level ``errors.txt`` (SPEC §4.4.2). One JSON line."""
+    """Append one event to submit-level ``errors.txt`` (SPEC §4.4.2).
+
+    Multiple entries are allowed (oom / submit_wall_exceeded may coexist
+    with successful episodes per SPEC §3.3). Capped at 64 KB per §4.4.5.
+    """
     event = _error_event(
         category=category, message=message, traceback_str=traceback_str
     )
-    path.write_text(_dumps(event) + "\n")
+    _append_error_event(path, event)
 
 
 def write_episode_error(
@@ -152,13 +199,15 @@ def write_episode_error(
     step_index: int | None,
     traceback_str: str | None,
 ) -> None:
-    """Write per-episode ``error.txt`` (SPEC §4.4.3). One JSON line for MVP
-    (the spec allows multiple, but env_runner produces at most one
-    fatal event per episode)."""
+    """Append one event to per-episode ``error.txt`` (SPEC §4.4.3).
+
+    Multiple entries are allowed (e.g. a non-fatal warning followed by the
+    fatal error). Capped at 64 KB per §4.4.5.
+    """
     event = _error_event(
         category=category,
         message=message,
         traceback_str=traceback_str,
         step_index=step_index,
     )
-    path.write_text(_dumps(event) + "\n")
+    _append_error_event(path, event)

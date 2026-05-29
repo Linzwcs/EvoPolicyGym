@@ -14,7 +14,13 @@ from typing import Any
 import pytest
 
 from hlbench.core.env_runner import EpisodeRecord, _info_to_jsonable
-from hlbench.core.feedback import _jsonify_floats, write_trajectory
+from hlbench.core.feedback import (
+    ERROR_FILE_CAP_BYTES,
+    _jsonify_floats,
+    write_episode_error,
+    write_submit_error,
+    write_trajectory,
+)
 
 # --------------------------- _info_to_jsonable ----------------------------
 
@@ -194,3 +200,94 @@ def test_episode_record_defaults_for_success() -> None:
     assert rec.error_category is None
     assert rec.error_step_index is None
     assert rec.error_traceback is None
+
+
+# --------------------------- 64KB error file truncation (SPEC §4.4.5) ----
+
+
+def _parse_jsonl(path: Any) -> list[dict]:
+    text = path.read_text().strip()
+    if not text:
+        return []
+    return [json.loads(line) for line in text.split("\n")]
+
+
+def test_error_file_appends_multiple_events(tmp_path: Any) -> None:
+    """write_episode_error called twice produces two JSONL lines (was
+    overwrite-only before 0.1.0a1)."""
+    path = tmp_path / "error.txt"
+    write_episode_error(
+        path, category="act_error", message="first", step_index=3,
+        traceback_str="Traceback A",
+    )
+    write_episode_error(
+        path, category="act_timeout", message="second", step_index=5,
+        traceback_str=None,
+    )
+    events = _parse_jsonl(path)
+    assert len(events) == 2
+    assert events[0]["message"] == "first"
+    assert events[1]["message"] == "second"
+    assert events[0]["step_index"] == 3
+    assert events[1]["category"] == "act_timeout"
+
+
+def test_error_file_caps_at_64kb_with_truncated_sentinel(tmp_path: Any) -> None:
+    """Once cumulative size exceeds 64KB, further events are dropped and a
+    single 'truncated' sentinel line is appended (SPEC §4.4.5)."""
+    path = tmp_path / "errors.txt"
+    # Each event ~ a few hundred bytes; pad traceback so cap fires quickly.
+    big_traceback = "Traceback line\n" * 1000  # ~15 KB per event
+    for i in range(20):  # 20 × 15 KB = 300 KB, well past the 64 KB cap
+        write_submit_error(
+            path, category="act_error",
+            message=f"event {i}", traceback_str=big_traceback,
+        )
+    events = _parse_jsonl(path)
+    # Final entry must be the sentinel; everything before is real events.
+    assert events[-1]["category"] == "truncated"
+    assert events[-1]["message"] == "additional events omitted"
+    assert events[-1]["traceback"] is None
+    assert all(e["category"] != "truncated" for e in events[:-1])
+    # File size shouldn't blow past the cap by much — sentinel adds at
+    # most one line ~ a few hundred bytes.
+    assert path.stat().st_size <= ERROR_FILE_CAP_BYTES + 1024
+
+
+def test_error_file_first_event_always_written(tmp_path: Any) -> None:
+    """The first event is written in full even if it alone would exceed
+    the cap — the failure that produced it is too important to drop."""
+    path = tmp_path / "error.txt"
+    huge_traceback = "x" * (100 * 1024)  # 100 KB single traceback
+    write_episode_error(
+        path, category="act_error", message="big crash",
+        step_index=0, traceback_str=huge_traceback,
+    )
+    events = _parse_jsonl(path)
+    assert len(events) == 1
+    assert events[0]["message"] == "big crash"
+    assert events[0]["traceback"] == huge_traceback
+    # Subsequent writes should drop and add sentinel.
+    write_episode_error(
+        path, category="act_timeout", message="follow-up",
+        step_index=1, traceback_str=None,
+    )
+    events = _parse_jsonl(path)
+    assert len(events) == 2
+    assert events[1]["category"] == "truncated"
+
+
+def test_error_file_sentinel_written_only_once(tmp_path: Any) -> None:
+    """Once the sentinel is in, additional writes are silent no-ops — we
+    don't keep appending sentinels."""
+    path = tmp_path / "error.txt"
+    huge = "x" * (70 * 1024)  # alone exceeds cap
+    write_submit_error(path, category="init_error", message="A",
+                       traceback_str=huge)
+    for _ in range(5):
+        write_submit_error(path, category="act_error",
+                           message="overflow", traceback_str=None)
+    events = _parse_jsonl(path)
+    # Original event + exactly one sentinel.
+    assert len(events) == 2
+    assert events[-1]["category"] == "truncated"

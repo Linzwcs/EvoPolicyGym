@@ -294,37 +294,56 @@ Column abbreviations (full env IDs in §"Suite at a glance"):
 | `car` | `car_racing` (16×16 lite) | `mg-lv` | `minigrid_lavacrossing` |
 | `car-px` | `car_racing_pixel` (96×96 full) | `mg-om` | `minigrid_obstructedmaze` |
 
-#### Score matrix
+#### Table 1a — Raw `held_out_mean_return`
 
-|                              |    cp |   pen |   acr |   mtn | lun-h | bip-h |   car | car-px |  chee |   hop |  walk |   ant | mg-dk | mg-kc | mg-lv | mg-om |  mean |
+Actual returns on held-out episodes. Different scales per env (e.g.,
+CartPole upper bound = 500; Pendulum is negative; MiniGrid ∈ [0, 1]).
+Use this table to read absolute task achievement; **do not average
+across envs** — scales are not commensurable.
+
+|                                |    cp |    pen |    acr |    mtn |  lun-h |  bip-h |    car | car-px |   chee |    hop |   walk |    ant | mg-dk | mg-kc | mg-lv | mg-om |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Sonnet 4.6 + Claude Code**   | 500.00 | -138.77 | -100.02 |  99.34 |  231.81 | -101.94 | 410.24 | 481.10 | 764.87 | 1053.97 | 911.27 | 979.12 |  0.98 |  0.93 |  0.96 |  0.82 |
+| **GPT-5.5 + Claude Code**      | 500.00 | -139.33 |  -83.50 |  99.33 |  220.20 |  -90.10 | 669.28 | 466.06 | 468.04 | 1011.50 | 983.16 | 1073.97 |  0.98 |  0.95 |  0.96 |  0.80 |
+| **M2.7 + Claude Code**         | 500.00 | -1261.25 |  -92.55 |  88.83 | -823.41 |  -66.46 |  -82.85 | -20.36 |  -0.61 | 148.86 |  28.34 | 996.51 |  0.00 |  0.00 |  0.00 |  0.00 |
+
+#### Table 1b — Expert-baseline-normalized `final_score`
+
+`final_score = clip((mean_held_out − random_baseline) / (expert_baseline
+− random_baseline), 0, 1.2) × 100`. Use this table for cross-env and
+cross-model aggregate comparison. Higher is better; 100 = expert-level,
+120 = clipped (super-expert).
+
+|                                |    cp |   pen |   acr |   mtn | lun-h | bip-h |   car | car-px |  chee |   hop |  walk |   ant | mg-dk | mg-kc | mg-lv | mg-om |  mean |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Sonnet 4.6 + Claude Code** | 100.0 | 101.1 |  95.2 | 104.5 | 120.0 |   0.0 |  85.0 |  58.1 |  14.6 |  30.0 |  20.2 |  17.0 | 103.3 | 103.6 | 106.5 |  90.7 | **71.9** |
-| **M2.7 + Claude Code**       | 100.0 |   0.0 |  97.0 |  93.6 |   0.0 |   8.4 |   2.9 |   8.0 |   4.1 |   4.1 |   0.5 |  17.3 |   0.0 |   0.0 |   0.0 |   0.0 | **20.9** |
-| **Δ (Sonnet − M2.7)**        |   0.0 | +101.1 |  −1.8 | +10.9 | +120.0 |  −8.4 | +82.1 | +50.1 | +10.5 | +25.9 | +19.7 |  −0.3 | +103.3 | +103.6 | +106.5 | +90.7 | **+51.0** |
+| **Sonnet 4.6 + Claude Code**   | 100.0 | 101.1 |  95.2 | 104.5 | 120.0 |   0.0 |  85.0 |  58.1 |  14.6 |  30.0 |  20.2 |  17.0 | 103.3 | 103.6 | 106.5 |  90.7 | **71.9** |
+| **GPT-5.5 + Claude Code**      | 100.0 | 101.0 |  99.2 | 104.5 | 120.0 |   2.5 | 120.0 |  56.6 |  10.5 |  28.8 |  21.8 |  18.6 | 103.4 | 105.5 | 106.7 |  89.1 | **74.3** |
+| **M2.7 + Claude Code**         | 100.0 |   0.0 |  97.0 |  93.6 |   0.0 |   8.4 |   2.9 |   8.0 |   4.1 |   4.1 |   0.5 |  17.3 |   0.0 |   0.0 |   0.0 |   0.0 | **20.9** |
 
-#### Per-category mean
+#### Per-category mean (normalized `final_score`)
 
 | Model + Harness | Classic (4 envs) | Box2D (4 envs) | MuJoCo (4 envs) | MiniGrid (4 envs) | All 16 |
 |---|---:|---:|---:|---:|---:|
-| Sonnet 4.6 + Claude Code | **100.2** |  **65.8** | **20.4** | **101.0** | **71.9** |
-| M2.7 + Claude Code       |  **72.6** |   **4.8** |  **6.5** |   **0.0** | **20.9** |
-| Δ                        |  +27.6 |  +61.0 | +13.9 | +101.0 | +51.0 |
+| **Sonnet 4.6 + Claude Code** | **100.2** |  **65.8** | **20.4** | **101.0** | **71.9** |
+| **GPT-5.5 + Claude Code**    | **101.2** |  **74.8** | **19.9** | **101.2** | **74.3** |
+| **M2.7 + Claude Code**       |  **72.6** |   **4.8** |  **6.5** |   **0.0** | **20.9** |
 
 #### Notes for new rows
 
 To add a new row for another (model, harness) pair, append it
-following the same column order. Source data lives in
-`runs/<model_slug>/<env>/<exp_id>/run.json:outcome.final_score`;
-the helper `scripts/aggregate_runs.py --pivot env --format markdown`
+following the same column order in **both** Table 1a (raw) and
+Table 1b (normalized). Source data lives in
+`runs/<model_slug>/<env>/<exp_id>/run.json`:
+- raw → `outcome.held_out_mean_return`
+- normalized → `outcome.final_score`
+
+The helper `scripts/aggregate_runs.py --pivot env --format markdown`
 generates a wide-format table directly from disk for inspection
 (rearrange columns to match the order above for paper insertion).
 
 Expected next rows (pending runs):
 
 - `Opus 4.7 + Claude Code` — same harness, stronger model
-- `GPT-5 + ?` — needs an OpenAI-API agent wrapper (analogue of
-  `hlbench_harness.claude_agent` for the OpenAI SDK)
-- `Gemini 2.5 + ?` — same, for Google's API
 
 ### Headline findings (2-model)
 

@@ -144,7 +144,7 @@ optimizes without targeting a known threshold.
 | [`docs/architecture.md`](./docs/architecture.md) | Implementer | Package layout, build sequence, validation checklist |
 | [`docs/output.md`](./docs/output.md) | Analyst / leaderboard | What `runs/<...>/` looks like on disk |
 | [`docs/submit-protocol.md`](./docs/submit-protocol.md) | Implementer + agent | Submit lifecycle (7 phases, 10 verdicts) |
-| [`docs/dogfood.md`](./docs/dogfood.md) | Operator | Drive Claude Code or OpenAI Codex through a full run with `hlbench agent` |
+| [`docs/dogfood.md`](./docs/dogfood.md) | Operator | Drive Claude Code, OpenAI Codex, or Moonshot Kimi through a full run with `hlbench agent` |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Reviewer | What shipped in this release |
 
 ## Status
@@ -167,6 +167,7 @@ Post-0.1.0a1 roadmap (deferred): network blocking, RSS-poll OOM,
 `observations.npy` / `video.mp4` for pixel envs, `agent.jsonl`
 agent-harness log, additional envs (HalfCheetah, CarRacing, Atari).
 
-`hlbench agent` (the automated evaluation driver) now supports two
-LLM backends — Claude Code and OpenAI Codex CLI — selectable via
-`--backend {claude,codex}`. See [`docs/dogfood.md`](./docs/dogfood.md).
+`hlbench agent` (the automated evaluation driver) supports three
+LLM backends — Claude Code, OpenAI Codex CLI, and Moonshot Kimi Code
+— selectable via `--backend {claude,codex,kimi}`. See
+[`docs/dogfood.md`](./docs/dogfood.md).

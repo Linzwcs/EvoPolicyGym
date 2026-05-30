@@ -1,35 +1,38 @@
-# Automated Evaluation with Claude Code or OpenAI Codex
+# Automated Evaluation with Claude Code, OpenAI Codex, or Moonshot Kimi
 
 The `hlbench agent` subcommand drives a complete `init → submit → finalize`
-loop end-to-end against any registered hlbench-pro env, using either
-[Claude Code](https://claude.com/claude-code) or
-[OpenAI Codex CLI](https://github.com/openai/codex) as the policy
-author. Pick the backend with `--backend {claude,codex}` (default
+loop end-to-end against any registered hlbench-pro env, using one of
+three LLM coding-agent CLIs as the policy author:
+[Claude Code](https://claude.com/claude-code),
+[OpenAI Codex CLI](https://github.com/openai/codex), or
+[Moonshot Kimi Code](https://moonshotai.github.io/kimi-code/).
+Pick the backend with `--backend {claude,codex,kimi}` (default
 `claude`).
 
 The key property: **the agent's conversation context is preserved
 across iterations**. Every turn after the first uses session resume
-(`claude --print --resume <uuid>` or `codex exec resume <id>`), so the
-inner agent sees its own prior reasoning, prior code edits, and prior
-submit feedback as ordinary chat history. Contrast with the
-`../hlbench` reference (which spawns a fresh subprocess per epoch and
-relies on workspace files alone to carry state forward).
+(`claude --print --resume <uuid>`, `codex exec resume <id>`, or
+`kimi -S <session-id> -p`), so the inner agent sees its own prior
+reasoning, prior code edits, and prior submit feedback as ordinary
+chat history. Contrast with the `../hlbench` reference (which
+spawns a fresh subprocess per epoch and relies on workspace files
+alone to carry state forward).
 
 ## Backends at a glance
 
-| Capability | `--backend claude` | `--backend codex` |
-|---|---|---|
-| Default model | `sonnet` | `gpt-5-codex` |
-| Session id | pre-allocated UUID4 (`claude --session-id`) | scraped from turn 0's `session_meta` event |
-| Resume command | `claude --print --resume <uuid>` | `codex exec resume <session-id>` |
-| Default `--turn-timeout` | 600 s | 900 s (codex's first-call latency on macOS often busts 600) |
-| Per-turn token / cost | surfaced (claude `--output-format=json` carries them) | not surfaced (codex 0.133's `--json` has neither yet) |
-| Sandbox bypass flag | `--claude-permission-mode bypassPermissions` | `--codex-bypass-approvals` (default on) |
-| Session rollout file | inside `<run_dir>/logs/agent_turns/` only | also persisted at `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (cannot be redirected without `--ephemeral`, which is mutually exclusive with resume) |
+| Capability | `--backend claude` | `--backend codex` | `--backend kimi` |
+|---|---|---|---|
+| Default model | `sonnet` | `gpt-5-codex` | `kimi-k2` |
+| Session id | pre-allocated UUID4 (`claude --session-id`) | scraped from turn 0's `session_meta` event | scraped from stream-json (or `~/.kimi-code/session_index.jsonl` keyed by workDir as fallback) |
+| Resume command | `claude --print --resume <uuid>` | `codex exec resume <session-id>` | `kimi -S <session-id> -p` |
+| Default `--turn-timeout` | 600 s | 900 s | 900 s |
+| Per-turn token / cost | surfaced (claude `--output-format=json` carries them) | not surfaced (codex 0.133's `--json` has neither yet) | not surfaced (kimi 0.6's stream-json has neither yet) |
+| Sandbox bypass flag | `--claude-permission-mode bypassPermissions` | `--codex-bypass-approvals` (default on) | `-y` yolo (default on; disable with `--no-kimi-yolo`) |
+| Session rollout file | inside `<run_dir>/logs/agent_turns/` only | also persisted at `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | also persisted at `~/.kimi-code/sessions/wd_<basename>_<hash>/session_<uuid>/` (load-bearing for resume) |
 
-Both backends produce the same `<run_dir>/logs/` shape (`harness.log`,
-`harness_runner.json`, `agent.jsonl`, `agent_turns/turn_NNN.{...}`) so
-analyst tools work unchanged.
+All three backends produce the same `<run_dir>/logs/` shape
+(`harness.log`, `harness_runner.json`, `agent.jsonl`,
+`agent_turns/turn_NNN.{...}`) so analyst tools work unchanged.
 
 ## Prerequisites
 
@@ -52,6 +55,16 @@ For `--backend codex`:
   with `codex --version`.
 - Auth via `codex login` (writes `~/.codex/auth`) or set
   `OPENAI_API_KEY`.
+
+For `--backend kimi`:
+
+- `kimi` (Moonshot Kimi Code 0.6+) on `$PATH`. Install via the
+  upstream installer at https://moonshotai.github.io/kimi-code/ —
+  it typically lands at `~/.kimi-code/bin/kimi` and adds the
+  directory to `PATH` via your shell rc. Verify with
+  `kimi --version`.
+- Auth via `kimi login` (interactive; writes provider/model entries
+  into `~/.kimi-code/config.toml`).
 
 ## One-shot: drive a Pendulum run
 
@@ -79,6 +92,20 @@ With **OpenAI Codex**:
     --model-slug codex-auto \
     --runs-root ./runs \
     --exp-id dogfood-codex-1
+```
+
+With **Moonshot Kimi**:
+
+```bash
+.venv/bin/hlbench agent \
+    --backend kimi \
+    --env pendulum \
+    --budget 32 \
+    --max-turns 8 \
+    --model kimi-k2 \
+    --model-slug kimi-auto \
+    --runs-root ./runs \
+    --exp-id dogfood-kimi-1
 ```
 
 What this does:
@@ -169,13 +196,13 @@ Shared (apply to both backends):
 
 | Flag | Default | What it controls |
 |---|---|---|
-| `--backend` | `claude` | Pick the agent CLI backend: `claude` or `codex` |
+| `--backend` | `claude` | Pick the agent CLI backend: `claude`, `codex`, or `kimi` |
 | `--env` | `pendulum` | Which registered env to run |
 | `--budget` | env's default (256 for Pendulum) | `episode_budget` override |
 | `--max-episodes-per-submit` | env's default | Per-submit cap |
 | `--max-turns` | 12 | Hard cap on harness turns; auto-finalize on overrun |
-| `--model` | `sonnet` (claude) / `gpt-5-codex` (codex) | Model id passed to the chosen backend |
-| `--turn-timeout` | 600 s (claude) / 900 s (codex) | Per-turn subprocess timeout |
+| `--model` | `sonnet` (claude) / `gpt-5-codex` (codex) / `kimi-k2` (kimi) | Model id passed to the chosen backend |
+| `--turn-timeout` | 600 s (claude) / 900 s (codex/kimi) | Per-turn subprocess timeout |
 | `--max-consecutive-failures` | 3 | Loop bails after N back-to-back failures |
 | `--port` | `0` (ephemeral) | HTTP server port |
 | `--exp-id` | auto | `runs/<model>/<env>/<exp-id>/` segment |
@@ -200,6 +227,14 @@ Codex-only:
 | `--no-codex-bypass-approvals` | (off, i.e. bypass is on) | Drop `--dangerously-bypass-approvals-and-sandbox`; falls back to `-s <mode>` + interactive approvals |
 | `--no-require-codex` | (off) | Skip the PATH check for `codex` |
 
+Kimi-only:
+
+| Flag | Default | What it controls |
+|---|---|---|
+| `--kimi-binary` | `kimi` | Path/name of the kimi binary (kimi-code typically installs to `~/.kimi-code/bin/kimi`) |
+| `--no-kimi-yolo` | (off, i.e. yolo is on) | Drop `-y`; falls back to interactive approvals |
+| `--no-require-kimi` | (off) | Skip the PATH check for `kimi` |
+
 ## Programmatic use
 
 ```python
@@ -210,6 +245,7 @@ from hlbench.http_server import HlbenchHTTPServer
 from hlbench_harness import (
     ClaudeAgent, ClaudeAgentConfig,
     CodexAgent, CodexAgentConfig,
+    KimiAgent, KimiAgentConfig,
 )
 from hlbench_harness.runner import HarnessRunner
 
@@ -233,6 +269,13 @@ with HlbenchHTTPServer(server, port=0) as http:
     #     log_dir=server.run_dir / "logs" / "agent_turns",
     #     config=CodexAgentConfig(model="gpt-5-codex"),
     # )
+    # ... or:
+    # agent = KimiAgent(
+    #     workspace_dir=server.workspace_dir,
+    #     http_url=url,
+    #     log_dir=server.run_dir / "logs" / "agent_turns",
+    #     config=KimiAgentConfig(model="kimi-k2"),
+    # )
     runner = HarnessRunner(server=server, agent=agent,
                            http_url=url, max_turns=8)
     summary = runner.run()
@@ -245,16 +288,19 @@ unchanged.
 
 ## Testing without a real CLI binary
 
-The unit tests don't depend on `claude` or `codex` being installed.
-Each backend's wrapper takes a `--*-binary` override; tests pass a
-tiny Python stub that mimics the JSONL output the real CLI would
-produce. See:
+The unit tests don't depend on `claude`, `codex`, or `kimi` being
+installed. Each backend's wrapper takes a `--*-binary` override;
+tests pass a tiny Python stub that mimics the JSONL output the real
+CLI would produce. See:
 
 - `tests/test_harness_claude_agent.py` — claude stub pattern.
 - `tests/test_harness_codex_agent.py` — codex stub pattern (must
   emit a `session_meta` event so the harness can scrape the codex
   session id; a "no-session_meta" stub exercises the fallback path
   where turn 1 starts a fresh `codex exec` rather than `exec resume`).
+- `tests/test_harness_kimi_agent.py` — kimi stub pattern (covers the
+  three-tier session-id resolution: stream-scrape → session_index.jsonl
+  fallback → ``-C`` continue fallback).
 
 The runner itself uses an in-process `FakeAgent`
 (`tests/test_harness_runner.py`) that performs scripted Server

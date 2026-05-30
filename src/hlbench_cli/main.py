@@ -17,8 +17,8 @@ The manual subcommands (``info`` / ``submit`` / ``finalize``) are pure
 HTTP clients of a running ``hlbench serve`` process. ``init`` and
 ``serve`` use ``hlbench.core.Server`` directly. The ``agent`` subcommand
 delegates to the ``hlbench_harness`` package which spawns
-``claude --print`` or ``codex exec`` in a closed loop (selected via
-``--backend {claude,codex}``).
+``claude --print``, ``codex exec``, or ``kimi -p`` in a closed loop
+(selected via ``--backend {claude,codex,kimi}``).
 
 For programmatic use, drive ``hlbench.core.Server`` directly.
 """
@@ -285,13 +285,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # up here without touching the CLI module.
     p_agent = sub.add_parser(
         "agent",
-        help="run an automated Claude Code / Codex eval loop end-to-end",
+        help="run an automated Claude Code / Codex / Kimi eval loop end-to-end",
         description=(
-            "Drive a Claude Code or OpenAI Codex session through one "
-            "hlbench-pro run. Pass --backend {claude,codex} to pick "
-            "(default: claude). Preserves the agent's conversation "
-            "across iterations via session resume. Writes per-turn "
-            "logs under <run_dir>/logs/agent_turns/."
+            "Drive a Claude Code, OpenAI Codex, or Moonshot Kimi Code "
+            "session through one hlbench-pro run. Pass "
+            "--backend {claude,codex,kimi} to pick (default: claude). "
+            "Preserves the agent's conversation across iterations via "
+            "session resume. Writes per-turn logs under "
+            "<run_dir>/logs/agent_turns/."
         ),
     )
     # Lazy import — avoids paying the harness import cost (gymnasium,

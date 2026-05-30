@@ -47,6 +47,35 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   --backend codex`` under the hood. Both launchers can run
   side-by-side under different ``MODEL_SLUG``s without clobbering.
 
+- **Moonshot Kimi Code CLI as a third backend for `hlbench agent`**.
+  Pick with `--backend kimi`. Implementation in
+  ``src/hlbench_harness/kimi_agent.py`` (~430 lines) wraps
+  ``kimi -p`` (turn 0) / ``kimi -S <session-id> -p`` (turn 1+).
+  Like codex, kimi auto-generates session ids; the harness resolves
+  the id via a three-tier fallback: (1) scrape from
+  ``--output-format stream-json`` events, (2) read
+  ``~/.kimi-code/session_index.jsonl`` filtered by ``workDir``, (3)
+  fall back to ``kimi -C`` (continue most-recent for cwd) with a
+  logged warning. Each hlbench run uses a unique workspace_dir, so
+  the index-lookup tier is exact in practice. Public ``session_id``
+  is a harness-minted UUID4 (stable label); the kimi-internal id
+  (``session_<uuid>``) is held privately for the resume command.
+  Cost / token usage stay None (kimi 0.6's stream-json doesn't
+  surface them). 19 new tests covering session-id scrape, the
+  index-fallback path, the continue-fallback path, the yolo flag,
+  and the cost-stays-None contract.
+- **`--kimi-binary`, `--no-kimi-yolo`, `--no-require-kimi`** —
+  kimi-only flags on `hlbench agent`. Default model is `kimi-k2`,
+  default `--turn-timeout` is 900 s.
+- **`scripts/run_v1_paper_matrix_kimi.sh`** — kimi-backend twin of
+  the claude / codex launchers. Same 16-env v1 paper roster, same
+  parallelism shape, same run-dir layout. Defaults: ``MODEL=kimi-k2``,
+  ``MODEL_SLUG=kimi-auto``, ``EXP_ID=v1paper-kimi-<model>-<timestamp>``.
+  Drives ``scripts/run_matrix.py --backend kimi`` under the hood.
+  All three launchers (claude / codex / kimi) can run side-by-side
+  under different ``MODEL_SLUG``s — directly produces the
+  Sonnet × Codex × Kimi columns for paper/table.md.
+
 - **`hlbench_harness` package + `hlbench-agent` CLI** — automated
   evaluation driver that runs Claude Code through one full
   `init → submit → finalize` loop on any registered env, preserving

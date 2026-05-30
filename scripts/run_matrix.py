@@ -81,14 +81,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-turns", type=int, default=8,
                    help="harness max_turns per env (default: 8)")
     p.add_argument(
-        "--backend", default="claude", choices=("claude", "codex"),
+        "--backend", default="claude", choices=("claude", "codex", "kimi"),
         help="agent CLI backend (default: claude). Forwarded to "
              "`hlbench agent --backend`.",
     )
     p.add_argument("--model", default="sonnet",
                    help="--model passed to the chosen backend "
-                        "(default: sonnet for claude, set --model gpt-5-codex "
-                        "or similar for codex)")
+                        "(default: sonnet for claude; set --model "
+                        "gpt-5-codex for codex, kimi-k2 for kimi)")
     p.add_argument("--model-slug", default="claude-code-auto",
                    help="run.json:model slug; also the runs-root subdir")
     p.add_argument("--turn-timeout", type=int, default=900,
@@ -96,6 +96,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--codex-binary", default=None,
                    help="path to codex binary (only used when --backend codex; "
                         "default: 'codex' on PATH)")
+    p.add_argument("--kimi-binary", default=None,
+                   help="path to kimi binary (only used when --backend kimi; "
+                        "default: 'kimi' on PATH)")
 
     # ---- run-dir layout ----
     p.add_argument("--runs-root", default="./runs",
@@ -136,6 +139,8 @@ def _build_cmd(args: argparse.Namespace, env_id: str, exp_id: str) -> list[str]:
     ]
     if args.backend == "codex" and args.codex_binary:
         cmd.extend(["--codex-binary", args.codex_binary])
+    if args.backend == "kimi" and args.kimi_binary:
+        cmd.extend(["--kimi-binary", args.kimi_binary])
     return cmd
 
 

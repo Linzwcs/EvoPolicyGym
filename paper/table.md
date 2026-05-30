@@ -187,6 +187,96 @@ maze structures of the same procedural class."
 
 ---
 
+## Acceptance / verification results
+
+To validate the v1 scored suite end-to-end, we ran the full 16-env
+matrix on **Claude Sonnet 4.6** under the standard configuration:
+
+- `budget = 256` episodes/env
+- `max-turns = 256` (uncapped — the agent decides when to stop)
+- `turn-timeout = 1800s`
+- `max-parallel = 4` (4 envs concurrently)
+- exp-id `v1paper-sonnet-b256-20260530-0154`
+
+Total wall: ~3h11m on a single MacBook Pro (M-series). Per-env
+results below; the per-env `run.json` is preserved at
+`runs/claude-code-auto/<env>/v1paper-sonnet-b256-20260530-0154/`.
+
+| # | Category | Env | `final_score` | held-out mean return | n_submits |
+|---|---|---|---:|---:|---:|
+| 1 | Classic | `cartpole_balance` | **100.00** | 500.00 | 2 |
+| 2 | Classic | `pendulum` | **101.07** | -138.77 | 14 |
+| 3 | Classic | `acrobot` | **95.23** | -100.02 | 15 |
+| 4 | Classic | `mountain_car_continuous` | **104.52** | 99.34 | 17 |
+| 5 | Box2D | `lunar_hardcore` | **120.00** | 231.81 | 18 |
+| 6 | Box2D | `bipedal_hardcore` | **0.00** | -101.94 | 18 |
+| 7 | Box2D | `car_racing` | **85.04** | 410.24 | 22 |
+| 8 | Box2D | `car_racing_pixel` | **58.11** | 481.10 | 15 |
+| 9 | MuJoCo | `half_cheetah` | **14.59** | 764.87 | 23 |
+| 10 | MuJoCo | `hopper` | **30.01** | 1053.97 | 103 |
+| 11 | MuJoCo | `walker2d` | **20.16** | 911.27 | 34 |
+| 12 | MuJoCo | `ant` | **17.01** | 979.12 | 31 |
+| 13 | MiniGrid | `minigrid_doorkey` | **103.33** | 0.98 | 5 |
+| 14 | MiniGrid | `minigrid_keycorridor` | **103.64** | 0.93 | 8 |
+| 15 | MiniGrid | `minigrid_lavacrossing` | **106.48** | 0.96 | 3 |
+| 16 | MiniGrid | `minigrid_obstructedmaze` | **90.71** | 0.82 | 21 |
+| | | **mean (all 16)** | **71.87** | | |
+
+### Per-category aggregate
+
+| Category | Mean `final_score` (4 envs) | Spread (max − min) |
+|---|---:|---:|
+| Classic Control | **100.21** | 9.29 (95.23 → 104.52) |
+| Box2D | **65.79** | 120.00 (0.00 → 120.00) |
+| MuJoCo | **20.44** | 15.42 (14.59 → 30.01) |
+| MiniGrid | **101.04** | 15.77 (90.71 → 106.48) |
+
+### Capability cartography
+
+The 16-env scores form a **clear three-tier distribution** that maps
+to recognizable LLM capability axes:
+
+| Tier | Range | Count | Envs | What it tests |
+|---|---|---:|---|---|
+| 🏆 **Ceiling** | ≥ 90 | 9 | cartpole 100 / pendulum 101 / acrobot 95 / mountain_car 105 / lunar_hardcore 120 / minigrid all 4 (91-106) | textbook control + symbolic POMDP — solved by code recall |
+| 🌫️ **Mid** | 50–89 | 2 | car_racing 85 / car_racing_pixel 58 | visual reasoning at limited resolution |
+| ⬇️ **Floor** | < 35 | 5 | bipedal_hardcore 0 / half_cheetah 15 / walker2d 20 / ant 17 / hopper 30 | fine motor control synthesis (MuJoCo locomotion + Box2D bipedal) |
+
+**Headline finding (paper Section 6 / Section 7.1)**:
+Sonnet at budget=256 achieves a **bimodal score distribution** — it
+reaches the per-env ceiling on 9 of 16 envs via code recall of
+textbook controllers (PD, energy shaping, BFS planning), but cannot
+synthesize working code for fine motor control on any of the 4
+MuJoCo locomotion envs (mean = 20.4) or for BipedalWalkerHardcore
+(0.0). The visual envs (car_racing variants) sit in the middle,
+with full-resolution pixel input penalizing the score by ~27 points
+relative to the 16×16 downsampled lite variant.
+
+### Notes on calibration
+
+A few baselines need refinement before paper submission:
+
+- **`lunar_hardcore` clipped at 120**: the score reached the
+  `clip(0, 1.2) × 100` upper bound, suggesting `expert_baseline`
+  is conservative. Suggest re-calibrating to a stronger expert
+  (estimated ≈ +250 raw return) before paper publication.
+- **`mountain_car_continuous` slightly above 100 (104.5)**: also
+  hints at conservative `expert_baseline`. Less critical since not
+  clipped.
+- **`hopper` n_submits = 103**: agent retried unusually many times.
+  Worth inspecting the trace for "stuck in local optimum" dynamics
+  vs natural exploration.
+- **`car_racing` regression (b64 = 106.7 → b256 = 85.0)**: more
+  budget produced a *worse* score on the lite variant. Possible
+  over-iteration / held-out variance. Worth investigating before
+  publication.
+
+These are calibration items, not protocol bugs — the suite as a
+whole is performing as designed (bimodal distribution with clear
+capability axes).
+
+---
+
 ## Additional registered envs (not in v1 scored suite)
 
 The benchmark registry also contains **7 additional envs** not part of

@@ -37,6 +37,15 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - **`model_slug` on `harness_runner.json` / `agent.jsonl`** is now
   backend-aware: was always ``claude:<model>``; now
   ``<backend>:<model>`` (e.g. ``codex:gpt-5-codex``).
+- **`scripts/run_v1_paper_matrix_codex.sh`** — codex-backend twin of
+  the existing claude launcher. Same 16-env v1 paper roster, same
+  parallelism shape, same run-dir layout; only the agent driver
+  differs. Defaults: ``MODEL=gpt-5-codex``, ``MODEL_SLUG=codex-auto``,
+  ``EXP_ID=v1paper-codex-<model>-<timestamp>``. Preflight checks
+  ``codex`` instead of ``claude`` and points users at ``codex login``
+  / ``OPENAI_API_KEY`` for auth. Drives ``scripts/run_matrix.py
+  --backend codex`` under the hood. Both launchers can run
+  side-by-side under different ``MODEL_SLUG``s without clobbering.
 
 - **`hlbench_harness` package + `hlbench-agent` CLI** — automated
   evaluation driver that runs Claude Code through one full

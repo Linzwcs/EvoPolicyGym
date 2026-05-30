@@ -275,70 +275,81 @@ These are calibration items, not protocol bugs — the suite as a
 whole is performing as designed (bimodal distribution with clear
 capability axes).
 
-### Model comparison: Sonnet 4.6 vs M2.7
+### Paper Table 1: Cross-model × cross-env matrix
 
-On 2026-05-30 we also ran the full 16-env matrix on a second
-model — an internal variant ID'd as **M2.7** (model_slug
-`claude-code-minimax`, exp_id `v1paper-MiniMax-M2.7-20260530-015157`).
-Same configuration (`budget=256`, `max-turns=256`, `parallel=4`).
+This is the canonical paper table — **rows = (model, harness) pair**,
+**columns = 16 v1 scored envs**, cells = `final_score` on held-out.
+Higher is better; envs are grouped by Gymnasium category (4 each).
 
-| # | Category | Env | Sonnet 4.6 | M2.7 | Δ (Sonnet − M2.7) |
-|---|---|---|---:|---:|---:|
-| 1 | Classic | `cartpole_balance` | 100.00 | 100.00 | 0.00 |
-| 2 | Classic | `pendulum` | 101.07 | **0.00** | +101.07 |
-| 3 | Classic | `acrobot` | 95.23 | 97.01 | −1.78 |
-| 4 | Classic | `mountain_car_continuous` | 104.52 | 93.57 | +10.95 |
-| 5 | Box2D | `lunar_hardcore` | 120.00 | **0.00** | +120.00 |
-| 6 | Box2D | `bipedal_hardcore` | 0.00 | 8.38 | −8.38 |
-| 7 | Box2D | `car_racing` | 85.04 | 2.86 | +82.18 |
-| 8 | Box2D | `car_racing_pixel` | 58.11 | 7.96 | +50.15 |
-| 9 | MuJoCo | `half_cheetah` | 14.59 | 4.10 | +10.49 |
-| 10 | MuJoCo | `hopper` | 30.01 | 4.12 | +25.89 |
-| 11 | MuJoCo | `walker2d` | 20.16 | 0.52 | +19.64 |
-| 12 | MuJoCo | `ant` | 17.01 | 17.30 | −0.29 |
-| 13 | MiniGrid | `minigrid_doorkey` | 103.33 | **0.00** | +103.33 |
-| 14 | MiniGrid | `minigrid_keycorridor` | 103.64 | **0.00** | +103.64 |
-| 15 | MiniGrid | `minigrid_lavacrossing` | 106.48 | **0.00** | +106.48 |
-| 16 | MiniGrid | `minigrid_obstructedmaze` | 90.71 | **0.00** | +90.71 |
-| | | **mean (all 16)** | **71.87** | **20.86** | **+51.01** |
+Column abbreviations (full env IDs in §"Suite at a glance"):
 
-### Per-category model comparison
+| Abbr | Full env id | Abbr | Full env id |
+|---|---|---|---|
+| `cp` | `cartpole_balance` | `chee` | `half_cheetah` |
+| `pen` | `pendulum` | `hop` | `hopper` |
+| `acr` | `acrobot` | `walk` | `walker2d` |
+| `mtn` | `mountain_car_continuous` | `ant` | `ant` |
+| `lun-h` | `lunar_hardcore` | `mg-dk` | `minigrid_doorkey` |
+| `bip-h` | `bipedal_hardcore` | `mg-kc` | `minigrid_keycorridor` |
+| `car` | `car_racing` (16×16 lite) | `mg-lv` | `minigrid_lavacrossing` |
+| `car-px` | `car_racing_pixel` (96×96 full) | `mg-om` | `minigrid_obstructedmaze` |
 
-| Category | Sonnet mean | M2.7 mean | Δ |
-|---|---:|---:|---:|
-| Classic Control | **100.21** | **72.65** | +27.56 |
-| Box2D | **65.79** | **4.80** | +60.99 |
-| MuJoCo | **20.44** | **6.51** | +13.93 |
-| MiniGrid | **101.04** | **0.00** | +101.04 |
+#### Score matrix
 
-### Headline: the benchmark discriminates models cleanly
+|                              |    cp |   pen |   acr |   mtn | lun-h | bip-h |   car | car-px |  chee |   hop |  walk |   ant | mg-dk | mg-kc | mg-lv | mg-om |  mean |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Sonnet 4.6 + Claude Code** | 100.0 | 101.1 |  95.2 | 104.5 | 120.0 |   0.0 |  85.0 |  58.1 |  14.6 |  30.0 |  20.2 |  17.0 | 103.3 | 103.6 | 106.5 |  90.7 | **71.9** |
+| **M2.7 + Claude Code**       | 100.0 |   0.0 |  97.0 |  93.6 |   0.0 |   8.4 |   2.9 |   8.0 |   4.1 |   4.1 |   0.5 |  17.3 |   0.0 |   0.0 |   0.0 |   0.0 | **20.9** |
+| **Δ (Sonnet − M2.7)**        |   0.0 | +101.1 |  −1.8 | +10.9 | +120.0 |  −8.4 | +82.1 | +50.1 | +10.5 | +25.9 | +19.7 |  −0.3 | +103.3 | +103.6 | +106.5 | +90.7 | **+51.0** |
 
-**Mean gap**: Sonnet 71.87 vs M2.7 20.86 = **+51 final_score** across
-the 16-env suite. Per-env spread is huge (+0 on cartpole, +120 on
-lunar_hardcore), validating that the suite is **not saturating** —
+#### Per-category mean
+
+| Model + Harness | Classic (4 envs) | Box2D (4 envs) | MuJoCo (4 envs) | MiniGrid (4 envs) | All 16 |
+|---|---:|---:|---:|---:|---:|
+| Sonnet 4.6 + Claude Code | **100.2** |  **65.8** | **20.4** | **101.0** | **71.9** |
+| M2.7 + Claude Code       |  **72.6** |   **4.8** |  **6.5** |   **0.0** | **20.9** |
+| Δ                        |  +27.6 |  +61.0 | +13.9 | +101.0 | +51.0 |
+
+#### Notes for new rows
+
+To add a new row for another (model, harness) pair, append it
+following the same column order. Source data lives in
+`runs/<model_slug>/<env>/<exp_id>/run.json:outcome.final_score`;
+the helper `scripts/aggregate_runs.py --pivot env --format markdown`
+generates a wide-format table directly from disk for inspection
+(rearrange columns to match the order above for paper insertion).
+
+Expected next rows (pending runs):
+
+- `Opus 4.7 + Claude Code` — same harness, stronger model
+- `GPT-5 + ?` — needs an OpenAI-API agent wrapper (analogue of
+  `hlbench_harness.claude_agent` for the OpenAI SDK)
+- `Gemini 2.5 + ?` — same, for Google's API
+
+### Headline findings (2-model)
+
+**Mean gap: Sonnet 71.9 vs M2.7 20.9 = +51 final_score across the
+16-env suite.** Per-env spread is huge (0 on cartpole, +120 on
+lunar_hardcore), validating the benchmark is **not saturating** —
 different agents map to different score profiles.
 
-**Where M2.7 fails (score ≤ 10)**:
-- All 4 MiniGrid envs (0/0/0/0) — symbolic POMDP with packed obs
-- `pendulum` (0) — basic swing-up, even Sonnet hits 99+
-- `lunar_hardcore` (0) — wind-disturbed continuous control
-- `car_racing` (2.9), `car_racing_pixel` (7.9) — visual control
-- `half_cheetah` (4.1), `hopper` (4.1), `walker2d` (0.5) — MuJoCo locomotion
+**Where M2.7 fails** (score ≤ 10): all 4 MiniGrid envs (0/0/0/0,
+likely struggling with packed obs encoding), `pendulum` (0,
+basic swing-up), `lunar_hardcore` (0, wind-disturbed control),
+`car_racing` (2.9), `car_racing_pixel` (8.0), `half_cheetah` (4.1),
+`hopper` (4.1), `walker2d` (0.5).
 
-**Where M2.7 matches or beats Sonnet** (Δ ≤ 0):
-- `cartpole_balance` (tied, 100/100) — EASY anchor sanity
-- `acrobot` (97 vs 95) — slightly better
-- `bipedal_hardcore` (8.4 vs 0.0) — slightly better in absolute terms,
-  but Sonnet's 0.0 likely reflects a stricter optimization that
-  generalized worse on held-out (not surprising for this floor env)
-- `ant` (17.3 vs 17.0) — essentially tied
+**Where M2.7 matches or beats Sonnet** (Δ ≤ 0): `cartpole_balance`
+(tied 100/100, EASY anchor sanity), `acrobot` (97 vs 95, slightly
+better), `bipedal_hardcore` (8.4 vs 0.0), `ant` (17.3 vs 17.0).
 
 **Interpretation**: The benchmark cleanly separates the two models on
-**14 of 16 envs**, with Sonnet showing the bimodal "ceiling +
-locomotion floor" pattern, while M2.7 shows a much narrower band
-(only 3 envs above 50: cartpole, acrobot, mountain_car). The total
-collapse on MiniGrid suggests M2.7 may struggle with the packed obs
-encoding specifically (worth investigating in trace replay).
+**14 of 16 envs**. Sonnet shows the bimodal "ceiling + locomotion
+floor" pattern (9 envs ≥ 90, 5 envs ≤ 30); M2.7 shows a much
+narrower band (only 3 envs above 50 — cartpole, acrobot,
+mountain_car). The total collapse on MiniGrid suggests M2.7 may
+struggle with the packed obs encoding specifically (worth
+investigating in trace replay).
 
 This is the **first inter-model discrimination data** confirming the
 v1 suite serves its design purpose — distinguishing agent capabilities

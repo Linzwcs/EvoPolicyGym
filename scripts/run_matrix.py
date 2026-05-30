@@ -8,7 +8,7 @@ wait for all to complete, then aggregate ``run.json`` +
 Each run is isolated:
   - its own ephemeral HTTP port (per ``hlbench agent --port 0`` default)
   - its own run dir ``<runs-root>/<model-slug>/<env>/<exp-id>/``
-  - its own claude session UUID
+  - its own agent session label (claude UUID or codex-scraped id)
   - its own stdout/stderr log at ``<runs-root>/_matrix_logs/<exp-id>__<env>.log``
 
 So no coordination code is needed — each subprocess fully isolates
@@ -27,6 +27,11 @@ Usage::
     .venv/bin/python scripts/run_matrix.py \\
         --envs pendulum --budget 16 --max-turns 4 --model haiku
         # Cheap single-env probe to validate the pipeline (~$0.50).
+
+    .venv/bin/python scripts/run_matrix.py \\
+        --backend codex --model gpt-5-codex --model-slug codex-auto \\
+        --envs pendulum --budget 16 --max-turns 4
+        # Same matrix shape but driven by OpenAI Codex CLI.
 
 Exit code: 0 if every env completed with ``run.json:outcome.status ==
 "completed"``; 1 otherwise. Even on partial failure, the summary table
@@ -75,12 +80,22 @@ def parse_args() -> argparse.Namespace:
                    help="episode_budget per env (default: 32)")
     p.add_argument("--max-turns", type=int, default=8,
                    help="harness max_turns per env (default: 8)")
+    p.add_argument(
+        "--backend", default="claude", choices=("claude", "codex"),
+        help="agent CLI backend (default: claude). Forwarded to "
+             "`hlbench agent --backend`.",
+    )
     p.add_argument("--model", default="sonnet",
-                   help="claude --model (default: sonnet)")
+                   help="--model passed to the chosen backend "
+                        "(default: sonnet for claude, set --model gpt-5-codex "
+                        "or similar for codex)")
     p.add_argument("--model-slug", default="claude-code-auto",
                    help="run.json:model slug; also the runs-root subdir")
     p.add_argument("--turn-timeout", type=int, default=900,
                    help="seconds per agent turn (default: 900)")
+    p.add_argument("--codex-binary", default=None,
+                   help="path to codex binary (only used when --backend codex; "
+                        "default: 'codex' on PATH)")
 
     # ---- run-dir layout ----
     p.add_argument("--runs-root", default="./runs",
@@ -107,8 +122,9 @@ def parse_args() -> argparse.Namespace:
 
 def _build_cmd(args: argparse.Namespace, env_id: str, exp_id: str) -> list[str]:
     """The exact ``hlbench agent`` invocation for one env."""
-    return [
+    cmd = [
         args.hlbench_bin, "agent",
+        "--backend", args.backend,
         "--env", env_id,
         "--budget", str(args.budget),
         "--max-turns", str(args.max_turns),
@@ -118,6 +134,9 @@ def _build_cmd(args: argparse.Namespace, env_id: str, exp_id: str) -> list[str]:
         "--runs-root", args.runs_root,
         "--exp-id", exp_id,
     ]
+    if args.backend == "codex" and args.codex_binary:
+        cmd.extend(["--codex-binary", args.codex_binary])
+    return cmd
 
 
 def _run_one_env(

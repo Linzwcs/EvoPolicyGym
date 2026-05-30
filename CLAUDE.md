@@ -4,21 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-The harness has shipped through **0.1.0a1** (May 2026) — single env
-(Pendulum-v1), full `init → submit → finalize` pipeline, canonical
+**Last shipped tag:** `0.1.0a1` (May 2026) — single env (Pendulum-v1),
+full `init → submit → finalize` pipeline, canonical
 `runs/<model>/<env>/<exp-id>/` layout, per-submit `checkpoints/`,
 per-episode `stdout.txt` / `stderr.txt` capture, 64 KB error-file
 truncation, `denied_imports` enforced via meta-path import hook,
 `submit_wall_s` enforced, `harness.log` lifecycle log, `GET /task`
-endpoint. 119 tests + mypy strict + ruff clean. See `CHANGELOG.md` for
-the full 0.1.0a0 → 0.1.0a1 delta.
+endpoint. 119 tests + mypy strict + ruff clean. See `CHANGELOG.md`
+for the full 0.1.0a0 → 0.1.0a1 delta.
 
-The next deferred items (per `CHANGELOG.md` "Known limitations"):
-network blocking, RSS-poll OOM, pixel envs (`observations.npy` /
-`video.mp4`), `agent.jsonl`, additional envs (HalfCheetah / CarRacing /
-Atari). When asked to extend, prefer one focused addition per commit,
-keep tests / mypy / ruff green throughout, and log spec changes in
-`CHANGELOG.md`'s `[Unreleased]` section.
+**Unreleased (since 0.1.0a1):** registry expanded from 1 → 20 envs
+(classic-control + box2d + custom hardcore + online-algo trio +
+MuJoCo + MiniGrid + CarRacing-lite); `observations.npy` external-obs
+side-car landed; `agent.jsonl` operator log per `output.md §6.2`;
+streaming `claude --print` capture (`turn_NNN.stream.jsonl`); per-env
+starter policies auto-staged; `hlbench_harness` package + `hlbench
+agent` subcommand; **OpenAI Codex CLI as a second backend (`--backend
+{claude,codex}`)**. 251 tests + mypy strict + ruff clean.
+
+**Still deferred** (real items, not done): socket-level network
+blocking, psutil-based RSS-poll OOM detection, `video.mp4` per-episode
+rendering, full 96×96 CarRacing obs (the `car_racing_pixel` shell
+is wired but waits on the external-storage bookkeeping). Also
+deferred: per-turn cost / token surfacing for the codex backend
+(Codex 0.133's `--json` doesn't carry usage yet). When asked to
+extend, prefer one focused addition per commit, keep tests / mypy /
+ruff green throughout, and log spec changes in `CHANGELOG.md`'s
+`[Unreleased]` section.
 
 ## Document map
 

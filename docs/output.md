@@ -54,8 +54,10 @@ characters.
 
 | Examples | Notes |
 |---|---|
-| `claude-opus-4-7` | Frontier LLM |
-| `claude-sonnet-4-6` | |
+| `claude-opus-4-7` | Frontier LLM (claude backend) |
+| `claude-sonnet-4-6` | (claude backend) |
+| `claude-code-auto` | Default slug for `hlbench agent --backend claude` |
+| `codex-gpt-5` / `codex-auto` | Codex backend (`hlbench agent --backend codex`); `model_slug` is whatever the operator passes — backend is reflected separately in `agent.jsonl:agent_start:model` as `codex:<model>` |
 | `gpt-5-4` | |
 | `gemini-2-pro` | |
 | `random` | Random-action baseline |

@@ -114,8 +114,9 @@ if ! command -v claude >/dev/null 2>&1; then
 ERROR: 'claude' (Claude Code) binary not on PATH.
 
 Install: https://claude.com/claude-code/download
-Or for non-Claude models, you'll need a custom agent wrapper
-(see src/hlbench_harness/claude_agent.py for the reference impl).
+For the OpenAI Codex backend instead, install 'codex'
+('npm i -g @openai/codex') and pass --backend codex through
+run_matrix.py (it now supports the flag).
 EOF
     preflight_fail=1
 fi

@@ -21,8 +21,9 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 │                            finalize subcommands) + `agent` thin      │
 │                            wrapper that delegates to hlbench_harness │
 │                                                                      │
-│  src/hlbench_harness/ ←─── automated eval driver; spawns claude      │
-│                            --print and reads back stream events      │
+│  src/hlbench_harness/ ←─── automated eval driver; spawns the agent │
+│                            CLI of choice (claude --print or         │
+│                            codex exec) and reads back JSONL events  │
 │                                                                      │
 │  agents/             ←─── reference policies (e.g. pd_pendulum)      │
 │                                                                      │
@@ -89,7 +90,7 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 | `core/harness_log.py` | 104 | Plain-text lifecycle log writer for `<run_dir>/logs/harness.log`. No-op via `.disabled()`. |
 | `http_server.py` | 201 | stdlib `http.server` thin wrapper. 4 endpoints: `GET /info`, `GET /task`, `POST /submit`, `POST /finalize`. |
 | `envs/registry.py` | 128 | `EnvDefinition` dataclass + `register_env()` + `get_env()`. |
-| `envs/pendulum/` | 145 | The only registered env. `__init__.py` (registration call), `starter_policy.py` (zero-torque skeleton), `TASK.md`, `data/{train,heldout}.json`. |
+| `envs/pendulum/`, `envs/<env_id>/` | varies | 20 registered envs across 6 categories (classic-control, box2d, hardcore variants, online-algo trio, MuJoCo, MiniGrid, CarRacing-lite). Each ships `__init__.py` (registration call), `starter_policy.py` (skeleton auto-staged into `workspace/system/policy.py`), `TASK.md`, `data/{train,heldout}.json`. |
 
 ### 2.2 `src/hlbench_cli/` — argparse HTTP client
 
@@ -97,14 +98,15 @@ For *protocol* contracts read `SPEC.md` / `AGENTS.md` / `docs/output.md`
 |---|---:|---|
 | `main.py` | 284 | `hlbench {init,serve,info,submit,finalize}`. `init` + `serve` use `Server` directly (lib); the rest are pure HTTP clients. |
 
-### 2.3 `src/hlbench_harness/` — automated Claude Code driver
+### 2.3 `src/hlbench_harness/` — automated agent driver (Claude Code or Codex)
 
 | Module | LOC | Role |
 |---|---:|---|
-| `__main__.py` | 252 | `hlbench agent` subcommand handler (also reachable standalone via `python -m hlbench_harness`). Exports `add_subparser_args` + `run_with_args` so `hlbench_cli.main` can mount the flags on its own parser. Spins up Server + HTTP background thread + ClaudeAgent + HarnessRunner. |
-| `runner.py` | 353 | `HarnessRunner` loop. Termination priority: `budget_exhausted` → `agent_finalized` → `consecutive_failures` → `max_turns`. Always auto-finalizes. |
+| `__main__.py` | ~340 | `hlbench agent` subcommand handler (also reachable standalone via `python -m hlbench_harness`). Exports `add_subparser_args` + `run_with_args` so `hlbench_cli.main` can mount the flags on its own parser. Spins up Server + HTTP background thread + the chosen agent (Claude or Codex) + HarnessRunner. Dispatches on `--backend {claude,codex}` (default `claude`). |
+| `runner.py` | 353 | `HarnessRunner` loop. Termination priority: `budget_exhausted` → `agent_finalized` → `consecutive_failures` → `max_turns`. Always auto-finalizes. Backend-agnostic: depends on `AgentLike` Protocol only. |
 | `claude_agent.py` | 409 | `ClaudeAgent` subprocess wrapper around `claude --print --output-format=stream-json`. Pre-allocates UUID; `--session-id` on turn 0, `--resume` on turn 1+. Streams events to `turn_NNN.stream.jsonl` in real time. |
-| `prompts.py` | 303 | `compose_initial_prompt()` (full task + /info JSON + AGENTS.md excerpt + ops instructions) and `compose_continuation_prompt()` (terse: turn header + last submit recap + nudge). |
+| `codex_agent.py` | ~360 | `CodexAgent` subprocess wrapper around `codex exec --json` / `codex exec resume <id>`. Codex doesn't allow caller-allocated session ids, so the wrapper scrapes the id from the first `session_meta` JSONL event on turn 0 and reuses it for every subsequent `exec resume`. Public `session_id` is a harness-minted UUID4 (stable label); the codex-internal id is held privately for command construction. Cost / token usage stay None (Codex 0.133's `--json` doesn't surface them). |
+| `prompts.py` | 303 | `compose_initial_prompt()` (full task + /info JSON + AGENTS.md excerpt + ops instructions) and `compose_continuation_prompt()` (terse: turn header + last submit recap + nudge). Backend-agnostic. |
 | `state.py` | 102 | `TurnObservation` — bridges live `Server.info()` and on-disk `summary.json` files. |
 | `agent_log.py` | 127 | Per-output.md §6.2 JSONL writer for `<run_dir>/logs/agent.jsonl`. `agent_start` / `completion` / `agent_end`. |
 
@@ -204,6 +206,50 @@ ClaudeAgent.run_turn(prompt):
   return TurnResult(...)
 ```
 
+### 3.5 CodexAgent subprocess (codex_agent.py)
+
+```
+CodexAgent.run_turn(prompt):
+  # Turn 0 (or any turn before _codex_session_id is scraped):
+  cmd = ["codex", "exec",
+         "--json", "--skip-git-repo-check",
+         "-C", <workspace>,
+         "--dangerously-bypass-approvals-and-sandbox",   # default on
+         "-m", <gpt-5-codex|id>,
+         <prompt>]
+
+  # Turn 1+ once we've scraped the codex-internal id:
+  cmd = ["codex", "exec", "resume",
+         ... same flags ...,
+         <codex_session_id>, <prompt>]
+
+  Popen(cmd, cwd=workspace, env={HLBENCH_URL, HLBENCH_SESSION_ID, ...})
+  ├── reader thread:  for line in proc.stdout:
+  │                       write to turn_NNN.stream.jsonl + flush
+  │                       parse; if scraped is None and
+  │                         type=="session_meta" → capture payload.id
+  │                         (used to build the next turn's resume cmd)
+  └── main thread:    proc.wait(timeout)
+                      if timeout: kill + drain
+
+  best-effort extract assistant text from accumulated events
+  cost_usd / usage stay None (Codex 0.133 --json doesn't surface them)
+  write turn_NNN.json (last event mirror) + turn_NNN.txt (transcript)
+  return TurnResult(...)
+```
+
+Public `session_id` is a harness-minted UUID4 (stable for the whole
+run, used in `agent.jsonl`/`harness_runner.json`); the scraped
+codex-internal id is held in a private field and used only for the
+`exec resume` command. If turn 0 emits no `session_meta` event,
+turn 1 falls back to a fresh `codex exec` and logs a warning
+rather than resuming against a bogus id.
+
+Both `ClaudeAgent` and `CodexAgent` return the same `TurnResult`
+dataclass shape; the runner uses `getattr` for all field access so
+no shared base/Protocol is required beyond `AgentLike` (`session_id`,
+`turn_count`, `run_turn(prompt)`).
+
 ---
 
 ## 4. Cross-cutting design rules
@@ -301,6 +347,7 @@ runs/<model>/<env>/<exp-id>/
 | `test_harness_state.py` | TurnObservation, summary loading, progress line |
 | `test_harness_runner.py` | Loop termination, force-finalize, agent.jsonl, cost aggregation |
 | `test_harness_claude_agent.py` | Subprocess wrapping, stream-json capture, timeout preservation |
+| `test_harness_codex_agent.py` | Codex backend: session_meta scrape, exec-resume command shape, no-session_meta fallback, cost-stays-None |
 | `test_harness_agent_log.py` | JSONL roundtrip, None-drop, write-failure swallowing |
 
 **167 tests · mypy strict · ruff clean** as of this writing.

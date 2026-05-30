@@ -1,27 +1,61 @@
-# Automated Evaluation with Claude Code
+# Automated Evaluation with Claude Code or OpenAI Codex
 
 The `hlbench agent` subcommand drives a complete `init → submit → finalize`
-loop end-to-end against any registered hlbench-pro env, using
-[Claude Code](https://claude.com/claude-code) as the policy author.
+loop end-to-end against any registered hlbench-pro env, using either
+[Claude Code](https://claude.com/claude-code) or
+[OpenAI Codex CLI](https://github.com/openai/codex) as the policy
+author. Pick the backend with `--backend {claude,codex}` (default
+`claude`).
 
 The key property: **the agent's conversation context is preserved
-across iterations**. Every call to `claude --print` after the first
-uses `--resume <session_id>`, so the inner Claude session sees its own
-prior reasoning, prior code edits, and prior submit feedback as
-ordinary chat history. Contrast with the `../hlbench` reference
-(which spawns a fresh `claude` subprocess per epoch and relies on
-workspace files alone to carry state forward).
+across iterations**. Every turn after the first uses session resume
+(`claude --print --resume <uuid>` or `codex exec resume <id>`), so the
+inner agent sees its own prior reasoning, prior code edits, and prior
+submit feedback as ordinary chat history. Contrast with the
+`../hlbench` reference (which spawns a fresh subprocess per epoch and
+relies on workspace files alone to carry state forward).
+
+## Backends at a glance
+
+| Capability | `--backend claude` | `--backend codex` |
+|---|---|---|
+| Default model | `sonnet` | `gpt-5-codex` |
+| Session id | pre-allocated UUID4 (`claude --session-id`) | scraped from turn 0's `session_meta` event |
+| Resume command | `claude --print --resume <uuid>` | `codex exec resume <session-id>` |
+| Default `--turn-timeout` | 600 s | 900 s (codex's first-call latency on macOS often busts 600) |
+| Per-turn token / cost | surfaced (claude `--output-format=json` carries them) | not surfaced (codex 0.133's `--json` has neither yet) |
+| Sandbox bypass flag | `--claude-permission-mode bypassPermissions` | `--codex-bypass-approvals` (default on) |
+| Session rollout file | inside `<run_dir>/logs/agent_turns/` only | also persisted at `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (cannot be redirected without `--ephemeral`, which is mutually exclusive with resume) |
+
+Both backends produce the same `<run_dir>/logs/` shape (`harness.log`,
+`harness_runner.json`, `agent.jsonl`, `agent_turns/turn_NNN.{...}`) so
+analyst tools work unchanged.
 
 ## Prerequisites
 
-- `claude` (Claude Code CLI) on `$PATH`. Verify with `which claude`.
-- A logged-in / API-keyed Claude Code (the harness inherits whatever
-  auth the local CLI is configured with).
+Common:
+
 - The `hlbench` package installed: `uv pip install --no-deps -e .`
   followed by `uv pip install gymnasium numpy` (per the
   [quickstart](./quickstart.md)).
 
+For `--backend claude`:
+
+- `claude` (Claude Code CLI) on `$PATH`. Verify with `which claude`.
+- A logged-in / API-keyed Claude Code (the harness inherits whatever
+  auth the local CLI is configured with).
+
+For `--backend codex`:
+
+- `codex` (OpenAI Codex CLI 0.133+) on `$PATH`. Install with
+  `npm i -g @openai/codex` or follow the upstream README. Verify
+  with `codex --version`.
+- Auth via `codex login` (writes `~/.codex/auth`) or set
+  `OPENAI_API_KEY`.
+
 ## One-shot: drive a Pendulum run
+
+With **Claude Code** (default backend):
 
 ```bash
 .venv/bin/hlbench agent \
@@ -33,20 +67,37 @@ workspace files alone to carry state forward).
     --exp-id dogfood-1
 ```
 
+With **OpenAI Codex**:
+
+```bash
+.venv/bin/hlbench agent \
+    --backend codex \
+    --env pendulum \
+    --budget 32 \
+    --max-turns 8 \
+    --model gpt-5-codex \
+    --model-slug codex-auto \
+    --runs-root ./runs \
+    --exp-id dogfood-codex-1
+```
+
 What this does:
 
 1. Initializes a fresh run dir at
-   `./runs/claude-code-auto/pendulum/dogfood-1/` (model slug is
-   overridable with `--model-slug`).
+   `./runs/<model-slug>/pendulum/<exp-id>/` (model slug is
+   overridable with `--model-slug`; default `claude-code-auto`).
 2. Starts the hlbench HTTP server on an ephemeral port (default;
    pass `--port 8765` if you want a fixed port).
-3. Generates a UUID for the Claude session and spawns the first turn
-   with `claude --print --session-id <uuid> --output-format json`,
-   passing the initial prompt (workspace path, server URL, full task
-   description, `GET /info` JSON, AGENTS.md highlights, operating
-   instructions).
-4. After the first turn returns, every subsequent turn uses
-   `claude --print --resume <uuid>` so the conversation continues.
+3. For **claude**: generates a UUID and spawns the first turn with
+   `claude --print --session-id <uuid> --output-format stream-json`.
+   For **codex**: spawns `codex exec --json -C <workspace> --skip-git-repo-check
+   --dangerously-bypass-approvals-and-sandbox -m <model> <prompt>`
+   and scrapes the codex session id from turn 0's `session_meta`
+   event. Either way, the initial prompt includes workspace path,
+   server URL, full task description, `GET /info` JSON, AGENTS.md
+   highlights, and operating instructions.
+4. After the first turn returns, every subsequent turn resumes:
+   `claude --print --resume <uuid>` or `codex exec resume <id>`.
    The continuation prompt is short — just the delta state
    (remaining budget, last submit's verdict + mean) and a nudge to
    keep iterating.
@@ -114,21 +165,40 @@ Two files give you the whole picture quickly:
 
 ## Knobs
 
+Shared (apply to both backends):
+
 | Flag | Default | What it controls |
 |---|---|---|
+| `--backend` | `claude` | Pick the agent CLI backend: `claude` or `codex` |
 | `--env` | `pendulum` | Which registered env to run |
 | `--budget` | env's default (256 for Pendulum) | `episode_budget` override |
 | `--max-episodes-per-submit` | env's default | Per-submit cap |
 | `--max-turns` | 12 | Hard cap on harness turns; auto-finalize on overrun |
-| `--model` | `sonnet` | `claude --model` (alias `opus`/`sonnet`/`haiku` or full id) |
-| `--turn-timeout` | 600 s | Per-turn subprocess timeout |
-| `--permission-mode` | `bypassPermissions` | claude tool-permission mode |
-| `--allowed-tools` | `Bash,Read,Edit,Write,Glob,Grep` | claude `--allowedTools` |
+| `--model` | `sonnet` (claude) / `gpt-5-codex` (codex) | Model id passed to the chosen backend |
+| `--turn-timeout` | 600 s (claude) / 900 s (codex) | Per-turn subprocess timeout |
 | `--max-consecutive-failures` | 3 | Loop bails after N back-to-back failures |
 | `--port` | `0` (ephemeral) | HTTP server port |
 | `--exp-id` | auto | `runs/<model>/<env>/<exp-id>/` segment |
 | `--model-slug` | `claude-code-auto` | `run.json:model` field |
-| `--session-id` | auto | Reuse a UUID (e.g., to resume an aborted run later) |
+| `--session-id` | auto | Reuse a UUID (claude only honors it as the literal session id; codex uses it as the harness label) |
+
+Claude-only:
+
+| Flag | Default | What it controls |
+|---|---|---|
+| `--claude-permission-mode` | `bypassPermissions` | claude tool-permission mode (alias `--permission-mode` deprecated) |
+| `--claude-allowed-tools` | `Bash,Read,Edit,Write,Glob,Grep` | claude `--allowedTools` (alias `--allowed-tools` deprecated) |
+| `--claude-binary` | `claude` | Path/name of the claude binary |
+| `--no-require-claude` | (off) | Skip the PATH check for `claude` |
+
+Codex-only:
+
+| Flag | Default | What it controls |
+|---|---|---|
+| `--codex-binary` | `codex` | Path/name of the codex binary |
+| `--codex-sandbox-mode` | `workspace-write` | codex `-s` policy (only used with `--no-codex-bypass-approvals`) |
+| `--no-codex-bypass-approvals` | (off, i.e. bypass is on) | Drop `--dangerously-bypass-approvals-and-sandbox`; falls back to `-s <mode>` + interactive approvals |
+| `--no-require-codex` | (off) | Skip the PATH check for `codex` |
 
 ## Programmatic use
 
@@ -137,7 +207,10 @@ from pathlib import Path
 
 from hlbench.core.server import Server
 from hlbench.http_server import HlbenchHTTPServer
-from hlbench_harness.claude_agent import ClaudeAgent, ClaudeAgentConfig
+from hlbench_harness import (
+    ClaudeAgent, ClaudeAgentConfig,
+    CodexAgent, CodexAgentConfig,
+)
 from hlbench_harness.runner import HarnessRunner
 
 server = Server(env_id="pendulum", runs_root=Path("./runs"),
@@ -146,28 +219,47 @@ server = Server(env_id="pendulum", runs_root=Path("./runs"),
 
 with HlbenchHTTPServer(server, port=0) as http:
     url = f"http://{http.host}:{http.port}"
+    # Pick one:
     agent = ClaudeAgent(
         workspace_dir=server.workspace_dir,
         http_url=url,
         log_dir=server.run_dir / "logs" / "agent_turns",
         config=ClaudeAgentConfig(model="haiku", timeout_seconds=300),
     )
+    # ... or:
+    # agent = CodexAgent(
+    #     workspace_dir=server.workspace_dir,
+    #     http_url=url,
+    #     log_dir=server.run_dir / "logs" / "agent_turns",
+    #     config=CodexAgentConfig(model="gpt-5-codex"),
+    # )
     runner = HarnessRunner(server=server, agent=agent,
                            http_url=url, max_turns=8)
     summary = runner.run()
     print(f"final_score = {summary.final_result['final_score']}")
 ```
 
-## Testing without `claude`
+Both backends satisfy the same `AgentLike` Protocol (`session_id`,
+`turn_count`, `run_turn(prompt) -> TurnResult`), so the runner works
+unchanged.
 
-The unit tests don't depend on a real `claude` binary. The harness's
-subprocess wrapper takes a `--claude-binary` override; tests pass a
-tiny Python stub that mimics `--print --output-format=json`. See
-`tests/test_harness_claude_agent.py` for the pattern. The runner
-itself uses an in-process `FakeAgent` (`tests/test_harness_runner.py`)
-that performs scripted Server actions per turn — useful for
-verifying loop control (termination, auto-finalize, failure
-counter) without an LLM in the loop.
+## Testing without a real CLI binary
+
+The unit tests don't depend on `claude` or `codex` being installed.
+Each backend's wrapper takes a `--*-binary` override; tests pass a
+tiny Python stub that mimics the JSONL output the real CLI would
+produce. See:
+
+- `tests/test_harness_claude_agent.py` — claude stub pattern.
+- `tests/test_harness_codex_agent.py` — codex stub pattern (must
+  emit a `session_meta` event so the harness can scrape the codex
+  session id; a "no-session_meta" stub exercises the fallback path
+  where turn 1 starts a fresh `codex exec` rather than `exec resume`).
+
+The runner itself uses an in-process `FakeAgent`
+(`tests/test_harness_runner.py`) that performs scripted Server
+actions per turn — useful for verifying loop control (termination,
+auto-finalize, failure counter) without an LLM in the loop.
 
 ## Why one continuous session?
 

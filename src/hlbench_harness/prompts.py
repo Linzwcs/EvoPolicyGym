@@ -196,7 +196,7 @@ harness can log it.
 def compose_continuation_prompt(obs: TurnObservation, *, max_turns: int) -> str:
     """Build the prompt for a ``--resume`` turn.
 
-    The resumed Claude session already has the task description and
+    The resumed agent session already has the task description and
     rules from the initial prompt. We just tell it the current state
     delta and nudge it to continue.
 

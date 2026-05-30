@@ -8,6 +8,36 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **OpenAI Codex CLI backend for `hlbench agent`** (alongside the
+  existing Claude Code backend). Pick with `--backend {claude,codex}`
+  on `hlbench agent` (default `claude`, byte-identical to prior
+  behavior). Codex backend implementation in
+  ``src/hlbench_harness/codex_agent.py`` (~360 lines) wraps
+  ``codex exec --json`` (turn 0) / ``codex exec resume <id>``
+  (turn 1+). Codex 0.133+ does not let callers pre-allocate a session
+  UUID — the harness scrapes the id from the first ``session_meta``
+  JSONL event on turn 0, then reuses it for every subsequent turn's
+  ``exec resume``. If turn 0 emits no ``session_meta`` (binary
+  missing, auth failure), turn 1 falls back to a fresh ``codex exec``
+  with a logged warning rather than resuming against a bogus id.
+  Per-turn artifacts (``turn_NNN.{stream.jsonl,json,txt,prompt.txt}``)
+  follow the same shape as the Claude backend so analyst tools work
+  unchanged. Cost / token usage stay ``None`` for the codex backend
+  (Codex 0.133's ``--json`` doesn't surface them). 13 new tests
+  covering session-id scrape, the resume command shape, the
+  no-``session_meta`` fallback, the bypass-vs-sandbox-mode mutual
+  exclusion, and the cost-stays-None contract.
+- **`--codex-binary`, `--codex-sandbox-mode`,
+  `--no-codex-bypass-approvals`, `--no-require-codex`** —
+  codex-only flags on `hlbench agent`.
+- **Backend-aware defaults** for shared flags: `--model` defaults to
+  `sonnet` for claude / `gpt-5-codex` for codex; `--turn-timeout`
+  defaults to 600 s for claude / 900 s for codex (codex's first-call
+  latency on macOS commonly busts 600).
+- **`model_slug` on `harness_runner.json` / `agent.jsonl`** is now
+  backend-aware: was always ``claude:<model>``; now
+  ``<backend>:<model>`` (e.g. ``codex:gpt-5-codex``).
+
 - **`hlbench_harness` package + `hlbench-agent` CLI** — automated
   evaluation driver that runs Claude Code through one full
   `init → submit → finalize` loop on any registered env, preserving
@@ -251,6 +281,14 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   all six operations (``init`` / ``serve`` / ``info`` / ``submit`` /
   ``finalize`` / ``agent``). Old scripts calling ``hlbench-agent ...``
   must update to ``hlbench agent ...``.
+- **`--permission-mode` → `--claude-permission-mode`,
+  `--allowed-tools` → `--claude-allowed-tools`.** Old names kept as
+  deprecated aliases (argparse multi-name accepted) for one release;
+  existing shell scripts continue to work. None of
+  `scripts/run_matrix.py`, `scripts/run_bench.sh`, or
+  `scripts/run_v1_paper_matrix.sh` set these flags so the rename is
+  non-breaking. Introduced alongside the codex backend so backend-only
+  knobs (claude vs codex) are namespace-tagged.
 
 ### Design notes
 

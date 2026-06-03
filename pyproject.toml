@@ -1,0 +1,102 @@
+[project]
+name = "evopolicygym"
+version = "0.1.0"
+description = "Benchmark infrastructure for feedback-driven coding agents."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "EvoPolicyGym contributors" }]
+keywords = ["benchmark", "agents", "reinforcement-learning", "gymnasium", "evaluation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "huggingface-hub>=1.17.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+evopolicygym = "evopolicygym.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.12.0",
+]
+env-gym = [
+    "autorom[accept-rom-license]>=0.6.1",
+    "gymnasium[atari,box2d,mujoco]>=1.2.0",
+]
+env-compatible = [
+    "gymnasium-robotics>=1.4.2",
+    "highway-env>=1.11",
+    "minigrid>=3.1.0",
+    "mo-gymnasium>=1.3.2",
+    "pettingzoo>=1.26.1",
+    "shimmy>=2.0.1",
+]
+env-visual = [
+    "miniworld>=2.1.0",
+]
+env-heavy = [
+    "metaworld>=3.0.0",
+]
+env-multi = [
+    "magent2>=0.3.4",
+    "momaland>=0.2.0",
+    "mpe2>=1.1.0",
+]
+env-web = [
+    "browsergym-miniwob>=0.14.3",
+]
+env-jax = [
+    "gymnasium[jax]>=1.3.0",
+]
+env-mario = [
+    "mo-gymnasium[mario]>=1.3.2",
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "env-jax" },
+        { extra = "env-mario" },
+    ],
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B009"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["B017"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evopolicygym"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/SECURITY.md",
+    "/AGENTS.md",
+    "/pyproject.toml",
+    "/uv.lock",
+]

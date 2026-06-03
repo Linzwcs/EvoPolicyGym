@@ -1,0 +1,1097 @@
+# Environment List
+
+> Generated from installed optional packages. This is the canonical
+> EvoPolicyGym environment backlog for the current dependency stack.
+
+Legend:
+
+- `[x]`: already available through an EvoPolicyGym registration.
+- `[ ]`: discovered upstream registry id, not yet integrated through the generic adapter.
+
+## Summary
+
+| Family | Count |
+|---|---:|
+| Official Gymnasium: Classic Control | 6 |
+| Official Gymnasium: Toy Text | 4 |
+| Official Gymnasium: JAX | 5 |
+| Official Gymnasium: Box2D | 3 |
+| Official Gymnasium: MuJoCo | 22 |
+| Official Gymnasium: Atari / ALE | 352 |
+| MiniGrid | 82 |
+| MiniWorld | 23 |
+| HighwayEnv | 8 |
+| Gymnasium-Robotics | 217 |
+| MO-Gymnasium | 40 |
+| BrowserGym MiniWoB++ | 126 |
+| MetaWorld | 50 |
+| Total | 938 |
+
+## Official Gymnasium: Classic Control (6)
+
+- [x] Acrobot-v1 - available as `gym/acrobot`
+- [ ] CartPole-v0
+- [x] CartPole-v1 - available as built-in env `cartpole` and `gym/cartpole`
+- [x] MountainCar-v0 - available as `gym/mountaincar`
+- [x] MountainCarContinuous-v0 - available as `gym/continuouscar`
+- [x] Pendulum-v1 - available as `gym/pendulum`
+
+## Official Gymnasium: Toy Text (4)
+
+- [x] Blackjack-v1 - available as `gym/blackjack`
+- [x] CliffWalking-v1 - available as `gym/cliff`
+- [x] FrozenLake-v1 - available as `gym/frozenlake`
+- [x] Taxi-v4 - available as `gym/taxi`
+
+## Official Gymnasium: JAX (5)
+
+- [ ] phys2d/CartPole-v0
+- [ ] phys2d/CartPole-v1
+- [ ] phys2d/Pendulum-v0
+- [ ] tabular/Blackjack-v0
+- [ ] tabular/CliffWalking-v0
+
+## Official Gymnasium: Box2D (3)
+
+- [x] BipedalWalker-v3 - available as `gym/bipedal` (L1 smoke)
+- [x] CarRacing-v3 - available as `gym/racing` (L1 smoke)
+- [x] LunarLander-v3 - available as `gym/lunar` (L1 smoke)
+
+## Official Gymnasium: MuJoCo (22)
+
+- [x] Ant-v4 - available as `gym/ant4` (L1 smoke)
+- [x] Ant-v5 - available as `gym/ant5` (L1 smoke)
+- [x] HalfCheetah-v4 - available as `gym/halfcheetah4` (L1 smoke)
+- [x] HalfCheetah-v5 - available as `gym/halfcheetah5` (L1 smoke)
+- [x] Hopper-v4 - available as `gym/hopper4` (L1 smoke)
+- [x] Hopper-v5 - available as `gym/hopper5` (L1 smoke)
+- [x] Humanoid-v4 - available as `gym/humanoid4` (L1 smoke)
+- [x] Humanoid-v5 - available as `gym/humanoid5` (L1 smoke)
+- [x] HumanoidStandup-v4 - available as `gym/standup4` (L1 smoke)
+- [x] HumanoidStandup-v5 - available as `gym/standup5` (L1 smoke)
+- [x] InvertedDoublePendulum-v4 - available as `gym/doublependulum4` (L1 smoke)
+- [x] InvertedDoublePendulum-v5 - available as `gym/doublependulum5` (L1 smoke)
+- [x] InvertedPendulum-v4 - available as `gym/invertedpendulum4` (L1 smoke)
+- [x] InvertedPendulum-v5 - available as `gym/invertedpendulum5` (L1 smoke)
+- [x] Pusher-v4 - available as `gym/pusher4` (L1 smoke)
+- [x] Pusher-v5 - available as `gym/pusher5` (L1 smoke)
+- [x] Reacher-v4 - available as `gym/reacher4` (L1 smoke)
+- [x] Reacher-v5 - available as `gym/reacher5` (L1 smoke)
+- [x] Swimmer-v4 - available as `gym/swimmer4` (L1 smoke)
+- [x] Swimmer-v5 - available as `gym/swimmer5` (L1 smoke)
+- [x] Walker2d-v4 - available as `gym/walker4` (L1 smoke)
+- [x] Walker2d-v5 - available as `gym/walker5` (L1 smoke)
+
+## Official Gymnasium: Atari / ALE (352)
+
+- [ ] ALE/Adventure-v5
+- [ ] ALE/AirRaid-v5
+- [ ] ALE/Alien-v5
+- [ ] ALE/Amidar-v5
+- [ ] ALE/Assault-v5
+- [ ] ALE/Asterix-v5
+- [ ] ALE/Asteroids-v5
+- [ ] ALE/Atlantis-v5
+- [ ] ALE/Atlantis2-v5
+- [ ] ALE/Backgammon-v5
+- [ ] ALE/BankHeist-v5
+- [ ] ALE/BasicMath-v5
+- [ ] ALE/BattleZone-v5
+- [ ] ALE/BeamRider-v5
+- [ ] ALE/Berzerk-v5
+- [ ] ALE/Blackjack-v5
+- [ ] ALE/Bowling-v5
+- [ ] ALE/Boxing-v5
+- [ ] ALE/Breakout-v5
+- [ ] ALE/Carnival-v5
+- [ ] ALE/Casino-v5
+- [ ] ALE/Centipede-v5
+- [ ] ALE/ChopperCommand-v5
+- [ ] ALE/CrazyClimber-v5
+- [ ] ALE/Crossbow-v5
+- [ ] ALE/Darkchambers-v5
+- [ ] ALE/Defender-v5
+- [ ] ALE/DemonAttack-v5
+- [ ] ALE/DonkeyKong-v5
+- [ ] ALE/DoubleDunk-v5
+- [ ] ALE/Earthworld-v5
+- [ ] ALE/ElevatorAction-v5
+- [ ] ALE/Enduro-v5
+- [ ] ALE/Entombed-v5
+- [ ] ALE/Et-v5
+- [ ] ALE/FishingDerby-v5
+- [ ] ALE/FlagCapture-v5
+- [ ] ALE/Freeway-v5
+- [ ] ALE/Frogger-v5
+- [ ] ALE/Frostbite-v5
+- [ ] ALE/Galaxian-v5
+- [ ] ALE/Gopher-v5
+- [ ] ALE/Gravitar-v5
+- [ ] ALE/Hangman-v5
+- [ ] ALE/HauntedHouse-v5
+- [ ] ALE/Hero-v5
+- [ ] ALE/HumanCannonball-v5
+- [ ] ALE/IceHockey-v5
+- [ ] ALE/Jamesbond-v5
+- [ ] ALE/JourneyEscape-v5
+- [ ] ALE/Kaboom-v5
+- [ ] ALE/Kangaroo-v5
+- [ ] ALE/KeystoneKapers-v5
+- [ ] ALE/KingKong-v5
+- [ ] ALE/Klax-v5
+- [ ] ALE/Koolaid-v5
+- [ ] ALE/Krull-v5
+- [ ] ALE/KungFuMaster-v5
+- [ ] ALE/LaserGates-v5
+- [ ] ALE/LostLuggage-v5
+- [ ] ALE/MarioBros-v5
+- [ ] ALE/MiniatureGolf-v5
+- [ ] ALE/MontezumaRevenge-v5
+- [ ] ALE/MrDo-v5
+- [ ] ALE/MsPacman-v5
+- [ ] ALE/NameThisGame-v5
+- [ ] ALE/Othello-v5
+- [ ] ALE/Pacman-v5
+- [ ] ALE/Phoenix-v5
+- [ ] ALE/Pitfall-v5
+- [ ] ALE/Pitfall2-v5
+- [ ] ALE/Pong-v5
+- [ ] ALE/Pooyan-v5
+- [ ] ALE/PrivateEye-v5
+- [ ] ALE/Qbert-v5
+- [ ] ALE/Riverraid-v5
+- [ ] ALE/RoadRunner-v5
+- [ ] ALE/Robotank-v5
+- [ ] ALE/Seaquest-v5
+- [ ] ALE/SirLancelot-v5
+- [ ] ALE/Skiing-v5
+- [ ] ALE/Solaris-v5
+- [ ] ALE/SpaceInvaders-v5
+- [ ] ALE/SpaceWar-v5
+- [ ] ALE/StarGunner-v5
+- [ ] ALE/Superman-v5
+- [ ] ALE/Surround-v5
+- [ ] ALE/Tennis-v5
+- [ ] ALE/Tetris-v5
+- [ ] ALE/TicTacToe3D-v5
+- [ ] ALE/TimePilot-v5
+- [ ] ALE/Trondead-v5
+- [ ] ALE/Turmoil-v5
+- [ ] ALE/Tutankham-v5
+- [ ] ALE/UpNDown-v5
+- [ ] ALE/Venture-v5
+- [ ] ALE/VideoCheckers-v5
+- [ ] ALE/VideoChess-v5
+- [ ] ALE/VideoCube-v5
+- [ ] ALE/VideoPinball-v5
+- [ ] ALE/WizardOfWor-v5
+- [ ] ALE/WordZapper-v5
+- [ ] ALE/YarsRevenge-v5
+- [ ] ALE/Zaxxon-v5
+- [ ] Adventure-v0
+- [ ] Adventure-v4
+- [ ] AdventureNoFrameskip-v0
+- [ ] AdventureNoFrameskip-v4
+- [ ] AirRaid-v0
+- [ ] AirRaid-v4
+- [ ] AirRaidNoFrameskip-v0
+- [ ] AirRaidNoFrameskip-v4
+- [ ] Alien-v0
+- [ ] Alien-v4
+- [ ] AlienNoFrameskip-v0
+- [ ] AlienNoFrameskip-v4
+- [ ] Amidar-v0
+- [ ] Amidar-v4
+- [ ] AmidarNoFrameskip-v0
+- [ ] AmidarNoFrameskip-v4
+- [ ] Assault-v0
+- [ ] Assault-v4
+- [ ] AssaultNoFrameskip-v0
+- [ ] AssaultNoFrameskip-v4
+- [ ] Asterix-v0
+- [ ] Asterix-v4
+- [ ] AsterixNoFrameskip-v0
+- [ ] AsterixNoFrameskip-v4
+- [ ] Asteroids-v0
+- [ ] Asteroids-v4
+- [ ] AsteroidsNoFrameskip-v0
+- [ ] AsteroidsNoFrameskip-v4
+- [ ] Atlantis-v0
+- [ ] Atlantis-v4
+- [ ] AtlantisNoFrameskip-v0
+- [ ] AtlantisNoFrameskip-v4
+- [ ] BankHeist-v0
+- [ ] BankHeist-v4
+- [ ] BankHeistNoFrameskip-v0
+- [ ] BankHeistNoFrameskip-v4
+- [ ] BattleZone-v0
+- [ ] BattleZone-v4
+- [ ] BattleZoneNoFrameskip-v0
+- [ ] BattleZoneNoFrameskip-v4
+- [ ] BeamRider-v0
+- [ ] BeamRider-v4
+- [ ] BeamRiderNoFrameskip-v0
+- [ ] BeamRiderNoFrameskip-v4
+- [ ] Berzerk-v0
+- [ ] Berzerk-v4
+- [ ] BerzerkNoFrameskip-v0
+- [ ] BerzerkNoFrameskip-v4
+- [ ] Bowling-v0
+- [ ] Bowling-v4
+- [ ] BowlingNoFrameskip-v0
+- [ ] BowlingNoFrameskip-v4
+- [ ] Boxing-v0
+- [ ] Boxing-v4
+- [ ] BoxingNoFrameskip-v0
+- [ ] BoxingNoFrameskip-v4
+- [ ] Breakout-v0
+- [ ] Breakout-v4
+- [ ] BreakoutNoFrameskip-v0
+- [ ] BreakoutNoFrameskip-v4
+- [ ] Carnival-v0
+- [ ] Carnival-v4
+- [ ] CarnivalNoFrameskip-v0
+- [ ] CarnivalNoFrameskip-v4
+- [ ] Centipede-v0
+- [ ] Centipede-v4
+- [ ] CentipedeNoFrameskip-v0
+- [ ] CentipedeNoFrameskip-v4
+- [ ] ChopperCommand-v0
+- [ ] ChopperCommand-v4
+- [ ] ChopperCommandNoFrameskip-v0
+- [ ] ChopperCommandNoFrameskip-v4
+- [ ] CrazyClimber-v0
+- [ ] CrazyClimber-v4
+- [ ] CrazyClimberNoFrameskip-v0
+- [ ] CrazyClimberNoFrameskip-v4
+- [ ] Defender-v0
+- [ ] Defender-v4
+- [ ] DefenderNoFrameskip-v0
+- [ ] DefenderNoFrameskip-v4
+- [ ] DemonAttack-v0
+- [ ] DemonAttack-v4
+- [ ] DemonAttackNoFrameskip-v0
+- [ ] DemonAttackNoFrameskip-v4
+- [ ] DoubleDunk-v0
+- [ ] DoubleDunk-v4
+- [ ] DoubleDunkNoFrameskip-v0
+- [ ] DoubleDunkNoFrameskip-v4
+- [ ] ElevatorAction-v0
+- [ ] ElevatorAction-v4
+- [ ] ElevatorActionNoFrameskip-v0
+- [ ] ElevatorActionNoFrameskip-v4
+- [ ] Enduro-v0
+- [ ] Enduro-v4
+- [ ] EnduroNoFrameskip-v0
+- [ ] EnduroNoFrameskip-v4
+- [ ] FishingDerby-v0
+- [ ] FishingDerby-v4
+- [ ] FishingDerbyNoFrameskip-v0
+- [ ] FishingDerbyNoFrameskip-v4
+- [ ] Freeway-v0
+- [ ] Freeway-v4
+- [ ] FreewayNoFrameskip-v0
+- [ ] FreewayNoFrameskip-v4
+- [ ] Frostbite-v0
+- [ ] Frostbite-v4
+- [ ] FrostbiteNoFrameskip-v0
+- [ ] FrostbiteNoFrameskip-v4
+- [ ] Gopher-v0
+- [ ] Gopher-v4
+- [ ] GopherNoFrameskip-v0
+- [ ] GopherNoFrameskip-v4
+- [ ] Gravitar-v0
+- [ ] Gravitar-v4
+- [ ] GravitarNoFrameskip-v0
+- [ ] GravitarNoFrameskip-v4
+- [ ] Hero-v0
+- [ ] Hero-v4
+- [ ] HeroNoFrameskip-v0
+- [ ] HeroNoFrameskip-v4
+- [ ] IceHockey-v0
+- [ ] IceHockey-v4
+- [ ] IceHockeyNoFrameskip-v0
+- [ ] IceHockeyNoFrameskip-v4
+- [ ] Jamesbond-v0
+- [ ] Jamesbond-v4
+- [ ] JamesbondNoFrameskip-v0
+- [ ] JamesbondNoFrameskip-v4
+- [ ] JourneyEscape-v0
+- [ ] JourneyEscape-v4
+- [ ] JourneyEscapeNoFrameskip-v0
+- [ ] JourneyEscapeNoFrameskip-v4
+- [ ] Kangaroo-v0
+- [ ] Kangaroo-v4
+- [ ] KangarooNoFrameskip-v0
+- [ ] KangarooNoFrameskip-v4
+- [ ] Krull-v0
+- [ ] Krull-v4
+- [ ] KrullNoFrameskip-v0
+- [ ] KrullNoFrameskip-v4
+- [ ] KungFuMaster-v0
+- [ ] KungFuMaster-v4
+- [ ] KungFuMasterNoFrameskip-v0
+- [ ] KungFuMasterNoFrameskip-v4
+- [ ] MontezumaRevenge-v0
+- [ ] MontezumaRevenge-v4
+- [ ] MontezumaRevengeNoFrameskip-v0
+- [ ] MontezumaRevengeNoFrameskip-v4
+- [ ] MsPacman-v0
+- [ ] MsPacman-v4
+- [ ] MsPacmanNoFrameskip-v0
+- [ ] MsPacmanNoFrameskip-v4
+- [ ] NameThisGame-v0
+- [ ] NameThisGame-v4
+- [ ] NameThisGameNoFrameskip-v0
+- [ ] NameThisGameNoFrameskip-v4
+- [ ] Phoenix-v0
+- [ ] Phoenix-v4
+- [ ] PhoenixNoFrameskip-v0
+- [ ] PhoenixNoFrameskip-v4
+- [ ] Pitfall-v0
+- [ ] Pitfall-v4
+- [ ] PitfallNoFrameskip-v0
+- [ ] PitfallNoFrameskip-v4
+- [ ] Pong-v0
+- [ ] Pong-v4
+- [ ] PongNoFrameskip-v0
+- [ ] PongNoFrameskip-v4
+- [ ] Pooyan-v0
+- [ ] Pooyan-v4
+- [ ] PooyanNoFrameskip-v0
+- [ ] PooyanNoFrameskip-v4
+- [ ] PrivateEye-v0
+- [ ] PrivateEye-v4
+- [ ] PrivateEyeNoFrameskip-v0
+- [ ] PrivateEyeNoFrameskip-v4
+- [ ] Qbert-v0
+- [ ] Qbert-v4
+- [ ] QbertNoFrameskip-v0
+- [ ] QbertNoFrameskip-v4
+- [ ] Riverraid-v0
+- [ ] Riverraid-v4
+- [ ] RiverraidNoFrameskip-v0
+- [ ] RiverraidNoFrameskip-v4
+- [ ] RoadRunner-v0
+- [ ] RoadRunner-v4
+- [ ] RoadRunnerNoFrameskip-v0
+- [ ] RoadRunnerNoFrameskip-v4
+- [ ] Robotank-v0
+- [ ] Robotank-v4
+- [ ] RobotankNoFrameskip-v0
+- [ ] RobotankNoFrameskip-v4
+- [ ] Seaquest-v0
+- [ ] Seaquest-v4
+- [ ] SeaquestNoFrameskip-v0
+- [ ] SeaquestNoFrameskip-v4
+- [ ] Skiing-v0
+- [ ] Skiing-v4
+- [ ] SkiingNoFrameskip-v0
+- [ ] SkiingNoFrameskip-v4
+- [ ] Solaris-v0
+- [ ] Solaris-v4
+- [ ] SolarisNoFrameskip-v0
+- [ ] SolarisNoFrameskip-v4
+- [ ] SpaceInvaders-v0
+- [ ] SpaceInvaders-v4
+- [ ] SpaceInvadersNoFrameskip-v0
+- [ ] SpaceInvadersNoFrameskip-v4
+- [ ] StarGunner-v0
+- [ ] StarGunner-v4
+- [ ] StarGunnerNoFrameskip-v0
+- [ ] StarGunnerNoFrameskip-v4
+- [ ] Tennis-v0
+- [ ] Tennis-v4
+- [ ] TennisNoFrameskip-v0
+- [ ] TennisNoFrameskip-v4
+- [ ] TimePilot-v0
+- [ ] TimePilot-v4
+- [ ] TimePilotNoFrameskip-v0
+- [ ] TimePilotNoFrameskip-v4
+- [ ] Tutankham-v0
+- [ ] Tutankham-v4
+- [ ] TutankhamNoFrameskip-v0
+- [ ] TutankhamNoFrameskip-v4
+- [ ] UpNDown-v0
+- [ ] UpNDown-v4
+- [ ] UpNDownNoFrameskip-v0
+- [ ] UpNDownNoFrameskip-v4
+- [ ] Venture-v0
+- [ ] Venture-v4
+- [ ] VentureNoFrameskip-v0
+- [ ] VentureNoFrameskip-v4
+- [ ] VideoPinball-v0
+- [ ] VideoPinball-v4
+- [ ] VideoPinballNoFrameskip-v0
+- [ ] VideoPinballNoFrameskip-v4
+- [ ] WizardOfWor-v0
+- [ ] WizardOfWor-v4
+- [ ] WizardOfWorNoFrameskip-v0
+- [ ] WizardOfWorNoFrameskip-v4
+- [ ] YarsRevenge-v0
+- [ ] YarsRevenge-v4
+- [ ] YarsRevengeNoFrameskip-v0
+- [ ] YarsRevengeNoFrameskip-v4
+- [ ] Zaxxon-v0
+- [ ] Zaxxon-v4
+- [ ] ZaxxonNoFrameskip-v0
+- [ ] ZaxxonNoFrameskip-v4
+
+## MiniGrid (82)
+
+- [ ] MiniGrid-BlockedUnlockPickup-v0
+- [ ] MiniGrid-DistShift1-v0
+- [ ] MiniGrid-DistShift2-v0
+- [ ] MiniGrid-DoorKey-16x16-v0
+- [ ] MiniGrid-DoorKey-5x5-v0
+- [ ] MiniGrid-DoorKey-6x6-v0
+- [ ] MiniGrid-DoorKey-8x8-v0
+- [ ] MiniGrid-Dynamic-Obstacles-16x16-v0
+- [ ] MiniGrid-Dynamic-Obstacles-5x5-v0
+- [ ] MiniGrid-Dynamic-Obstacles-6x6-v0
+- [ ] MiniGrid-Dynamic-Obstacles-8x8-v0
+- [ ] MiniGrid-Dynamic-Obstacles-Random-5x5-v0
+- [ ] MiniGrid-Dynamic-Obstacles-Random-6x6-v0
+- [ ] MiniGrid-Empty-16x16-v0
+- [ ] MiniGrid-Empty-5x5-v0
+- [ ] MiniGrid-Empty-6x6-v0
+- [ ] MiniGrid-Empty-8x8-v0
+- [ ] MiniGrid-Empty-Random-5x5-v0
+- [ ] MiniGrid-Empty-Random-6x6-v0
+- [ ] MiniGrid-Fetch-5x5-N2-v0
+- [ ] MiniGrid-Fetch-6x6-N2-v0
+- [ ] MiniGrid-Fetch-8x8-N3-v0
+- [ ] MiniGrid-FourRooms-v0
+- [ ] MiniGrid-GoToDoor-5x5-v0
+- [ ] MiniGrid-GoToDoor-6x6-v0
+- [ ] MiniGrid-GoToDoor-8x8-v0
+- [ ] MiniGrid-GoToObject-6x6-N2-v0
+- [ ] MiniGrid-GoToObject-8x8-N2-v0
+- [ ] MiniGrid-KeyCorridorS3R1-v0
+- [ ] MiniGrid-KeyCorridorS3R2-v0
+- [ ] MiniGrid-KeyCorridorS3R3-v0
+- [ ] MiniGrid-KeyCorridorS4R3-v0
+- [ ] MiniGrid-KeyCorridorS5R3-v0
+- [ ] MiniGrid-KeyCorridorS6R3-v0
+- [ ] MiniGrid-LavaCrossingS11N5-v0
+- [ ] MiniGrid-LavaCrossingS9N1-v0
+- [ ] MiniGrid-LavaCrossingS9N2-v0
+- [ ] MiniGrid-LavaCrossingS9N3-v0
+- [ ] MiniGrid-LavaGapS5-v0
+- [ ] MiniGrid-LavaGapS6-v0
+- [ ] MiniGrid-LavaGapS7-v0
+- [ ] MiniGrid-LockedRoom-v0
+- [ ] MiniGrid-MemoryS11-v0
+- [ ] MiniGrid-MemoryS13-v0
+- [ ] MiniGrid-MemoryS13Random-v0
+- [ ] MiniGrid-MemoryS17Random-v0
+- [ ] MiniGrid-MemoryS7-v0
+- [ ] MiniGrid-MemoryS9-v0
+- [ ] MiniGrid-MultiRoom-N2-S4-v0
+- [ ] MiniGrid-MultiRoom-N4-S5-v0
+- [ ] MiniGrid-MultiRoom-N4-S5-v1
+- [ ] MiniGrid-MultiRoom-N6-v0
+- [ ] MiniGrid-ObstructedMaze-1Dl-v0
+- [ ] MiniGrid-ObstructedMaze-1Dlh-v0
+- [ ] MiniGrid-ObstructedMaze-1Dlhb-v0
+- [ ] MiniGrid-ObstructedMaze-1Q-v0
+- [ ] MiniGrid-ObstructedMaze-1Q-v1
+- [ ] MiniGrid-ObstructedMaze-2Dl-v0
+- [ ] MiniGrid-ObstructedMaze-2Dlh-v0
+- [ ] MiniGrid-ObstructedMaze-2Dlhb-v0
+- [ ] MiniGrid-ObstructedMaze-2Dlhb-v1
+- [ ] MiniGrid-ObstructedMaze-2Q-v0
+- [ ] MiniGrid-ObstructedMaze-2Q-v1
+- [ ] MiniGrid-ObstructedMaze-Full-v0
+- [ ] MiniGrid-ObstructedMaze-Full-v1
+- [ ] MiniGrid-Playground-v0
+- [ ] MiniGrid-PutNear-6x6-N2-v0
+- [ ] MiniGrid-PutNear-8x8-N3-v0
+- [ ] MiniGrid-RedBlueDoors-6x6-v0
+- [ ] MiniGrid-RedBlueDoors-8x8-v0
+- [ ] MiniGrid-SimpleCrossingS11N5-v0
+- [ ] MiniGrid-SimpleCrossingS9N1-v0
+- [ ] MiniGrid-SimpleCrossingS9N2-v0
+- [ ] MiniGrid-SimpleCrossingS9N3-v0
+- [ ] MiniGrid-Unlock-v0
+- [ ] MiniGrid-UnlockPickup-v0
+- [ ] MiniGrid-WFC-DungeonMazeScaled-v0
+- [ ] MiniGrid-WFC-MazeSimple-v0
+- [ ] MiniGrid-WFC-ObstaclesAngular-v0
+- [ ] MiniGrid-WFC-ObstaclesBlackdots-v0
+- [ ] MiniGrid-WFC-ObstaclesHogs3-v0
+- [ ] MiniGrid-WFC-RoomsFabric-v0
+
+## MiniWorld (23)
+
+- [ ] MiniWorld-CollectHealth-v0
+- [ ] MiniWorld-FourRooms-v0
+- [ ] MiniWorld-Hallway-v0
+- [ ] MiniWorld-Maze-v0
+- [ ] MiniWorld-MazeS2-v0
+- [ ] MiniWorld-MazeS3-v0
+- [ ] MiniWorld-MazeS3Fast-v0
+- [ ] MiniWorld-OneRoom-v0
+- [ ] MiniWorld-OneRoomS6-v0
+- [ ] MiniWorld-OneRoomS6Fast-v0
+- [ ] MiniWorld-PickupObjects-v0
+- [ ] MiniWorld-PutNext-v0
+- [ ] MiniWorld-RoomObjects-v0
+- [ ] MiniWorld-Sidewalk-v0
+- [ ] MiniWorld-Sign-v0
+- [ ] MiniWorld-TMaze-v0
+- [ ] MiniWorld-TMazeLeft-v0
+- [ ] MiniWorld-TMazeRight-v0
+- [ ] MiniWorld-ThreeRooms-v0
+- [ ] MiniWorld-WallGap-v0
+- [ ] MiniWorld-YMaze-v0
+- [ ] MiniWorld-YMazeLeft-v0
+- [ ] MiniWorld-YMazeRight-v0
+
+## HighwayEnv (8)
+
+- [ ] highway-fast-v0
+- [ ] highway-v0
+- [ ] intersection-v0
+- [ ] intersection-v1
+- [ ] merge-v0
+- [ ] parking-v0
+- [ ] racetrack-v0
+- [ ] roundabout-v0
+
+## Gymnasium-Robotics (217)
+
+- [ ] AdroitHandDoor-v1
+- [ ] AdroitHandDoorSparse-v1
+- [ ] AdroitHandHammer-v1
+- [ ] AdroitHandHammerSparse-v1
+- [ ] AdroitHandPen-v1
+- [ ] AdroitHandPenSparse-v1
+- [ ] AdroitHandRelocate-v1
+- [ ] AdroitHandRelocateSparse-v1
+- [ ] AntMaze_Large-v3
+- [ ] AntMaze_Large-v4
+- [ ] AntMaze_Large-v5
+- [ ] AntMaze_LargeDense-v3
+- [ ] AntMaze_LargeDense-v4
+- [ ] AntMaze_LargeDense-v5
+- [ ] AntMaze_Large_Diverse_G-v3
+- [ ] AntMaze_Large_Diverse_G-v4
+- [ ] AntMaze_Large_Diverse_G-v5
+- [ ] AntMaze_Large_Diverse_GDense-v3
+- [ ] AntMaze_Large_Diverse_GDense-v4
+- [ ] AntMaze_Large_Diverse_GDense-v5
+- [ ] AntMaze_Large_Diverse_GR-v3
+- [ ] AntMaze_Large_Diverse_GR-v4
+- [ ] AntMaze_Large_Diverse_GR-v5
+- [ ] AntMaze_Large_Diverse_GRDense-v3
+- [ ] AntMaze_Large_Diverse_GRDense-v4
+- [ ] AntMaze_Large_Diverse_GRDense-v5
+- [ ] AntMaze_Medium-v3
+- [ ] AntMaze_Medium-v4
+- [ ] AntMaze_Medium-v5
+- [ ] AntMaze_MediumDense-v3
+- [ ] AntMaze_MediumDense-v4
+- [ ] AntMaze_MediumDense-v5
+- [ ] AntMaze_Medium_Diverse_G-v3
+- [ ] AntMaze_Medium_Diverse_G-v4
+- [ ] AntMaze_Medium_Diverse_G-v5
+- [ ] AntMaze_Medium_Diverse_GDense-v3
+- [ ] AntMaze_Medium_Diverse_GDense-v4
+- [ ] AntMaze_Medium_Diverse_GDense-v5
+- [ ] AntMaze_Medium_Diverse_GR-v3
+- [ ] AntMaze_Medium_Diverse_GR-v4
+- [ ] AntMaze_Medium_Diverse_GR-v5
+- [ ] AntMaze_Medium_Diverse_GRDense-v3
+- [ ] AntMaze_Medium_Diverse_GRDense-v4
+- [ ] AntMaze_Medium_Diverse_GRDense-v5
+- [ ] AntMaze_Open-v3
+- [ ] AntMaze_Open-v4
+- [ ] AntMaze_Open-v5
+- [ ] AntMaze_OpenDense-v3
+- [ ] AntMaze_OpenDense-v4
+- [ ] AntMaze_OpenDense-v5
+- [ ] AntMaze_Open_Diverse_G-v3
+- [ ] AntMaze_Open_Diverse_G-v4
+- [ ] AntMaze_Open_Diverse_G-v5
+- [ ] AntMaze_Open_Diverse_GDense-v3
+- [ ] AntMaze_Open_Diverse_GDense-v4
+- [ ] AntMaze_Open_Diverse_GDense-v5
+- [ ] AntMaze_Open_Diverse_GR-v3
+- [ ] AntMaze_Open_Diverse_GR-v4
+- [ ] AntMaze_Open_Diverse_GR-v5
+- [ ] AntMaze_Open_Diverse_GRDense-v3
+- [ ] AntMaze_Open_Diverse_GRDense-v4
+- [ ] AntMaze_Open_Diverse_GRDense-v5
+- [ ] AntMaze_UMaze-v3
+- [ ] AntMaze_UMaze-v4
+- [ ] AntMaze_UMaze-v5
+- [ ] AntMaze_UMazeDense-v3
+- [ ] AntMaze_UMazeDense-v4
+- [ ] AntMaze_UMazeDense-v5
+- [ ] FetchPickAndPlace-v1
+- [ ] FetchPickAndPlace-v4
+- [ ] FetchPickAndPlaceDense-v1
+- [ ] FetchPickAndPlaceDense-v4
+- [ ] FetchPush-v1
+- [ ] FetchPush-v4
+- [ ] FetchPushDense-v1
+- [ ] FetchPushDense-v4
+- [ ] FetchReach-v1
+- [ ] FetchReach-v4
+- [ ] FetchReachDense-v1
+- [ ] FetchReachDense-v4
+- [ ] FetchSlide-v1
+- [ ] FetchSlide-v4
+- [ ] FetchSlideDense-v1
+- [ ] FetchSlideDense-v4
+- [ ] FrankaKitchen-v1
+- [ ] HandManipulateBlock-v0
+- [ ] HandManipulateBlock-v1
+- [ ] HandManipulateBlockDense-v0
+- [ ] HandManipulateBlockDense-v1
+- [ ] HandManipulateBlockFull-v0
+- [ ] HandManipulateBlockFull-v1
+- [ ] HandManipulateBlockFullDense-v0
+- [ ] HandManipulateBlockFullDense-v1
+- [ ] HandManipulateBlockRotateParallel-v0
+- [ ] HandManipulateBlockRotateParallel-v1
+- [ ] HandManipulateBlockRotateParallelDense-v0
+- [ ] HandManipulateBlockRotateParallelDense-v1
+- [ ] HandManipulateBlockRotateParallel_BooleanTouchSensors-v0
+- [ ] HandManipulateBlockRotateParallel_BooleanTouchSensors-v1
+- [ ] HandManipulateBlockRotateParallel_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateParallel_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateBlockRotateParallel_ContinuousTouchSensors-v0
+- [ ] HandManipulateBlockRotateParallel_ContinuousTouchSensors-v1
+- [ ] HandManipulateBlockRotateParallel_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateParallel_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulateBlockRotateXYZ-v0
+- [ ] HandManipulateBlockRotateXYZ-v1
+- [ ] HandManipulateBlockRotateXYZDense-v0
+- [ ] HandManipulateBlockRotateXYZDense-v1
+- [ ] HandManipulateBlockRotateXYZ_BooleanTouchSensors-v0
+- [ ] HandManipulateBlockRotateXYZ_BooleanTouchSensors-v1
+- [ ] HandManipulateBlockRotateXYZ_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateXYZ_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateBlockRotateXYZ_ContinuousTouchSensors-v0
+- [ ] HandManipulateBlockRotateXYZ_ContinuousTouchSensors-v1
+- [ ] HandManipulateBlockRotateXYZ_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateXYZ_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulateBlockRotateZ-v0
+- [ ] HandManipulateBlockRotateZ-v1
+- [ ] HandManipulateBlockRotateZDense-v0
+- [ ] HandManipulateBlockRotateZDense-v1
+- [ ] HandManipulateBlockRotateZ_BooleanTouchSensors-v0
+- [ ] HandManipulateBlockRotateZ_BooleanTouchSensors-v1
+- [ ] HandManipulateBlockRotateZ_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateZ_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateBlockRotateZ_ContinuousTouchSensors-v0
+- [ ] HandManipulateBlockRotateZ_ContinuousTouchSensors-v1
+- [ ] HandManipulateBlockRotateZ_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateBlockRotateZ_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulateBlock_BooleanTouchSensors-v0
+- [ ] HandManipulateBlock_BooleanTouchSensors-v1
+- [ ] HandManipulateBlock_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateBlock_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateBlock_ContinuousTouchSensors-v0
+- [ ] HandManipulateBlock_ContinuousTouchSensors-v1
+- [ ] HandManipulateBlock_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateBlock_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulateEgg-v0
+- [ ] HandManipulateEgg-v1
+- [ ] HandManipulateEggDense-v0
+- [ ] HandManipulateEggDense-v1
+- [ ] HandManipulateEggFull-v0
+- [ ] HandManipulateEggFull-v1
+- [ ] HandManipulateEggFullDense-v0
+- [ ] HandManipulateEggFullDense-v1
+- [ ] HandManipulateEggRotate-v0
+- [ ] HandManipulateEggRotate-v1
+- [ ] HandManipulateEggRotateDense-v0
+- [ ] HandManipulateEggRotateDense-v1
+- [ ] HandManipulateEggRotate_BooleanTouchSensors-v0
+- [ ] HandManipulateEggRotate_BooleanTouchSensors-v1
+- [ ] HandManipulateEggRotate_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateEggRotate_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateEggRotate_ContinuousTouchSensors-v0
+- [ ] HandManipulateEggRotate_ContinuousTouchSensors-v1
+- [ ] HandManipulateEggRotate_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateEggRotate_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulateEgg_BooleanTouchSensors-v0
+- [ ] HandManipulateEgg_BooleanTouchSensors-v1
+- [ ] HandManipulateEgg_BooleanTouchSensorsDense-v0
+- [ ] HandManipulateEgg_BooleanTouchSensorsDense-v1
+- [ ] HandManipulateEgg_ContinuousTouchSensors-v0
+- [ ] HandManipulateEgg_ContinuousTouchSensors-v1
+- [ ] HandManipulateEgg_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulateEgg_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulatePen-v0
+- [ ] HandManipulatePen-v1
+- [ ] HandManipulatePenDense-v0
+- [ ] HandManipulatePenDense-v1
+- [ ] HandManipulatePenFull-v0
+- [ ] HandManipulatePenFull-v1
+- [ ] HandManipulatePenFullDense-v0
+- [ ] HandManipulatePenFullDense-v1
+- [ ] HandManipulatePenRotate-v0
+- [ ] HandManipulatePenRotate-v1
+- [ ] HandManipulatePenRotateDense-v0
+- [ ] HandManipulatePenRotateDense-v1
+- [ ] HandManipulatePenRotate_BooleanTouchSensors-v0
+- [ ] HandManipulatePenRotate_BooleanTouchSensors-v1
+- [ ] HandManipulatePenRotate_BooleanTouchSensorsDense-v0
+- [ ] HandManipulatePenRotate_BooleanTouchSensorsDense-v1
+- [ ] HandManipulatePenRotate_ContinuousTouchSensors-v0
+- [ ] HandManipulatePenRotate_ContinuousTouchSensors-v1
+- [ ] HandManipulatePenRotate_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulatePenRotate_ContinuousTouchSensorsDense-v1
+- [ ] HandManipulatePen_BooleanTouchSensors-v0
+- [ ] HandManipulatePen_BooleanTouchSensors-v1
+- [ ] HandManipulatePen_BooleanTouchSensorsDense-v0
+- [ ] HandManipulatePen_BooleanTouchSensorsDense-v1
+- [ ] HandManipulatePen_ContinuousTouchSensors-v0
+- [ ] HandManipulatePen_ContinuousTouchSensors-v1
+- [ ] HandManipulatePen_ContinuousTouchSensorsDense-v0
+- [ ] HandManipulatePen_ContinuousTouchSensorsDense-v1
+- [ ] HandReach-v0
+- [ ] HandReach-v3
+- [ ] HandReachDense-v0
+- [ ] HandReachDense-v3
+- [ ] PointMaze_Large-v3
+- [ ] PointMaze_LargeDense-v3
+- [ ] PointMaze_Large_Diverse_G-v3
+- [ ] PointMaze_Large_Diverse_GDense-v3
+- [ ] PointMaze_Large_Diverse_GR-v3
+- [ ] PointMaze_Large_Diverse_GRDense-v3
+- [ ] PointMaze_Medium-v3
+- [ ] PointMaze_MediumDense-v3
+- [ ] PointMaze_Medium_Diverse_G-v3
+- [ ] PointMaze_Medium_Diverse_GDense-v3
+- [ ] PointMaze_Medium_Diverse_GR-v3
+- [ ] PointMaze_Medium_Diverse_GRDense-v3
+- [ ] PointMaze_Open-v3
+- [ ] PointMaze_OpenDense-v3
+- [ ] PointMaze_Open_Diverse_G-v3
+- [ ] PointMaze_Open_Diverse_GDense-v3
+- [ ] PointMaze_Open_Diverse_GR-v3
+- [ ] PointMaze_Open_Diverse_GRDense-v3
+- [ ] PointMaze_UMaze-v3
+- [ ] PointMaze_UMazeDense-v3
+
+## MO-Gymnasium (40)
+
+- [ ] breakable-bottles-v0
+- [ ] deep-sea-treasure-concave-v0
+- [ ] deep-sea-treasure-mirrored-v0
+- [ ] deep-sea-treasure-v0
+- [ ] fishwood-v0
+- [ ] four-room-v0
+- [ ] fruit-tree-v0
+- [ ] minecart-deterministic-v0
+- [ ] minecart-rgb-v0
+- [ ] minecart-v0
+- [ ] mo-ant-2d-v4
+- [ ] mo-ant-2obj-v5
+- [ ] mo-ant-v4
+- [ ] mo-ant-v5
+- [ ] mo-halfcheetah-v4
+- [ ] mo-halfcheetah-v5
+- [ ] mo-highway-fast-v0
+- [ ] mo-highway-v0
+- [ ] mo-hopper-2d-v4
+- [ ] mo-hopper-2obj-v5
+- [ ] mo-hopper-v4
+- [ ] mo-hopper-v5
+- [ ] mo-humanoid-v4
+- [ ] mo-humanoid-v5
+- [ ] mo-lunar-lander-continuous-v3
+- [ ] mo-lunar-lander-v3
+- [ ] mo-mountaincar-3d-v0
+- [ ] mo-mountaincar-timemove-v0
+- [ ] mo-mountaincar-timespeed-v0
+- [ ] mo-mountaincar-v0
+- [ ] mo-mountaincarcontinuous-v0
+- [ ] mo-reacher-v4
+- [ ] mo-reacher-v5
+- [ ] mo-supermario-v0
+- [ ] mo-swimmer-v4
+- [ ] mo-swimmer-v5
+- [ ] mo-walker2d-v4
+- [ ] mo-walker2d-v5
+- [ ] resource-gathering-v0
+- [ ] water-reservoir-v0
+
+## BrowserGym MiniWoB++ (126)
+
+- [ ] browsergym/miniwob.ascending-numbers
+- [ ] browsergym/miniwob.bisect-angle
+- [ ] browsergym/miniwob.book-flight
+- [ ] browsergym/miniwob.book-flight-nodelay
+- [ ] browsergym/miniwob.buy-ticket
+- [ ] browsergym/miniwob.choose-date
+- [ ] browsergym/miniwob.choose-date-easy
+- [ ] browsergym/miniwob.choose-date-medium
+- [ ] browsergym/miniwob.choose-date-nodelay
+- [ ] browsergym/miniwob.choose-list
+- [ ] browsergym/miniwob.circle-center
+- [ ] browsergym/miniwob.click-button
+- [ ] browsergym/miniwob.click-button-sequence
+- [ ] browsergym/miniwob.click-checkboxes
+- [ ] browsergym/miniwob.click-checkboxes-large
+- [ ] browsergym/miniwob.click-checkboxes-soft
+- [ ] browsergym/miniwob.click-checkboxes-transfer
+- [ ] browsergym/miniwob.click-collapsible
+- [ ] browsergym/miniwob.click-collapsible-2
+- [ ] browsergym/miniwob.click-collapsible-2-nodelay
+- [ ] browsergym/miniwob.click-collapsible-nodelay
+- [ ] browsergym/miniwob.click-color
+- [ ] browsergym/miniwob.click-dialog
+- [ ] browsergym/miniwob.click-dialog-2
+- [ ] browsergym/miniwob.click-link
+- [ ] browsergym/miniwob.click-menu
+- [ ] browsergym/miniwob.click-menu-2
+- [ ] browsergym/miniwob.click-option
+- [ ] browsergym/miniwob.click-pie
+- [ ] browsergym/miniwob.click-pie-nodelay
+- [ ] browsergym/miniwob.click-scroll-list
+- [ ] browsergym/miniwob.click-shades
+- [ ] browsergym/miniwob.click-shape
+- [ ] browsergym/miniwob.click-tab
+- [ ] browsergym/miniwob.click-tab-2
+- [ ] browsergym/miniwob.click-tab-2-easy
+- [ ] browsergym/miniwob.click-tab-2-hard
+- [ ] browsergym/miniwob.click-tab-2-medium
+- [ ] browsergym/miniwob.click-test
+- [ ] browsergym/miniwob.click-test-2
+- [ ] browsergym/miniwob.click-test-transfer
+- [ ] browsergym/miniwob.click-widget
+- [ ] browsergym/miniwob.copy-paste
+- [ ] browsergym/miniwob.copy-paste-2
+- [ ] browsergym/miniwob.count-shape
+- [ ] browsergym/miniwob.count-sides
+- [ ] browsergym/miniwob.daily-calendar
+- [ ] browsergym/miniwob.drag-box
+- [ ] browsergym/miniwob.drag-circle
+- [ ] browsergym/miniwob.drag-cube
+- [ ] browsergym/miniwob.drag-items
+- [ ] browsergym/miniwob.drag-items-grid
+- [ ] browsergym/miniwob.drag-shapes
+- [ ] browsergym/miniwob.drag-shapes-2
+- [ ] browsergym/miniwob.drag-single-shape
+- [ ] browsergym/miniwob.drag-sort-numbers
+- [ ] browsergym/miniwob.draw-circle
+- [ ] browsergym/miniwob.draw-line
+- [ ] browsergym/miniwob.email-inbox
+- [ ] browsergym/miniwob.email-inbox-delete
+- [ ] browsergym/miniwob.email-inbox-forward
+- [ ] browsergym/miniwob.email-inbox-forward-nl
+- [ ] browsergym/miniwob.email-inbox-forward-nl-turk
+- [ ] browsergym/miniwob.email-inbox-important
+- [ ] browsergym/miniwob.email-inbox-nl-turk
+- [ ] browsergym/miniwob.email-inbox-noscroll
+- [ ] browsergym/miniwob.email-inbox-reply
+- [ ] browsergym/miniwob.email-inbox-star-reply
+- [ ] browsergym/miniwob.enter-date
+- [ ] browsergym/miniwob.enter-password
+- [ ] browsergym/miniwob.enter-text
+- [ ] browsergym/miniwob.enter-text-2
+- [ ] browsergym/miniwob.enter-text-dynamic
+- [ ] browsergym/miniwob.enter-time
+- [ ] browsergym/miniwob.find-greatest
+- [ ] browsergym/miniwob.find-midpoint
+- [ ] browsergym/miniwob.find-word
+- [ ] browsergym/miniwob.focus-text
+- [ ] browsergym/miniwob.focus-text-2
+- [ ] browsergym/miniwob.form-sequence
+- [ ] browsergym/miniwob.form-sequence-2
+- [ ] browsergym/miniwob.form-sequence-3
+- [ ] browsergym/miniwob.generate-number
+- [ ] browsergym/miniwob.grid-coordinate
+- [ ] browsergym/miniwob.guess-number
+- [ ] browsergym/miniwob.highlight-text
+- [ ] browsergym/miniwob.highlight-text-2
+- [ ] browsergym/miniwob.hot-cold
+- [ ] browsergym/miniwob.identify-shape
+- [ ] browsergym/miniwob.login-user
+- [ ] browsergym/miniwob.login-user-popup
+- [ ] browsergym/miniwob.multi-layouts
+- [ ] browsergym/miniwob.multi-orderings
+- [ ] browsergym/miniwob.navigate-tree
+- [ ] browsergym/miniwob.number-checkboxes
+- [ ] browsergym/miniwob.odd-or-even
+- [ ] browsergym/miniwob.order-food
+- [ ] browsergym/miniwob.phone-book
+- [ ] browsergym/miniwob.read-table
+- [ ] browsergym/miniwob.read-table-2
+- [ ] browsergym/miniwob.resize-textarea
+- [ ] browsergym/miniwob.right-angle
+- [ ] browsergym/miniwob.scroll-text
+- [ ] browsergym/miniwob.scroll-text-2
+- [ ] browsergym/miniwob.search-engine
+- [ ] browsergym/miniwob.sign-agreement
+- [ ] browsergym/miniwob.simple-algebra
+- [ ] browsergym/miniwob.simple-arithmetic
+- [ ] browsergym/miniwob.social-media
+- [ ] browsergym/miniwob.social-media-all
+- [ ] browsergym/miniwob.social-media-some
+- [ ] browsergym/miniwob.stock-market
+- [ ] browsergym/miniwob.terminal
+- [ ] browsergym/miniwob.text-editor
+- [ ] browsergym/miniwob.text-transform
+- [ ] browsergym/miniwob.tic-tac-toe
+- [ ] browsergym/miniwob.unicode-test
+- [ ] browsergym/miniwob.use-autocomplete
+- [ ] browsergym/miniwob.use-autocomplete-nodelay
+- [ ] browsergym/miniwob.use-colorwheel
+- [ ] browsergym/miniwob.use-colorwheel-2
+- [ ] browsergym/miniwob.use-slider
+- [ ] browsergym/miniwob.use-slider-2
+- [ ] browsergym/miniwob.use-spinner
+- [ ] browsergym/miniwob.visual-addition
+- [ ] browsergym/openended
+
+## MetaWorld (50)
+
+- [ ] assembly-v3
+- [ ] basketball-v3
+- [ ] bin-picking-v3
+- [ ] box-close-v3
+- [ ] button-press-topdown-v3
+- [ ] button-press-topdown-wall-v3
+- [ ] button-press-v3
+- [ ] button-press-wall-v3
+- [ ] coffee-button-v3
+- [ ] coffee-pull-v3
+- [ ] coffee-push-v3
+- [ ] dial-turn-v3
+- [ ] disassemble-v3
+- [ ] door-close-v3
+- [ ] door-lock-v3
+- [ ] door-open-v3
+- [ ] door-unlock-v3
+- [ ] drawer-close-v3
+- [ ] drawer-open-v3
+- [ ] faucet-close-v3
+- [ ] faucet-open-v3
+- [ ] hammer-v3
+- [ ] hand-insert-v3
+- [ ] handle-press-side-v3
+- [ ] handle-press-v3
+- [ ] handle-pull-side-v3
+- [ ] handle-pull-v3
+- [ ] lever-pull-v3
+- [ ] peg-insert-side-v3
+- [ ] peg-unplug-side-v3
+- [ ] pick-out-of-hole-v3
+- [ ] pick-place-v3
+- [ ] pick-place-wall-v3
+- [ ] plate-slide-back-side-v3
+- [ ] plate-slide-back-v3
+- [ ] plate-slide-side-v3
+- [ ] plate-slide-v3
+- [ ] push-back-v3
+- [ ] push-v3
+- [ ] push-wall-v3
+- [ ] reach-v3
+- [ ] reach-wall-v3
+- [ ] shelf-place-v3
+- [ ] soccer-v3
+- [ ] stick-pull-v3
+- [ ] stick-push-v3
+- [ ] sweep-into-v3
+- [ ] sweep-v3
+- [ ] window-close-v3
+- [ ] window-open-v3
+
+## Installed Packages
+
+- installed: gymnasium 1.3.0 (env-gym)
+- installed: ale-py 0.12.0 (env-gym)
+- installed: autorom 0.6.1 (env-gym)
+- missing: jax (env-jax): ModuleNotFoundError: No module named 'jax'
+- missing: jaxlib (env-jax): ModuleNotFoundError: No module named 'jaxlib'
+- missing: flax (env-jax): ModuleNotFoundError: No module named 'flax'
+- installed: minigrid 3.1.0 (env-compatible)
+- installed: miniworld 2.1.0 (env-visual)
+- installed: highway-env 1.11 (env-compatible)
+- installed: gymnasium-robotics 1.4.2 (env-compatible)
+- installed: mo-gymnasium 1.3.2 (env-compatible)
+- missing: gym-super-mario-bros (env-mario): ModuleNotFoundError: No module named 'gym_super_mario_bros'
+- missing: nes-py (env-mario): ModuleNotFoundError: No module named 'nes_py'
+- installed: metaworld 3.0.0 (env-heavy)
+- installed: shimmy 2.0.1 (env-compatible)
+- installed: pettingzoo 1.26.1 (env-compatible)
+- installed: mpe2 1.1.0 (env-multi)
+- installed: magent2 0.3.4 (env-multi)
+- installed: momaland 0.2.0 (env-multi)
+- installed: browsergym-miniwob 0.14.3 (env-web)
+
+## Blocked Packages
+
+- procgen: No cp312 wheels are published; uv cannot resolve it for Python 3.12. Workaround: Use a Python 3.10 discovery/runtime environment or defer Procgen.
+- safety-gymnasium: Published releases require gymnasium 0.26.3 or 0.28.1, which conflicts with gymnasium 1.3.0. Workaround: Run Safety-Gymnasium in a separate compatibility environment.
+- pyflyt: Depends on pybullet; pybullet wheel build failed on this macOS arm64 Python 3.12 environment. Workaround: Use a platform with a compatible pybullet wheel or a dedicated PyFlyt env.
+- miniwob: The legacy miniwob package requires gymnasium 0.27.1 or 0.29.0. Workaround: Use browsergym-miniwob for the current dependency stack.
+
+## Blocked Target Families
+
+These candidates are tracked for coverage planning but are not included in the discovered total.
+
+### Procgen (16)
+
+- [ ] bigfish
+- [ ] bossfight
+- [ ] caveflyer
+- [ ] chaser
+- [ ] climber
+- [ ] coinrun
+- [ ] dodgeball
+- [ ] fruitbot
+- [ ] heist
+- [ ] jumper
+- [ ] leaper
+- [ ] maze
+- [ ] miner
+- [ ] ninja
+- [ ] plunder
+- [ ] starpilot
+
+### Safety-Gymnasium (27)
+
+- [ ] PointGoal
+- [ ] PointButton
+- [ ] PointPush
+- [ ] PointCircle
+- [ ] PointRun
+- [ ] PointVelocity
+- [ ] CarGoal
+- [ ] CarButton
+- [ ] CarPush
+- [ ] CarCircle
+- [ ] CarRun
+- [ ] CarVelocity
+- [ ] RacecarGoal
+- [ ] RacecarButton
+- [ ] RacecarPush
+- [ ] RacecarCircle
+- [ ] RacecarRun
+- [ ] AntGoal
+- [ ] AntButton
+- [ ] AntPush
+- [ ] AntCircle
+- [ ] AntRun
+- [ ] AntVelocity
+- [ ] HalfCheetahVelocity
+- [ ] HopperVelocity
+- [ ] SwimmerVelocity
+- [ ] Walker2dVelocity
+
+### PyFlyt (6)
+
+- [ ] QuadX-Hover
+- [ ] QuadX-Waypoints
+- [ ] QuadX-Gates
+- [ ] QuadX-Pole-Balance
+- [ ] Fixedwing-Waypoints
+- [ ] Rocket-Landing

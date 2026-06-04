@@ -144,7 +144,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _run(args: argparse.Namespace) -> int:
     spec = _spec(args)
-    trial = _trial(spec, bulk=args.bulk)
+    trial = _trial(spec)
     body = _summary(spec, trial)
     print(json.dumps(body, sort_keys=True))
     return 0 if trial.done else 1
@@ -546,9 +546,9 @@ def _checked(result: SuiteResult) -> SuiteResult:
     return result.checked(report.ok, issues)
 
 
-def _trial(spec: Spec, *, bulk: bool = False) -> Trial:
+def _trial(spec: Spec) -> Trial:
     try:
-        env = registry(bulk=bulk, filters=(spec.env,)).get(spec.env)
+        env = registry(bulk=spec.bulk, filters=(spec.env,)).get(spec.env)
     except KeyError as exc:
         raise SystemExit(str(exc)) from exc
 
@@ -598,6 +598,7 @@ def _spec(args: argparse.Namespace) -> Spec:
             model=args.model or "agent",
             exp=args.exp_id or args.exp or "default",
             budget=args.budget,
+            bulk=args.bulk,
             data=args.data,
         )
     else:
@@ -616,6 +617,7 @@ def _spec(args: argparse.Namespace) -> Spec:
         model=args.model,
         exp=args.exp_id or args.exp,
         budget=args.budget,
+        bulk=args.bulk or None,
         minimum=args.minimum,
         maximum=args.maximum,
         valid_size=args.valid_size,

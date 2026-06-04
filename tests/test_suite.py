@@ -16,6 +16,7 @@ class SuiteTest(unittest.TestCase):
                 "run": [
                     {
                         "env": "toy",
+                        "bulk": True,
                         "budget": 2,
                         "maximum": 1,
                         "valid_size": 1,
@@ -38,6 +39,7 @@ class SuiteTest(unittest.TestCase):
         self.assertEqual(suite.jobs[1].agent, "claude_sonnet")
         self.assertEqual(suite.jobs[0].spec.agent.kind, "command")
         self.assertEqual(suite.jobs[1].spec.agent.kind, "claude")
+        self.assertTrue(suite.jobs[0].spec.bulk)
         self.assertEqual(
             suite.jobs[0].spec.root,
             Path("runs/smoke/script/toy/000_toy_script_r00"),

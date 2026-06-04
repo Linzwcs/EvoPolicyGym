@@ -120,6 +120,20 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(spec.exp, "smoke-001")
         self.assertEqual(spec.run_key, "smoke-001")
 
+    def test_loads_bulk_run_flag(self) -> None:
+        spec = Spec.from_mapping(
+            {
+                "run": {
+                    "root": "runs/bulk",
+                    "env": "gymnasium/MiniGrid-FourRooms-v0",
+                    "budget": 4,
+                    "bulk": True,
+                }
+            }
+        )
+
+        self.assertTrue(spec.bulk)
+
     def test_loads_codex_agent_spec(self) -> None:
         spec = Spec.from_mapping(
             {

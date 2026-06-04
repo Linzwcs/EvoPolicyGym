@@ -91,6 +91,7 @@ class Server:
 class Spec:
     env: str
     budget: int
+    bulk: bool = False
     root: Path | None = None
     runs: Path | None = None
     data: Path | None = None
@@ -154,6 +155,7 @@ class Spec:
 
         return cls(
             env=str(env),
+            bulk=_bool(_get(data, run, "bulk", False), "run.bulk"),
             root=_optional_path(root, "run.root"),
             runs=_optional_path(runs, "run.runs"),
             data=_optional_path(_get(data, run, "data", None), "run.data"),

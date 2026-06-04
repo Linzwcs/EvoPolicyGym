@@ -2,7 +2,7 @@
 name = "main-128-codex"
 root = "runs/main-128/codex"
 repeats = 1
-jobs = 1
+jobs = 4
 
 [[run]]
 env = "gym/acrobot"

@@ -2,7 +2,7 @@
 name = "main-128-claude"
 root = "runs/main-128/claude"
 repeats = 1
-jobs = 1
+jobs = 4
 
 [[run]]
 env = "gym/acrobot"

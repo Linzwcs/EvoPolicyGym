@@ -183,8 +183,8 @@ final_size = 256
 [[agent]]
 kind = "codex"
 name = "codex"
-retries = 2
-retry_backoff = 1.0
+retries = 5
+retry_backoff = 4.0
 bypass = true
 
 [server]

@@ -183,8 +183,8 @@ final_size = 256
 [[agent]]
 kind = "kimi"
 name = "kimi"
-retries = 2
-retry_backoff = 1.0
+retries = 5
+retry_backoff = 4.0
 
 [server]
 bind = "127.0.0.1"

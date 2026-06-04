@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from evopolicygym import Case
 from evopolicygym.check import check_env
@@ -25,6 +28,26 @@ P1_NAMES = (
     "gym/frozenlake",
     "gym/taxi",
 )
+
+
+class MiniwobUrlTest(unittest.TestCase):
+    def test_miniwob_env_url_gets_trailing_slash(self) -> None:
+        from evopolicygym.envs.gym.dynamic import _miniwob_base_url
+
+        with patch.dict(os.environ, {"MINIWOB_URL": "file:///tmp/miniwob"}, clear=False):
+            self.assertEqual(_miniwob_base_url(), "file:///tmp/miniwob/")
+
+    def test_miniwob_url_is_discovered_from_local_third_party_tree(self) -> None:
+        from evopolicygym.envs.gym.dynamic import _miniwob_base_url
+
+        with tempfile.TemporaryDirectory() as root:
+            html = Path(root) / "third_party/miniwob-plusplus/miniwob/html/miniwob"
+            html.mkdir(parents=True)
+            (html / "click-button.html").write_text("", encoding="utf-8")
+            (html / "ascending-numbers.html").write_text("", encoding="utf-8")
+
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(_miniwob_base_url(cwd=Path(root)), html.resolve().as_uri() + "/")
 
 
 @unittest.skipUnless(HAS_GYM, "gymnasium extra is not installed")

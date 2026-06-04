@@ -40,7 +40,8 @@ with the relevant extra:
   install chromium`.
 - BrowserGym MiniWoB++ also needs MiniWoB HTML files. Clone
   `Farama-Foundation/miniwob-plusplus` into `third_party/miniwob-plusplus`, use
-  commit `7fd85d71a4b60325c6585396ec4f48377d049838`, and set
+  commit `7fd85d71a4b60325c6585396ec4f48377d049838`. EvoPolicyGym auto-detects
+  this local path; alternatively set
   `MINIWOB_URL=file://<repo>/third_party/miniwob-plusplus/miniwob/html/miniwob/`.
 
 ## Built-In Gymnasium Families

@@ -10,14 +10,18 @@ from __future__ import annotations
 import contextlib
 import importlib
 import io
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..discover import REGISTRATION_MODULES, Spec, classify
 from .family import task_doc
 from .spec import GymSpec
 
 PREFIX = "gymnasium/"
+_MINIWOB_LOCAL = Path("third_party/miniwob-plusplus/miniwob/html/miniwob")
+_MINIWOB_SENTINELS = ("click-button.html", "ascending-numbers.html")
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,7 +145,55 @@ def _kwargs(env_id: str) -> dict[str, object]:
                 "goal": "Open-ended browser smoke task.",
             }
         }
+    if env_id.startswith("browsergym/miniwob."):
+        base_url = _miniwob_base_url()
+        if base_url is not None:
+            return {"task_kwargs": {"base_url": base_url}}
     return {}
+
+
+def _miniwob_base_url(*, cwd: Path | None = None) -> str | None:
+    """Return a BrowserGym MiniWoB++ base URL when configured or locally vendored."""
+
+    configured = os.environ.get("MINIWOB_URL", "").strip()
+    if configured:
+        return _directory_url(configured)
+
+    for candidate in _miniwob_candidates(cwd or Path.cwd()):
+        if all((candidate / name).exists() for name in _MINIWOB_SENTINELS):
+            return _directory_url(candidate)
+    return None
+
+
+def _miniwob_candidates(cwd: Path) -> tuple[Path, ...]:
+    roots = [cwd, *cwd.parents, _source_root()]
+    rows: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        candidate = (root / _MINIWOB_LOCAL).resolve()
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        rows.append(candidate)
+    return tuple(rows)
+
+
+def _source_root() -> Path:
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return path.parents[4]
+
+
+def _directory_url(value: str | Path) -> str:
+    if isinstance(value, Path):
+        text = value.expanduser().resolve().as_uri()
+    elif "://" in value:
+        text = value
+    else:
+        text = Path(value).expanduser().resolve().as_uri()
+    return text if text.endswith("/") else f"{text}/"
 
 
 def _matches(env_id: str, filters: set[str]) -> bool:

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from evopolicygym import Command, Drive, Loop, local
+from evopolicygym import Command, Drive, Loop, Reply, local
 from evopolicygym.check import check
 from evopolicygym.envs import toy
 
@@ -53,6 +53,36 @@ class DriveTest(unittest.TestCase):
             self.assertIn("drive.finish", events)
             self.assertTrue(check(root).ok)
 
+    def test_drive_closes_alive_run_when_agent_stops_early(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "run"
+            host = local(
+                root,
+                toy(),
+                key="run-001",
+                model="agent",
+                exp="drive",
+                budget=2,
+                maximum=1,
+                valid_size=1,
+                final_size=1,
+            )
+            loop = Loop(_FailingHarness(), limit=2, retries=0)
+
+            try:
+                trial = Drive(loop).run(host)
+            except PermissionError as exc:
+                self.skipTest(f"TCP bind is not permitted in this sandbox: {exc}")
+
+            self.assertFalse(trial.done)
+            self.assertFalse(host.run.alive())
+            self.assertEqual(trial.transcript.reason, "retry_exhausted")
+            run_json = _json(root / "run.json")
+            self.assertEqual(run_json["outcome"]["status"], "error")
+            events = [row["event"] for row in _jsonl(root / "logs" / "harness.log")]
+            self.assertIn("run.close", events)
+            self.assertIn("drive.finish", events)
+
 
 def _agent_script() -> str:
     policy = repr(_policy())
@@ -95,6 +125,25 @@ def _policy() -> str:
         "    def act(self, obs):\n"
         "        return 1\n"
     )
+
+
+class _FailingHarness:
+    def start(self, launch) -> _FailingSession:
+        return _FailingSession()
+
+
+class _FailingSession:
+    key = "failing-session"
+
+    def step(self, message: str) -> Reply:
+        raise RuntimeError("agent stopped")
+
+    def close(self) -> None:
+        return None
+
+
+def _json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _jsonl(path: Path) -> list[dict]:

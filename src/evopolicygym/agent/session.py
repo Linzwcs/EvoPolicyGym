@@ -106,6 +106,13 @@ class Launch:
             and return primary; use clear helper modules when structure helps
             future iterations.
 
+            Do not run local environment rollouts, copied environment
+            dynamics/reward functions, Gymnasium/MuJoCo/Box2D/highway
+            simulators, or other simulator data generation outside `/submit`.
+            All observations, actions, rewards, episode lengths, returns, and
+            candidate-policy scores used for optimization must come from
+            accepted `/submit` calls and existing `feedback/` artifacts.
+
             Use the server API:
             - GET {self.endpoint}/info
             - GET {self.endpoint}/task

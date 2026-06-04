@@ -37,7 +37,7 @@ class FileStore:
     _locked: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.root = Path(self.root)
+        self.root = _absolute(self.root)
 
     def open(self, run: Run) -> None:
         self._acquire_lock(run)
@@ -289,6 +289,13 @@ class FileStore:
 
 def _submit_dir(index: int) -> str:
     return f"submit_{index:03d}"
+
+
+def _absolute(path: str | Path) -> Path:
+    value = Path(path)
+    if value.is_absolute():
+        return value
+    return Path.cwd() / value
 
 
 def _metric_trend(metrics: dict[int, dict[str, Any]], submits: list[int]) -> dict[str, Any]:

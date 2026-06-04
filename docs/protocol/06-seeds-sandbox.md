@@ -217,6 +217,10 @@ v2 协议要求**至少做到 (2)**，env 可声明对 (3) 的需求。
 localhost 请求属于评测交互面。Server 在收到 `/submit` 后再把
 `workspace/system/` 快照放入 runtime sandbox 执行。
 
+外层 agent harness 即使有更宽的系统权限，也只允许用本地 HTTP API 产生
+rollout 数据。它不能调用本地环境包、benchmark env 实现、复制的
+dynamics/reward 函数或第三方 simulator 来绕过 `/submit` 的 episode budget。
+
 policy runtime 中 **完全禁用**（**MUST**）：
 
 - DNS lookup（`socket.gethostbyname` / `getaddrinfo` → fail）
@@ -237,6 +241,7 @@ agent **MUST NOT** 做以下任何一项；命中即 `denied_import` / `import_e
 |---|---|
 | 读 `feedback/submit_*/` 里 **未来** submit 的内容 | 时序上不存在；`feedback/` 在 agent 写代码时是过去的，未来 submit 还没跑 |
 | 推断 `valid` / `heldout` ref/seed 或大小 | 完全不暴露；`/info` 不返回，`env_meta` 不传，summary 不含 |
+| 在 `/submit` 外运行本地 Gym/MuJoCo/Box2D/highway 环境、benchmark env 类或复制的 dynamics/reward 生成 rollout 数据 | 协议禁止；平台可通过 harness sandbox、日志审计或依赖白名单发现，run 可判无效 |
 | 反射 / dynamic import 绕黑名单 | runtime import hook 双重校验（§6.7） |
 | 在 `__init__` 里 spawn 进程做训练 | `subprocess` 在 deny 列表 + 网络全禁；起子进程 RSS 计入 |
 | 写 `feedback/` 篡改前轮记录 | FS 隔离 read-only |

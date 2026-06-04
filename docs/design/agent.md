@@ -47,7 +47,10 @@ those paths are not part of the agent-facing file contract:
 The initial prompt tells the harness that its cwd is the benchmark workspace,
 to read `AGENTS.md` first, edit only `system/`, read `feedback/`, use `/info`,
 `/task`, and `/submit`, improve both policy behavior and code structure, and
-continue until `/info.state.is_finalized == true`.
+continue until `/info.state.is_finalized == true`. The harness must not create
+extra environment rollout data outside the server API; all observations,
+rewards, episode lengths, returns, and candidate-policy scores derived from
+environment execution must come from `/submit` and prior `feedback/`.
 
 ## Session Invariant
 
@@ -97,7 +100,9 @@ Codex CLI sandboxing is harness configuration, not EvoPolicyGym scoring policy.
 The benchmark surface remains the local HTTP API. For live Codex runs that must
 call `127.0.0.1`, set `[agent] bypass = true`; the adapter then passes
 `--dangerously-bypass-approvals-and-sandbox` and omits `--sandbox` and approval
-overrides. Server-side policy rollouts still use the configured EvoPolicyGym
+overrides. That bypass is only for reaching the local EvoPolicyGym API; it does
+not permit internet access or local Gym/MuJoCo/Box2D/highway rollouts outside
+`/submit`. Server-side policy rollouts still use the configured EvoPolicyGym
 runtime sandbox.
 
 `agent.Claude` wraps Claude Code in print mode. It runs

@@ -10,6 +10,8 @@ _FALLBACK = """# EvoPolicyGym Agent Rules
 
 Implement `system/policy.py`, read `feedback/`, and submit through the server
 API. Do not modify feedback, checkpoints, logs, hidden data, or `AGENTS.md`.
+Do not run local environment rollouts or copied environment simulators; all
+rollout data must come from `/submit` and prior `feedback/`.
 Do not call `/finalize`.
 """
 

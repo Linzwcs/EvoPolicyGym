@@ -52,10 +52,12 @@ class Policy:
     def act(self, obs) -> "action": ...
 ```
 
-**方法不限**：`Policy` 内部用 PD / PPO / MCTS / A* / NN inference / 查表，server 不关心，只校验三件事：
+**策略计算方法不限**：`Policy` 内部可用 PD / PPO / 规划 / NN inference / 查表等方式计算动作，server 不关心实现形态，只校验三件事：
 1. `policy.py` 在 `system/` 根部、可 import；
 2. 顶层导出 `class Policy`；
 3. 三个方法签名兼容上文。
+
+但 rollout 数据源受协议约束：agent 和 `Policy` 都不能通过本地环境实例、复制环境 dynamics/reward、或第三方 simulator 生成额外 observations、rewards、episode lengths、returns 来训练、调参或评估候选策略。真实环境交互必须通过 server `/submit` 执行并扣 episode budget；`feedback/` 是唯一可读的历史 rollout 数据源。
 
 ## 2.2 生命周期（单 submit 内）
 

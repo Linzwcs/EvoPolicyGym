@@ -8,7 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from evopolicygym import Suite
 from evopolicygym.check import check
+from evopolicygym.cli import _job
 
 
 class CliTest(unittest.TestCase):
@@ -672,6 +674,49 @@ class CliTest(unittest.TestCase):
                 self.assertEqual(job["category"], "completed")
                 self.assertTrue(job["check"]["ok"])
                 self.assertTrue((Path(job["root"]) / "run.json").exists())
+
+    def test_suite_job_uses_stable_cwd_for_relative_roots(self) -> None:
+        original = Path.cwd()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            script = base / "agent.py"
+            script.write_text(_agent_script(), encoding="utf-8")
+            os.chdir(base)
+            try:
+                suite = Suite.from_mapping(
+                    {
+                        "suite": {"root": "suite"},
+                        "run": {
+                            "env": "toy",
+                            "budget": 1,
+                            "maximum": 1,
+                            "valid_size": 1,
+                            "final_size": 1,
+                        },
+                        "agent": {
+                            "kind": "command",
+                            "argv": [sys.executable, str(script)],
+                            "name": "script",
+                            "limit": 2,
+                        },
+                    }
+                )
+                wrong = base / "wrong" / "checkpoint"
+                wrong.mkdir(parents=True)
+                os.chdir(wrong)
+
+                result = _job(suite.jobs[0], base)
+            finally:
+                os.chdir(original)
+
+            if result.error and "PermissionError" in result.error:
+                self.skipTest(f"TCP bind is not permitted in this sandbox: {result.error}")
+
+            expected = base / "suite" / "script" / "toy" / "000_toy_script_r00"
+            self.assertTrue(result.done, result.record())
+            self.assertEqual(result.root, expected.resolve())
+            self.assertTrue((expected / "run.json").exists())
+            self.assertFalse((base / "wrong" / "checkpoint" / "suite").exists())
 
 
 def _env() -> dict[str, str]:

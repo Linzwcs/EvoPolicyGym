@@ -6,11 +6,12 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import warnings
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from pathlib import Path
 
@@ -516,25 +517,39 @@ def _by_level(rows: list[dict[str, object]]) -> dict[str, int]:
 
 
 def _suite_results(suite: Suite) -> list[SuiteResult]:
+    cwd = Path.cwd()
     if suite.concurrency == 1:
-        return [_job(job) for job in suite.jobs]
+        return [_job(job, cwd) for job in suite.jobs]
 
     results: list[SuiteResult | None] = [None] * len(suite.jobs)
-    with ThreadPoolExecutor(max_workers=suite.concurrency) as executor:
-        futures = {executor.submit(_job, job): job.index for job in suite.jobs}
+    with ProcessPoolExecutor(max_workers=suite.concurrency) as executor:
+        futures = {executor.submit(_job, job, cwd): job.index for job in suite.jobs}
         for future in as_completed(futures):
             index = futures[future]
             results[index] = future.result()
     return [result for result in results if result is not None]
 
 
-def _job(job) -> SuiteResult:
+def _job(job, cwd: Path | None = None) -> SuiteResult:
+    stable_cwd = _absolute(cwd) if cwd is not None else None
+    if stable_cwd is not None:
+        os.chdir(stable_cwd)
     try:
         trial = _trial(job.spec)
         result = SuiteResult.from_summary(job, _summary(job.spec, trial))
     except Exception as exc:
-        return SuiteResult.from_error(job, exc)
+        result = SuiteResult.from_error(job, exc)
+    finally:
+        if stable_cwd is not None:
+            os.chdir(stable_cwd)
     return _checked(result)
+
+
+def _absolute(path: str | Path) -> Path:
+    value = Path(path)
+    if value.is_absolute():
+        return value
+    return Path.cwd() / value
 
 
 def _checked(result: SuiteResult) -> SuiteResult:
@@ -578,7 +593,7 @@ def _summary(spec: Spec, trial: Trial) -> dict[str, object]:
     return {
         "done": trial.done,
         "reason": trial.transcript.reason,
-        "root": str(spec.root),
+        "root": str(trial.host.store.root),
         "run": trial.host.run.key,
         "session": trial.transcript.session,
         "submits": trial.host.service.submits,

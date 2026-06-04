@@ -54,6 +54,10 @@ class Drive:
                     run_alive=host.run.alive(),
                 )
             _emit(host, "server.stop", url=url)
+            if not transcript.done and host.run.alive():
+                failed = host.run.fail()
+                host.service.run = failed
+                host.store.close(failed)
             trial = Trial(host=host, launch=launch, transcript=transcript)
             _emit(host, "drive.finish", done=trial.done)
             return trial

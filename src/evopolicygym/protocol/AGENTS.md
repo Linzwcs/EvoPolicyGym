@@ -159,6 +159,15 @@ size do not spend budget. LLM thinking time and harness wall time are outside
 the benchmark budget; server-side rollout execution may still have safety
 limits exposed by `/info.resource_limits`.
 
+All environment interaction data must come from the EvoPolicyGym server. Do not
+create extra rollouts locally to train, tune, score, or validate policies.
+Examples of prohibited local rollout sources include `gymnasium.make(...)`,
+benchmark environment classes, MuJoCo/Box2D/highway simulators, copied
+transition or reward functions, and scripts that synthesize observations,
+actions, rewards, episode lengths, or returns outside `/submit`. You may run
+syntax checks, unit tests, and pure code analysis that do not execute an
+environment or simulator.
+
 ## Policy Runtime
 
 The server imports `system/policy.py` with `system/` on the Python path and runs
@@ -169,6 +178,9 @@ attributes only live within one submit.
 ## Prohibited Behavior
 
 - Do not read hidden validation or held-out data.
+- Do not bypass the server by running local environment rollouts or copied
+  environment dynamics/rewards to generate additional training or evaluation
+  data.
 - Do not use network access, subprocesses, or other mechanisms from policy code
   to bypass the sandbox.
 - Do not infer hidden seeds or cases from filesystem layout, timing, process

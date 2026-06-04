@@ -40,6 +40,8 @@ class AgentLaunchTest(unittest.TestCase):
             self.assertIn("`system/`", prompt)
             self.assertIn("`feedback/`", prompt)
             self.assertIn("code structure", prompt)
+            self.assertIn("Do not run local environment rollouts", prompt)
+            self.assertIn("candidate-policy scores", prompt)
             self.assertNotIn(str(resolved), prompt)
             self.assertIn("Do not call /finalize", prompt)
 

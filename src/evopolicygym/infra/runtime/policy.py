@@ -62,7 +62,7 @@ class PolicyRuntime:
     _streams: dict[int, tuple[str, str]] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.root = Path(self.root)
+        self.root = _absolute(self.root)
 
     def scan(self, snap: Snap, task: Task) -> Verdict | None:
         system = self._system(snap)
@@ -255,6 +255,13 @@ def _meta(run: Run, submit: Submit, task: Task, pool: Pool) -> dict[str, Any]:
     if task.rewards:
         meta["reward_components"] = task.rewards
     return meta
+
+
+def _absolute(path: str | Path) -> Path:
+    value = Path(path)
+    if value.is_absolute():
+        return value
+    return Path.cwd() / value
 
 
 def _policy(module: ModuleType) -> type:

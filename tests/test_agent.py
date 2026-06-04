@@ -434,7 +434,7 @@ def _fake_claude() -> str:
         "import sys\n"
         "args = sys.argv[1:]\n"
         "resume = '--resume' in args\n"
-        "prompt = args[-1]\n"
+        "prompt = sys.stdin.read()\n"
         "print(json.dumps({'type': 'assistant', 'message': {'content': 'seen'}}))\n"
         "print(json.dumps({\n"
         "    'type': 'result',\n"

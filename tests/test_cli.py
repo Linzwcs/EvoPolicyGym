@@ -800,7 +800,7 @@ def _fake_claude() -> str:
         "import urllib.request\n"
         "args = sys.argv[1:]\n"
         "resume = '--resume' in args\n"
-        "prompt = args[-1]\n"
+        "prompt = sys.stdin.read()\n"
         "with urllib.request.urlopen(os.environ['EVOPOLICYGYM_INFO_URL'], timeout=5.0) as response:\n"
         "    info = json.loads(response.read().decode('utf-8'))\n"
         "case = info['state']['n_submits']\n"

@@ -101,14 +101,14 @@ class ClaudeSession:
             cmd,
             cwd=str(self.launch.workspace),
             env=self._env(),
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
         timed_out = False
         try:
-            stdout, stderr = proc.communicate(timeout=self.timeout)
+            stdout, stderr = proc.communicate(input=message, timeout=self.timeout)
             code = proc.returncode
         except subprocess.TimeoutExpired:
             timed_out = True
@@ -171,7 +171,6 @@ class ClaudeSession:
         if self.model:
             cmd.extend(["--model", self.model])
         cmd.extend(self.args)
-        cmd.append(message)
         return cmd
 
     def _env(self) -> dict[str, str]:

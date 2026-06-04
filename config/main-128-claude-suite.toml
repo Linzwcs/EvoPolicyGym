@@ -6,6 +6,7 @@ jobs = 1
 
 [[run]]
 env = "gym/acrobot"
+data = "data/main-128/gym/acrobot"
 bulk = true
 model = "claude"
 budget = 128
@@ -16,6 +17,7 @@ final_size = 256
 
 [[run]]
 env = "gym/continuouscar"
+data = "data/main-128/gym/continuouscar"
 bulk = true
 model = "claude"
 budget = 128
@@ -26,6 +28,7 @@ final_size = 256
 
 [[run]]
 env = "gym/bipedal"
+data = "data/main-128/gym/bipedal"
 bulk = true
 model = "claude"
 budget = 128
@@ -36,6 +39,7 @@ final_size = 256
 
 [[run]]
 env = "gym/racing"
+data = "data/main-128/gym/racing"
 bulk = true
 model = "claude"
 budget = 128
@@ -46,6 +50,7 @@ final_size = 256
 
 [[run]]
 env = "gym/halfcheetah5"
+data = "data/main-128/gym/halfcheetah5"
 bulk = true
 model = "claude"
 budget = 128
@@ -56,6 +61,7 @@ final_size = 256
 
 [[run]]
 env = "gym/ant5"
+data = "data/main-128/gym/ant5"
 bulk = true
 model = "claude"
 budget = 128
@@ -66,6 +72,7 @@ final_size = 256
 
 [[run]]
 env = "gym/pusher5"
+data = "data/main-128/gym/pusher5"
 bulk = true
 model = "claude"
 budget = 128
@@ -76,6 +83,7 @@ final_size = 256
 
 [[run]]
 env = "gym/reacher5"
+data = "data/main-128/gym/reacher5"
 bulk = true
 model = "claude"
 budget = 128
@@ -86,6 +94,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/MiniGrid-DoorKey-16x16-v0"
+data = "data/main-128/gymnasium/MiniGrid-DoorKey-16x16-v0"
 bulk = true
 model = "claude"
 budget = 128
@@ -96,6 +105,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/MiniGrid-KeyCorridorS4R3-v0"
+data = "data/main-128/gymnasium/MiniGrid-KeyCorridorS4R3-v0"
 bulk = true
 model = "claude"
 budget = 128
@@ -106,6 +116,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/MiniGrid-FourRooms-v0"
+data = "data/main-128/gymnasium/MiniGrid-FourRooms-v0"
 bulk = true
 model = "claude"
 budget = 128
@@ -116,6 +127,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/MiniGrid-ObstructedMaze-1Q-v1"
+data = "data/main-128/gymnasium/MiniGrid-ObstructedMaze-1Q-v1"
 bulk = true
 model = "claude"
 budget = 128
@@ -126,6 +138,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/parking-v0"
+data = "data/main-128/gymnasium/parking-v0"
 bulk = true
 model = "claude"
 budget = 128
@@ -136,6 +149,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/roundabout-v0"
+data = "data/main-128/gymnasium/roundabout-v0"
 bulk = true
 model = "claude"
 budget = 128
@@ -146,6 +160,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/FetchPush-v4"
+data = "data/main-128/gymnasium/FetchPush-v4"
 bulk = true
 model = "claude"
 budget = 128
@@ -156,6 +171,7 @@ final_size = 256
 
 [[run]]
 env = "gymnasium/FetchPickAndPlace-v4"
+data = "data/main-128/gymnasium/FetchPickAndPlace-v4"
 bulk = true
 model = "claude"
 budget = 128

@@ -29,7 +29,7 @@ evopolicygym check-envs --bulk --isolate --jobs 4 --min-level L1 --timeout 60
 | MuJoCo locomotion | `gym/ant5` | `Ant-v5` | Multi-legged coordination, stability, and high-dimensional action control. |
 | MuJoCo manipulation | `gym/pusher5` | `Pusher-v5` | End-effector control, contact dynamics, and object-to-goal manipulation. |
 | MuJoCo manipulation | `gym/reacher5` | `Reacher-v5` | Short-horizon arm control and geometric target reaching. |
-| MiniGrid planning | `gymnasium/MiniGrid-DoorKey-8x8-v0` | `MiniGrid-DoorKey-8x8-v0` | Key-door subgoal decomposition under symbolic observations. |
+| MiniGrid planning | `gymnasium/MiniGrid-DoorKey-16x16-v0` | `MiniGrid-DoorKey-16x16-v0` | Larger key-door subgoal decomposition with longer sparse-reward exploration under symbolic observations. |
 | MiniGrid planning | `gymnasium/MiniGrid-KeyCorridorS4R3-v0` | `MiniGrid-KeyCorridorS4R3-v0` | Multi-room search, key retrieval, and object interaction. |
 | MiniGrid navigation | `gymnasium/MiniGrid-FourRooms-v0` | `MiniGrid-FourRooms-v0` | Sparse-reward navigation through bottlenecks and partial observations. |
 | MiniGrid navigation | `gymnasium/MiniGrid-ObstructedMaze-1Q-v1` | `MiniGrid-ObstructedMaze-1Q-v1` | Maze navigation with obstacles and interaction sequencing. |

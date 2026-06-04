@@ -33,6 +33,7 @@ dev = [
 ]
 env-gym = [
     "autorom[accept-rom-license]>=0.6.1",
+    "box2d-py>=2.3.8",
     "gymnasium[atari,box2d,mujoco]>=1.2.0",
 ]
 env-compatible = [

@@ -85,7 +85,7 @@ valid_size = 8
 final_size = 32
 
 [[run]]
-env = "gymnasium/MiniGrid-DoorKey-8x8-v0"
+env = "gymnasium/MiniGrid-DoorKey-16x16-v0"
 bulk = true
 model = "script"
 budget = 16

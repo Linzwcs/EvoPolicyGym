@@ -20,13 +20,35 @@ v1 material lives under `archive/v1/` for reference only.
 uv sync
 ```
 
-Optional environment families are split into extras:
+For the main Core-16 experiment stack, install the Gymnasium and compatible
+environment families:
 
 ```bash
-uv sync --extra env-gym
-uv sync --extra env-compatible
+uv sync --extra dev --extra env-gym --extra env-compatible
+```
+
+The same setup is wrapped by:
+
+```bash
+scripts/setup-env.sh --core
+```
+
+`--core` installs the dependencies needed by `config/main-128-*.toml`:
+Gymnasium classic control, Box2D, MuJoCo, MiniGrid, HighwayEnv, and
+Gymnasium-Robotics. The small smoke configs only need the base package:
+
+```bash
+scripts/setup-env.sh --smoke
+```
+
+Optional environment families are split into extras and should be installed
+only when needed:
+
+```bash
 uv sync --extra env-visual
+uv sync --extra env-multi
 uv sync --extra env-web
+uv sync --extra env-heavy
 uv sync --extra env-jax
 uv sync --extra env-mario
 ```
@@ -35,9 +57,25 @@ uv sync --extra env-mario
 need `numpy>=2.1`, while MO-Gymnasium's Mario extra currently pins
 `numpy<2.0`, so they should be tested in separate virtual environments.
 
-Some visual/browser environments need runtime assets. See
-[`docs/envs/overview.md`](docs/envs/overview.md) for Atari ROM and MiniWoB++
-setup notes.
+### Runtime Assets
+
+Some optional environment families need non-Python assets:
+
+- BrowserGym MiniWoB++: run `scripts/setup-env.sh --core --web`. This installs
+  `env-web`, checks out `Farama-Foundation/miniwob-plusplus` under ignored
+  `third_party/miniwob-plusplus` at commit
+  `7fd85d71a4b60325c6585396ec4f48377d049838`, and installs Playwright
+  Chromium. EvoPolicyGym auto-detects this path from the repository root; if
+  running elsewhere, set `MINIWOB_URL` to the printed `file://.../miniwob/`
+  URL.
+- Atari/ALE: install Gymnasium assets with `scripts/setup-env.sh --core
+  --atari-roms`, which runs AutoROM into the active `.venv`.
+- MiniGrid WFC assets are vendored in
+  `src/evopolicygym/envs/gym/assets/minigrid_wfc_patterns/`; no extra manual
+  step is needed.
+
+See [`docs/envs/overview.md`](docs/envs/overview.md) for the broader optional
+environment roadmap.
 
 ## Quickstart
 
@@ -85,17 +123,40 @@ Run from a TOML/JSON config:
 uv run evopolicygym run --config docs/examples/cartpole-codex.toml
 ```
 
+Run the small live-agent smoke suite:
+
+```bash
+uv run evopolicygym suite --config config/smoke-8-suite.toml
+```
+
+Run the 128-budget main suites:
+
+```bash
+uv run evopolicygym suite --config config/main-128-codex-suite.toml
+uv run evopolicygym suite --config config/main-128-claude-suite.toml
+uv run evopolicygym suite --config config/main-128-kimi-suite.toml
+```
+
+These configs require the corresponding CLI (`codex`, `claude`, or `kimi`) to
+be authenticated locally. The Codex config uses `bypass = true` so the harness
+can reach the local EvoPolicyGym HTTP API; server-side policy rollout remains
+controlled by EvoPolicyGym.
+
 ## Repository Layout
 
 - `src/evopolicygym/`: package source.
+- `config/`: checked-in smoke and main experiment suite configs.
+- `scripts/`: local setup helpers.
 - `docs/protocol/`: normative protocol draft.
 - `docs/envs/`: environment coverage notes, roadmap, and discovery output.
 - `docs/examples/`: small checked-in example configs and fixtures.
 - `tests/`: standard-library `unittest` suite.
+- `third_party/`: ignored local runtime assets such as MiniWoB++ HTML.
 - `archive/v1/`: frozen legacy code, docs, analysis, and v0 run data.
 
 Generated run outputs belong under `runs/` or `experiment/` and are ignored by
-default.
+default. Local generated case splits belong under ignored `data/`; checked-in
+fixtures live under `docs/examples/data/`.
 
 ## Agent Adapters
 
@@ -132,6 +193,12 @@ uv run evopolicygym discover-envs \
 
 The discovery report reflects installed optional packages; it is not a promise
 that every discovered task already has a calibrated EvoPolicyGym scoring setup.
+
+For Core-16 readiness checks, use:
+
+```bash
+uv run evopolicygym check-envs --bulk --isolate --jobs 4 --min-level L1 --timeout 60
+```
 
 ## Safety
 

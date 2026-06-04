@@ -16,6 +16,9 @@ wheels/
 # Local runtime assets
 third_party/miniwob-plusplus/
 
+# Local generated case splits
+data/
+
 # Private research/paper materials not included in the open-source package
 archive/
 private/

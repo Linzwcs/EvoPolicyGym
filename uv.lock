@@ -562,6 +562,7 @@ env-compatible = [
 ]
 env-gym = [
     { name = "autorom", extra = ["accept-rom-license"] },
+    { name = "box2d-py" },
     { name = "gymnasium", extra = ["atari", "box2d", "mujoco"] },
 ]
 env-heavy = [
@@ -588,6 +589,7 @@ env-web = [
 [package.metadata]
 requires-dist = [
     { name = "autorom", extras = ["accept-rom-license"], marker = "extra == 'env-gym'", specifier = ">=0.6.1" },
+    { name = "box2d-py", marker = "extra == 'env-gym'", specifier = ">=2.3.8" },
     { name = "browsergym-miniwob", marker = "extra == 'env-web'", specifier = ">=0.14.3" },
     { name = "gymnasium", extras = ["atari", "box2d", "mujoco"], marker = "extra == 'env-gym'", specifier = ">=1.2.0" },
     { name = "gymnasium", extras = ["jax"], marker = "extra == 'env-jax'", specifier = ">=1.3.0" },

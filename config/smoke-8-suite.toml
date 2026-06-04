@@ -1,0 +1,46 @@
+[suite]
+name = "smoke-8"
+root = "runs/smoke-8"
+repeats = 1
+jobs = 1
+
+[[run]]
+env = "toy"
+budget = 8
+minimum = 1
+maximum = 8
+valid_size = 4
+final_size = 8
+
+[[run]]
+env = "cartpole"
+budget = 8
+minimum = 1
+maximum = 8
+valid_size = 4
+final_size = 8
+
+[[agent]]
+kind = "codex"
+name = "codex"
+retries = 2
+retry_backoff = 1.0
+bypass = true
+
+[[agent]]
+kind = "claude"
+name = "claude"
+retries = 2
+retry_backoff = 1.0
+permission = "bypassPermissions"
+tools = ["Bash", "Read", "Edit", "Write", "Glob", "Grep"]
+
+[[agent]]
+kind = "kimi"
+name = "kimi"
+retries = 2
+retry_backoff = 1.0
+
+[server]
+bind = "127.0.0.1"
+port = 0

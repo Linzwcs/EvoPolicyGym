@@ -120,9 +120,11 @@ benchmark resources.
 falls back to `-C` from the same workspace. It writes per-turn prompt, command,
 stream, stderr, and transcript files under `logs/kimi_turns/`. Kimi model and
 passthrough arguments are adapter configuration; they are not benchmark
-resources. The default model is `kimi-k2`, matching the v1 Kimi harness. Kimi
-Code 0.6 prompt mode rejects `--yolo` and `--auto`, so the adapter does not
-pass approval-mode flags in `-p` mode.
+resources. If no model is configured in the run spec, the adapter omits `-m`
+and lets the local Kimi CLI use its configured `default_model`; if the run
+spec sets `agent.model = "kimi-code/kimi-for-coding"`, the adapter passes that
+exact `-m` override. Kimi Code 0.6 prompt mode rejects `--yolo` and `--auto`,
+so the adapter does not pass approval-mode flags in `-p` mode.
 
 Request frame:
 

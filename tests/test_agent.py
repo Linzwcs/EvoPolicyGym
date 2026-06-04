@@ -312,7 +312,7 @@ class AgentLaunchTest(unittest.TestCase):
             fake.chmod(0o755)
             launch = Launch(root=root, endpoint="http://127.0.0.1:9999")
 
-            session = Kimi(binary=str(fake), model="kimi-k2", timeout=5.0).start(launch)
+            session = Kimi(binary=str(fake), timeout=5.0).start(launch)
             try:
                 first = session.step("first")
                 second = session.step("second")
@@ -334,6 +334,30 @@ class AgentLaunchTest(unittest.TestCase):
             )
             self.assertIn("-S", command)
             self.assertIn("session_kimi_001", command)
+            self.assertNotIn('"-m"', command)
+
+    def test_kimi_harness_passes_explicit_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "run"
+            fake = Path(tmp) / "kimi"
+            fake.write_text(_fake_kimi(), encoding="utf-8")
+            fake.chmod(0o755)
+            launch = Launch(root=root, endpoint="http://127.0.0.1:9999")
+
+            session = Kimi(
+                binary=str(fake), model="kimi-code/kimi-for-coding", timeout=5.0
+            ).start(launch)
+            try:
+                reply = session.step("first")
+            finally:
+                session.close()
+
+            self.assertFalse(reply.stop)
+            command = (launch.logs / "kimi_turns" / "turn_000.command.json").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn('"-m"', command)
+            self.assertIn("kimi-code/kimi-for-coding", command)
 
 
 @dataclass(slots=True)

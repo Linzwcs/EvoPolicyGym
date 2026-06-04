@@ -172,8 +172,10 @@ Use Kimi Code similarly:
 ```toml
 [agent]
 kind = "kimi"
-model = "kimi-k2"
 ```
+
+Add `model = "kimi-code/kimi-for-coding"` only when you need to override the
+local Kimi CLI `default_model`.
 
 Then run:
 

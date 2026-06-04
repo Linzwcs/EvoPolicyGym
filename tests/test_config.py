@@ -185,7 +185,7 @@ class ConfigTest(unittest.TestCase):
                 "agent": {
                     "kind": "kimi",
                     "binary": "kimi",
-                    "model": "kimi-k2",
+                    "model": "kimi-code/kimi-for-coding",
                     "args": ["--debug"],
                 },
             }
@@ -193,7 +193,7 @@ class ConfigTest(unittest.TestCase):
 
         self.assertEqual(spec.agent.kind, "kimi")
         self.assertEqual(spec.agent.binary, "kimi")
-        self.assertEqual(spec.agent.model, "kimi-k2")
+        self.assertEqual(spec.agent.model, "kimi-code/kimi-for-coding")
         self.assertEqual(spec.agent.args, ("--debug",))
 
     def test_rejects_invalid_spec(self) -> None:

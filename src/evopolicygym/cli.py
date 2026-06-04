@@ -707,7 +707,7 @@ def _harness(agent: Agent) -> Harness:
     if agent.kind == "kimi":
         return Kimi(
             binary=agent.binary or "kimi",
-            model=agent.model or "kimi-k2",
+            model=agent.model,
             args=agent.args,
             name=agent.name if agent.name != "agent" else "kimi",
         )

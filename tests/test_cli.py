@@ -606,8 +606,61 @@ class CliTest(unittest.TestCase):
             command = (root / "logs" / "kimi_turns" / "turn_000.command.json").read_text(
                 encoding="utf-8"
             )
-            self.assertIn("kimi-k2", command)
+            self.assertNotIn('"-m"', command)
             self.assertTrue((root / "run.json").exists())
+
+    def test_cli_run_passes_explicit_kimi_model(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "kimi-run"
+            fake = Path(tmp) / "kimi"
+            config = Path(tmp) / "kimi.json"
+            fake.write_text(_fake_kimi(), encoding="utf-8")
+            fake.chmod(0o755)
+            config.write_text(
+                json.dumps(
+                    {
+                        "run": {
+                            "env": "toy",
+                            "root": str(root),
+                            "budget": 2,
+                            "maximum": 1,
+                            "valid_size": 1,
+                            "final_size": 1,
+                        },
+                        "agent": {
+                            "kind": "kimi",
+                            "binary": str(fake),
+                            "model": "kimi-code/kimi-for-coding",
+                            "limit": 4,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "evopolicygym.cli",
+                    "run",
+                    "--config",
+                    str(config),
+                ],
+                capture_output=True,
+                env=_env(),
+                text=True,
+                timeout=10.0,
+            )
+            if result.returncode != 0 and _bind_denied(result.stderr):
+                self.skipTest(f"TCP bind is not permitted in this sandbox: {result.stderr}")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            command = (root / "logs" / "kimi_turns" / "turn_000.command.json").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn('"-m"', command)
+            self.assertIn("kimi-code/kimi-for-coding", command)
 
     def test_cli_suite_runs_serial_jobs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

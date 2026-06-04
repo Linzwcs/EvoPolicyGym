@@ -15,7 +15,6 @@ from typing import Any
 from .session import Launch, Reply
 
 Json = Any
-DEFAULT_MODEL = "kimi-k2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +29,7 @@ class Kimi:
     """
 
     binary: str = "kimi"
-    model: str = DEFAULT_MODEL
+    model: str = ""
     args: Sequence[str] = field(default_factory=tuple)
     name: str = "kimi"
     timeout: float | None = None
@@ -64,7 +63,7 @@ class KimiSession:
 
     launch: Launch
     binary: str
-    model: str = DEFAULT_MODEL
+    model: str = ""
     args: tuple[str, ...] = ()
     name: str = "kimi"
     timeout: float | None = None

@@ -260,7 +260,7 @@ pixel envs 推荐 `.npz`（压缩率 60-80%）；`mmap_mode='r'` 允许随机访
 
 ## 4.9 跨文件不变量
 
-以下条目 **MUST** 成立，`hlbench check` 应逐条校验。
+以下条目 **MUST** 成立，run artifact checker 应逐条校验。
 
 | # | 不变量 | 范围 |
 |---|---|---|

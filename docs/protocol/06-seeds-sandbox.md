@@ -66,7 +66,7 @@ benchmark curator 在发布 data 目录时**必须**：
 
 1. 在 data manifest 或 split metadata 中记录生成方法（如 `master_seed`，若适用）；
 2. 提供 `train.json`、`valid.json`、`heldout.json` 三份 case source；
-3. `evopolicygym check-env --data <dir>` 校验 disjoint 与大小一致；
+3. `evopolicygym check-envs` 和数据校验工具校验 disjoint 与大小一致；
 4. 每次改动任一池 → 生成新的 data hash；若 env 逻辑也变更，再 bump `env_version`（[§9 版本管理](./09-versioning.md)）。
 
 ## 6.3 Case 间接寻址
@@ -250,7 +250,7 @@ agent **MUST NOT** 做以下任何一项；命中即 `denied_import` / `import_e
 
 ## 6.11 校验工具应该检查的 invariant
 
-`evopolicygym check-env`（env + data 健康度）**MUST** 验证：
+`evopolicygym check-envs` 和数据校验工具（env + data 健康度）**MUST** 验证：
 
 1. `train.json` / `valid.json` / `heldout.json` 三池 case source 存在且 size 符合 run/env 期望
 2. 三池 underlying cases pairwise disjoint
@@ -258,7 +258,7 @@ agent **MUST NOT** 做以下任何一项；命中即 `denied_import` / `import_e
 4. `denied_imports` 至少包含 §6.7 默认清单
 5. `allowed_imports` 不与 `denied_imports` 交集
 
-`evopolicygym check`（run 健康度）**MUST** 验证：
+run artifact checker（当前 Python API `evopolicygym.check.check`，run 健康度）**MUST** 验证：
 
 6. submit 的所有 `env_instances` ∈ `[0, n_env_instances)`
 7. feedback 中没有泄漏 hidden ref/seed / val 信息（grep `summary.json:*`、`trajectory.jsonl`）

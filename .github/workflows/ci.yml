@@ -30,7 +30,7 @@ jobs:
         run: uv run python -m unittest discover -s tests
 
       - name: CLI smoke
-        run: uv run feedbackgym --help
+        run: uv run evopolicygym --help
 
       - name: Package build smoke
         run: uv build

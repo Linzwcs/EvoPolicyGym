@@ -14,7 +14,7 @@
 
 与传统 OJ 不同点：
 
-| | 传统 OJ | hlbench |
+| | 传统 OJ | EvoPolicyGym |
 |---|---|---|
 | Verdict | AC / WA 二元 | 10 类，连续打分（held-out 决最终分） |
 | 测试 | 固定输入输出对 | 有状态环境交互 |
@@ -190,7 +190,7 @@ HTTP 响应回带 `summary` 对象（与 `summary.json` 字节一致），并在
 
 ## 5.8 校验工具应该检查的 invariant
 
-`hlbench check` **MUST** 验证：
+run artifact checker **MUST** 验证：
 
 1. **Verdict 一致性**：`summary.json:status` 与 `errors.txt[].category` 在 submit-level 错误下一致；per-episode `error.txt[].category` 在 episode-level 错误集内。
 2. **预算守恒**：`episode_budget = remaining_budget(final) + Σ_submits len(env_instances)`，仅 Phase 1 失败的 submit 不计入。

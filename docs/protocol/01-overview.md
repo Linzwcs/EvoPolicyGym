@@ -6,9 +6,7 @@
 
 ## 1.1 简介
 
-hlbench 评测 **agent 从环境反馈中迭代代码策略（方法不限）** 的能力：
-
-![HLBench evaluation protocol overview](./assets/overview-architecture.svg)
+EvoPolicyGym 评测 **agent 从环境反馈中迭代代码策略（方法不限）** 的能力：
 
 - **闭环**：agent 写代码 → server 沙箱执行 → 写回反馈 → agent 据此改代码，反复。
 - **预算受限**：每个 run 有固定 `episode_budget`；agent 自决分配。

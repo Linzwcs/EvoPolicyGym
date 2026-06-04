@@ -53,6 +53,8 @@ Run the CLI help:
 uv run evopolicygym --help
 ```
 
+The old `feedbackgym` package and CLI names are not supported.
+
 Create reproducible external case splits:
 
 ```bash

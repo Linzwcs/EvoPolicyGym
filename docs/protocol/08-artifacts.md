@@ -98,7 +98,7 @@ width = max(3, len(str(episode_budget)))
     "min_episodes_per_submit": 1,
     "max_episodes_per_submit": 256,
     "seed_pool_id": "default",
-    "agent_harness": "hlbench@0.1.0a1",
+    "agent_harness": "evopolicygym@0.1.0a1",
     "model_config": {"temperature": 1.0, "max_tokens": 8192}
   },
 
@@ -184,7 +184,7 @@ width = max(3, len(str(episode_budget)))
 | `outcome.heldout_returns` | float[] \| null | 256 个 heldout episode 的 raw return；用于离群点/方差分析 |
 | `outcome.auxiliary.*` | object | [§7.5 Auxiliary metrics](./07-scoring.md#75-auxiliary-metrics) 全部 |
 | `artifacts.*` | string | run 目录内的**相对路径**（**MUST**），便于 run 被移动 |
-| `versions.harness` | string | hlbench 包版本（实现版） |
+| `versions.harness` | string | EvoPolicyGym 包版本（实现版） |
 | `versions.env` | string | env 包版本 |
 | `versions.agents_md_hash` | string | run 开始时 `AGENTS.md` 的 SHA-256 |
 | `versions.data_train_hash` | string | run 开始时外部 `train.json` 的 SHA-256（有 data 目录时） |
@@ -361,7 +361,7 @@ runs/claude-code-sonnet/pendulum/
 
 ## 8.9 跨文件不变量
 
-`hlbench check`（run 健康度）**MUST** 验证：
+run artifact checker（当前 Python API `evopolicygym.check.check`，run 健康度）**MUST** 验证：
 
 | # | 不变量 | 范围 |
 |---|---|---|

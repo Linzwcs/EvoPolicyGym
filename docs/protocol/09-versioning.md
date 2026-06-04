@@ -11,7 +11,7 @@
 | 版本号 | 形态 | 写在哪 | 谁 bump |
 |---|---|---|---|
 | **`protocol_version`** | `protocol/vMAJOR.MINOR[-suffix]`，例 `protocol/v2.0` | `run.json:protocol_version`、`/info:schema_version`（关联） | 协议作者；改契约时 |
-| **`harness_version`** | semver，例 `0.1.0` | `run.json:versions.harness` | hlbench 实现者；改代码时 |
+| **`harness_version`** | semver，例 `0.1.0` | `run.json:versions.harness` | EvoPolicyGym 实现者；改代码时 |
 | **`env_version`** | semver，例 `0.1` | `run.json:versions.env`、`/info:env_version` | env author；改 env 逻辑、reward、空间或任务文本时 |
 | **`data_*_hash`** | SHA-256，例 `sha256:...` | `run.json:versions.data_train_hash` 等 | benchmark curator；改外部 split 文件时 |
 
@@ -103,7 +103,7 @@ v2.2   字段 X 移除（这是破坏性变更）
 `harness_version` 声明它支持哪些 `protocol_version`：
 
 ```python
-# 假想的 hlbench 0.2.0 声明
+# 假想的 EvoPolicyGym 0.2.0 声明
 SUPPORTED_PROTOCOLS = ["protocol/v1", "protocol/v2.0"]
 ```
 
@@ -134,10 +134,10 @@ SUPPORTED_PROTOCOLS = ["protocol/v1", "protocol/v2.0"]
 
 ## 9.7 校验工具检查项
 
-`hlbench check` **MUST** 验证：
+run artifact checker **MUST** 验证：
 
 1. `run.json:protocol_version` 形如 `protocol/v[0-9]+\.[0-9]+(-[a-z0-9.]+)?`
-2. `run.json:protocol_version` 在当前 hlbench 实现的支持列表内
+2. `run.json:protocol_version` 在当前 EvoPolicyGym 实现的支持列表内
 3. `run.json:schema_version` 与该 protocol_version 文档约定的一致
 4. v2.x run **MUST NOT** 出现 v1 字段（如 `final_submit_index` 单独存在而无 `best_submit_index`）
 5. 含 `[DEPRECATED]` 字段时记 warning（不 fail）

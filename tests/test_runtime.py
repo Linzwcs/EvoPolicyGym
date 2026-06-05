@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ from evopolicygym import (
     Verdict,
 )
 from evopolicygym.infra.runtime import PolicyRuntime
+from evopolicygym.infra.runtime.policy import _purge_helpers, _score
 
 
 @dataclass(slots=True)
@@ -208,6 +210,148 @@ class PolicyRuntimeTest(unittest.TestCase):
                     Pool(kind=PoolKind.valid, size=3, ref="validation"),
                     make_task(),
                 )
+
+    def test_load_purges_stale_helper_modules_between_snapshots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snap_a = root / "checkpoints" / "submit_001"
+            snap_a.mkdir(parents=True)
+            (snap_a / "helper.py").write_text(
+                "def choose(obs):\n    return obs + 1\n",
+                encoding="utf-8",
+            )
+            (snap_a / "policy.py").write_text(
+                "import helper\n"
+                "class Policy:\n"
+                "    def __init__(self, *a, **k): pass\n"
+                "    def reset(self, episode_index): pass\n"
+                "    def act(self, obs):\n"
+                "        return helper.choose(obs)\n",
+                encoding="utf-8",
+            )
+            snap_b = root / "checkpoints" / "submit_002"
+            snap_b.mkdir(parents=True)
+            (snap_b / "helper.py").write_text(
+                "def choose(obs, scale):\n    return obs * scale\n",
+                encoding="utf-8",
+            )
+            (snap_b / "policy.py").write_text(
+                "import helper\n"
+                "class Policy:\n"
+                "    def __init__(self, *a, **k): pass\n"
+                "    def reset(self, episode_index): pass\n"
+                "    def act(self, obs):\n"
+                "        return helper.choose(obs, 3)\n",
+                encoding="utf-8",
+            )
+            runtime = PolicyRuntime(root, RecordingRoller())
+
+            cls_a = runtime._load(
+                Snap(index=1, submit=1, ref="checkpoints/submit_001", cost=1)
+            )
+            inst_a = cls_a({}, {}, {})
+            self.assertEqual(inst_a.act(2), 3)
+
+            cls_b = runtime._load(
+                Snap(index=2, submit=2, ref="checkpoints/submit_002", cost=1)
+            )
+            inst_b = cls_b({}, {}, {})
+            self.assertEqual(inst_b.act(4), 12)
+
+    def test_execute_marks_trace_errors_as_rollout_failure(self) -> None:
+        class ErrorRoller:
+            def run(self, policy, task, pool, cases):
+                return (
+                    Trace(
+                        episode=cases[0],
+                        reward=-1.0,
+                        steps=(),
+                        error="act_error: TypeError: bad action",
+                    ),
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            snap = _snap(root, _policy_source())
+            runtime = PolicyRuntime(root, ErrorRoller())
+            submit = SubmitRecord(index=1, cases=(0,))
+            task = make_task()
+            pool = Pool(kind=PoolKind.train, size=2, ref="train")
+
+            self.assertIsNone(runtime.start(make_run(), snap, submit, task, pool))
+            result = runtime.execute(snap, submit, task, pool)
+
+            self.assertEqual(result.verdict, Verdict.rollout)
+            self.assertEqual(result.errors, ("act_error: TypeError: bad action",))
+            self.assertIsNone(result.score.mean)
+            self.assertEqual(result.score.rank(0), float("-inf"))
+
+
+class ScoreTest(unittest.TestCase):
+    def test_score_returns_none_when_any_trace_errored(self) -> None:
+        traces = (
+            Trace(episode=0, reward=-1.0, steps=(), error="act_error: TypeError: x"),
+            Trace(episode=1, reward=-500.0, steps=()),
+        )
+        score = _score(
+            traces,
+            Pool(kind=PoolKind.train, size=2, ref="train"),
+            value=None,
+        )
+        self.assertIsNone(score.mean)
+        self.assertIsNone(score.std)
+        self.assertIsNone(score.value)
+        self.assertIsNone(score.primary)
+        self.assertEqual(score.returns, (-1.0, -500.0))
+
+    def test_score_computes_mean_for_clean_traces(self) -> None:
+        traces = (
+            Trace(episode=0, reward=-2.0, steps=()),
+            Trace(episode=1, reward=-4.0, steps=()),
+        )
+        score = _score(
+            traces,
+            Pool(kind=PoolKind.train, size=2, ref="train"),
+            value=lambda pool, returns: sum(returns),
+        )
+        self.assertEqual(score.mean, -3.0)
+        self.assertEqual(score.value, -6.0)
+        self.assertEqual(score.returns, (-2.0, -4.0))
+
+    def test_score_handles_empty_traces(self) -> None:
+        score = _score((), Pool(kind=PoolKind.train, size=0, ref="train"), value=None)
+        self.assertIsNone(score.mean)
+        self.assertIsNone(score.std)
+
+
+class PurgeHelpersTest(unittest.TestCase):
+    def test_purge_removes_sibling_helpers_but_not_unrelated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            system = Path(tmp)
+            (system / "policy.py").write_text("", encoding="utf-8")
+            (system / "controller.py").write_text("", encoding="utf-8")
+            sys.modules["controller"] = object()  # type: ignore[assignment]
+            sys.modules["controller.helpers"] = object()  # type: ignore[assignment]
+            sys.modules["unrelated"] = object()  # type: ignore[assignment]
+            try:
+                _purge_helpers(system)
+                self.assertNotIn("controller", sys.modules)
+                self.assertNotIn("controller.helpers", sys.modules)
+                self.assertIn("unrelated", sys.modules)
+            finally:
+                sys.modules.pop("unrelated", None)
+
+    def test_purge_skips_policy_stem(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            system = Path(tmp)
+            (system / "policy.py").write_text("", encoding="utf-8")
+            sentinel = object()
+            sys.modules["policy"] = sentinel  # type: ignore[assignment]
+            try:
+                _purge_helpers(system)
+                self.assertIs(sys.modules.get("policy"), sentinel)
+            finally:
+                sys.modules.pop("policy", None)
 
 
 def _snap(root: Path, policy: str) -> Snap:

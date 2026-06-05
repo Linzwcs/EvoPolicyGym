@@ -144,9 +144,12 @@ class PolicyRuntime:
             return _failed(Verdict.oom, exc)
         except TimeoutError as exc:
             return _failed(Verdict.rollout, exc)
+        errors = tuple(trace.error for trace in traces if trace.error)
+        verdict = Verdict.rollout if errors else Verdict.ok
         return Exec(
-            verdict=Verdict.ok,
+            verdict=verdict,
             score=_score(traces, pool, self.value),
+            errors=errors,
             traces=traces,
         )
 
@@ -217,6 +220,7 @@ class PolicyRuntime:
 
         module = importlib.util.module_from_spec(spec)
         with _project(system):
+            _purge_helpers(system)
             sys.modules[name] = module
             spec.loader.exec_module(module)
         return _policy(module)
@@ -275,10 +279,25 @@ def _score(traces: tuple[Trace, ...], pool: Pool, value: Value | None) -> Score:
     returns = tuple(trace.reward for trace in traces)
     if not returns:
         return Score(mean=None, std=None)
+    if any(trace.error for trace in traces):
+        return Score(mean=None, std=None, value=None, returns=returns)
     mean = sum(returns) / len(returns)
     variance = sum((item - mean) ** 2 for item in returns) / len(returns)
     scalar = value(pool, returns) if value is not None else None
     return Score(mean=mean, std=sqrt(variance), value=scalar, returns=returns)
+
+
+def _purge_helpers(system: Path) -> None:
+    # Helper modules live next to policy.py in the snapshot's system/ dir.
+    # Python caches them in sys.modules across submits, so a later submit that
+    # changes a helper's signature would otherwise still see the stale version.
+    stems = {p.stem for p in system.glob("*.py") if p.stem != "policy"}
+    if not stems:
+        return
+    for name in list(sys.modules):
+        head = name.split(".", 1)[0]
+        if head in stems:
+            del sys.modules[name]
 
 
 def _failed(verdict: Verdict, exc: BaseException) -> Exec:

@@ -420,7 +420,7 @@ def _numpy() -> Any | None:
 
 
 def _write_lines(path: Path, rows: tuple[dict[str, Any], ...]) -> None:
-    data = "".join(json.dumps(row, sort_keys=False) + "\n" for row in rows)
+    data = "".join(json.dumps(_clean(row), sort_keys=False) + "\n" for row in rows)
     _write_text(path, data)
 
 
@@ -479,6 +479,13 @@ def _clean(value: Any) -> Any:
         return str(value)
     if isinstance(value, datetime):
         return _stamp(value)
+    if hasattr(value, "tolist"):
+        return _clean(value.tolist())
+    if hasattr(value, "item"):
+        try:
+            return _clean(value.item())
+        except ValueError:
+            pass
     if isinstance(value, tuple):
         return [_clean(item) for item in value]
     if isinstance(value, list):

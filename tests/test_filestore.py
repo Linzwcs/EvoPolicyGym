@@ -195,6 +195,47 @@ class FileStoreTest(unittest.TestCase):
             self.assertEqual(observations.shape, (2, 64, 64, 3))
             self.assertEqual(observations.dtype, np.dtype("uint8"))
 
+    @unittest.skipUnless(HAS_NUMPY, "NumPy is required for ndarray feedback test")
+    def test_feed_serializes_small_numpy_values_inline(self) -> None:
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "run"
+            store = FileStore(root)
+            run = make_run()
+            submit = SubmitRecord(index=0, cases=(0,))
+            feed = Feed(
+                submit=0,
+                verdict=Verdict.ok,
+                cost=1,
+                score=Score(mean=1.0, std=0.0, returns=(1.0,)),
+                lengths=(1,),
+            )
+            trace = Trace(
+                episode=0,
+                reward=1.0,
+                steps=(
+                    {
+                        "t": 0,
+                        "obs": np.array([1.0, 2.0], dtype=np.float32),
+                        "action": np.array([0.5], dtype=np.float32),
+                        "reward": 1.0,
+                        "info": {"distance": np.float32(0.25)},
+                    },
+                ),
+            )
+
+            store.open(run)
+            store.feed(run.charge(1, Verdict.ok), submit, _report(feed, traces=(trace,)))
+
+            episode = root / "workspace" / "feedback" / "submit_000" / "episodes" / "ep_000"
+            rows = _read_jsonl(episode / "trajectory.jsonl")
+
+            self.assertEqual(rows[0]["obs"], [1.0, 2.0])
+            self.assertEqual(rows[0]["action"], [0.5])
+            self.assertEqual(rows[0]["info"], {"distance": 0.25})
+            self.assertFalse((episode / "observations.npy").exists())
+
     def test_close_no_ok_submit_writes_zero_score_outcome(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "run"

@@ -167,6 +167,17 @@ class FileStore:
         )
         return data
 
+    def next_submit_index(self, start: int = 0) -> int:
+        """Return the first submit index without checkpoint or feedback artifacts."""
+
+        index = max(0, int(start))
+        while (
+            (self.checkpoints / _submit_dir(index)).exists()
+            or (self.feedback / _submit_dir(index)).exists()
+        ):
+            index += 1
+        return index
+
     def eval(self, run: Run, record: Eval) -> None:
         self._evals.append(record)
         self.emit(

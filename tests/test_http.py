@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import time
 import tempfile
 import unittest
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event, Lock, Thread
 from typing import Any
 
 from evopolicygym import (
@@ -113,6 +115,33 @@ class StubRuntime:
         return Score(mean=0.0, std=0.0)
 
 
+@dataclass(slots=True)
+class SlowRuntime(StubRuntime):
+    delay: float = 0.2
+    active: int = 0
+    max_active: int = 0
+    entered: Event = field(default_factory=Event)
+    lock: Any = field(default_factory=Lock)
+
+    def execute(
+        self,
+        snap: Snap,
+        submit: SubmitRecord,
+        task: Task,
+        pool: Pool,
+    ) -> Exec:
+        with self.lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            self.entered.set()
+        try:
+            time.sleep(self.delay)
+            return StubRuntime.execute(self, snap, submit, task, pool)
+        finally:
+            with self.lock:
+                self.active -= 1
+
+
 class HttpServiceTest(unittest.TestCase):
     def test_parse_cases_accepts_lists_and_specs(self) -> None:
         self.assertEqual(parse_cases([1, 2]), (1, 2))
@@ -171,7 +200,7 @@ class HttpServiceTest(unittest.TestCase):
             )
             self.assertEqual(response.summary, written)
 
-    def test_submit_parse_error_returns_400_without_incrementing(self) -> None:
+    def test_submit_parse_error_returns_400_and_increments(self) -> None:
         service = _service()
 
         response = service.submit(SubmitRequest(""))
@@ -179,7 +208,50 @@ class HttpServiceTest(unittest.TestCase):
         self.assertIsInstance(response, ErrorResponse)
         self.assertEqual(response.code, 400)
         self.assertEqual(response.status, "budget_invalid")
-        self.assertEqual(service.submits, 0)
+        self.assertEqual(service.submits, 1)
+
+    def test_submit_skips_existing_artifact_indices(self) -> None:
+        class SkippingStore(MemoryStore):
+            def next_submit_index(self, start: int = 0) -> int:
+                return 2 if start == 0 else start
+
+        store = SkippingStore()
+        service = _service(store=store)
+
+        response = service.submit(SubmitRequest([0, 1]))
+
+        self.assertEqual(response.code, 200)
+        self.assertEqual(response.submit_id, 2)
+        self.assertEqual(store.snaps[0].index, 2)
+        self.assertEqual(service.submits, 3)
+
+    def test_concurrent_submits_are_serialized(self) -> None:
+        runtime = SlowRuntime()
+        service = _service(runtime=runtime)
+        responses: list[Any] = []
+        errors: list[BaseException] = []
+
+        def submit() -> None:
+            try:
+                responses.append(service.submit(SubmitRequest([0, 1])))
+            except BaseException as exc:  # noqa: BLE001 - test captures thread failures.
+                errors.append(exc)
+
+        first = Thread(target=submit)
+        second = Thread(target=submit)
+
+        first.start()
+        self.assertTrue(runtime.entered.wait(timeout=1.0))
+        second.start()
+        first.join(timeout=2.0)
+        second.join(timeout=2.0)
+
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        self.assertFalse(errors)
+        self.assertEqual([response.submit_id for response in responses], [0, 1])
+        self.assertEqual(service.submits, 2)
+        self.assertEqual(runtime.max_active, 1)
 
     def test_phase_one_reject_returns_400_summary(self) -> None:
         service = _service()
@@ -213,6 +285,7 @@ def _service(
     budget: int = 4,
     run: Run | None = None,
     store: Any | None = None,
+    runtime: Any | None = None,
     valid: Pool | None = None,
     final: Pool | None = None,
     caps: Caps | None = None,
@@ -222,7 +295,7 @@ def _service(
         task=Task(name="toy", version="0.1", obs={}, act={}, steps=10, cases=8),
         train=Pool(kind=PoolKind.train, size=8, ref="train"),
         store=store or MemoryStore(),
-        runtime=StubRuntime(),
+        runtime=runtime or StubRuntime(),
         limits=Limits(minimum=1, maximum=4),
         valid=valid,
         final=final,

@@ -6,6 +6,7 @@ import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Any
 
 from ...core import (
@@ -123,6 +124,7 @@ class Service:
     clock: Clock = _now
     submits: int = 0
     _snaps: list[Snap] = field(default_factory=list, init=False, repr=False)
+    _submit_lock: Any = field(default_factory=Lock, init=False, repr=False)
 
     def info(self) -> InfoResponse:
         return InfoResponse(
@@ -145,16 +147,23 @@ class Service:
         return TaskResponse(_task_text(self.task, self.task_text, self.limits))
 
     def submit(self, request: SubmitRequest) -> SubmitResponse | ErrorResponse:
+        with self._submit_lock:
+            return self._submit(request)
+
+    def _submit(self, request: SubmitRequest) -> SubmitResponse | ErrorResponse:
+        self._sync_submit_index()
         try:
             cases = parse_cases(request.env_instances)
         except ValueError as exc:
+            submit_index = self.submits
             self.log.emit(
                 "submit.reject",
-                submit_index=self.submits,
+                submit_index=submit_index,
                 status=Verdict.budget_invalid.value,
                 reason=str(exc),
                 remaining_budget=self.run.budget.left,
             )
+            self.submits = submit_index + 1
             return ErrorResponse(400, Verdict.budget_invalid.value, str(exc))
 
         submit = SubmitRecord(index=self.submits, cases=cases)
@@ -201,6 +210,30 @@ class Service:
             status=outcome.feed.verdict.value,
             summary=outcome.summary,
         )
+
+    def _sync_submit_index(self) -> None:
+        next_submit_index = getattr(self.store, "next_submit_index", None)
+        if not callable(next_submit_index):
+            return
+        current = self.submits
+        try:
+            available = int(next_submit_index(current))
+        except Exception as exc:  # noqa: BLE001 - index sync must not hide submits.
+            self.log.emit(
+                "submit.index_sync_error",
+                submit_index=current,
+                reason=f"{type(exc).__name__}: {exc}",
+            )
+            return
+        if available <= current:
+            return
+        self.log.emit(
+            "submit.index_skip",
+            from_submit_index=current,
+            to_submit_index=available,
+            reason="submit artifacts already exist",
+        )
+        self.submits = available
 
     def _close_if_done(self) -> None:
         if not self.run.exhausted or not self.run.alive():

@@ -11,7 +11,7 @@ from ..core import Budget, Env, Pool, PoolKind, Run, Runtime, Value
 from ..data import load as load_data
 from ..infra.fs import FileStore
 from ..infra.http import Service
-from ..infra.runtime import Roller, Sandbox, SandboxRuntime
+from ..infra.runtime import PolicyRuntime, Roller, Sandbox, SandboxRuntime
 from ..judge import Limits
 from ..protocol import PROTOCOL
 
@@ -89,13 +89,17 @@ def local(
     )
     roller = Roller(env.make)
     score = value if value is not None else env.value
-    runtime: Runtime = SandboxRuntime(
-        root,
-        roller,
-        sandbox=sandbox or Sandbox(),
-        denied=denied,
-        value=score,
-    )
+    runtime: Runtime
+    if sandbox is None:
+        runtime = PolicyRuntime(root, roller, denied=denied, value=score)
+    else:
+        runtime = SandboxRuntime(
+            root,
+            roller,
+            sandbox=sandbox,
+            denied=denied,
+            value=score,
+        )
 
     if valid_size is not None:
         valid = valid.trim(valid_size)

@@ -3,7 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/ci.yml"
   pull_request:
+    paths-ignore:
+      - "web/**"
+      - ".github/workflows/pages.yml"
 
 jobs:
   test:

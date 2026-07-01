@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "continuouscar",
+  "env_name": "gym/continuouscar",
+  "episode_return": 91.61499995350839,
+  "error": null,
+  "media": "media/minimax_m3/continuouscar/rerun_final_submit_010_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "001_gym_continuouscar_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 143,
+  "submit_index": 10,
+  "terminated": true,
+  "truncated": false
+}

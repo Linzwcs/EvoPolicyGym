@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_fourrooms",
+  "env_name": "gymnasium/MiniGrid-FourRooms-v0",
+  "episode_return": 0.0,
+  "error": null,
+  "media": "media/minimax_m3/minigrid_fourrooms/rerun_final_submit_009_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "001_gymnasium_MiniGrid-FourRooms-v0_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 100,
+  "submit_index": 9,
+  "terminated": false,
+  "truncated": true
+}

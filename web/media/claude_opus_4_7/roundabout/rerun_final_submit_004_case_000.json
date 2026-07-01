@@ -1,0 +1,19 @@
+{
+  "capture_source": "highway_state_renderer",
+  "case_index": 0,
+  "env_id": "roundabout",
+  "env_name": "gymnasium/roundabout-v0",
+  "episode_return": 10.083333333333334,
+  "error": null,
+  "media": "media/claude_opus_4_7/roundabout/rerun_final_submit_004_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "013_gymnasium_roundabout-v0_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 11,
+  "submit_index": 4,
+  "terminated": false,
+  "truncated": true
+}

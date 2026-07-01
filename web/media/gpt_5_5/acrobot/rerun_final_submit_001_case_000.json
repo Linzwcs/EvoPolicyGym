@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "acrobot",
+  "env_name": "gym/acrobot",
+  "episode_return": -75.0,
+  "error": null,
+  "media": "media/gpt_5_5/acrobot/rerun_final_submit_001_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "000_gym_acrobot_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 76,
+  "submit_index": 1,
+  "terminated": true,
+  "truncated": false
+}

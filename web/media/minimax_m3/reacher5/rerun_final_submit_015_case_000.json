@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "reacher5",
+  "env_name": "gym/reacher5",
+  "episode_return": -2.307801134336595,
+  "error": null,
+  "media": "media/minimax_m3/reacher5/rerun_final_submit_015_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "007_gym_reacher5_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 15,
+  "terminated": false,
+  "truncated": true
+}

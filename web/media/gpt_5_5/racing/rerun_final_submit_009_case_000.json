@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "racing",
+  "env_name": "gym/racing",
+  "episode_return": 499.41520467835625,
+  "error": null,
+  "media": "media/gpt_5_5/racing/rerun_final_submit_009_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "003_gym_racing_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 1000,
+  "submit_index": 9,
+  "terminated": false,
+  "truncated": true
+}

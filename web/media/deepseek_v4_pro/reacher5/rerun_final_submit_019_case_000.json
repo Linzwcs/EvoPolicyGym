@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "reacher5",
+  "env_name": "gym/reacher5",
+  "episode_return": -4.612579915666157,
+  "error": null,
+  "media": "media/deepseek_v4_pro/reacher5/rerun_final_submit_019_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "006_gym_reacher5_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 19,
+  "terminated": false,
+  "truncated": true
+}

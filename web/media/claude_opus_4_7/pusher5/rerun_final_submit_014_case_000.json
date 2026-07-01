@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "pusher5",
+  "env_name": "gym/pusher5",
+  "episode_return": -37.52677710297269,
+  "error": null,
+  "media": "media/claude_opus_4_7/pusher5/rerun_final_submit_014_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "006_gym_pusher5_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 100,
+  "submit_index": 14,
+  "terminated": false,
+  "truncated": true
+}

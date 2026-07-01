@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "halfcheetah5",
+  "env_name": "gym/halfcheetah5",
+  "episode_return": -0.8932951113646876,
+  "error": null,
+  "media": "media/deepseek_v4_pro/halfcheetah5/rerun_final_submit_017_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "003_gym_halfcheetah5_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 17,
+  "terminated": false,
+  "truncated": false
+}

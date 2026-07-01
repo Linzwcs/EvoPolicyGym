@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_keycorridor",
+  "env_name": "gymnasium/MiniGrid-KeyCorridorS4R3-v0",
+  "episode_return": 0.95125,
+  "error": null,
+  "media": "media/claude_opus_4_7/minigrid_keycorridor/rerun_final_submit_003_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "009_gymnasium_MiniGrid-KeyCorridorS4R3-v0_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 26,
+  "submit_index": 3,
+  "terminated": true,
+  "truncated": false
+}

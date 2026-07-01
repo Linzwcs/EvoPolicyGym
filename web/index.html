@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EvoPolicyGym | Final Policy Rollouts</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <nav class="topbar" aria-label="Showcase navigation">
+        <a class="brand" href="#top">EvoPolicyGym</a>
+        <div class="navlinks">
+          <a href="#protocol">Protocol</a>
+          <a href="#envs">Rollouts</a>
+          <a href="#matrix">Scores</a>
+        </div>
+      </nav>
+      <section class="hero-grid" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">Paper companion / Core16 final rollouts</p>
+          <h1>EvoPolicyGym</h1>
+          <p class="hero-kicker">
+            Evaluating whether coding agents can improve executable policies from
+            budget-limited environment feedback.
+          </p>
+          <p class="lede">
+            This page presents the final validation-selected policies from the
+            Core16 benchmark. Each clip is a fresh rollout of the selected policy
+            checkpoint in its original environment, paired with the held-out score
+            reported in the paper.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#envs">Browse Rollouts</a>
+            <a class="button secondary" href="#matrix">Compare Scores</a>
+          </div>
+        </div>
+        <aside class="hero-panel" aria-label="Benchmark summary">
+          <div>
+            <span class="stat-value" id="stat-models">0</span>
+            <span class="stat-label">harness-model agents</span>
+          </div>
+          <div>
+            <span class="stat-value" id="stat-envs">0</span>
+            <span class="stat-label">Gymnasium-style tasks</span>
+          </div>
+          <div>
+            <span class="stat-value" id="stat-clips">0</span>
+            <span class="stat-label">final policy reruns</span>
+          </div>
+        </aside>
+      </section>
+    </header>
+
+    <main>
+      <section class="protocol-band" id="protocol" aria-label="Benchmark protocol">
+        <div class="protocol-copy">
+          <p class="eyebrow">Benchmark protocol</p>
+          <h2>Agents write policies, not action traces.</h2>
+          <p>
+            A run starts with a task contract, a policy workspace, and a fixed
+            episode budget. The agent reads visible train feedback, edits the
+            executable policy system, submits checkpoints, and continues from
+            its own accepted workspace state.
+          </p>
+        </div>
+        <div class="protocol-facts" aria-label="Protocol summary">
+          <div>
+            <strong>Online loop</strong>
+            <span>edit code, submit, inspect visible train feedback</span>
+          </div>
+          <div>
+            <strong>Selection</strong>
+            <span>checkpoint chosen by hidden validation</span>
+          </div>
+          <div>
+            <strong>Measurement</strong>
+            <span>final score is hidden held-out mean return</span>
+          </div>
+          <div>
+            <strong>Evidence</strong>
+            <span>videos are original-environment final checkpoint reruns</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="intro" aria-label="What is shown">
+        <div class="section-title">
+          <p class="eyebrow">Final policy gallery</p>
+          <h2>One environment at a time, four agents side by side.</h2>
+        </div>
+        <div class="intro-copy">
+          <p>
+            The gallery is organized by environment. Each row compares the final
+            selected checkpoint from GPT-5.5 through Codex, and Claude Opus 4.7,
+            MiniMax-M3, and DeepSeek-V4-Pro through the Claude Code-compatible
+            harness.
+          </p>
+          <p>
+            The clips are intentionally slower than the raw rollout cadence so
+            qualitative behavior is readable: locomotion, traffic, manipulation,
+            navigation, and failure modes remain visible without showing the
+            intermediate optimization process.
+          </p>
+        </div>
+      </section>
+
+      <nav class="env-nav" id="env-nav" aria-label="Environment quick links"></nav>
+
+      <section id="envs" class="env-sections" aria-label="Environment final policy sections"></section>
+
+      <section class="matrix-section" id="matrix">
+        <div class="section-title">
+          <p class="eyebrow">Reported scores</p>
+          <h2>Validation-selected held-out return.</h2>
+          <p>
+            Scores are raw environment returns from the selected final
+            checkpoint. Higher is better within each environment; reward scales
+            are not comparable across columns.
+          </p>
+        </div>
+        <div class="matrix-wrap">
+          <table id="score-matrix"></table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span id="generated-at"></span>
+      <span>Source: main-128 run artifacts under <code>runs/</code> and structured analysis CSVs under <code>figs/data/</code>.</span>
+    </footer>
+
+    <script src="data/showcase-data.js"></script>
+    <script src="assets/app.js"></script>
+  </body>
+</html>

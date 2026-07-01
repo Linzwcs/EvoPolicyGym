@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "continuouscar",
+  "env_name": "gym/continuouscar",
+  "episode_return": 98.88543991142274,
+  "error": null,
+  "media": "media/claude_opus_4_7/continuouscar/rerun_final_submit_010_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "001_gym_continuouscar_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 344,
+  "submit_index": 10,
+  "terminated": true,
+  "truncated": false
+}

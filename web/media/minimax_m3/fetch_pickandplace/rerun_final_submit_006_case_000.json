@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "fetch_pickandplace",
+  "env_name": "gymnasium/FetchPickAndPlace-v4",
+  "episode_return": -13.0,
+  "error": null,
+  "media": "media/minimax_m3/fetch_pickandplace/rerun_final_submit_006_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "006_gymnasium_FetchPickAndPlace-v4_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 6,
+  "terminated": false,
+  "truncated": true
+}

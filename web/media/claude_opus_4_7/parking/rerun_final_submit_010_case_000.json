@@ -1,0 +1,19 @@
+{
+  "capture_source": "highway_state_renderer",
+  "case_index": 0,
+  "env_id": "parking",
+  "env_name": "gymnasium/parking-v0",
+  "episode_return": -46.69504128875442,
+  "error": null,
+  "media": "media/claude_opus_4_7/parking/rerun_final_submit_010_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "012_gymnasium_parking-v0_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 116,
+  "submit_index": 10,
+  "terminated": true,
+  "truncated": false
+}

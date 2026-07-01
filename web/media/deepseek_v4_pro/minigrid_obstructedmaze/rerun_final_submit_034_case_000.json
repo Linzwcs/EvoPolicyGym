@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_obstructedmaze",
+  "env_name": "gymnasium/MiniGrid-ObstructedMaze-1Q-v1",
+  "episode_return": 0.0,
+  "error": null,
+  "media": "media/deepseek_v4_pro/minigrid_obstructedmaze/rerun_final_submit_034_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "010_gymnasium_MiniGrid-ObstructedMaze-1Q-v1_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 34,
+  "terminated": false,
+  "truncated": false
+}

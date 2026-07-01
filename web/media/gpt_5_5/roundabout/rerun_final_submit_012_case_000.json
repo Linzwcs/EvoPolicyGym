@@ -1,0 +1,19 @@
+{
+  "capture_source": "highway_state_renderer",
+  "case_index": 0,
+  "env_id": "roundabout",
+  "env_name": "gymnasium/roundabout-v0",
+  "episode_return": 10.25,
+  "error": null,
+  "media": "media/gpt_5_5/roundabout/rerun_final_submit_012_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "013_gymnasium_roundabout-v0_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 11,
+  "submit_index": 12,
+  "terminated": false,
+  "truncated": true
+}

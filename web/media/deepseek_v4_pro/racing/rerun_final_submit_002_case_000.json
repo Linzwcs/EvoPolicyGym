@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "racing",
+  "env_name": "gym/racing",
+  "episode_return": -3.508771929824032,
+  "error": null,
+  "media": "media/deepseek_v4_pro/racing/rerun_final_submit_002_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "002_gym_racing_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 1000,
+  "submit_index": 2,
+  "terminated": false,
+  "truncated": true
+}

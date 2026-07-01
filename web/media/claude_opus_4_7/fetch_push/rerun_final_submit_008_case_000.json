@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "fetch_push",
+  "env_name": "gymnasium/FetchPush-v4",
+  "episode_return": -11.0,
+  "error": null,
+  "media": "media/claude_opus_4_7/fetch_push/rerun_final_submit_008_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "014_gymnasium_FetchPush-v4_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 8,
+  "terminated": false,
+  "truncated": true
+}

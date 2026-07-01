@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_keycorridor",
+  "env_name": "gymnasium/MiniGrid-KeyCorridorS4R3-v0",
+  "episode_return": 0.0,
+  "error": null,
+  "media": "media/deepseek_v4_pro/minigrid_keycorridor/rerun_final_submit_023_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "008_gymnasium_MiniGrid-KeyCorridorS4R3-v0_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 23,
+  "terminated": false,
+  "truncated": false
+}

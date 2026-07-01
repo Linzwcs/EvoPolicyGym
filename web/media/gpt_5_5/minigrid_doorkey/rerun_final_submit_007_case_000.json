@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_doorkey",
+  "env_name": "gymnasium/MiniGrid-DoorKey-16x16-v0",
+  "episode_return": 0.9848828125,
+  "error": null,
+  "media": "media/gpt_5_5/minigrid_doorkey/rerun_final_submit_007_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "008_gymnasium_MiniGrid-DoorKey-16x16-v0_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 43,
+  "submit_index": 7,
+  "terminated": true,
+  "truncated": false
+}

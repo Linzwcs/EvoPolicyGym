@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "reacher5",
+  "env_name": "gym/reacher5",
+  "episode_return": -1.8804603844891472,
+  "error": null,
+  "media": "media/gpt_5_5/reacher5/rerun_final_submit_012_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "007_gym_reacher5_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 12,
+  "terminated": false,
+  "truncated": true
+}

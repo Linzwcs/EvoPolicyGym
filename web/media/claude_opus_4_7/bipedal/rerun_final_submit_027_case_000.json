@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "bipedal",
+  "env_name": "gym/bipedal",
+  "episode_return": -15.30325226354762,
+  "error": null,
+  "media": "media/claude_opus_4_7/bipedal/rerun_final_submit_027_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "002_gym_bipedal_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 1600,
+  "submit_index": 27,
+  "terminated": false,
+  "truncated": true
+}

@@ -1,0 +1,19 @@
+{
+  "capture_source": "highway_state_renderer",
+  "case_index": 0,
+  "env_id": "parking",
+  "env_name": "gymnasium/parking-v0",
+  "episode_return": -48.78730053475205,
+  "error": null,
+  "media": "media/gpt_5_5/parking/rerun_final_submit_012_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "012_gymnasium_parking-v0_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 12,
+  "terminated": false,
+  "truncated": false
+}

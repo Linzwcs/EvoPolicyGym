@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "ant5",
+  "env_name": "gym/ant5",
+  "episode_return": 221.11754544364038,
+  "error": null,
+  "media": "media/gpt_5_5/ant5/rerun_final_submit_006_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "005_gym_ant5_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 6,
+  "terminated": false,
+  "truncated": false
+}

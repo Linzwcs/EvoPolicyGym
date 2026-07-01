@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "halfcheetah5",
+  "env_name": "gym/halfcheetah5",
+  "episode_return": 127.99972781967881,
+  "error": null,
+  "media": "media/minimax_m3/halfcheetah5/rerun_final_submit_040_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "004_gym_halfcheetah5_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 40,
+  "terminated": false,
+  "truncated": false
+}

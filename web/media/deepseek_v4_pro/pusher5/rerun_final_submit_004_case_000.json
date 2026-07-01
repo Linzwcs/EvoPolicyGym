@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "pusher5",
+  "env_name": "gym/pusher5",
+  "episode_return": -55.44558869574074,
+  "error": null,
+  "media": "media/deepseek_v4_pro/pusher5/rerun_final_submit_004_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "005_gym_pusher5_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 100,
+  "submit_index": 4,
+  "terminated": false,
+  "truncated": true
+}

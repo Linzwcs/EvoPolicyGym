@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "continuouscar",
+  "env_name": "gym/continuouscar",
+  "episode_return": 95.68800014686585,
+  "error": null,
+  "media": "media/gpt_5_5/continuouscar/rerun_final_submit_005_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "001_gym_continuouscar_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 88,
+  "submit_index": 5,
+  "terminated": true,
+  "truncated": false
+}

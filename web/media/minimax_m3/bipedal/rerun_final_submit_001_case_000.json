@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "bipedal",
+  "env_name": "gym/bipedal",
+  "episode_return": -68.82967450330034,
+  "error": null,
+  "media": "media/minimax_m3/bipedal/rerun_final_submit_001_case_000.gif",
+  "model_slug": "minimax_m3",
+  "pool": "final",
+  "run_id": "002_gym_bipedal_claude_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 217,
+  "submit_index": 1,
+  "terminated": true,
+  "truncated": false
+}

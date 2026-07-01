@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_keycorridor",
+  "env_name": "gymnasium/MiniGrid-KeyCorridorS4R3-v0",
+  "episode_return": 0.953125,
+  "error": null,
+  "media": "media/gpt_5_5/minigrid_keycorridor/rerun_final_submit_005_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "009_gymnasium_MiniGrid-KeyCorridorS4R3-v0_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 25,
+  "submit_index": 5,
+  "terminated": true,
+  "truncated": false
+}

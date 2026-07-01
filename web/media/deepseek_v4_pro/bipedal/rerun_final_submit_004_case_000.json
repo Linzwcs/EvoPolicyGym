@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "bipedal",
+  "env_name": "gym/bipedal",
+  "episode_return": -97.28795922547579,
+  "error": null,
+  "media": "media/deepseek_v4_pro/bipedal/rerun_final_submit_004_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "001_gym_bipedal_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 113,
+  "submit_index": 4,
+  "terminated": true,
+  "truncated": false
+}

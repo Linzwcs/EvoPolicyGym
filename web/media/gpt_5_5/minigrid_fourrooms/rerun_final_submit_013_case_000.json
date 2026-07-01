@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "minigrid_fourrooms",
+  "env_name": "gymnasium/MiniGrid-FourRooms-v0",
+  "episode_return": 0.6579999999999999,
+  "error": null,
+  "media": "media/gpt_5_5/minigrid_fourrooms/rerun_final_submit_013_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "010_gymnasium_MiniGrid-FourRooms-v0_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 38,
+  "submit_index": 13,
+  "terminated": true,
+  "truncated": false
+}

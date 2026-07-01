@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "halfcheetah5",
+  "env_name": "gym/halfcheetah5",
+  "episode_return": 119.73882525550705,
+  "error": null,
+  "media": "media/claude_opus_4_7/halfcheetah5/rerun_final_submit_038_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "004_gym_halfcheetah5_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 38,
+  "terminated": false,
+  "truncated": false
+}

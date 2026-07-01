@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "ant5",
+  "env_name": "gym/ant5",
+  "episode_return": 204.5898311566846,
+  "error": null,
+  "media": "media/claude_opus_4_7/ant5/rerun_final_submit_002_case_000.gif",
+  "model_slug": "claude_opus_4_7",
+  "pool": "final",
+  "run_id": "005_gym_ant5_claude-opus-4-7-thinking-max_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 220,
+  "submit_index": 2,
+  "terminated": false,
+  "truncated": false
+}

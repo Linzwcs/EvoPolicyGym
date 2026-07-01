@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "fetch_push",
+  "env_name": "gymnasium/FetchPush-v4",
+  "episode_return": -24.0,
+  "error": null,
+  "media": "media/deepseek_v4_pro/fetch_push/rerun_final_submit_011_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "013_gymnasium_FetchPush-v4_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 11,
+  "terminated": false,
+  "truncated": true
+}

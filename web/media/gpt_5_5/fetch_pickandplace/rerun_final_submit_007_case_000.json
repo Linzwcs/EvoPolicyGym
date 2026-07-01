@@ -1,0 +1,18 @@
+{
+  "case_index": 0,
+  "env_id": "fetch_pickandplace",
+  "env_name": "gymnasium/FetchPickAndPlace-v4",
+  "episode_return": -12.0,
+  "error": null,
+  "media": "media/gpt_5_5/fetch_pickandplace/rerun_final_submit_007_case_000.gif",
+  "model_slug": "gpt_5_5",
+  "pool": "final",
+  "run_id": "015_gymnasium_FetchPickAndPlace-v4_gpt-5.5_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 50,
+  "submit_index": 7,
+  "terminated": false,
+  "truncated": true
+}

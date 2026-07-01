@@ -1,0 +1,19 @@
+{
+  "capture_source": "highway_state_renderer",
+  "case_index": 0,
+  "env_id": "parking",
+  "env_name": "gymnasium/parking-v0",
+  "episode_return": -24.687116515863146,
+  "error": null,
+  "media": "media/deepseek_v4_pro/parking/rerun_final_submit_003_case_000.gif",
+  "model_slug": "deepseek_v4_pro",
+  "pool": "final",
+  "run_id": "011_gymnasium_parking-v0_deepseek-v4-pro_r00",
+  "schema_version": "0.1",
+  "stderr": "",
+  "stdout": "",
+  "steps": 54,
+  "submit_index": 3,
+  "terminated": true,
+  "truncated": false
+}

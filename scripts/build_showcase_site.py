@@ -152,7 +152,7 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         choices=("final", "strategies"),
         default="final",
-        help="final builds one clip from each run's selected final checkpoint; strategies builds representative audited epochs",
+        help="final builds one clip from each run's validation-selected checkpoint; strategies builds representative audited epochs",
     )
     parser.add_argument("--clips-per-lane", type=int, default=3)
     parser.add_argument("--all-strategies", action="store_true")
@@ -419,7 +419,7 @@ def find_rerun_capture(
 def final_event_notes(final_score: float | None, rerun: dict[str, Any] | None) -> str:
     if rerun:
         return (
-            "Final checkpoint rerun in the original environment; "
+            "Validation-selected checkpoint rerun in the original environment; "
             f"case return {format_float(numeric(rerun.get('episode_return')))}."
         )
     return f"Selected checkpoint after visible validation; held-out score {format_float(final_score)}."
@@ -918,7 +918,7 @@ def build_payload(
 
 def clip_policy(mode: str, all_strategies: bool, clips_per_lane: int) -> str:
     if mode == "final":
-        return "one clip per model-env lane from the run's selected final checkpoint"
+        return "one clip per model-env lane from the run's validation-selected checkpoint"
     if all_strategies:
         return "all audited strategy epochs"
     return f"{clips_per_lane} representative strategy epochs per model-env lane"

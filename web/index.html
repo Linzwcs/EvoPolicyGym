@@ -8,55 +8,61 @@
   </head>
   <body>
     <header class="hero">
-      <nav class="topbar" aria-label="Showcase navigation">
+      <nav class="topbar" aria-label="Showcase navigation" data-i18n-aria="nav.aria">
         <a class="brand" href="#top">EvoPolicyGym</a>
-        <div class="navlinks">
-          <a href="#protocol">Protocol</a>
-          <a href="#envs">Rollouts</a>
-          <a href="#matrix">Scores</a>
+        <div class="topbar-right">
+          <div class="navlinks">
+            <a href="#protocol" data-i18n="nav.protocol">Protocol</a>
+            <a href="#envs" data-i18n="nav.rollouts">Rollouts</a>
+            <a href="#matrix" data-i18n="nav.scores">Scores</a>
+          </div>
+          <div class="language-toggle" role="group" aria-label="Language" data-i18n-aria="language.aria">
+            <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+            <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+          </div>
         </div>
       </nav>
       <section class="hero-grid" id="top">
         <div class="hero-copy">
-          <p class="eyebrow">Paper companion</p>
+          <p class="eyebrow" data-i18n="hero.eyebrow">Paper companion</p>
           <h1>EvoPolicyGym</h1>
-          <p class="hero-kicker">
-            A benchmark for studying whether coding agents can improve executable
-            policies through environment feedback.
+          <p class="hero-kicker" data-i18n="hero.kicker">
+            A benchmark for studying whether coding agents can iteratively
+            improve executable policies through environment feedback.
           </p>
-          <p class="lede">
+          <p class="lede" data-i18n="hero.lede">
             This companion page collects the final validation-selected Core16
             policies, their original-environment reruns, and the held-out scores
             reported in the paper.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#envs">View Rollouts</a>
-            <a class="button secondary" href="#matrix">Score Matrix</a>
+            <a class="button primary" href="#envs" data-i18n="hero.primaryAction">View Rollouts</a>
+            <a class="button secondary" href="#matrix" data-i18n="hero.secondaryAction">Score Matrix</a>
           </div>
         </div>
         <aside class="hero-panel" aria-label="Benchmark summary">
           <div>
             <span class="stat-value" id="stat-models">0</span>
-            <span class="stat-label">harness-model agents</span>
+            <span class="stat-label" data-i18n="stats.models">harness-model agents</span>
           </div>
           <div>
             <span class="stat-value" id="stat-envs">0</span>
-            <span class="stat-label">Gymnasium-style tasks</span>
+            <span class="stat-label" data-i18n="stats.envs">Gymnasium-style tasks</span>
           </div>
           <div>
             <span class="stat-value" id="stat-clips">0</span>
-            <span class="stat-label">final policy reruns</span>
+            <span class="stat-label" data-i18n="stats.clips">final policy reruns</span>
           </div>
         </aside>
       </section>
     </header>
 
     <main>
-      <section class="protocol-band" id="protocol" aria-label="Benchmark protocol">
+      <section class="protocol-band" id="protocol" aria-label="Benchmark protocol" data-i18n-aria="protocol.aria">
         <div class="protocol-copy">
-          <p class="eyebrow">Benchmark protocol</p>
-          <h2>Agents write policies, not action traces.</h2>
-          <p>
+          <p class="eyebrow" data-i18n="protocol.eyebrow">Benchmark protocol</p>
+          <h2 data-i18n="protocol.title">Agents write policies, not action traces.</h2>
+          <p data-i18n="protocol.copy">
             A run starts with a task contract, a policy workspace, and a fixed
             episode budget. The agent reads visible train feedback, edits the
             executable policy system, submits checkpoints, and continues from
@@ -65,37 +71,37 @@
         </div>
         <div class="protocol-facts" aria-label="Protocol summary">
           <div>
-            <strong>Online loop</strong>
-            <span>edit code, submit, inspect visible train feedback</span>
+            <strong data-i18n="protocol.facts.online.title">Online loop</strong>
+            <span data-i18n="protocol.facts.online.copy">edit code, submit, inspect visible train feedback</span>
           </div>
           <div>
-            <strong>Selection</strong>
-            <span>checkpoint chosen by hidden validation</span>
+            <strong data-i18n="protocol.facts.selection.title">Selection</strong>
+            <span data-i18n="protocol.facts.selection.copy">checkpoint chosen by hidden validation</span>
           </div>
           <div>
-            <strong>Measurement</strong>
-            <span>final score is hidden held-out mean return</span>
+            <strong data-i18n="protocol.facts.measurement.title">Measurement</strong>
+            <span data-i18n="protocol.facts.measurement.copy">final score is hidden held-out mean return</span>
           </div>
           <div>
-            <strong>Evidence</strong>
-            <span>videos are original-environment final checkpoint reruns</span>
+            <strong data-i18n="protocol.facts.evidence.title">Evidence</strong>
+            <span data-i18n="protocol.facts.evidence.copy">videos rerun validation-selected checkpoints in the original environment</span>
           </div>
         </div>
       </section>
 
-      <section class="intro" aria-label="What is shown">
+      <section class="intro" aria-label="What is shown" data-i18n-aria="intro.aria">
         <div class="section-title">
-          <p class="eyebrow">Final policy gallery</p>
-          <h2>One environment at a time, four agents side by side.</h2>
+          <p class="eyebrow" data-i18n="intro.eyebrow">Final policy gallery</p>
+          <h2 data-i18n="intro.title">One environment at a time, four agents side by side.</h2>
         </div>
         <div class="intro-copy">
-          <p>
+          <p data-i18n="intro.copyA">
             The gallery is organized by environment. Each row compares the final
             selected checkpoint from GPT-5.5 through Codex, and Claude Opus 4.7,
             MiniMax-M3, and DeepSeek-V4-Pro through the Claude Code-compatible
             harness.
           </p>
-          <p>
+          <p data-i18n="intro.copyB">
             The clips are intentionally slower than the raw rollout cadence so
             qualitative behavior is readable: locomotion, traffic, manipulation,
             navigation, and failure modes remain visible without showing the
@@ -104,15 +110,15 @@
         </div>
       </section>
 
-      <nav class="env-nav" id="env-nav" aria-label="Environment quick links"></nav>
+      <nav class="env-nav" id="env-nav" aria-label="Environment quick links" data-i18n-aria="envNav.aria"></nav>
 
-      <section id="envs" class="env-sections" aria-label="Environment final policy sections"></section>
+      <section id="envs" class="env-sections" aria-label="Environment final policy sections" data-i18n-aria="envSections.aria"></section>
 
       <section class="matrix-section" id="matrix">
         <div class="section-title">
-          <p class="eyebrow">Reported scores</p>
-          <h2>Validation-selected held-out return.</h2>
-          <p>
+          <p class="eyebrow" data-i18n="matrix.eyebrow">Reported scores</p>
+          <h2 data-i18n="matrix.title">Validation-selected held-out return.</h2>
+          <p data-i18n="matrix.copy">
             Scores are raw environment returns from the selected final
             checkpoint. Higher is better within each environment; reward scales
             are not comparable across columns.
@@ -125,8 +131,8 @@
     </main>
 
     <footer class="footer">
-      <span id="generated-at"></span>
-      <span>Source: main-128 run artifacts under <code>runs/</code> and structured analysis CSVs under <code>figs/data/</code>.</span>
+      <strong data-i18n="footer.title">EvoPolicyGym companion gallery</strong>
+      <span data-i18n="footer.about">An interactive companion for the Core16 benchmark, pairing validation-selected policy reruns with held-out scores so readers can compare how coding agents behave across tasks.</span>
     </footer>
 
     <script src="data/showcase-data.js"></script>

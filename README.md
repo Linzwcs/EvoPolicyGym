@@ -1,13 +1,69 @@
 # EvoPolicyGym
 
+[English](README.md) | [中文](README.zh-CN.md)
+
 EvoPolicyGym is benchmark infrastructure for evaluating whether coding agents can
 improve executable policies from budget-limited environment feedback. It follows
 an online-judge style protocol: an agent edits code in a workspace, submits
 policy rollouts through a local API, receives feedback artifacts, and continues
 until the episode budget is exhausted.
 
-The current implementation focuses on a local Python harness, reproducible run
-artifacts, agent adapters, and Gymnasium-style environment integration.
+
+## What It Evaluates
+
+EvoPolicyGym measures whether a coding agent can turn environment feedback into
+better executable policy code. The benchmark does not prescribe the internal
+method: a submitted policy may use rules, search, planning, learned components,
+or other Python logic. What is controlled is the interaction protocol. Real
+environment rollouts must go through the EvoPolicyGym server, consume the run
+budget, and leave reproducible artifacts.
+
+## Overall Experimental Protocol
+
+Each benchmark run is a closed-loop optimization session with three roles:
+
+- **Agent**: edits `workspace/system/`, decides when to submit, and reads
+  feedback artifacts.
+- **Server**: snapshots submitted policy code, runs controlled rollouts in a
+  sandbox, writes feedback, tracks budget, and performs final scoring.
+- **Workspace**: exposes writable policy code under `system/` and read-only
+  feedback under `feedback/submit_NNN/`.
+
+The loop is:
+
+1. The agent queries `/info` for runtime state and `/task` for the task
+   contract.
+2. The agent edits `system/`.
+3. The agent calls `/submit` with one or more training `env_instances`.
+4. The server snapshots the policy, runs those episodes, charges the episode
+   budget, and writes `summary.json`, per-step trajectories, optional videos,
+   observations, stdout/stderr, and errors under `feedback/submit_NNN/`.
+5. The agent analyzes only this visible train feedback and repeats until the
+   episode budget is exhausted.
+6. When `remaining_budget == 0`, the server automatically finalizes the run:
+   all `status == "ok"` checkpoints are evaluated on hidden validation cases,
+   the checkpoint with the best validation score is selected, and that selected
+   policy is evaluated on hidden held-out cases for the final score.
+
+Visibility is intentionally separated:
+
+- **Visible during optimization**: task text, runtime budget state, train
+  `env_instance` IDs, and train feedback from `/submit`.
+- **Hidden during optimization**: validation cases, held-out cases, their seeds,
+  random/expert scoring anchors, validation scores, held-out returns, and the
+  final score.
+
+All rollout data used for optimization must be produced by `/submit`. Agents may
+run local syntax checks or static analysis, but they must not create extra
+environment episodes through local Gymnasium, MuJoCo, Box2D, HighwayEnv, or other
+simulators outside the server-controlled submit path.
+
+For the main Core-16 experiment stack, the checked-in `config/main-128-*.toml`
+suites use 128 visible training episodes per run. The protocol default hidden
+selection/evaluation pools are 64 validation episodes per successful checkpoint
+and 256 held-out episodes for the selected checkpoint. See
+[`docs/protocol/`](docs/protocol/) for the normative protocol and
+[`docs/envs/core_suite.md`](docs/envs/core_suite.md) for the Core-16 suite.
 
 ## Status
 

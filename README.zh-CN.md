@@ -2,6 +2,9 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+**项目网页：** <https://linzwcs.github.io/EvoPolicyGym/>  
+**论文：** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)
+
 EvoPolicyGym 是一套基准测试基础设施，用来评估 coding agent 能否在预算受限的环境反馈中迭代改进可执行策略。它采用类似 online judge 的协议：agent 在 workspace 中编辑代码，通过本地 API 提交 policy rollout，读取反馈工件，然后继续修改，直到 episode 预算耗尽。
 
 ## 评测目标

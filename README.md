@@ -2,6 +2,9 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+**Project website:** <https://linzwcs.github.io/EvoPolicyGym/>  
+**Paper:** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)
+
 EvoPolicyGym is benchmark infrastructure for evaluating whether coding agents can
 improve executable policies from budget-limited environment feedback. It follows
 an online-judge style protocol: an agent edits code in a workspace, submits

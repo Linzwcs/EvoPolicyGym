@@ -3,7 +3,8 @@
 [English](README.md) | [中文](README.zh-CN.md)
 
 **Project website:** <https://linzwcs.github.io/EvoPolicyGym/>  
-**Paper:** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)
+**Paper:** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)  
+**Protocol design essay:** [web](https://linzwcs.github.io/EvoPolicyGym/protocol-design.html) · [local HTML](web/protocol-design.html) · [Markdown draft](docs/blog/evaluating-agents-as-policy-optimizers.md)
 
 EvoPolicyGym is benchmark infrastructure for evaluating whether coding agents can
 improve executable policies from budget-limited environment feedback. It follows
@@ -67,6 +68,8 @@ selection/evaluation pools are 64 validation episodes per successful checkpoint
 and 256 held-out episodes for the selected checkpoint. See
 [`docs/protocol/`](docs/protocol/) for the normative protocol and
 [`docs/envs/core_suite.md`](docs/envs/core_suite.md) for the Core-16 suite.
+For a design-level explanation of the protocol choices, see the
+[protocol design essay](web/protocol-design.html).
 
 ## Status
 

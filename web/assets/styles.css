@@ -306,6 +306,28 @@ main {
   font-size: 17px;
 }
 
+.protocol-link-row {
+  margin: 22px 0 0;
+}
+
+.protocol-link-row a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--charcoal);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.protocol-link-row a:hover {
+  transform: translateY(-1px);
+}
+
 .protocol-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

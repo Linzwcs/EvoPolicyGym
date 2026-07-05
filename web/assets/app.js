@@ -7,6 +7,7 @@ const TEXT = {
     "nav.protocol": "Protocol",
     "nav.rollouts": "Rollouts",
     "nav.scores": "Scores",
+    "nav.essay": "Essay",
     "language.aria": "Language",
     "hero.eyebrow": "Paper companion",
     "hero.kicker":
@@ -15,6 +16,7 @@ const TEXT = {
       "This companion page collects the final validation-selected Core16 policies, their original-environment reruns, and the held-out scores reported in the paper.",
     "hero.primaryAction": "View Rollouts",
     "hero.secondaryAction": "Score Matrix",
+    "hero.essayAction": "Protocol Essay",
     "hero.resources.aria": "Project links",
     "hero.link.github": "GitHub",
     "hero.link.hfPaper": "Hugging Face Paper",
@@ -27,6 +29,7 @@ const TEXT = {
     "protocol.title": "Agents write policies, not action traces.",
     "protocol.copy":
       "A run starts with a task contract, a policy workspace, and a fixed episode budget. The agent reads visible train feedback, edits the executable policy system, submits checkpoints, and continues from its own accepted workspace state.",
+    "protocol.essayLink": "Read the protocol design essay",
     "protocol.facts.online.title": "Online loop",
     "protocol.facts.online.copy": "edit code, submit, inspect visible train feedback",
     "protocol.facts.selection.title": "Selection",
@@ -133,6 +136,7 @@ const TEXT = {
     "nav.protocol": "协议",
     "nav.rollouts": "回放",
     "nav.scores": "分数",
+    "nav.essay": "解读",
     "language.aria": "语言",
     "hero.eyebrow": "论文配套页面",
     "hero.kicker": "一个用于研究 coding agent 是否能通过环境反馈迭代改进可执行策略的 benchmark。",
@@ -140,6 +144,7 @@ const TEXT = {
       "本页面汇总 Core16 中按验证集选择的最终策略、这些策略在原始环境中的重新运行视频，以及论文报告的 held-out 分数。",
     "hero.primaryAction": "查看回放",
     "hero.secondaryAction": "分数矩阵",
+    "hero.essayAction": "协议解读",
     "hero.resources.aria": "项目链接",
     "hero.link.github": "GitHub",
     "hero.link.hfPaper": "Hugging Face Paper",
@@ -152,6 +157,7 @@ const TEXT = {
     "protocol.title": "Agents 编写策略，而不是动作轨迹。",
     "protocol.copy":
       "每次运行从任务契约、策略工作区和固定 episode budget 开始。Agent 读取可见训练反馈，编辑可执行策略系统，提交 checkpoint，并从自己已接受的工作区状态继续优化。",
+    "protocol.essayLink": "阅读协议设计解读",
     "protocol.facts.online.title": "在线循环",
     "protocol.facts.online.copy": "改代码、提交、查看可见训练反馈",
     "protocol.facts.selection.title": "选择",

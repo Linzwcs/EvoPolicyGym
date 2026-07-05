@@ -3,7 +3,8 @@
 [English](README.md) | [中文](README.zh-CN.md)
 
 **项目网页：** <https://linzwcs.github.io/EvoPolicyGym/>  
-**论文：** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)
+**论文：** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)  
+**协议设计解读：** [网页](https://linzwcs.github.io/EvoPolicyGym/protocol-design.html) · [本地 HTML](web/protocol-design.html) · [Markdown 草稿](docs/blog/evaluating-agents-as-policy-optimizers.md)
 
 EvoPolicyGym 是一套基准测试基础设施，用来评估 coding agent 能否在预算受限的环境反馈中迭代改进可执行策略。它采用类似 online judge 的协议：agent 在 workspace 中编辑代码，通过本地 API 提交 policy rollout，读取反馈工件，然后继续修改，直到 episode 预算耗尽。
 
@@ -36,6 +37,7 @@ EvoPolicyGym 评测的是 agent 是否能把环境反馈转化为更好的可执
 所有用于优化的 rollout 数据都必须由 `/submit` 产生。Agent 可以做本地语法检查或静态分析，但不能在 server 控制的 submit 路径之外，通过本地 Gymnasium、MuJoCo、Box2D、HighwayEnv 或其它 simulator 额外生成环境 episodes。
 
 主实验的 Core-16 配置位于 `config/main-128-*.toml`，每个 run 使用 128 个可见训练 episodes。协议默认的隐藏选择/评测池为：每个成功 checkpoint 用 64 个 validation episodes 做选择，对选出的 checkpoint 用 256 个 held-out episodes 做最终评分。规范协议见 [`docs/protocol/`](docs/protocol/)，Core-16 环境套件见 [`docs/envs/core_suite.md`](docs/envs/core_suite.md)。
+如果想读协议设计动机和取舍，可看这篇[协议设计解读](web/protocol-design.html)。
 
 ## 状态
 

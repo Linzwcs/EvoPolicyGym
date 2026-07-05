@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EvoPolicyGym Protocol Design</title>
+    <meta
+      name="description"
+      content="A bilingual research blog converted from the EvoPolicyGym protocol-design Markdown draft, with Mermaid protocol diagrams and citation."
+    />
+    <link rel="canonical" href="protocol-design.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="EvoPolicyGym Protocol Design" />
+    <meta
+      property="og:description"
+      content="Why EvoPolicyGym evaluates agents as policy-system optimizers, controls episode budget, uses Gym-style environments, and separates train, validation, and held-out feedback."
+    />
+    <link rel="stylesheet" href="assets/protocol-design.css" />
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({
+        startOnLoad: true,
+        securityLevel: "loose",
+        theme: "base",
+        themeVariables: {
+          fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          primaryColor: "#f7fafb",
+          primaryTextColor: "#172026",
+          primaryBorderColor: "#ccd7dc",
+          lineColor: "#5f6c73",
+          secondaryColor: "#eef4f6",
+          tertiaryColor: "#ffffff"
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-link" href="index.html">EvoPolicyGym</a>
+      <div class="language-toggle" role="group" aria-label="Language">
+        <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+      </div>
+    </header>
+
+    <main>
+      <article class="article" data-lang-view="en">
+        <p class="eyebrow">Protocol design essay</p>
+        <h1>EvoPolicyGym Protocol Design: Evaluating Agents as Policy-System Optimizers</h1>
+        <p class="lead">
+          This page is the website version of the protocol-design blog draft. It explains why EvoPolicyGym evaluates agents that write policy systems, why fairness centers on environment interaction budget, why Gym-style abstraction matters, and how the Agent / Workspace / Server / train-validation-held-out protocol makes agents comparable.
+        </p>
+        <p class="byline">
+          Companion essay for
+          <a href="https://arxiv.org/abs/2607.02440">EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments</a>.
+        </p>
+
+        <details class="citation-box">
+          <summary>Cite this work</summary>
+          <pre><code>@misc{wang2026evopolicygymevaluatingautonomouspolicy,
+      title={EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments}, 
+      author={Zhilin Wang and Han Song and Runzhe Zhan and Jusen Du and Jiacheng Chen and Tianle Li and Qingyu Yin and Yulun Wu and Zhennan Shen and Tong Zhu and Yanshu Li and Guanjie Chen and Derek F. Wong and Yafu Li and Yu Cheng and Yang Yang},
+      year={2026},
+      eprint={2607.02440},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2607.02440}, 
+}</code></pre>
+        </details>
+
+        <section>
+          <h2>0. Why evaluate agents that write policy systems?</h2>
+          <p>
+            Many agent evaluations ask whether a model can produce the correct answer once. EvoPolicyGym asks a different question:
+          </p>
+          <blockquote>Can an agent use environmental feedback to build a better decision-making policy system?</blockquote>
+          <p>
+            Many real tasks are not one-shot questions but sequential decision processes. Robot control, games, experiments, resource scheduling, and operational strategy design do not end after one answer. They form a loop:
+          </p>
+          <ol>
+            <li>observe the current state;</li>
+            <li>take an action;</li>
+            <li>the environment changes;</li>
+            <li>receive feedback;</li>
+            <li>continue decision-making from the new state.</li>
+          </ol>
+          <p>
+            A general-purpose agent could directly own this loop, observing the environment, reasoning, calling tools, and choosing an action at every step. But in many real systems this would create high cost and high latency. Robot control, online scheduling, game bots, trading or operational strategies need a decision system that runs in real time, is stable, and is cheap to execute, rather than waiting for a large-model agent to reason at every step.
+          </p>
+          <p>
+            A more practical setup is therefore that the agent does not take every action itself. Instead, it writes, maintains, and improves a policy system that can run in real time. The policy system interacts with the environment and handles low-latency decisions; the agent uses environment feedback, logs, failures, and evaluation results to optimize that policy system from the outside.
+          </p>
+          <p>
+            This echoes the direction described by Jiayi Weng in <a href="https://trinkle23897.github.io/learning-beyond-gradients/#zh">Learning Beyond Gradients</a>: as coding agents become stronger, we should look beyond gradient updates to neural-network parameters and consider agents that read failures, edit code, add tests, inspect replays, and maintain an improving software policy system. In other words, the policy system acts in the environment, while the agent is the meta-optimizer that absorbs feedback and updates the system.
+          </p>
+          <p>
+            Evaluating different agents on this capability is therefore important. One-shot benchmarks can measure knowledge, reasoning, and instruction following, but they do not tell us whether an agent can improve an executable behavior mechanism through feedback. The capability of interest is whether the agent can turn environmental feedback into a better policy system.
+          </p>
+        </section>
+
+        <section>
+          <h2>1. How do we fairly evaluate this capability?</h2>
+          <p>
+            Once the agent is placed in the role of meta-optimizer, the protocol becomes central. Performance depends not only on the final policy system, but also on how much environment feedback the agent saw during optimization. If one agent can run the environment without limit while another can only inspect a few episodes, the final score is no longer a fair comparison.
+          </p>
+          <p>
+            The core fairness constraint is therefore the number of environment interactions. Every rollout is valuable information: it shows where the current policy fails, which actions help, how reward changes, and why an episode terminates. A stronger agent should turn the same or comparable interaction budget into policy improvement more effectively.
+          </p>
+          <p>
+            This is why EvoPolicyGym uses episode budget as the main resource. Fair comparison requires the same or comparable total environment-interaction budget across agents, but the protocol should not specify how many episodes each experiment must use. As an expert / meta-optimizer, the agent should decide how to spend its budget: when to run a small probe, when to scale up a test, when to repeat difficult cases, and when to abandon one direction and switch strategy.
+          </p>
+          <p>
+            In other words, budget is not only an external limit; it is part of the evaluated capability. A strong agent should design experiments: use a few episodes to locate failure modes, use larger batches to validate whether a candidate policy is stable, and trade off exploration of new ideas against confirmation of existing improvements.
+          </p>
+          <p>
+            The agent may decide how to analyze feedback, edit code, submit, and choose train cases. But all real environment interaction must occur through the controlled submit-feedback channel and count against the episode budget.
+          </p>
+          <p>The protocol also needs to ensure:</p>
+          <ul>
+            <li>all agents receive the same task description, observation space, action space, and train-case interface;</li>
+            <li>agents see only visible train feedback, not hidden validation or held-out cases;</li>
+            <li>agents cannot bypass the server by running a local environment or copied simulator to get budget-free rollouts;</li>
+            <li>hidden validation is used only for checkpoint selection, and held-out only for final reporting;</li>
+            <li>the final comparison is whether, under the same budget, an agent can produce a policy system that generalizes better.</li>
+          </ul>
+          <p>
+            The protocol therefore controls the learning opportunity while leaving the use of that opportunity to the agent. Under the same environment-feedback budget, which agent better designs experiments, allocates budget, and turns feedback into executable policy improvement?
+          </p>
+        </section>
+
+        <section>
+          <h2>2. What is Gym?</h2>
+          <p>
+            To evaluate this capability, we need a unified abstraction that covers many interactive tasks. A Gym-style environment is exactly such an abstraction: it models many sequential decision problems through the same interface instead of designing a separate evaluation loop for every task.
+          </p>
+          <p>The core is not a game, but an interaction loop:</p>
+          <pre class="formula"><code>observation -> action -> reward / feedback -> next observation</code></pre>
+          <p>A policy repeatedly executes this loop within an episode:</p>
+          <ol>
+            <li>the environment returns an observation;</li>
+            <li>the policy chooses an action;</li>
+            <li>the environment executes the action and updates state;</li>
+            <li>the environment returns reward, next observation, and termination status;</li>
+            <li>multiple steps form a trajectory;</li>
+            <li>the trajectory accumulates a return.</li>
+          </ol>
+          <p>
+            Gym-style environments evaluate not isolated actions, but the result of a sequence of decisions over an entire episode.
+          </p>
+          <p>
+            The value of Gym-style abstraction is not merely that it runs games. More importantly, it allows many real tasks to be modeled, extended, and compared in a standardized way:
+          </p>
+          <ul>
+            <li>for robot control, observations can be sensor states, actions can be control commands, and rewards can encode task completion and safety constraints;</li>
+            <li>for games or simulators, observations are game states, actions are operations, and rewards are score or progress;</li>
+            <li>for scheduling and operational strategy, observations can be resources, queues, demand, and constraints, while actions are allocation or scheduling decisions;</li>
+            <li>for experiment design, observations are existing results and state, actions are the next experimental configurations, and rewards are information gain or target-metric improvement.</li>
+          </ul>
+          <p>
+            Any task expressible as observation, action, feedback, and episode can connect to the same evaluation protocol. This means tasks can expand without rewriting the benchmark core; agent and policy interfaces stay stable; feedback, budget, checkpoints, hidden validation, and held-out scoring can be unified; and different environments can form a suite rather than isolated tests.
+          </p>
+          <p>
+            Gym-style environments are therefore not a narrow game benchmark here. They are a modeling layer for real interactive tasks, compressing complex tasks into executable, reproducible, measurable sequential decision problems.
+          </p>
+        </section>
+
+        <section>
+          <h2>3. The EvoPolicyGym protocol</h2>
+          <p>
+            Gym-style abstraction tells us how to represent an interactive task. To fairly evaluate an agent as a policy-system optimizer, EvoPolicyGym also needs a protocol specifying who can run the environment, who can see feedback, how budget is charged, and how the final score is produced.
+          </p>
+          <p>The protocol has three roles:</p>
+          <pre><code>Agent      edits policy system and decides experiments
+Workspace  exposes editable system/ and read-only feedback/
+Server     runs rollouts, writes feedback, controls budget and scoring</code></pre>
+          <pre class="mermaid">
+flowchart LR
+    Agent["Agent&lt;br/&gt;policy author / meta-optimizer"]
+    Workspace[("Workspace&lt;br/&gt;system/ writable&lt;br/&gt;feedback/ read-only")]
+    Server["Server&lt;br/&gt;sandbox + budget + scoring"]
+
+    Agent -- "edit policy system" --> Workspace
+    Agent -- "POST /submit&lt;br/&gt;selected train episodes" --> Server
+    Server -- "snapshot + rollout&lt;br/&gt;budget -= episodes" --> Workspace
+    Server -- "write feedback/submit_NNN" --> Workspace
+    Workspace -- "read trajectory, rewards,&lt;br/&gt;videos, errors, logs" --> Agent
+          </pre>
+          <p>One iteration is:</p>
+          <pre><code>agent edits system/
+agent submits selected train episodes
+server snapshots and runs the policy in sandbox
+server writes feedback/submit_NNN/
+agent reads feedback and edits again</code></pre>
+          <p>
+            The most important design choice is responsibility separation. The agent writes <code>system/policy.py</code>, analyzes feedback, decides when to submit, and chooses which train cases to run in each submit. The server executes the environment, charges episode budget, writes feedback, stores checkpoints, and automatically performs hidden validation and held-out scoring after budget exhaustion. The workspace is the shared interface: <code>system/</code> is writable by the agent, while <code>feedback/</code> is read-only for the agent.
+          </p>
+          <p>
+            The protocol preserves agent freedom while controlling learning opportunities. The agent can use rules, search, planning, neural networks, diagnostic prints, or any code structure to build the policy system; it can also decide how to allocate budget. But all real environment interactions must happen through <code>/submit</code>; the agent cannot run local Gymnasium, MuJoCo, Box2D, HighwayEnv, or copied simulators to obtain budget-free rollouts.
+          </p>
+          <p>
+            During optimization, the agent sees visible train feedback. After each submit, the server writes <code>summary.json</code>, step-by-step <code>trajectory.jsonl</code>, optional video, lossless observation files, stdout/stderr, and error messages. These artifacts are enough for the agent to diagnose why the policy failed, which states failed, and how actions and rewards changed.
+          </p>
+          <p>Final scoring is protected by hidden splits:</p>
+          <ul>
+            <li><strong>Train</strong>: visible to the agent, selected by <code>env_instance</code> IDs, consumes episode budget, and is used to iteratively improve the policy;</li>
+            <li><strong>Validation</strong>: hidden from the agent; after budget exhaustion, the server evaluates successful checkpoints and selects the best checkpoint;</li>
+            <li><strong>Held-out</strong>: hidden from the agent; only the best checkpoint is evaluated here for the final score.</li>
+          </ul>
+          <pre class="mermaid">
+flowchart LR
+    Train[("Train&lt;br/&gt;visible feedback&lt;br/&gt;counts against budget")]
+    Agent["Agent&lt;br/&gt;edits policy system"]
+    Ckpt["Submitted checkpoints"]
+    Val[("Hidden validation&lt;br/&gt;server selects best")]
+    Heldout[("Hidden held-out&lt;br/&gt;final score")]
+    RunJson["run.json"]
+
+    Train -- "feedback" --> Agent
+    Agent -- "submit policy" --> Ckpt
+    Ckpt -- "finalize after budget = 0" --> Val
+    Val -- "best checkpoint" --> Heldout
+    Heldout --> RunJson
+          </pre>
+          <p>
+            This flow answers a precise question: under the same visible train feedback budget, which agent better designs experiments, allocates budget, improves a policy system, and generalizes to hidden held-out cases?
+          </p>
+        </section>
+
+        <section>
+          <h2>4. Protocol design principles</h2>
+          <p>EvoPolicyGym's protocol design can be summarized in five principles.</p>
+          <p>
+            First, the evaluated object is not a single action. It is whether the agent can turn environmental feedback into an executable policy system. The policy system makes real-time decisions in the environment, while the agent updates it from the outside as a policy author / meta-optimizer.
+          </p>
+          <p>
+            Second, fairness centers on environment-interaction budget. Episode is the unit of learning opportunity, so the protocol fixes total <code>episode_budget</code>. However, each submit's size, selected train cases, and the choice between small probes and large validations are left to the agent. Budget allocation is itself an evaluated capability.
+          </p>
+          <p>
+            Third, methods are unrestricted but rollouts are controlled. The agent can use any code structure or optimization method to write the policy system, but all real environment interaction must go through the server's <code>/submit</code> and <code>feedback/</code>, not through local simulators.
+          </p>
+          <p>
+            Fourth, optimization signals and scoring signals are separated. The agent sees only visible train feedback; hidden validation is used only after budget exhaustion for checkpoint selection; hidden held-out is used only for final reporting. This separates whether the agent can improve from feedback from whether that improvement generalizes.
+          </p>
+          <p>
+            Fifth, Gym-style abstraction makes the protocol extensible. Any task expressible as observation, action, feedback, and episode can join the same Agent / Workspace / Server protocol and reuse the budget, feedback, checkpoint, and hidden split mechanisms.
+          </p>
+          <p>
+            This essay is not about a leaderboard or any single environment. It explains why, when we treat an agent as the optimizer of a policy system, the evaluation protocol must control learning opportunities, isolate hidden evaluation, preserve the agent's experiment-design freedom, and use a unified environment abstraction to support an extensible task suite.
+          </p>
+          <p>
+            Low-budget settings especially highlight the value of the agent as optimizer. The protocol does not restrict methods: the agent may write rules, search, add planning, or attempt RL and other learning components inside the policy system. But if the agent chooses an RL training approach that depends on many rollouts under a very small episode budget, it usually will not converge and will not turn limited feedback into strong final performance. What is really measured is not whether RL is allowed, but whether the agent can judge which optimization strategy fits the budget: using priors, reading failure trajectories, designing small experiments, locating key errors, and quickly converting limited feedback into policy-system improvement.
+          </p>
+        </section>
+
+        <section class="refs">
+          <h2>References</h2>
+          <ol>
+            <li>
+              <span class="ref-num">[1]</span>
+              Zhilin Wang, Han Song, Runzhe Zhan, et al. "EvoPolicyGym:
+              Evaluating Autonomous Policy Evolution in Interactive
+              Environments." arXiv:2607.02440, 2026.
+              <a href="https://arxiv.org/abs/2607.02440">https://arxiv.org/abs/2607.02440</a>
+            </li>
+          </ol>
+        </section>
+      </article>
+
+      <article class="article" data-lang-view="zh" hidden>
+        <p class="eyebrow">协议设计解读</p>
+        <h1>EvoPolicyGym Protocol Design: Evaluating Agents as Policy-System Optimizers</h1>
+        <p class="lead">
+          目标是用比论文更直接的方式解读 EvoPolicyGym 的完整协议设计思想：为什么要评估 agent 写 policy system，为什么公平性的核心是环境交互预算，为什么用 Gym-style 抽象，以及 Agent / Workspace / Server / train-validation-held-out 这套协议如何保证可比较性。
+        </p>
+        <p class="byline">
+          这是一篇
+          <a href="https://arxiv.org/abs/2607.02440">EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments</a>
+          的配套协议解读。
+        </p>
+
+        <details class="citation-box">
+          <summary>引用本文对应论文</summary>
+          <pre><code>@misc{wang2026evopolicygymevaluatingautonomouspolicy,
+      title={EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments}, 
+      author={Zhilin Wang and Han Song and Runzhe Zhan and Jusen Du and Jiacheng Chen and Tianle Li and Qingyu Yin and Yulun Wu and Zhennan Shen and Tong Zhu and Yanshu Li and Guanjie Chen and Derek F. Wong and Yafu Li and Yu Cheng and Yang Yang},
+      year={2026},
+      eprint={2607.02440},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2607.02440}, 
+}</code></pre>
+        </details>
+
+        <section>
+          <h2>0. 为什么要评估 agent 写 policy system</h2>
+          <p>很多 agent 评测问的是：模型能不能一次性给出正确答案。EvoPolicyGym 关心的是另一个问题：</p>
+          <blockquote>Can an agent use environmental feedback to build a better decision-making policy system?</blockquote>
+          <p>现实中的许多任务不是一次性问答，而是连续决策过程。例如控制机器人、玩游戏、做实验、调度资源、设计运营策略，都不是输出一句话就结束。它们更像是一个循环：</p>
+          <ol>
+            <li>观察当前状态；</li>
+            <li>做出一个行动；</li>
+            <li>环境发生变化；</li>
+            <li>收到反馈；</li>
+            <li>基于新状态继续决策。</li>
+          </ol>
+          <p>
+            当然，我们可以让一个通用 agent 直接承担这个循环：每一步都观察环境、思考、调用工具、选择动作。但在很多现实系统里，这会带来高开销和高延迟。机器人控制、在线调度、游戏 bot、交易或运营策略，都需要一个可以实时运行、稳定复现、低成本执行的决策系统，而不是每一步都等待一个大模型 agent 重新推理。
+          </p>
+          <p>
+            因此，更实际的设定是：agent 不直接代替系统做每一个动作，而是编写、维护和改进一个可以实时运行的 policy system。这个 policy system 与环境交互，承担低延迟决策；agent 则根据环境反馈、日志、失败案例和评测结果，在外层优化这个 policy system。
+          </p>
+          <p>
+            这也呼应 Jiayi Weng 在 <a href="https://trinkle23897.github.io/learning-beyond-gradients/#zh">Learning Beyond Gradients</a> 中提出的方向：随着 coding agent 变强，值得关注的不只是用梯度更新神经网络参数，而是让 agent 通过阅读失败、编辑代码、补充测试和观察 replay 来维护一个不断改进的软件化策略系统。换句话说，policy system 负责在环境中行动，agent 作为 meta-optimizer 负责吸收反馈并更新这个系统。
+          </p>
+          <p>
+            因此，要评估不同 agent 在这方面的能力就显得很重要。一次性 benchmark 可以测知识、推理和指令跟随，但很难测 agent 是否能在反馈循环中改进一个可执行的行为机制。我们想评测的能力是：agent 能不能把环境反馈转化成一个更好的 policy system。
+          </p>
+        </section>
+
+        <section>
+          <h2>1. 如何公平评估这个能力</h2>
+          <p>
+            一旦我们把 agent 放在 meta-optimizer 的位置，评估协议就变得很关键。因为 agent 的表现不只取决于它最终写出的 policy system，也取决于它在优化过程中看到了多少环境反馈。如果一个 agent 可以无限次运行环境、反复试错、筛选策略，而另一个 agent 只能看少量 episode，那么最后分数就不再是公平比较。
+          </p>
+          <p>
+            因此，在这个场景下，公平性的核心首先是控制环境交互次数。每一次 rollout 都是有价值的信息：它告诉 agent 当前 policy 在哪些状态失败、哪些动作有效、reward 如何变化、episode 为什么提前结束。更强的 agent 应该是在相同或可比较的环境交互预算下，把这些反馈更有效地转化成 policy improvement。
+          </p>
+          <p>
+            这也是为什么 EvoPolicyGym 把 episode budget 作为主预算。公平比较需要给不同 agent 相同或可比较的总环境交互预算，但协议不应该规定每次实验必须花多少预算。Agent 作为 expert / meta-optimizer，应该自己判断如何使用预算：什么时候先小规模试探，什么时候扩大测试，什么时候重复某些困难 case，什么时候停止一个方向并切换策略。
+          </p>
+          <p>
+            换句话说，预算不是只用来限制 agent 的外部约束，也是被评估能力的一部分。一个强 agent 不只是能读懂反馈，还应该会设计实验：用少量 episode 快速定位失败模式，用更大批量验证候选 policy 是否稳定，在探索新想法和确认已有改进之间做取舍。最终比较的是：在相同总预算下，哪个 agent 更会把有限环境交互转化成最终更好的 policy system。
+          </p>
+          <p>
+            Agent 可以自由决定如何分析反馈、如何修改代码、何时提交、一次提交跑哪些 train cases；但所有真实环境交互都必须通过受控的 submit-feedback 通道发生，并且按 episode 计入预算。
+          </p>
+          <p>当然，交互次数不是唯一的公平约束。协议还需要保证：</p>
+          <ul>
+            <li>所有 agent 面对相同的任务描述、观测空间、动作空间和训练 case 接口；</li>
+            <li>agent 只能看到 visible train feedback，不能看到 hidden validation 或 held-out cases；</li>
+            <li>agent 不能绕过 server 在本地额外运行环境或复制 simulator 来获得预算外 rollout；</li>
+            <li>hidden validation 只用于选择 checkpoint，held-out 只用于最终报告；</li>
+            <li>最终比较的是相同预算下，agent 能否产出泛化更好的 policy system。</li>
+          </ul>
+          <p>
+            换句话说，新的评估协议要把“学习机会”本身纳入控制变量，同时把“如何使用学习机会”留给 agent。在相同环境反馈预算下，哪个 agent 更会设计实验、分配预算，并把反馈变成可执行的策略改进。
+          </p>
+        </section>
+
+        <section>
+          <h2>2. Gym 是什么</h2>
+          <p>
+            为了评估这种能力，我们需要一套能够覆盖不同交互任务的统一抽象。Gym-style environment 正是这样的抽象：它把各种连续决策问题建模成同一类接口，而不是为每个任务单独设计一套评测逻辑。
+          </p>
+          <p>它的核心不是“游戏”，而是一个简单的交互循环：</p>
+          <pre class="formula"><code>observation -> action -> reward / feedback -> next observation</code></pre>
+          <p>一个 policy 在 episode 中反复执行这个循环：</p>
+          <ol>
+            <li>环境给出当前 observation；</li>
+            <li>policy 选择 action；</li>
+            <li>环境执行 action，更新状态；</li>
+            <li>环境返回 reward、next observation，以及 episode 是否结束；</li>
+            <li>多步交互组成一条 trajectory；</li>
+            <li>trajectory 上累积得到 return。</li>
+          </ol>
+          <p>因此，Gym-style 环境评测的不是孤立动作，而是一串决策在整个 episode 上产生的结果。</p>
+          <p>引入 Gym-style 抽象的价值不只是方便跑游戏。更重要的是，它让不同类型的现实任务可以被规范地建模、扩展和比较：</p>
+          <ul>
+            <li>对机器人控制，observation 可以是传感器状态，action 可以是控制指令，reward 可以描述任务完成度和安全约束；</li>
+            <li>对游戏或模拟器，observation 是游戏状态，action 是操作，reward 是分数或进度；</li>
+            <li>对调度和运营策略，observation 可以是资源、队列、需求和约束，action 是分配或调度决策，reward 是成本、吞吐或服务质量；</li>
+            <li>对实验设计，observation 是已有实验结果和状态，action 是下一次实验配置，reward 是信息增益或目标指标改善。</li>
+          </ul>
+          <p>
+            只要任务能被表达成 observation、action、feedback 和 episode，就可以接入同一套评估协议。这带来几个直接好处：任务可以不断扩展，而不需要重写 benchmark 的核心协议；agent 和 policy 的接口保持稳定，便于比较不同系统；反馈、预算、checkpoint、hidden validation、held-out scoring 等机制可以统一；不同环境之间的结果更容易组织成 suite，而不是一组互不兼容的单点测试。
+          </p>
+          <p>
+            所以，Gym-style 环境在这里不是一个窄的游戏 benchmark，而是一种现实交互任务的建模层。它把复杂任务压缩成可执行、可重复、可度量的序列决策问题，为后面的公平协议提供共同基础。
+          </p>
+        </section>
+
+        <section>
+          <h2>3. EvoPolicyGym 的协议</h2>
+          <p>
+            Gym-style 抽象告诉我们如何表示一个交互式任务，但要公平评估 agent 作为 policy system optimizer 的能力，还需要一套协议来规定：谁能运行环境、谁能看到反馈、预算如何扣、最终分数如何产生。
+          </p>
+          <p>EvoPolicyGym 的协议可以简化成三个角色：</p>
+          <pre><code>Agent      edits policy system and decides experiments
+Workspace  exposes editable system/ and read-only feedback/
+Server     runs rollouts, writes feedback, controls budget and scoring</code></pre>
+          <pre class="mermaid">
+flowchart LR
+    Agent["Agent&lt;br/&gt;policy author / meta-optimizer"]
+    Workspace[("Workspace&lt;br/&gt;system/ writable&lt;br/&gt;feedback/ read-only")]
+    Server["Server&lt;br/&gt;sandbox + budget + scoring"]
+
+    Agent -- "edit policy system" --> Workspace
+    Agent -- "POST /submit&lt;br/&gt;selected train episodes" --> Server
+    Server -- "snapshot + rollout&lt;br/&gt;budget -= episodes" --> Workspace
+    Server -- "write feedback/submit_NNN" --> Workspace
+    Workspace -- "read trajectory, rewards,&lt;br/&gt;videos, errors, logs" --> Agent
+          </pre>
+          <p>一次迭代是：</p>
+          <pre><code>agent edits system/
+agent submits selected train episodes
+server snapshots and runs the policy in sandbox
+server writes feedback/submit_NNN/
+agent reads feedback and edits again</code></pre>
+          <p>
+            这里最重要的设计是职责分离。Agent 负责写 <code>system/policy.py</code>、分析反馈、决定何时提交以及一次提交跑哪些 train cases。Server 负责真正执行环境、扣 episode budget、写 feedback、保存 checkpoints，并在预算耗尽后自动完成 hidden validation 和 held-out scoring。Workspace 只是共享界面：<code>system/</code> 对 agent 可写，<code>feedback/</code> 对 agent 只读。
+          </p>
+          <p>
+            这套协议保留了 agent 的自由度，但控制了学习机会。Agent 可以用规则、搜索、规划、神经网络、诊断打印或任何代码结构来写 policy system；也可以自己决定预算如何分配。但是所有真实环境交互必须通过 <code>/submit</code> 发生，不能在本地额外运行 Gymnasium、MuJoCo、Box2D、highway 或复制的 simulator 来获得预算外 rollout。
+          </p>
+          <p>
+            Agent 在优化过程中能看到的是 visible train feedback。每次 submit 后，server 会写出 <code>summary.json</code>、逐步 <code>trajectory.jsonl</code>、可选视频、lossless observation 文件、stdout/stderr 和错误信息。这些反馈足够让 agent 诊断 policy 为什么失败、在哪些状态失败、动作和 reward 如何变化。
+          </p>
+          <p>最终评分则由隐藏 split 保证：</p>
+          <ul>
+            <li><strong>Train</strong>：agent 可见，按 <code>env_instance</code> ID 选择，消耗 episode budget，用于迭代改 policy；</li>
+            <li><strong>Validation</strong>：agent 不可见，预算耗尽后 server 对所有成功 checkpoint 统一评估，用来选择 best checkpoint；</li>
+            <li><strong>Held-out</strong>：agent 不可见，只对 best checkpoint 做最终评估，产生 final score。</li>
+          </ul>
+          <pre class="mermaid">
+flowchart LR
+    Train[("Train&lt;br/&gt;visible feedback&lt;br/&gt;counts against budget")]
+    Agent["Agent&lt;br/&gt;edits policy system"]
+    Ckpt["Submitted checkpoints"]
+    Val[("Hidden validation&lt;br/&gt;server selects best")]
+    Heldout[("Hidden held-out&lt;br/&gt;final score")]
+    RunJson["run.json"]
+
+    Train -- "feedback" --> Agent
+    Agent -- "submit policy" --> Ckpt
+    Ckpt -- "finalize after budget = 0" --> Val
+    Val -- "best checkpoint" --> Heldout
+    Heldout --> RunJson
+          </pre>
+          <p>
+            这个流程让我们可以回答一个更清楚的问题：在相同的 visible train feedback budget 下，哪个 agent 更能设计实验、分配预算、改进 policy system，并最终在 hidden held-out cases 上泛化。
+          </p>
+        </section>
+
+        <section>
+          <h2>4. 协议设计思想总结</h2>
+          <p>EvoPolicyGym 的协议设计可以概括成五个原则。</p>
+          <p>第一，评估对象不是单步 action，而是 agent 能否把环境反馈转化成可执行的 policy system。Policy system 在环境中实时决策，agent 在外层作为 policy author / meta-optimizer 负责更新它。</p>
+          <p>第二，公平性的核心是环境交互预算。Episode 是学习机会的计量单位，所以协议固定总 <code>episode_budget</code>；但每次提交跑多少 episode、跑哪些 train cases、何时做小规模试探或大规模验证，都交给 agent 自己决定。预算分配本身就是被评估能力的一部分。</p>
+          <p>第三，协议方法无关，但 rollout 受控。Agent 可以用任何代码结构和优化方法写 policy system，但所有真实环境交互必须经过 server 的 <code>/submit</code> 和 <code>feedback/</code>，不能通过本地额外 simulator 获得预算外信息。</p>
+          <p>第四，优化信号和评分信号分离。Agent 只看到 visible train feedback；hidden validation 只在预算耗尽后用于 checkpoint selection；hidden held-out 只用于最终报告。这样可以区分“会不会利用反馈改进 policy”和“改进是否真的泛化”。</p>
+          <p>第五，Gym-style 抽象让协议可扩展。只要一个任务能表达成 observation、action、feedback、episode，它就可以接入同一套 Agent / Workspace / Server 协议，复用预算、反馈、checkpoint 和 hidden split 机制。这样 EvoPolicyGym 不是一组零散任务，而是一套可以持续扩展的评估框架。</p>
+          <p>这篇解读的重点不是给出 leaderboard，也不是介绍某个具体环境，而是说明：当我们把 agent 看作 policy system 的优化器时，评估协议本身必须控制学习机会、隔离隐藏评估、保留 agent 的实验设计自由，并用统一环境抽象支撑可扩展任务集合。</p>
+          <p>尤其是在低 budget 设置下，这种评估更能凸显 agent 作为优化器带来的价值。协议并不限制 agent 使用什么方法：它可以写规则、做搜索、加规划，也可以在 policy system 里尝试 RL 或学习组件。但如果 agent 在很少的 episode budget 下选择依赖大量 rollout 的 RL 训练，通常很难收敛，也很难把有限反馈有效转化为最终表现。此时真正被测量的不是“是否允许 RL”，而是 agent 是否能判断当前预算适合什么优化策略：能否利用先验知识、阅读失败轨迹、设计小实验、定位关键错误，并把少量反馈快速转化为 policy system 改进。</p>
+        </section>
+
+        <section class="refs">
+          <h2>References</h2>
+          <ol>
+            <li>
+              <span class="ref-num">[1]</span>
+              Zhilin Wang, Han Song, Runzhe Zhan 等. "EvoPolicyGym:
+              Evaluating Autonomous Policy Evolution in Interactive
+              Environments." arXiv:2607.02440, 2026.
+              <a href="https://arxiv.org/abs/2607.02440">https://arxiv.org/abs/2607.02440</a>
+            </li>
+          </ol>
+        </section>
+      </article>
+    </main>
+
+    <script src="assets/protocol-design.js"></script>
+  </body>
+</html>

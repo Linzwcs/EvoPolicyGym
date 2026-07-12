@@ -12,6 +12,15 @@ an online-judge style protocol: an agent edits code in a workspace, submits
 policy rollouts through a local API, receives feedback artifacts, and continues
 until the episode budget is exhausted.
 
+## 🟠 Roadmap
+
+> [!IMPORTANT]
+> **Current priority:** complete and present the current experimental results.
+>
+> **Next:** comprehensively refactor the code and runtime infrastructure into a
+> cleaner, more robust, and extensible foundation for policy execution, online
+> learning, isolation and virtualization, and reproducible evaluation.
+
 
 ## What It Evaluates
 

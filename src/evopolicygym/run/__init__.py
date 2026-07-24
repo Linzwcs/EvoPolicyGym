@@ -23,6 +23,7 @@ class RunConfig:
     max_submissions: int = 20
     episode_budget: int = 1_000
     max_episodes_per_submission: int | None = None
+    use_benchmark_skill: bool = False
     seed: int = 0
     episode_timeout_seconds: float = 30.0
     agent_timeout_seconds: float = 3_600.0
@@ -47,6 +48,8 @@ class RunConfig:
                 raise ValueError(
                     "max_episodes_per_submission cannot exceed episode_budget"
                 )
+        if type(self.use_benchmark_skill) is not bool:
+            raise TypeError("use_benchmark_skill must be bool")
         if type(self.seed) is not int or not 0 <= self.seed <= 2**64 - 1:
             raise ValueError("seed must be an unsigned 64-bit integer")
         for name in ("episode_timeout_seconds", "agent_timeout_seconds"):

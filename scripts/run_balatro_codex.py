@@ -45,6 +45,7 @@ def main(arguments: list[str] | None = None) -> int:
             max_episodes_per_submission=(
                 namespace.max_episodes_per_submission
             ),
+            use_benchmark_skill=namespace.benchmark_skill,
             seed=namespace.seed,
             episode_timeout_seconds=namespace.episode_timeout_seconds,
             agent_timeout_seconds=namespace.agent_timeout_seconds,
@@ -93,6 +94,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-submissions", type=int, default=16)
     parser.add_argument("--episode-budget", type=int, default=48)
     parser.add_argument("--max-episodes-per-submission", type=int)
+    parser.add_argument(
+        "--benchmark-skill",
+        action="store_true",
+        help=(
+            "publish the Balatro optimization skill in the Agent workspace"
+        ),
+    )
     parser.add_argument("--episode-timeout-seconds", type=float, default=60)
     parser.add_argument("--agent-timeout-seconds", type=float, default=3_600)
     parser.add_argument(

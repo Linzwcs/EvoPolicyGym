@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
@@ -130,6 +131,11 @@ class BalatroBenchmarkTests(unittest.TestCase):
             benchmark.spec.id,
             "jackdaw/Balatro/red-deck-white-stake/run-score-v2",
         )
+        skill = benchmark.spec.agent_skill
+        assert isinstance(skill, str)
+        self.assertIn("name: optimize-balatro-policy", skill)
+        self.assertIn("Use visible deck counts", skill)
+        self.assertIn("evopolicygym finish SUBMISSION_ID", skill)
         excluded = benchmark.spec.metadata["excluded_content"]
         assert isinstance(excluded, dict)
         self.assertEqual(excluded["tags"], list(EXCLUDED_TAG_KEYS))
@@ -409,11 +415,62 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertNotIn(b"environment_seed", content)
         self.assertNotIn(b"policy_seed", content)
         self.assertNotIn(b"EPG", content)
+        documents = tuple(json.loads(line) for line in content.splitlines())
+        self.assertEqual(documents[0]["initial_state"], initial)
+        self.assertEqual(documents[1]["state"], step.observation)
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
         self.assertEqual(feedback.content["policy_failures"], 1)
+        self.assertEqual(feedback.content["replay_episodes"], 1)
+        self.assertEqual(feedback.content["replay_episodes_omitted"], 0)
         self.assertNotIn("episode_diagnostics", feedback.content)
         self.assertNotIn("action_counts", feedback.content)
+
+    def test_feedback_bounds_complete_episode_replays(self) -> None:
+        benchmark = BalatroBenchmark()
+        episode = EpisodeSpec(environment_seed=789, scenario=_SCENARIO)
+        large_state: dict[str, PolicyValue] = {
+            "schema": "evopolicygym-balatro/observation-v1",
+            "payload": "x" * (1024 * 1024),
+        }
+        transition = Transition(
+            action={"kind": "select_blind"},
+            step=Step(
+                observation=large_state,
+                reward=0.0,
+                terminated=False,
+            ),
+        )
+        failed = EpisodeRecord(
+            episode=episode,
+            policy_seed=321,
+            initial_observation=large_state,
+            transitions=(transition,),
+            policy_failure="invalid_action",
+        )
+
+        feedback = benchmark.feedback((failed,) * 10)
+
+        content = feedback.artifacts[0].read_bytes()
+        documents = tuple(json.loads(line) for line in content.splitlines())
+        assert isinstance(feedback.content, dict)
+        retained = feedback.content["replay_episodes"]
+        omitted = feedback.content["replay_episodes_omitted"]
+        self.assertLessEqual(len(content), 15 * 1024 * 1024)
+        self.assertIsInstance(retained, int)
+        self.assertIsInstance(omitted, int)
+        assert isinstance(retained, int)
+        assert isinstance(omitted, int)
+        self.assertGreater(retained, 0)
+        self.assertEqual(retained + omitted, 10)
+        self.assertEqual(
+            [document["episode_index"] for document in documents[:-1:2]],
+            list(range(retained)),
+        )
+        self.assertEqual(
+            documents[-1],
+            {"type": "episodes_omitted", "count": omitted},
+        )
 
     def test_baseline_completes_and_publishes_replay(self) -> None:
         result = evaluate(
@@ -447,7 +504,18 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertTrue(all("selection" not in document for document in episodes))
         self.assertEqual(documents[0]["type"], "episode")
         self.assertIn("hand", transitions[0]["state"])
-        self.assertNotIn("legal_actions", transitions[0]["state"])
+        self.assertEqual(
+            transitions[0]["state"]["schema"],
+            "evopolicygym-balatro/observation-v1",
+        )
+        for field in (
+            "deck",
+            "poker_hands",
+            "vouchers",
+            "tags",
+            "legal_actions",
+        ):
+            self.assertIn(field, transitions[0]["state"])
         played = next(
             document
             for document in transitions

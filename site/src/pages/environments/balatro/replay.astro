@@ -22,8 +22,8 @@ const replaySource = withBase("data/balatro-baseline-replay.jsonl");
       <Copy en="Balatro game replay" zh="Balatro 游戏回放" as="h1" />
       <Copy
         class="replay-lead"
-        en="A step-by-step rendering of the semantic replay emitted by the benchmark. The viewer runs entirely in this page; no game process or server is involved."
-        zh="逐步呈现 Benchmark 输出的语义回放。Viewer 完全在当前页面运行，不启动游戏进程，也不连接后端服务。"
+        en="A step-by-step rendering of the semantic replay emitted by the benchmark. The artifact retains each complete Policy observation; this viewer renders only its game-facing subset and runs without a game process or server."
+        zh="逐步呈现 Benchmark 输出的语义回放。Artifact 保留每一步完整的 Policy observation；当前 Viewer 只渲染其中面向游戏画面的部分，且不启动游戏进程或连接后端服务。"
         as="p"
       />
       <div class="replay-intro-meta">

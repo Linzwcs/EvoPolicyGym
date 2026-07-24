@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use EvoPolicyGym"
+  short_description: "Run, author, and diagnose policy-evolution benchmarks"
+  default_prompt: "Use $use-evopolicygym to set up and complete an EvoPolicyGym evaluation or coding-agent run."

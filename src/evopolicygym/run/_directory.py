@@ -32,6 +32,7 @@ _WORKSPACE_VARIABLE = "EVOPOLICYGYM_WORKSPACE"
 class RunDirectoryPaths:
     root: Path
     workspace: Path
+    skill: Path
     program: Path
     feedback: Path
     initial: Path
@@ -48,6 +49,7 @@ class RunDirectoryPaths:
         return cls(
             root=root,
             workspace=workspace,
+            skill=workspace / "skill",
             program=workspace / "program",
             feedback=workspace / "feedback",
             initial=root / "initial",
@@ -141,6 +143,8 @@ class RunDirectoryRecorder:
 def prepare_run_directory(
     root: Path,
     initial_program: Program,
+    *,
+    agent_skill: str | None = None,
 ) -> RunDirectoryPaths:
     if not isinstance(root, Path):
         raise TypeError("run directory must be Path")
@@ -161,6 +165,14 @@ def prepare_run_directory(
         directory.mkdir(mode=0o700)
     initial_program.write_to(paths.initial / "program")
     initial_program.write_to(paths.program)
+    if agent_skill is not None:
+        paths.skill.mkdir(mode=0o700)
+        _write_read_only_text_file(
+            paths.skill / "SKILL.md",
+            agent_skill,
+            error_message="Benchmark Agent skill could not be retained",
+        )
+        os.chmod(paths.skill, 0o500)
     _make_tree_read_only(paths.initial / "program")
     return paths
 
@@ -170,9 +182,10 @@ def retain_agent_invocation(
     invocation: AgentInvocation,
 ) -> None:
     if invocation.instructions is not None:
-        _write_text_file(
+        _write_read_only_text_file(
             paths.agent / "instructions.md",
             invocation.instructions,
+            error_message="Agent instructions could not be retained",
         )
     _write_invocation(paths.agent / "invocation.json", invocation)
 
@@ -290,6 +303,11 @@ def _write_run_manifest(
                 "root": "workspace",
                 "program": "workspace/program",
                 "feedback": "workspace/feedback",
+                **(
+                    {"skill": "workspace/skill/SKILL.md"}
+                    if (path.parent / "workspace" / "skill" / "SKILL.md").is_file()
+                    else {}
+                ),
             },
             "events": "events.jsonl",
             "config": {
@@ -300,6 +318,7 @@ def _write_run_manifest(
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
                 ),
+                "use_benchmark_skill": config.use_benchmark_skill,
                 "episode_timeout_seconds": config.episode_timeout_seconds,
                 "agent_timeout_seconds": config.agent_timeout_seconds,
             },
@@ -347,7 +366,12 @@ def _write_json_atomic(path: Path, document: dict[str, object]) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _write_text_file(path: Path, content: str) -> None:
+def _write_read_only_text_file(
+    path: Path,
+    content: str,
+    *,
+    error_message: str,
+) -> None:
     try:
         with path.open("x", encoding="utf-8") as stream:
             stream.write(content)
@@ -355,7 +379,7 @@ def _write_text_file(path: Path, content: str) -> None:
             os.fsync(stream.fileno())
         os.chmod(path, 0o400)
     except OSError as error:
-        raise AgentRunError("Agent instructions could not be retained") from error
+        raise AgentRunError(error_message) from error
 
 
 def _make_tree_read_only(root: Path) -> None:

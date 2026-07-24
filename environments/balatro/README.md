@@ -52,6 +52,14 @@ phase transitions, exact Action shapes, observation semantics, scoring,
 economy, card modifiers, and win/loss conditions. Coding Agents receive this
 guide in their Run instruction without receiving an unseen card catalog.
 
+The package also provides the `optimize-balatro-policy` authoring skill.
+Program-Evolution Runs may opt in with
+`RunConfig(use_benchmark_skill=True)` or the Balatro script's
+`--benchmark-skill` flag. Enabled Runs expose it read-only as
+`workspace/skill/SKILL.md`. It guides evidence allocation, strategy
+development, and Policy hardening without adding hidden game state or entering
+the Policy process.
+
 Every currently visible Joker, Enhancement, Tarot, Planet, Spectral card,
 Voucher, Booster, Blind, and skip Tag carries a version-pinned `rule` object
 derived from the implemented Jackdaw behavior. Visible Edition and Seal names
@@ -103,10 +111,16 @@ cleared, Policy failures, and the pinned engine revision. It deliberately does
 not publish derived strategy diagnostics, action summaries, or automatic
 best/worst analysis.
 
-`replay.jsonl` contains one bounded semantic replay for every Episode requested
-in the Submission. These are raw human-visible states and actions from which a
-Policy-authoring Agent can perform its own comparison and diagnosis. Neither
-Feedback nor replay contains Environment or Policy seeds.
+`replay.jsonl` retains complete semantic replays in Episode order within a
+15 MiB public-artifact budget. Aggregate Feedback and Episode summaries still
+cover every requested Episode; `replay_episodes` and
+`replay_episodes_omitted` report detailed replay coverage. Every retained
+initial state and transition state is the complete observation that the Policy
+actually received, including `deck`, `poker_hands`, owned `vouchers`, awarded
+`tags`, and `legal_actions`. This lets a Policy-authoring Agent reproduce its
+decision context without receiving Environment or Policy seeds. A visual
+player may render only the fields it needs; that presentation choice does not
+reduce the artifact.
 
 Each transition's top-level `reward` is the Benchmark reward. A Blind's
 spendable in-game payout is a separate `blind.dollar_reward` value.

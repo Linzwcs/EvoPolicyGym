@@ -181,6 +181,31 @@ class PublicContractTests(unittest.TestCase):
         self.assertIsInstance(benchmark, Benchmark)
         self.assertIsInstance(benchmark.make_environment(episode), Environment)
 
+    def test_benchmark_agent_skill_is_optional_bounded_text(self) -> None:
+        def spec(agent_skill: str | None = None) -> BenchmarkSpec:
+            return BenchmarkSpec(
+                id="example/skill-v1",
+                description="Agent skill fixture.",
+                observation_space=None,
+                action_space=None,
+                metadata={},
+                max_episode_steps=1,
+                primary_metric="reward",
+                score_direction="maximize",
+                agent_skill=agent_skill,
+            )
+
+        self.assertIsNone(spec().agent_skill)
+        self.assertEqual(
+            spec("# Improve\n").agent_skill,
+            "# Improve\n",
+        )
+        for invalid in ("", "x" * (64 * 1024 + 1), "bad\0skill"):
+            with self.subTest(invalid=invalid[:20]), self.assertRaises(ValueError):
+                spec(invalid)
+        with self.assertRaises(TypeError):
+            spec(1)  # type: ignore[arg-type]
+
     def test_policy_context_detaches_mutable_values(self) -> None:
         observation_space: PolicyValue = {"shape": [4]}
         metadata: dict[str, PolicyValue] = {"name": "counter"}
@@ -290,11 +315,14 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(run.max_submissions, 4)
         self.assertEqual(run.episode_budget, 20)
         self.assertIsNone(run.max_episodes_per_submission)
+        self.assertFalse(run.use_benchmark_skill)
         capped = RunConfig(
             episode_budget=20,
             max_episodes_per_submission=5,
+            use_benchmark_skill=True,
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
+        self.assertTrue(capped.use_benchmark_skill)
         self.assertEqual(agent.model, "gpt-5")
         with self.assertRaises(ValueError):
             RunConfig(episode_budget=0)
@@ -303,6 +331,8 @@ class PublicContractTests(unittest.TestCase):
                 episode_budget=2,
                 max_episodes_per_submission=3,
             )
+        with self.assertRaises(TypeError):
+            RunConfig(use_benchmark_skill=1)  # type: ignore[arg-type]
 
     def test_public_results_compose_without_private_episode_records(self) -> None:
         feedback = Feedback(score=1.0, content={"outcome": "passed"})
@@ -489,9 +519,15 @@ class RecordingEnvironment:
 
 
 class RecordingBenchmark:
-    def __init__(self, *, environment_failure: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        environment_failure: bool = False,
+        agent_skill: str | None = None,
+    ) -> None:
         self.environments: list[RecordingEnvironment] = []
         self.environment_failure = environment_failure
+        self.agent_skill = agent_skill
 
     @property
     def spec(self) -> BenchmarkSpec:
@@ -504,6 +540,7 @@ class RecordingBenchmark:
             max_episode_steps=2,
             primary_metric="completed",
             score_direction="maximize",
+            agent_skill=self.agent_skill,
         )
 
     def episodes(
@@ -1044,6 +1081,14 @@ class AgentEnvironmentTests(unittest.TestCase):
 
 class CodexRunTests(unittest.TestCase):
     def test_codex_runs_from_workspace_and_commits_program(self) -> None:
+        agent_skill = """\
+---
+name: improve-counter
+description: Improve the counter fixture.
+---
+
+# Improve Counter
+"""
         initial_source = """\
 class InvalidPolicy:
     def act(self, observation):
@@ -1098,6 +1143,7 @@ assert arguments[arguments.index("--color") + 1] == "never"
 prompt = arguments[-1]
 assert "program/" in prompt
 assert "feedback/" in prompt
+assert "skill/SKILL.md" in prompt
 assert "evopolicygym submit program --episodes N" in prompt
 assert "evopolicygym finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
@@ -1105,6 +1151,7 @@ assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ
 
 program = workspace / "program"
 assert (program / "policy.py").is_file()
+assert (workspace / "skill" / "SKILL.md").read_text() == {agent_skill!r}
 (program / "policy.py").write_text({improved_source!r}, encoding="utf-8")
 
 
@@ -1145,7 +1192,7 @@ print(json.dumps({{"type": "turn.completed"}}))
             ):
                 result = run(
                     program,
-                    RecordingBenchmark(),
+                    RecordingBenchmark(agent_skill=agent_skill),
                     agent=Codex(
                         model="fake-model",
                         executable=str(fake_codex),
@@ -1155,6 +1202,7 @@ print(json.dumps({{"type": "turn.completed"}}))
                     config=RunConfig(
                         max_submissions=1,
                         episode_budget=1,
+                        use_benchmark_skill=True,
                         agent_timeout_seconds=10,
                     ),
                 )
@@ -1180,6 +1228,7 @@ print(json.dumps({{"type": "turn.completed"}}))
                     run_directory / "agent" / "instructions.md",
                     run_directory / "agent" / "stdout.log",
                     run_directory / "agent" / "stderr.log",
+                    run_directory / "workspace" / "skill" / "SKILL.md",
                     run_directory / "run.json",
                 )
             )
@@ -1218,6 +1267,12 @@ print(json.dumps({{"type": "turn.completed"}}))
             manifest["workspace"]["feedback"],
             "workspace/feedback",
         )
+        self.assertEqual(
+            manifest["workspace"]["skill"],
+            "workspace/skill/SKILL.md",
+        )
+        self.assertTrue(manifest["config"]["use_benchmark_skill"])
+        self.assertIn(b"name: improve-counter", retained_documents)
         self.assertIn("program/", instructions)
         self.assertEqual(
             [line["type"] for line in stdout_lines],

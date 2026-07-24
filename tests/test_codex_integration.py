@@ -79,6 +79,28 @@ class CodexIntegrationTests(unittest.TestCase):
             "@agent/instructions.md",
         )
 
+    def test_benchmark_skill_is_explicitly_enabled_per_run(self) -> None:
+        spec = BenchmarkSpec(
+            id="example/skill-v1",
+            description="Skill selection fixture.",
+            observation_space=None,
+            action_space=None,
+            metadata={},
+            max_episode_steps=1,
+            primary_metric="reward",
+            score_direction="maximize",
+            agent_skill="# Improve\n",
+        )
+
+        without_skill = build_agent_task(spec, RunConfig())
+        with_skill = build_agent_task(
+            spec,
+            RunConfig(use_benchmark_skill=True),
+        )
+
+        self.assertNotIn("skill/SKILL.md", without_skill.instructions)
+        self.assertIn("skill/SKILL.md", with_skill.instructions)
+
 
 if __name__ == "__main__":
     unittest.main()

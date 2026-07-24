@@ -127,6 +127,9 @@ The rules are:
   `AgentInvocation`;
 - `run/_task.py` owns workspace, submit, finish, budget, and Benchmark
   instructions, so provider implementations do not duplicate Kernel semantics;
+- a Benchmark may publish one bounded `agent_skill` in its `BenchmarkSpec`;
+  an opted-in Run retains it read-only at `workspace/skill/SKILL.md`, while
+  default Runs, direct Evaluation, and the Policy boundary never receive it;
 - provider packages translate the task into their own invocation but do not
   author the task or start and supervise the process themselves;
 - a small provider integration remains one cohesive module until its own

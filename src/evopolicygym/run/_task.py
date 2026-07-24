@@ -45,10 +45,24 @@ def build_agent_task(spec: BenchmarkSpec, config: RunConfig) -> AgentTask:
         indent=2,
         sort_keys=True,
     )
+    skill_guidance = ""
+    if config.use_benchmark_skill and spec.agent_skill is not None:
+        skill_guidance = """\
+The Benchmark provides a task-specific optimization skill at:
+
+    skill/SKILL.md
+
+Read that file completely before inspecting the Program or submitting a
+candidate. Follow its development workflow while treating this instruction,
+the Benchmark specification, current observations, and legal Actions as
+authoritative.
+
+"""
     return AgentTask(
         instructions=f"""\
 You are improving one Policy Program for an EvoPolicyGym Benchmark.
 
+{skill_guidance}\
 Your working directory is the workspace root. The only submitted Program is:
 
     program/

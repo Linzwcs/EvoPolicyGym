@@ -6,6 +6,8 @@ import hashlib
 import json
 import statistics
 from collections.abc import Sequence
+from importlib.resources import files
+from pathlib import Path
 
 from evopolicygym.authoring import (
     Artifact,
@@ -25,7 +27,6 @@ from .environment import (
     WIN_BONUS,
     BalatroEnvironment,
 )
-from .observation import replay_state
 from .rules import POLICY_GUIDE
 
 JACKDAW_UPSTREAM_BASE = "c84dca9227b40eb5f7ff9fd7cd78945aa07854ce"
@@ -41,6 +42,26 @@ _EPISODE_SEED_DOMAIN = b"evopolicygym-balatro/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _SCENARIO: dict[str, PolicyValue] = {"back": "b_red", "stake": 1}
 _MAX_TRACED_TRANSITIONS = 256
+_MAX_REPLAY_BYTES = 15 * 1024 * 1024
+_AGENT_SKILL_NAME = "optimize-balatro-policy"
+
+
+def _agent_skill() -> str:
+    packaged = files("balatro").joinpath(
+        "skills",
+        _AGENT_SKILL_NAME,
+        "SKILL.md",
+    )
+    if packaged.is_file():
+        return packaged.read_text(encoding="utf-8")
+    source = (
+        Path(__file__).parents[2]
+        / "skills"
+        / _AGENT_SKILL_NAME
+        / "SKILL.md"
+    )
+    return source.read_text(encoding="utf-8")
+
 
 _SPEC = BenchmarkSpec(
     id="jackdaw/Balatro/red-deck-white-stake/run-score-v2",
@@ -163,6 +184,7 @@ _SPEC = BenchmarkSpec(
     max_episode_steps=MAX_EPISODE_STEPS,
     primary_metric="mean_run_score",
     score_direction="maximize",
+    agent_skill=_agent_skill(),
 )
 
 
@@ -210,6 +232,7 @@ class BalatroBenchmark:
         score = statistics.fmean(item["score"] for item in outcomes)
         wins = sum(bool(item["won"]) for item in outcomes)
         failures = sum(record.policy_failure is not None for record in records)
+        replay, replay_episodes = _replay_artifact(records)
         return Feedback(
             score=score,
             content={
@@ -223,9 +246,10 @@ class BalatroBenchmark:
                 "episodes": len(records),
                 "policy_failures": failures,
                 "engine_revision": JACKDAW_REVISION,
-                "replay_episodes": len(records),
+                "replay_episodes": replay_episodes,
+                "replay_episodes_omitted": len(records) - replay_episodes,
             },
-            artifacts=(_replay_artifact(records),),
+            artifacts=(replay,),
         )
 
 
@@ -275,58 +299,112 @@ def _metric_int(metrics: dict[str, PolicyValue], key: str) -> int:
     return value
 
 
-def _replay_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
-    lines: list[bytes] = []
+def _replay_artifact(
+    records: Sequence[EpisodeRecord],
+) -> tuple[Artifact, int]:
+    chunks: list[bytes] = []
+    retained = 0
+    size = 0
+    omission_reserve = len(
+        _json_line(
+            {
+                "type": "episodes_omitted",
+                "count": len(records),
+            }
+        )
+    )
     for episode_index, record in enumerate(records):
-        lines.append(
+        episode = _replay_episode(episode_index, record)
+        reserve = omission_reserve if episode_index + 1 < len(records) else 0
+        if size + len(episode) + reserve > _MAX_REPLAY_BYTES:
+            break
+        chunks.append(episode)
+        retained += 1
+        size += len(episode)
+
+    omitted = len(records) - retained
+    if omitted:
+        chunks.append(
             _json_line(
                 {
-                    "type": "episode",
-                    "episode_index": episode_index,
-                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
-                    "steps": record.steps,
-                    "score": (record.total_reward if record.policy_failure is None else 0.0),
-                    "failure": record.policy_failure,
-                    "initial_state": replay_state(
-                        record.initial_observation,
-                    ),
+                    "type": "episodes_omitted",
+                    "count": omitted,
                 }
             )
         )
-        transitions = record.transitions[:_MAX_TRACED_TRANSITIONS]
-        for step_index, transition in enumerate(transitions):
-            lines.append(
-                _json_line(
-                    {
-                        "type": "transition",
-                        "episode_index": episode_index,
-                        "step_index": step_index,
-                        "action": transition.action,
-                        "reward": transition.step.reward,
-                        "state": replay_state(
-                            transition.step.observation,
-                        ),
-                        "terminated": transition.step.terminated,
-                        "truncated": transition.step.truncated,
-                    }
-                )
-            )
-        omitted = len(record.transitions) - len(transitions)
-        if omitted:
-            lines.append(
-                _json_line(
-                    {
-                        "type": "transitions_omitted",
-                        "episode_index": episode_index,
-                        "count": omitted,
-                    }
-                )
-            )
-    return Artifact(
-        name="replay.jsonl",
-        media_type="application/x-ndjson",
-        content=b"".join(lines),
+    return (
+        Artifact(
+            name="replay.jsonl",
+            media_type="application/x-ndjson",
+            content=b"".join(chunks),
+        ),
+        retained,
     )
+
+
+def _replay_episode(
+    episode_index: int,
+    record: EpisodeRecord,
+) -> bytes:
+    lines = [
+        _json_line(
+            {
+                "type": "episode",
+                "episode_index": episode_index,
+                "status": (
+                    "completed"
+                    if record.policy_failure is None
+                    else "policy_failed"
+                ),
+                "steps": record.steps,
+                "score": (
+                    record.total_reward
+                    if record.policy_failure is None
+                    else 0.0
+                ),
+                "failure": record.policy_failure,
+                "initial_state": _policy_observation(
+                    record.initial_observation,
+                ),
+            }
+        )
+    ]
+    transitions = record.transitions[:_MAX_TRACED_TRANSITIONS]
+    for step_index, transition in enumerate(transitions):
+        lines.append(
+            _json_line(
+                {
+                    "type": "transition",
+                    "episode_index": episode_index,
+                    "step_index": step_index,
+                    "action": transition.action,
+                    "reward": transition.step.reward,
+                    "state": _policy_observation(
+                        transition.step.observation,
+                    ),
+                    "terminated": transition.step.terminated,
+                    "truncated": transition.step.truncated,
+                }
+            )
+        )
+    omitted = len(record.transitions) - len(transitions)
+    if omitted:
+        lines.append(
+            _json_line(
+                {
+                    "type": "transitions_omitted",
+                    "episode_index": episode_index,
+                    "count": omitted,
+                }
+            )
+        )
+    return b"".join(lines)
+
+
+def _policy_observation(value: PolicyValue) -> dict[str, PolicyValue]:
+    if type(value) is not dict:
+        raise ValueError("Balatro Policy observation is invalid")
+    return value
 
 
 def _json_line(document: dict[str, object]) -> bytes:

@@ -257,7 +257,15 @@ def run_process_agent(
     if type(selected_spec) is not BenchmarkSpec:
         raise TypeError("spec must be BenchmarkSpec or None")
 
-    paths = prepare_run_directory(run_directory, initial_program)
+    paths = prepare_run_directory(
+        run_directory,
+        initial_program,
+        agent_skill=(
+            selected_spec.agent_skill
+            if config.use_benchmark_skill
+            else None
+        ),
+    )
     try:
         retain_agent_invocation(paths, invocation)
         with RunDirectoryRecorder(

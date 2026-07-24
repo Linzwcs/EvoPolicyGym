@@ -209,33 +209,6 @@ def encode_observation(
         "legal_actions": legal_action_descriptors(game_state),
     }
 
-
-def replay_state(observation: PolicyValue) -> dict[str, PolicyValue]:
-    """Select the compact visual state retained in public replay artifacts."""
-
-    if type(observation) is not dict:
-        raise ValueError("Balatro replay observation is invalid")
-    selected: dict[str, PolicyValue] = {}
-    for key in (
-        "phase",
-        "progress",
-        "resources",
-        "rules",
-        "blind",
-        "last_hand",
-        "round_earnings",
-        "hand",
-        "jokers",
-        "consumables",
-        "shop",
-        "pack",
-    ):
-        if key not in observation:
-            raise ValueError("Balatro replay observation is incomplete")
-        selected[key] = observation[key]
-    return selected
-
-
 def _last_hand(game_state: dict[str, Any]) -> dict[str, PolicyValue]:
     result = game_state.get("last_score_result")
     if result is None:
@@ -728,4 +701,4 @@ def _finite_number(value: object, name: str) -> int | float:
     raise RuntimeError(f"Jackdaw returned invalid {name}")
 
 
-__all__ = ["encode_observation", "replay_state"]
+__all__ = ["encode_observation"]

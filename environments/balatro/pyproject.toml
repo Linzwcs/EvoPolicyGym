@@ -40,10 +40,14 @@ jackdaw = { path = "vendor/jackdaw" }
 [tool.hatch.build.targets.wheel]
 packages = ["src/balatro"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"skills/optimize-balatro-policy" = "balatro/skills/optimize-balatro-policy"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/README.md",
     "/pyproject.toml",
+    "/skills",
     "/src",
     "/tests",
 ]

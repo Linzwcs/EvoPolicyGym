@@ -110,7 +110,9 @@ Policy penalties.
 ## Coding-agent runs
 
 `run()` gives a coding agent a fixed `workspace/` containing an editable
-`program/` and Benchmark-authorized `feedback/`:
+`program/` and Benchmark-authorized `feedback/`. A Benchmark may also provide
+one authoring skill. Runs opt into its read-only `skill/SKILL.md` projection
+with `use_benchmark_skill=True`; the skill is never passed to the Policy:
 
 ```python
 from cartpole import CartPoleBenchmark, baseline_program
@@ -130,6 +132,7 @@ result = run(
         max_submissions=16,
         episode_budget=48,
         max_episodes_per_submission=3,
+        use_benchmark_skill=True,
     ),
     observer=ConsoleProgress(),
 )

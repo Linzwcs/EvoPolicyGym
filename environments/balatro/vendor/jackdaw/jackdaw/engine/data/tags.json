@@ -1,0 +1,369 @@
+{
+  "tag_boss": {
+    "key": "tag_boss",
+    "name": "Boss Tag",
+    "set": "Tag",
+    "order": 9,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 2
+    }
+  },
+  "tag_buffoon": {
+    "key": "tag_buffoon",
+    "name": "Buffoon Tag",
+    "set": "Tag",
+    "order": 13,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 4,
+      "y": 2
+    }
+  },
+  "tag_charm": {
+    "key": "tag_charm",
+    "name": "Charm Tag",
+    "set": "Tag",
+    "order": 11,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 2
+    }
+  },
+  "tag_coupon": {
+    "key": "tag_coupon",
+    "name": "Coupon Tag",
+    "set": "Tag",
+    "order": 17,
+    "config": {
+      "type": "shop_final_pass"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 0
+    }
+  },
+  "tag_d_six": {
+    "key": "tag_d_six",
+    "name": "D6 Tag",
+    "set": "Tag",
+    "order": 20,
+    "config": {
+      "type": "shop_start"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 3
+    }
+  },
+  "tag_double": {
+    "key": "tag_double",
+    "name": "Double Tag",
+    "set": "Tag",
+    "order": 18,
+    "config": {
+      "type": "tag_add"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 0
+    }
+  },
+  "tag_economy": {
+    "key": "tag_economy",
+    "name": "Economy Tag",
+    "set": "Tag",
+    "order": 24,
+    "config": {
+      "max": 40,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 3
+    }
+  },
+  "tag_ethereal": {
+    "key": "tag_ethereal",
+    "name": "Ethereal Tag",
+    "set": "Tag",
+    "order": 16,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 3,
+      "y": 3
+    }
+  },
+  "tag_foil": {
+    "key": "tag_foil",
+    "name": "Foil Tag",
+    "set": "Tag",
+    "order": 4,
+    "config": {
+      "edition": "foil",
+      "odds": 2,
+      "type": "store_joker_modify"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "requires": "e_foil"
+  },
+  "tag_garbage": {
+    "key": "tag_garbage",
+    "name": "Garbage Tag",
+    "set": "Tag",
+    "order": 15,
+    "config": {
+      "dollars_per_discard": 1,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 2,
+      "y": 3
+    }
+  },
+  "tag_handy": {
+    "key": "tag_handy",
+    "name": "Handy Tag",
+    "set": "Tag",
+    "order": 14,
+    "config": {
+      "dollars_per_hand": 1,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 1,
+      "y": 3
+    }
+  },
+  "tag_holo": {
+    "key": "tag_holo",
+    "name": "Holographic Tag",
+    "set": "Tag",
+    "order": 5,
+    "config": {
+      "edition": "holo",
+      "odds": 3,
+      "type": "store_joker_modify"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "requires": "e_holo"
+  },
+  "tag_investment": {
+    "key": "tag_investment",
+    "name": "Investment Tag",
+    "set": "Tag",
+    "order": 7,
+    "config": {
+      "dollars": 25,
+      "type": "eval"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 1
+    }
+  },
+  "tag_juggle": {
+    "key": "tag_juggle",
+    "name": "Juggle Tag",
+    "set": "Tag",
+    "order": 19,
+    "config": {
+      "h_size": 3,
+      "type": "round_start_bonus"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 1
+    }
+  },
+  "tag_meteor": {
+    "key": "tag_meteor",
+    "name": "Meteor Tag",
+    "set": "Tag",
+    "order": 12,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 3,
+      "y": 2
+    }
+  },
+  "tag_negative": {
+    "key": "tag_negative",
+    "name": "Negative Tag",
+    "set": "Tag",
+    "order": 3,
+    "config": {
+      "edition": "negative",
+      "odds": 5,
+      "type": "store_joker_modify"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "requires": "e_negative"
+  },
+  "tag_orbital": {
+    "key": "tag_orbital",
+    "name": "Orbital Tag",
+    "set": "Tag",
+    "order": 23,
+    "config": {
+      "levels": 3,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 5,
+      "y": 2
+    }
+  },
+  "tag_polychrome": {
+    "key": "tag_polychrome",
+    "name": "Polychrome Tag",
+    "set": "Tag",
+    "order": 6,
+    "config": {
+      "edition": "polychrome",
+      "odds": 4,
+      "type": "store_joker_modify"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "requires": "e_polychrome"
+  },
+  "tag_rare": {
+    "key": "tag_rare",
+    "name": "Rare Tag",
+    "set": "Tag",
+    "order": 2,
+    "config": {
+      "odds": 3,
+      "type": "store_joker_create"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "requires": "j_blueprint"
+  },
+  "tag_skip": {
+    "key": "tag_skip",
+    "name": "Skip Tag",
+    "set": "Tag",
+    "order": 22,
+    "config": {
+      "skip_bonus": 5,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 3
+    }
+  },
+  "tag_standard": {
+    "key": "tag_standard",
+    "name": "Standard Tag",
+    "set": "Tag",
+    "order": 10,
+    "config": {
+      "type": "new_blind_choice"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 1,
+      "y": 2
+    }
+  },
+  "tag_top_up": {
+    "key": "tag_top_up",
+    "name": "Top-up Tag",
+    "set": "Tag",
+    "order": 21,
+    "config": {
+      "spawn_jokers": 2,
+      "type": "immediate"
+    },
+    "discovered": false,
+    "min_ante": 2,
+    "pos": {
+      "x": 4,
+      "y": 1
+    }
+  },
+  "tag_uncommon": {
+    "key": "tag_uncommon",
+    "name": "Uncommon Tag",
+    "set": "Tag",
+    "order": 1,
+    "config": {
+      "type": "store_joker_create"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "tag_voucher": {
+    "key": "tag_voucher",
+    "name": "Voucher Tag",
+    "set": "Tag",
+    "order": 8,
+    "config": {
+      "type": "voucher_add"
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 1
+    }
+  }
+}

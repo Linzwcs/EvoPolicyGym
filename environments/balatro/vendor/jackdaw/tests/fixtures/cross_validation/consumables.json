@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "consumable": "c_chariot",
+      "target": "S_A",
+      "effect_name": "Steel Card",
+      "effect": "Steel Card"
+    },
+    {
+      "consumable": "c_strength",
+      "target": "H_K",
+      "rank_change": "Ace"
+    },
+    {
+      "consumable": "c_mercury",
+      "level_up": [
+        [
+          "Pair",
+          1
+        ]
+      ],
+      "notify": true
+    }
+  ]
+}

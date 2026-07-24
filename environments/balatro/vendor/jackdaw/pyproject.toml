@@ -1,0 +1,57 @@
+[project]
+name = "jackdaw"
+version = "0.1.0"
+description = "Headless Balatro simulator for reinforcement learning research"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{name = "Tyler Flar"}]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["gymnasium>=1.0", "numpy>=1.24"]
+
+[project.optional-dependencies]
+train = ["sb3-contrib>=2.3", "stable-baselines3>=2.3", "tensorboard>=2.14", "torch>=2.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["jackdaw*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json"]
+
+[project.scripts]
+jackdaw = "jackdaw.cli.main:main"
+
+[project.urls]
+Repository = "https://github.com/TylerFlar/jackdaw-balatro"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "lupa>=2.6",
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.15.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-v", "--tb=short", "-m", "not benchmark and not live"]
+markers = [
+    "benchmark: performance benchmarks (deselect with -m 'not benchmark')",
+    "live: requires a running balatrobot instance (deselect with -m 'not live')",
+    "slow: tests that take >10s (run with -m slow or include via -m 'not benchmark and not live')",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

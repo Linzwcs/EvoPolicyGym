@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -12,6 +12,7 @@ from ..errors import EvaluationError, ProgramError
 from ..evaluation import EvaluationConfig
 from ..program import Program
 from ..results import (
+    EpisodeSummary,
     EvaluationResult,
     RunTerminalReason,
     SubmissionResult,
@@ -69,6 +70,10 @@ class ProgramEvaluator(Protocol):
         program: Program,
         benchmark: Benchmark,
         config: EvaluationConfig,
+        *,
+        episode_completed: (
+            Callable[[int, int, EpisodeSummary], None] | None
+        ) = None,
     ) -> EvaluationResult:
         ...
 
@@ -148,7 +153,8 @@ class SubmissionSession:
             return _error("invalid_request", "episodes must be a positive integer")
         if len(self._submissions) >= self._config.max_submissions:
             return _error("submission_limit", "the submission limit is exhausted")
-        if episodes > self._config.max_episodes_per_submission:
+        submission_limit = self._config.max_episodes_per_submission
+        if submission_limit is not None and episodes > submission_limit:
             return _error(
                 "episode_limit",
                 "episodes exceeds max_episodes_per_submission",
@@ -181,6 +187,21 @@ class SubmissionSession:
             },
         )
         try:
+            def episode_completed(
+                completed: int,
+                total: int,
+                summary: EpisodeSummary,
+            ) -> None:
+                self._recorder.record_event(
+                    "episode_completed",
+                    {
+                        "submission_id": submission_id,
+                        "completed": completed,
+                        "total": total,
+                        "status": summary.status,
+                    },
+                )
+
             evaluation = self._evaluator.evaluate(
                 program,
                 self._benchmark,
@@ -190,6 +211,7 @@ class SubmissionSession:
                     seed=_submission_seed(self._config.seed, ordinal),
                     episode_timeout_seconds=self._config.episode_timeout_seconds,
                 ),
+                episode_completed=episode_completed,
             )
         except EvaluationError:
             self._terminal_reason = "evaluation_failed"

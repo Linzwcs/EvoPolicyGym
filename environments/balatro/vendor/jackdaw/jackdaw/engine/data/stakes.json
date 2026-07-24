@@ -1,0 +1,98 @@
+{
+  "stake_black": {
+    "key": "stake_black",
+    "name": "Black Chip",
+    "set": "Stake",
+    "order": 4,
+    "pos": {
+      "x": 4,
+      "y": 0
+    },
+    "stake_level": 4,
+    "unlocked": false
+  },
+  "stake_blue": {
+    "key": "stake_blue",
+    "name": "Blue Chip",
+    "set": "Stake",
+    "order": 5,
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "stake_level": 5,
+    "unlocked": false
+  },
+  "stake_gold": {
+    "key": "stake_gold",
+    "name": "Gold Chip",
+    "set": "Stake",
+    "order": 8,
+    "pos": {
+      "x": 2,
+      "y": 1
+    },
+    "stake_level": 8,
+    "unlocked": false
+  },
+  "stake_green": {
+    "key": "stake_green",
+    "name": "Green Chip",
+    "set": "Stake",
+    "order": 3,
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "stake_level": 3,
+    "unlocked": false
+  },
+  "stake_orange": {
+    "key": "stake_orange",
+    "name": "Orange Chip",
+    "set": "Stake",
+    "order": 7,
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "stake_level": 7,
+    "unlocked": false
+  },
+  "stake_purple": {
+    "key": "stake_purple",
+    "name": "Purple Chip",
+    "set": "Stake",
+    "order": 6,
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "stake_level": 6,
+    "unlocked": false
+  },
+  "stake_red": {
+    "key": "stake_red",
+    "name": "Red Chip",
+    "set": "Stake",
+    "order": 2,
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "stake_level": 2,
+    "unlocked": false
+  },
+  "stake_white": {
+    "key": "stake_white",
+    "name": "White Chip",
+    "set": "Stake",
+    "order": 1,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "stake_level": 1,
+    "unlocked": true
+  }
+}

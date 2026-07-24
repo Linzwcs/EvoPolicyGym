@@ -1,0 +1,74 @@
+{
+  "cases": [
+    {
+      "name": "pair_aces",
+      "chips": 32.0,
+      "mult": 2.0,
+      "total": 64,
+      "hand_type": "Pair"
+    },
+    {
+      "name": "flush_hearts",
+      "chips": 74.0,
+      "mult": 4.0,
+      "total": 296,
+      "hand_type": "Flush"
+    },
+    {
+      "name": "straight_5_9",
+      "chips": 65.0,
+      "mult": 4.0,
+      "total": 260,
+      "hand_type": "Straight"
+    },
+    {
+      "name": "full_house_kings_sevens",
+      "chips": 84.0,
+      "mult": 4.0,
+      "total": 336,
+      "hand_type": "Full House"
+    },
+    {
+      "name": "high_card_ace",
+      "chips": 16.0,
+      "mult": 1.0,
+      "total": 16,
+      "hand_type": "High Card"
+    },
+    {
+      "name": "two_pair_jacks_fives",
+      "chips": 50.0,
+      "mult": 2.0,
+      "total": 100,
+      "hand_type": "Two Pair"
+    },
+    {
+      "name": "three_tens",
+      "chips": 60.0,
+      "mult": 3.0,
+      "total": 180,
+      "hand_type": "Three of a Kind"
+    },
+    {
+      "name": "four_eights",
+      "chips": 92.0,
+      "mult": 7.0,
+      "total": 644,
+      "hand_type": "Four of a Kind"
+    },
+    {
+      "name": "straight_flush_spades",
+      "chips": 147.0,
+      "mult": 8.0,
+      "total": 1176,
+      "hand_type": "Straight Flush"
+    },
+    {
+      "name": "single_ace",
+      "chips": 16.0,
+      "mult": 1.0,
+      "total": 16,
+      "hand_type": "High Card"
+    }
+  ]
+}

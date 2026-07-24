@@ -1,0 +1,6211 @@
+{
+  "b_abandoned": {
+    "key": "b_abandoned",
+    "name": "Abandoned Deck",
+    "set": "Back",
+    "order": 9,
+    "config": {
+      "remove_faces": true
+    },
+    "pos": {
+      "x": 3,
+      "y": 3
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "deck": "b_green",
+      "type": "win_deck"
+    },
+    "unlocked": false
+  },
+  "b_anaglyph": {
+    "key": "b_anaglyph",
+    "name": "Anaglyph Deck",
+    "set": "Back",
+    "order": 13,
+    "config": [],
+    "pos": {
+      "x": 2,
+      "y": 4
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "stake": 4,
+      "type": "win_stake"
+    },
+    "unlocked": false
+  },
+  "b_black": {
+    "key": "b_black",
+    "name": "Black Deck",
+    "set": "Back",
+    "order": 5,
+    "config": {
+      "hands": -1,
+      "joker_slot": 1
+    },
+    "pos": {
+      "x": 3,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "amount": 100,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "b_blue": {
+    "key": "b_blue",
+    "name": "Blue Deck",
+    "set": "Back",
+    "order": 2,
+    "config": {
+      "hands": 1
+    },
+    "pos": {
+      "x": 0,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "amount": 20,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "b_challenge": {
+    "key": "b_challenge",
+    "name": "Challenge Deck",
+    "set": "Back",
+    "order": 16,
+    "config": [],
+    "omit": true,
+    "pos": {
+      "x": 0,
+      "y": 4
+    },
+    "stake": 1,
+    "unlocked": true
+  },
+  "b_checkered": {
+    "key": "b_checkered",
+    "name": "Checkered Deck",
+    "set": "Back",
+    "order": 10,
+    "config": [],
+    "pos": {
+      "x": 1,
+      "y": 3
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "deck": "b_black",
+      "type": "win_deck"
+    },
+    "unlocked": false
+  },
+  "b_erratic": {
+    "key": "b_erratic",
+    "name": "Erratic Deck",
+    "set": "Back",
+    "order": 15,
+    "config": {
+      "randomize_rank_suit": true
+    },
+    "pos": {
+      "x": 2,
+      "y": 3
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "stake": 7,
+      "type": "win_stake"
+    },
+    "unlocked": false
+  },
+  "b_ghost": {
+    "key": "b_ghost",
+    "name": "Ghost Deck",
+    "set": "Back",
+    "order": 8,
+    "config": {
+      "consumables": [
+        "c_hex"
+      ],
+      "spectral_rate": 2
+    },
+    "pos": {
+      "x": 6,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "deck": "b_yellow",
+      "type": "win_deck"
+    },
+    "unlocked": false
+  },
+  "b_green": {
+    "key": "b_green",
+    "name": "Green Deck",
+    "set": "Back",
+    "order": 4,
+    "config": {
+      "extra_discard_bonus": 1,
+      "extra_hand_bonus": 2,
+      "no_interest": true
+    },
+    "pos": {
+      "x": 2,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "amount": 75,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "b_magic": {
+    "key": "b_magic",
+    "name": "Magic Deck",
+    "set": "Back",
+    "order": 6,
+    "config": {
+      "consumables": [
+        "c_fool",
+        "c_fool"
+      ],
+      "voucher": "v_crystal_ball"
+    },
+    "pos": {
+      "x": 0,
+      "y": 3
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "deck": "b_red",
+      "type": "win_deck"
+    },
+    "unlocked": false
+  },
+  "b_nebula": {
+    "key": "b_nebula",
+    "name": "Nebula Deck",
+    "set": "Back",
+    "order": 7,
+    "config": {
+      "consumable_slot": -1,
+      "voucher": "v_telescope"
+    },
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "deck": "b_blue",
+      "type": "win_deck"
+    },
+    "unlocked": false
+  },
+  "b_painted": {
+    "key": "b_painted",
+    "name": "Painted Deck",
+    "set": "Back",
+    "order": 12,
+    "config": {
+      "hand_size": 2,
+      "joker_slot": -1
+    },
+    "pos": {
+      "x": 4,
+      "y": 3
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "stake": 3,
+      "type": "win_stake"
+    },
+    "unlocked": false
+  },
+  "b_plasma": {
+    "key": "b_plasma",
+    "name": "Plasma Deck",
+    "set": "Back",
+    "order": 14,
+    "config": {
+      "ante_scaling": 2
+    },
+    "pos": {
+      "x": 4,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "stake": 5,
+      "type": "win_stake"
+    },
+    "unlocked": false
+  },
+  "b_red": {
+    "key": "b_red",
+    "name": "Red Deck",
+    "set": "Back",
+    "order": 1,
+    "config": {
+      "discards": 1
+    },
+    "discovered": true,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "stake": 1,
+    "unlocked": true
+  },
+  "b_yellow": {
+    "key": "b_yellow",
+    "name": "Yellow Deck",
+    "set": "Back",
+    "order": 3,
+    "config": {
+      "dollars": 10
+    },
+    "pos": {
+      "x": 1,
+      "y": 2
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "amount": 50,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "b_zodiac": {
+    "key": "b_zodiac",
+    "name": "Zodiac Deck",
+    "set": "Back",
+    "order": 11,
+    "config": {
+      "vouchers": [
+        "v_tarot_merchant",
+        "v_planet_merchant",
+        "v_overstock_norm"
+      ]
+    },
+    "pos": {
+      "x": 3,
+      "y": 4
+    },
+    "stake": 1,
+    "unlock_condition": {
+      "stake": 2,
+      "type": "win_stake"
+    },
+    "unlocked": false
+  },
+  "c_ankh": {
+    "key": "c_ankh",
+    "name": "Ankh",
+    "set": "Spectral",
+    "order": 11,
+    "cost": 4,
+    "config": {
+      "extra": 2
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 5
+    }
+  },
+  "c_aura": {
+    "key": "c_aura",
+    "name": "Aura",
+    "set": "Spectral",
+    "order": 5,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 4
+    }
+  },
+  "c_base": {
+    "key": "c_base",
+    "name": "Default Base",
+    "set": "Default",
+    "config": [],
+    "cost_mult": 1,
+    "effect": "Base",
+    "freq": 1,
+    "label": "Base Card",
+    "line": "base",
+    "max": 500,
+    "pos": {
+      "x": 1,
+      "y": 0
+    }
+  },
+  "c_black_hole": {
+    "key": "c_black_hole",
+    "name": "Black Hole",
+    "set": "Spectral",
+    "order": 18,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "hidden": true,
+    "pos": {
+      "x": 9,
+      "y": 3
+    }
+  },
+  "c_ceres": {
+    "key": "c_ceres",
+    "name": "Ceres",
+    "set": "Planet",
+    "order": 11,
+    "cost": 3,
+    "config": {
+      "hand_type": "Flush House",
+      "softlock": true
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 8,
+      "y": 2
+    }
+  },
+  "c_chariot": {
+    "key": "c_chariot",
+    "name": "The Chariot",
+    "set": "Tarot",
+    "order": 8,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 1,
+      "mod_conv": "m_steel"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 7,
+      "y": 0
+    }
+  },
+  "c_cryptid": {
+    "key": "c_cryptid",
+    "name": "Cryptid",
+    "set": "Spectral",
+    "order": 16,
+    "cost": 4,
+    "config": {
+      "extra": 2,
+      "max_highlighted": 1
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 5
+    }
+  },
+  "c_death": {
+    "key": "c_death",
+    "name": "Death",
+    "set": "Tarot",
+    "order": 14,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "min_highlighted": 2,
+      "mod_conv": "card"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Card Conversion",
+    "pos": {
+      "x": 3,
+      "y": 1
+    }
+  },
+  "c_deja_vu": {
+    "key": "c_deja_vu",
+    "name": "Deja Vu",
+    "set": "Spectral",
+    "order": 12,
+    "cost": 4,
+    "config": {
+      "extra": "Red",
+      "max_highlighted": 1
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 5
+    }
+  },
+  "c_devil": {
+    "key": "c_devil",
+    "name": "The Devil",
+    "set": "Tarot",
+    "order": 16,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 1,
+      "mod_conv": "m_gold"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 5,
+      "y": 1
+    }
+  },
+  "c_earth": {
+    "key": "c_earth",
+    "name": "Earth",
+    "set": "Planet",
+    "order": 3,
+    "cost": 3,
+    "config": {
+      "hand_type": "Full House"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 2,
+      "y": 3
+    }
+  },
+  "c_ectoplasm": {
+    "key": "c_ectoplasm",
+    "name": "Ectoplasm",
+    "set": "Spectral",
+    "order": 9,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 8,
+      "y": 4
+    }
+  },
+  "c_emperor": {
+    "key": "c_emperor",
+    "name": "The Emperor",
+    "set": "Tarot",
+    "order": 5,
+    "cost": 3,
+    "config": {
+      "tarots": 2
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Round Bonus",
+    "pos": {
+      "x": 4,
+      "y": 0
+    }
+  },
+  "c_empress": {
+    "key": "c_empress",
+    "name": "The Empress",
+    "set": "Tarot",
+    "order": 4,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "mod_conv": "m_mult"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 3,
+      "y": 0
+    }
+  },
+  "c_eris": {
+    "key": "c_eris",
+    "name": "Eris",
+    "set": "Planet",
+    "order": 12,
+    "cost": 3,
+    "config": {
+      "hand_type": "Flush Five",
+      "softlock": true
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 3,
+      "y": 2
+    }
+  },
+  "c_familiar": {
+    "key": "c_familiar",
+    "name": "Familiar",
+    "set": "Spectral",
+    "order": 1,
+    "cost": 4,
+    "config": {
+      "extra": 3,
+      "remove_card": true
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 4
+    }
+  },
+  "c_fool": {
+    "key": "c_fool",
+    "name": "The Fool",
+    "set": "Tarot",
+    "order": 1,
+    "cost": 3,
+    "config": [],
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Disable Blind Effect",
+    "pos": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "c_grim": {
+    "key": "c_grim",
+    "name": "Grim",
+    "set": "Spectral",
+    "order": 2,
+    "cost": 4,
+    "config": {
+      "extra": 2,
+      "remove_card": true
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 4
+    }
+  },
+  "c_hanged_man": {
+    "key": "c_hanged_man",
+    "name": "The Hanged Man",
+    "set": "Tarot",
+    "order": 13,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "remove_card": true
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Card Removal",
+    "pos": {
+      "x": 2,
+      "y": 1
+    }
+  },
+  "c_heirophant": {
+    "key": "c_heirophant",
+    "name": "The Hierophant",
+    "set": "Tarot",
+    "order": 6,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "mod_conv": "m_bonus"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 5,
+      "y": 0
+    }
+  },
+  "c_hermit": {
+    "key": "c_hermit",
+    "name": "The Hermit",
+    "set": "Tarot",
+    "order": 10,
+    "cost": 3,
+    "config": {
+      "extra": 20
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Dollar Doubler",
+    "pos": {
+      "x": 9,
+      "y": 0
+    }
+  },
+  "c_hex": {
+    "key": "c_hex",
+    "name": "Hex",
+    "set": "Spectral",
+    "order": 13,
+    "cost": 4,
+    "config": {
+      "extra": 2
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 5
+    }
+  },
+  "c_high_priestess": {
+    "key": "c_high_priestess",
+    "name": "The High Priestess",
+    "set": "Tarot",
+    "order": 3,
+    "cost": 3,
+    "config": {
+      "planets": 2
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Round Bonus",
+    "pos": {
+      "x": 2,
+      "y": 0
+    }
+  },
+  "c_immolate": {
+    "key": "c_immolate",
+    "name": "Immolate",
+    "set": "Spectral",
+    "order": 10,
+    "cost": 4,
+    "config": {
+      "extra": {
+        "destroy": 5,
+        "dollars": 20
+      },
+      "remove_card": true
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 9,
+      "y": 4
+    }
+  },
+  "c_incantation": {
+    "key": "c_incantation",
+    "name": "Incantation",
+    "set": "Spectral",
+    "order": 3,
+    "cost": 4,
+    "config": {
+      "extra": 4,
+      "remove_card": true
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 4
+    }
+  },
+  "c_judgement": {
+    "key": "c_judgement",
+    "name": "Judgement",
+    "set": "Tarot",
+    "order": 21,
+    "cost": 3,
+    "config": [],
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Random Joker",
+    "pos": {
+      "x": 0,
+      "y": 2
+    }
+  },
+  "c_jupiter": {
+    "key": "c_jupiter",
+    "name": "Jupiter",
+    "set": "Planet",
+    "order": 5,
+    "cost": 3,
+    "config": {
+      "hand_type": "Flush"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 4,
+      "y": 3
+    }
+  },
+  "c_justice": {
+    "key": "c_justice",
+    "name": "Justice",
+    "set": "Tarot",
+    "order": 9,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 1,
+      "mod_conv": "m_glass"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 8,
+      "y": 0
+    }
+  },
+  "c_lovers": {
+    "key": "c_lovers",
+    "name": "The Lovers",
+    "set": "Tarot",
+    "order": 7,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 1,
+      "mod_conv": "m_wild"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 6,
+      "y": 0
+    }
+  },
+  "c_magician": {
+    "key": "c_magician",
+    "name": "The Magician",
+    "set": "Tarot",
+    "order": 2,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "mod_conv": "m_lucky"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 1,
+      "y": 0
+    }
+  },
+  "c_mars": {
+    "key": "c_mars",
+    "name": "Mars",
+    "set": "Planet",
+    "order": 4,
+    "cost": 3,
+    "config": {
+      "hand_type": "Four of a Kind"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 3,
+      "y": 3
+    }
+  },
+  "c_medium": {
+    "key": "c_medium",
+    "name": "Medium",
+    "set": "Spectral",
+    "order": 15,
+    "cost": 4,
+    "config": {
+      "extra": "Purple",
+      "max_highlighted": 1
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 5
+    }
+  },
+  "c_mercury": {
+    "key": "c_mercury",
+    "name": "Mercury",
+    "set": "Planet",
+    "order": 1,
+    "cost": 3,
+    "config": {
+      "hand_type": "Pair"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 0,
+      "y": 3
+    }
+  },
+  "c_moon": {
+    "key": "c_moon",
+    "name": "The Moon",
+    "set": "Tarot",
+    "order": 19,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 3,
+      "suit_conv": "Clubs"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Conversion",
+    "pos": {
+      "x": 8,
+      "y": 1
+    }
+  },
+  "c_neptune": {
+    "key": "c_neptune",
+    "name": "Neptune",
+    "set": "Planet",
+    "order": 8,
+    "cost": 3,
+    "config": {
+      "hand_type": "Straight Flush"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 7,
+      "y": 3
+    }
+  },
+  "c_ouija": {
+    "key": "c_ouija",
+    "name": "Ouija",
+    "set": "Spectral",
+    "order": 8,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 7,
+      "y": 4
+    }
+  },
+  "c_planet_x": {
+    "key": "c_planet_x",
+    "name": "Planet X",
+    "set": "Planet",
+    "order": 10,
+    "cost": 3,
+    "config": {
+      "hand_type": "Five of a Kind",
+      "softlock": true
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 9,
+      "y": 2
+    }
+  },
+  "c_pluto": {
+    "key": "c_pluto",
+    "name": "Pluto",
+    "set": "Planet",
+    "order": 9,
+    "cost": 3,
+    "config": {
+      "hand_type": "High Card"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 8,
+      "y": 3
+    }
+  },
+  "c_saturn": {
+    "key": "c_saturn",
+    "name": "Saturn",
+    "set": "Planet",
+    "order": 6,
+    "cost": 3,
+    "config": {
+      "hand_type": "Straight"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 5,
+      "y": 3
+    }
+  },
+  "c_sigil": {
+    "key": "c_sigil",
+    "name": "Sigil",
+    "set": "Spectral",
+    "order": 7,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 6,
+      "y": 4
+    }
+  },
+  "c_soul": {
+    "key": "c_soul",
+    "name": "The Soul",
+    "set": "Spectral",
+    "order": 17,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "effect": "Unlocker",
+    "hidden": true,
+    "pos": {
+      "x": 2,
+      "y": 2
+    }
+  },
+  "c_star": {
+    "key": "c_star",
+    "name": "The Star",
+    "set": "Tarot",
+    "order": 18,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 3,
+      "suit_conv": "Diamonds"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Conversion",
+    "pos": {
+      "x": 7,
+      "y": 1
+    }
+  },
+  "c_strength": {
+    "key": "c_strength",
+    "name": "Strength",
+    "set": "Tarot",
+    "order": 12,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 2,
+      "mod_conv": "up_rank"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Round Bonus",
+    "pos": {
+      "x": 1,
+      "y": 1
+    }
+  },
+  "c_sun": {
+    "key": "c_sun",
+    "name": "The Sun",
+    "set": "Tarot",
+    "order": 20,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 3,
+      "suit_conv": "Hearts"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Conversion",
+    "pos": {
+      "x": 9,
+      "y": 1
+    }
+  },
+  "c_talisman": {
+    "key": "c_talisman",
+    "name": "Talisman",
+    "set": "Spectral",
+    "order": 4,
+    "cost": 4,
+    "config": {
+      "extra": "Gold",
+      "max_highlighted": 1
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 4
+    }
+  },
+  "c_temperance": {
+    "key": "c_temperance",
+    "name": "Temperance",
+    "set": "Tarot",
+    "order": 15,
+    "cost": 3,
+    "config": {
+      "extra": 50
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Joker Payout",
+    "pos": {
+      "x": 4,
+      "y": 1
+    }
+  },
+  "c_tower": {
+    "key": "c_tower",
+    "name": "The Tower",
+    "set": "Tarot",
+    "order": 17,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 1,
+      "mod_conv": "m_stone"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Enhance",
+    "pos": {
+      "x": 6,
+      "y": 1
+    }
+  },
+  "c_trance": {
+    "key": "c_trance",
+    "name": "Trance",
+    "set": "Spectral",
+    "order": 14,
+    "cost": 4,
+    "config": {
+      "extra": "Blue",
+      "max_highlighted": 1
+    },
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 5
+    }
+  },
+  "c_uranus": {
+    "key": "c_uranus",
+    "name": "Uranus",
+    "set": "Planet",
+    "order": 7,
+    "cost": 3,
+    "config": {
+      "hand_type": "Two Pair"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 6,
+      "y": 3
+    }
+  },
+  "c_venus": {
+    "key": "c_venus",
+    "name": "Venus",
+    "set": "Planet",
+    "order": 2,
+    "cost": 3,
+    "config": {
+      "hand_type": "Three of a Kind"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Upgrade",
+    "freq": 1,
+    "pos": {
+      "x": 1,
+      "y": 3
+    }
+  },
+  "c_wheel_of_fortune": {
+    "key": "c_wheel_of_fortune",
+    "name": "The Wheel of Fortune",
+    "set": "Tarot",
+    "order": 11,
+    "cost": 3,
+    "config": {
+      "extra": 4
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Round Bonus",
+    "pos": {
+      "x": 0,
+      "y": 1
+    }
+  },
+  "c_world": {
+    "key": "c_world",
+    "name": "The World",
+    "set": "Tarot",
+    "order": 22,
+    "cost": 3,
+    "config": {
+      "max_highlighted": 3,
+      "suit_conv": "Spades"
+    },
+    "consumeable": true,
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Conversion",
+    "pos": {
+      "x": 1,
+      "y": 2
+    }
+  },
+  "c_wraith": {
+    "key": "c_wraith",
+    "name": "Wraith",
+    "set": "Spectral",
+    "order": 6,
+    "cost": 4,
+    "config": [],
+    "consumeable": true,
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 4
+    }
+  },
+  "e_base": {
+    "key": "e_base",
+    "name": "Base",
+    "set": "Edition",
+    "order": 1,
+    "atlas": "Joker",
+    "config": [],
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "e_foil": {
+    "key": "e_foil",
+    "name": "Foil",
+    "set": "Edition",
+    "order": 2,
+    "atlas": "Joker",
+    "config": {
+      "extra": 50
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "e_holo": {
+    "key": "e_holo",
+    "name": "Holographic",
+    "set": "Edition",
+    "order": 3,
+    "atlas": "Joker",
+    "config": {
+      "extra": 10
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "e_negative": {
+    "key": "e_negative",
+    "name": "Negative",
+    "set": "Edition",
+    "order": 5,
+    "atlas": "Joker",
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "e_polychrome": {
+    "key": "e_polychrome",
+    "name": "Polychrome",
+    "set": "Edition",
+    "order": 4,
+    "atlas": "Joker",
+    "config": {
+      "extra": 1.5
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_8_ball": {
+    "key": "j_8_ball",
+    "name": "8 Ball",
+    "set": "Joker",
+    "order": 26,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Spawn Tarot",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_abstract": {
+    "key": "j_abstract",
+    "name": "Abstract Joker",
+    "set": "Joker",
+    "order": 34,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Joker Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_acrobat": {
+    "key": "j_acrobat",
+    "name": "Acrobat",
+    "set": "Joker",
+    "order": 108,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Shop size",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 1
+    },
+    "unlock_condition": {
+      "extra": 200,
+      "type": "c_hands_played"
+    },
+    "unlocked": false
+  },
+  "j_ancient": {
+    "key": "j_ancient",
+    "name": "Ancient Joker",
+    "set": "Joker",
+    "order": 99,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1.5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_arrowhead": {
+    "key": "j_arrowhead",
+    "name": "Arrowhead",
+    "set": "Joker",
+    "order": 118,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 50
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 8
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 30,
+        "suit": "Spades"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_astronomer": {
+    "key": "j_astronomer",
+    "name": "Astronomer",
+    "set": "Joker",
+    "order": 143,
+    "rarity": 2,
+    "cost": 8,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 7
+    },
+    "unlock_condition": {
+      "planet_count": 12,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "j_banner": {
+    "key": "j_banner",
+    "name": "Banner",
+    "set": "Joker",
+    "order": 22,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 30
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Discard Chips",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_baron": {
+    "key": "j_baron",
+    "name": "Baron",
+    "set": "Joker",
+    "order": 72,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1.5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_baseball": {
+    "key": "j_baseball",
+    "name": "Baseball Card",
+    "set": "Joker",
+    "order": 92,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1.5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_blackboard": {
+    "key": "j_blackboard",
+    "name": "Blackboard",
+    "set": "Joker",
+    "order": 48,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_bloodstone": {
+    "key": "j_bloodstone",
+    "name": "Bloodstone",
+    "set": "Joker",
+    "order": 117,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "Xmult": 1.5,
+        "odds": 2
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 8
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 30,
+        "suit": "Hearts"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_blue_joker": {
+    "key": "j_blue_joker",
+    "name": "Blue Joker",
+    "set": "Joker",
+    "order": 53,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_blueprint": {
+    "key": "j_blueprint",
+    "name": "Blueprint",
+    "set": "Joker",
+    "order": 123,
+    "rarity": 3,
+    "cost": 10,
+    "blueprint_compat": true,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Copycat",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 3
+    },
+    "unlock_condition": {
+      "type": "win_custom"
+    },
+    "unlocked": false
+  },
+  "j_bootstraps": {
+    "key": "j_bootstraps",
+    "name": "Bootstraps",
+    "set": "Joker",
+    "order": 145,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "dollars": 5,
+        "mult": 2
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 8
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 2,
+        "polychrome": true
+      },
+      "type": "modify_jokers"
+    },
+    "unlocked": false
+  },
+  "j_brainstorm": {
+    "key": "j_brainstorm",
+    "name": "Brainstorm",
+    "set": "Joker",
+    "order": 138,
+    "rarity": 3,
+    "cost": 10,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "effect": "Copycat",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 7
+    },
+    "unlock_condition": {
+      "type": "discard_custom"
+    },
+    "unlocked": false
+  },
+  "j_bull": {
+    "key": "j_bull",
+    "name": "Bull",
+    "set": "Joker",
+    "order": 93,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_burglar": {
+    "key": "j_burglar",
+    "name": "Burglar",
+    "set": "Joker",
+    "order": 47,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_burnt": {
+    "key": "j_burnt",
+    "name": "Burnt Joker",
+    "set": "Joker",
+    "order": 144,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4,
+      "h_size": 0
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 7
+    },
+    "unlock_condition": {
+      "extra": 50,
+      "type": "c_cards_sold"
+    },
+    "unlocked": false
+  },
+  "j_business": {
+    "key": "j_business",
+    "name": "Business Card",
+    "set": "Joker",
+    "order": 42,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Face Card dollar Chance",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 4
+    },
+    "unlocked": true
+  },
+  "j_caino": {
+    "key": "j_caino",
+    "name": "Caino",
+    "set": "Joker",
+    "order": 146,
+    "rarity": 4,
+    "cost": 20,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 8
+    },
+    "soul_pos": {
+      "x": 3,
+      "y": 9
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": false
+  },
+  "j_campfire": {
+    "key": "j_campfire",
+    "name": "Campfire",
+    "set": "Joker",
+    "order": 105,
+    "rarity": 3,
+    "cost": 9,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 0.25
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_card_sharp": {
+    "key": "j_card_sharp",
+    "name": "Card Sharp",
+    "set": "Joker",
+    "order": 62,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "Xmult": 3
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_cartomancer": {
+    "key": "j_cartomancer",
+    "name": "Cartomancer",
+    "set": "Joker",
+    "order": 142,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Tarot Buff",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 3
+    },
+    "unlock_condition": {
+      "tarot_count": 22,
+      "type": "discover_amount"
+    },
+    "unlocked": false
+  },
+  "j_castle": {
+    "key": "j_castle",
+    "name": "Castle",
+    "set": "Joker",
+    "order": 103,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 3,
+        "chips": 0
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 9,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_cavendish": {
+    "key": "j_cavendish",
+    "name": "Cavendish",
+    "set": "Joker",
+    "order": 61,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "Xmult": 3,
+        "odds": 1000
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 11
+    },
+    "unlocked": true,
+    "yes_pool_flag": "gros_michel_extinct"
+  },
+  "j_ceremonial": {
+    "key": "j_ceremonial",
+    "name": "Ceremonial Dagger",
+    "set": "Joker",
+    "order": 21,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "mult": 0
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 5,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_certificate": {
+    "key": "j_certificate",
+    "name": "Certificate",
+    "set": "Joker",
+    "order": 112,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 8
+    },
+    "unlock_condition": {
+      "type": "double_gold"
+    },
+    "unlocked": false
+  },
+  "j_chaos": {
+    "key": "j_chaos",
+    "name": "Chaos the Clown",
+    "set": "Joker",
+    "order": 30,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Bonus Rerolls",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_chicot": {
+    "key": "j_chicot",
+    "name": "Chicot",
+    "set": "Joker",
+    "order": 149,
+    "rarity": 4,
+    "cost": 20,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 8
+    },
+    "soul_pos": {
+      "x": 6,
+      "y": 9
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": false
+  },
+  "j_clever": {
+    "key": "j_clever",
+    "name": "Clever Joker",
+    "set": "Joker",
+    "order": 13,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_chips": 80,
+      "type": "Two Pair"
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_cloud_9": {
+    "key": "j_cloud_9",
+    "name": "Cloud 9",
+    "set": "Joker",
+    "order": 73,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_constellation": {
+    "key": "j_constellation",
+    "name": "Constellation",
+    "set": "Joker",
+    "order": 55,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.1
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 9,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_crafty": {
+    "key": "j_crafty",
+    "name": "Crafty Joker",
+    "set": "Joker",
+    "order": 15,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_chips": 80,
+      "type": "Flush"
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_crazy": {
+    "key": "j_crazy",
+    "name": "Crazy Joker",
+    "set": "Joker",
+    "order": 9,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_mult": 12,
+      "type": "Straight"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Type Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_credit_card": {
+    "key": "j_credit_card",
+    "name": "Credit Card",
+    "set": "Joker",
+    "order": 20,
+    "rarity": 1,
+    "cost": 1,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 20
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Credit",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_delayed_grat": {
+    "key": "j_delayed_grat",
+    "name": "Delayed Gratification",
+    "set": "Joker",
+    "order": 35,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 2
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Discard dollars",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_devious": {
+    "key": "j_devious",
+    "name": "Devious Joker",
+    "set": "Joker",
+    "order": 14,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_chips": 100,
+      "type": "Straight"
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_diet_cola": {
+    "key": "j_diet_cola",
+    "name": "Diet Cola",
+    "set": "Joker",
+    "order": 94,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_dna": {
+    "key": "j_dna",
+    "name": "DNA",
+    "set": "Joker",
+    "order": 51,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_drivers_license": {
+    "key": "j_drivers_license",
+    "name": "Driver's License",
+    "set": "Joker",
+    "order": 141,
+    "rarity": 3,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 7
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 16,
+        "tally": "total"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_droll": {
+    "key": "j_droll",
+    "name": "Droll Joker",
+    "set": "Joker",
+    "order": 10,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_mult": 10,
+      "type": "Flush"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Type Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_drunkard": {
+    "key": "j_drunkard",
+    "name": "Drunkard",
+    "set": "Joker",
+    "order": 88,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": {
+      "d_size": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Discard Size",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_duo": {
+    "key": "j_duo",
+    "name": "The Duo",
+    "set": "Joker",
+    "order": 131,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 2,
+      "type": "Pair"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X1.5 Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "Pair",
+      "type": "win_no_hand"
+    },
+    "unlocked": false
+  },
+  "j_dusk": {
+    "key": "j_dusk",
+    "name": "Dusk",
+    "set": "Joker",
+    "order": 28,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 7
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": true
+  },
+  "j_egg": {
+    "key": "j_egg",
+    "name": "Egg",
+    "set": "Joker",
+    "order": 46,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_erosion": {
+    "key": "j_erosion",
+    "name": "Erosion",
+    "set": "Joker",
+    "order": 81,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_even_steven": {
+    "key": "j_even_steven",
+    "name": "Even Steven",
+    "set": "Joker",
+    "order": 39,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Even Card Buff",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_faceless": {
+    "key": "j_faceless",
+    "name": "Faceless Joker",
+    "set": "Joker",
+    "order": 57,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "dollars": 5,
+        "faces": 3
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_family": {
+    "key": "j_family",
+    "name": "The Family",
+    "set": "Joker",
+    "order": 133,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 4,
+      "type": "Four of a Kind"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X3 Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "Four of a Kind",
+      "type": "win_no_hand"
+    },
+    "unlocked": false
+  },
+  "j_fibonacci": {
+    "key": "j_fibonacci",
+    "name": "Fibonacci",
+    "set": "Joker",
+    "order": 31,
+    "rarity": 2,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 8
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Card Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_flash": {
+    "key": "j_flash",
+    "name": "Flash Card",
+    "set": "Joker",
+    "order": 96,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2,
+      "mult": 0
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 0,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_flower_pot": {
+    "key": "j_flower_pot",
+    "name": "Flower Pot",
+    "set": "Joker",
+    "order": 122,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 6
+    },
+    "unlock_condition": {
+      "ante": 8,
+      "type": "ante_up"
+    },
+    "unlocked": false
+  },
+  "j_fortune_teller": {
+    "key": "j_fortune_teller",
+    "name": "Fortune Teller",
+    "set": "Joker",
+    "order": 86,
+    "rarity": 1,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_four_fingers": {
+    "key": "j_four_fingers",
+    "name": "Four Fingers",
+    "set": "Joker",
+    "order": 18,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 6
+    },
+    "unlocked": true
+  },
+  "j_gift": {
+    "key": "j_gift",
+    "name": "Gift Card",
+    "set": "Joker",
+    "order": 79,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_glass": {
+    "key": "j_glass",
+    "name": "Glass Joker",
+    "set": "Joker",
+    "order": 120,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.75
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Glass Card",
+    "enhancement_gate": "m_glass",
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 1,
+      "y": 3
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 5,
+        "e_key": "m_glass",
+        "enhancement": "Glass Card"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_gluttenous_joker": {
+    "key": "j_gluttenous_joker",
+    "name": "Gluttonous Joker",
+    "set": "Joker",
+    "order": 5,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "s_mult": 3,
+        "suit": "Clubs"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_golden": {
+    "key": "j_golden",
+    "name": "Golden Joker",
+    "set": "Joker",
+    "order": 90,
+    "rarity": 1,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 4
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Bonus dollars",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_greedy_joker": {
+    "key": "j_greedy_joker",
+    "name": "Greedy Joker",
+    "set": "Joker",
+    "order": 2,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "s_mult": 3,
+        "suit": "Diamonds"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_green_joker": {
+    "key": "j_green_joker",
+    "name": "Green Joker",
+    "set": "Joker",
+    "order": 58,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "discard_sub": 1,
+        "hand_add": 1
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 2,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_gros_michel": {
+    "key": "j_gros_michel",
+    "name": "Gros Michel",
+    "set": "Joker",
+    "order": 38,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "mult": 15,
+        "odds": 6
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": false,
+    "no_pool_flag": "gros_michel_extinct",
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 6
+    },
+    "unlocked": true
+  },
+  "j_hack": {
+    "key": "j_hack",
+    "name": "Hack",
+    "set": "Joker",
+    "order": 36,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Low Card double",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_half": {
+    "key": "j_half",
+    "name": "Half Joker",
+    "set": "Joker",
+    "order": 16,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "mult": 20,
+        "size": 3
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Size Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_hallucination": {
+    "key": "j_hallucination",
+    "name": "Hallucination",
+    "set": "Joker",
+    "order": 85,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_hanging_chad": {
+    "key": "j_hanging_chad",
+    "name": "Hanging Chad",
+    "set": "Joker",
+    "order": 115,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 6
+    },
+    "unlock_condition": {
+      "extra": "High Card",
+      "type": "round_win"
+    },
+    "unlocked": false
+  },
+  "j_hiker": {
+    "key": "j_hiker",
+    "name": "Hiker",
+    "set": "Joker",
+    "order": 56,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_hit_the_road": {
+    "key": "j_hit_the_road",
+    "name": "Hit the Road",
+    "set": "Joker",
+    "order": 130,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 0.5
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Jack Discard Effect",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 5
+    },
+    "unlock_condition": {
+      "type": "discard_custom"
+    },
+    "unlocked": false
+  },
+  "j_hologram": {
+    "key": "j_hologram",
+    "name": "Hologram",
+    "set": "Joker",
+    "order": 70,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.25
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 4,
+      "y": 12
+    },
+    "soul_pos": {
+      "x": 2,
+      "y": 9
+    },
+    "unlocked": true
+  },
+  "j_ice_cream": {
+    "key": "j_ice_cream",
+    "name": "Ice Cream",
+    "set": "Joker",
+    "order": 50,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 5,
+        "chips": 100
+      }
+    },
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_idol": {
+    "key": "j_idol",
+    "name": "The Idol",
+    "set": "Joker",
+    "order": 127,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 7
+    },
+    "unlock_condition": {
+      "chips": 1000000,
+      "type": "chip_score"
+    },
+    "unlocked": false
+  },
+  "j_invisible": {
+    "key": "j_invisible",
+    "name": "Invisible Joker",
+    "set": "Joker",
+    "order": 137,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 7
+    },
+    "unlock_condition": {
+      "type": "win_custom"
+    },
+    "unlocked": false
+  },
+  "j_joker": {
+    "key": "j_joker",
+    "name": "Joker",
+    "set": "Joker",
+    "order": 1,
+    "rarity": 1,
+    "cost": 2,
+    "blueprint_compat": true,
+    "config": {
+      "mult": 4
+    },
+    "cost_mult": 1,
+    "discovered": true,
+    "effect": "Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "start_alerted": true,
+    "unlocked": true
+  },
+  "j_jolly": {
+    "key": "j_jolly",
+    "name": "Jolly Joker",
+    "set": "Joker",
+    "order": 6,
+    "rarity": 1,
+    "cost": 3,
+    "blueprint_compat": true,
+    "config": {
+      "t_mult": 8,
+      "type": "Pair"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Type Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_juggler": {
+    "key": "j_juggler",
+    "name": "Juggler",
+    "set": "Joker",
+    "order": 87,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": {
+      "h_size": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Size",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_loyalty_card": {
+    "key": "j_loyalty_card",
+    "name": "Loyalty Card",
+    "set": "Joker",
+    "order": 25,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "Xmult": 4,
+        "every": 5,
+        "remaining": "5 remaining"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "1 in 10 mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_luchador": {
+    "key": "j_luchador",
+    "name": "Luchador",
+    "set": "Joker",
+    "order": 77,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_lucky_cat": {
+    "key": "j_lucky_cat",
+    "name": "Lucky Cat",
+    "set": "Joker",
+    "order": 91,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.25
+    },
+    "discovered": false,
+    "enhancement_gate": "m_lucky",
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 5,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_lusty_joker": {
+    "key": "j_lusty_joker",
+    "name": "Lusty Joker",
+    "set": "Joker",
+    "order": 3,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "s_mult": 3,
+        "suit": "Hearts"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_mad": {
+    "key": "j_mad",
+    "name": "Mad Joker",
+    "set": "Joker",
+    "order": 8,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_mult": 10,
+      "type": "Two Pair"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Type Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_madness": {
+    "key": "j_madness",
+    "name": "Madness",
+    "set": "Joker",
+    "order": 64,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 0.5
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 8,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_mail": {
+    "key": "j_mail",
+    "name": "Mail-In Rebate",
+    "set": "Joker",
+    "order": 83,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_marble": {
+    "key": "j_marble",
+    "name": "Marble Joker",
+    "set": "Joker",
+    "order": 24,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Stone card hands",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_matador": {
+    "key": "j_matador",
+    "name": "Matador",
+    "set": "Joker",
+    "order": 129,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 8
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 5
+    },
+    "unlock_condition": {
+      "type": "round_win"
+    },
+    "unlocked": false
+  },
+  "j_merry_andy": {
+    "key": "j_merry_andy",
+    "name": "Merry Andy",
+    "set": "Joker",
+    "order": 125,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": {
+      "d_size": 3,
+      "h_size": -1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 0
+    },
+    "unlock_condition": {
+      "n_rounds": 12,
+      "type": "win"
+    },
+    "unlocked": false
+  },
+  "j_midas_mask": {
+    "key": "j_midas_mask",
+    "name": "Midas Mask",
+    "set": "Joker",
+    "order": 76,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_mime": {
+    "key": "j_mime",
+    "name": "Mime",
+    "set": "Joker",
+    "order": 19,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand card double",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_misprint": {
+    "key": "j_misprint",
+    "name": "Misprint",
+    "set": "Joker",
+    "order": 27,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "max": 23,
+        "min": 0
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Random Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_mr_bones": {
+    "key": "j_mr_bones",
+    "name": "Mr. Bones",
+    "set": "Joker",
+    "order": 107,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": false,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Prevent Death",
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": 5,
+      "type": "c_losses"
+    },
+    "unlocked": false
+  },
+  "j_mystic_summit": {
+    "key": "j_mystic_summit",
+    "name": "Mystic Summit",
+    "set": "Joker",
+    "order": 23,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "d_remaining": 0,
+        "mult": 15
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "No Discard Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_obelisk": {
+    "key": "j_obelisk",
+    "name": "Obelisk",
+    "set": "Joker",
+    "order": 75,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 9,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_odd_todd": {
+    "key": "j_odd_todd",
+    "name": "Odd Todd",
+    "set": "Joker",
+    "order": 40,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 31
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Odd Card Buff",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_onyx_agate": {
+    "key": "j_onyx_agate",
+    "name": "Onyx Agate",
+    "set": "Joker",
+    "order": 119,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 7
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 8
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 30,
+        "suit": "Clubs"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_oops": {
+    "key": "j_oops",
+    "name": "Oops! All 6s",
+    "set": "Joker",
+    "order": 126,
+    "rarity": 2,
+    "cost": 4,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 6
+    },
+    "unlock_condition": {
+      "chips": 10000,
+      "type": "chip_score"
+    },
+    "unlocked": false
+  },
+  "j_order": {
+    "key": "j_order",
+    "name": "The Order",
+    "set": "Joker",
+    "order": 134,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 3,
+      "type": "Straight"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X3 Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "Straight",
+      "type": "win_no_hand"
+    },
+    "unlocked": false
+  },
+  "j_pareidolia": {
+    "key": "j_pareidolia",
+    "name": "Pareidolia",
+    "set": "Joker",
+    "order": 37,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": false,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "All face cards",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_perkeo": {
+    "key": "j_perkeo",
+    "name": "Perkeo",
+    "set": "Joker",
+    "order": 150,
+    "rarity": 4,
+    "cost": 20,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 8
+    },
+    "soul_pos": {
+      "x": 7,
+      "y": 9
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": false
+  },
+  "j_photograph": {
+    "key": "j_photograph",
+    "name": "Photograph",
+    "set": "Joker",
+    "order": 78,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_popcorn": {
+    "key": "j_popcorn",
+    "name": "Popcorn",
+    "set": "Joker",
+    "order": 97,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4,
+      "mult": 20
+    },
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_raised_fist": {
+    "key": "j_raised_fist",
+    "name": "Raised Fist",
+    "set": "Joker",
+    "order": 29,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Socialized Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_ramen": {
+    "key": "j_ramen",
+    "name": "Ramen",
+    "set": "Joker",
+    "order": 100,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 2,
+      "extra": 0.01
+    },
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_red_card": {
+    "key": "j_red_card",
+    "name": "Red Card",
+    "set": "Joker",
+    "order": 63,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 3
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 7,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_reserved_parking": {
+    "key": "j_reserved_parking",
+    "name": "Reserved Parking",
+    "set": "Joker",
+    "order": 82,
+    "rarity": 1,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "dollars": 1,
+        "odds": 2
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_ride_the_bus": {
+    "key": "j_ride_the_bus",
+    "name": "Ride the Bus",
+    "set": "Joker",
+    "order": 44,
+    "rarity": 1,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 1,
+      "y": 6
+    },
+    "unlock_condition": {
+      "type": "discard_custom"
+    },
+    "unlocked": true
+  },
+  "j_riff_raff": {
+    "key": "j_riff_raff",
+    "name": "Riff-raff",
+    "set": "Joker",
+    "order": 67,
+    "rarity": 1,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_ring_master": {
+    "key": "j_ring_master",
+    "name": "Showman",
+    "set": "Joker",
+    "order": 121,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 5
+    },
+    "unlock_condition": {
+      "ante": 4,
+      "type": "ante_up"
+    },
+    "unlocked": false
+  },
+  "j_rocket": {
+    "key": "j_rocket",
+    "name": "Rocket",
+    "set": "Joker",
+    "order": 74,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": {
+        "dollars": 1,
+        "increase": 2
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 8,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_rough_gem": {
+    "key": "j_rough_gem",
+    "name": "Rough Gem",
+    "set": "Joker",
+    "order": 116,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 7
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 30,
+        "suit": "Diamonds"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_runner": {
+    "key": "j_runner",
+    "name": "Runner",
+    "set": "Joker",
+    "order": 49,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 15,
+        "chips": 0
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 3,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_satellite": {
+    "key": "j_satellite",
+    "name": "Satellite",
+    "set": "Joker",
+    "order": 139,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 7
+    },
+    "unlock_condition": {
+      "extra": 400,
+      "type": "money"
+    },
+    "unlocked": false
+  },
+  "j_scary_face": {
+    "key": "j_scary_face",
+    "name": "Scary Face",
+    "set": "Joker",
+    "order": 33,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 30
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Scary Face Cards",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 3
+    },
+    "unlocked": true
+  },
+  "j_scholar": {
+    "key": "j_scholar",
+    "name": "Scholar",
+    "set": "Joker",
+    "order": 41,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chips": 20,
+        "mult": 4
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Ace Buff",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 4
+    },
+    "unlocked": true
+  },
+  "j_seance": {
+    "key": "j_seance",
+    "name": "Seance",
+    "set": "Joker",
+    "order": 66,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "poker_hand": "Straight Flush"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_seeing_double": {
+    "key": "j_seeing_double",
+    "name": "Seeing Double",
+    "set": "Joker",
+    "order": 128,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X1.5 Mult club 7",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "four 7 of Clubs",
+      "type": "hand_contents"
+    },
+    "unlocked": false
+  },
+  "j_selzer": {
+    "key": "j_selzer",
+    "name": "Seltzer",
+    "set": "Joker",
+    "order": 102,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 10
+    },
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_shoot_the_moon": {
+    "key": "j_shoot_the_moon",
+    "name": "Shoot the Moon",
+    "set": "Joker",
+    "order": 140,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 13
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 6
+    },
+    "unlock_condition": {
+      "type": "play_all_hearts"
+    },
+    "unlocked": false
+  },
+  "j_shortcut": {
+    "key": "j_shortcut",
+    "name": "Shortcut",
+    "set": "Joker",
+    "order": 69,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_sixth_sense": {
+    "key": "j_sixth_sense",
+    "name": "Sixth Sense",
+    "set": "Joker",
+    "order": 54,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_sly": {
+    "key": "j_sly",
+    "name": "Sly Joker",
+    "set": "Joker",
+    "order": 11,
+    "rarity": 1,
+    "cost": 3,
+    "blueprint_compat": true,
+    "config": {
+      "t_chips": 50,
+      "type": "Pair"
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_smeared": {
+    "key": "j_smeared",
+    "name": "Smeared Joker",
+    "set": "Joker",
+    "order": 113,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 6
+    },
+    "unlock_condition": {
+      "extra": {
+        "count": 3,
+        "e_key": "m_wild",
+        "enhancement": "Wild Card"
+      },
+      "type": "modify_deck"
+    },
+    "unlocked": false
+  },
+  "j_smiley": {
+    "key": "j_smiley",
+    "name": "Smiley Face",
+    "set": "Joker",
+    "order": 104,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 5
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_sock_and_buskin": {
+    "key": "j_sock_and_buskin",
+    "name": "Sock and Buskin",
+    "set": "Joker",
+    "order": 109,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Face card double",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 1
+    },
+    "unlock_condition": {
+      "extra": 300,
+      "type": "c_face_cards_played"
+    },
+    "unlocked": false
+  },
+  "j_space": {
+    "key": "j_space",
+    "name": "Space Joker",
+    "set": "Joker",
+    "order": 45,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Upgrade Hand chance",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_splash": {
+    "key": "j_splash",
+    "name": "Splash",
+    "set": "Joker",
+    "order": 52,
+    "rarity": 1,
+    "cost": 3,
+    "blueprint_compat": false,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 10
+    },
+    "unlocked": true
+  },
+  "j_square": {
+    "key": "j_square",
+    "name": "Square Joker",
+    "set": "Joker",
+    "order": 65,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 4,
+        "chips": 0
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 9,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_steel_joker": {
+    "key": "j_steel_joker",
+    "name": "Steel Joker",
+    "set": "Joker",
+    "order": 32,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 0.2
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Steel Card Buff",
+    "enhancement_gate": "m_steel",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 7,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "j_stencil": {
+    "key": "j_stencil",
+    "name": "Joker Stencil",
+    "set": "Joker",
+    "order": 17,
+    "rarity": 2,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": [],
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Size Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 5
+    },
+    "unlocked": true
+  },
+  "j_stone": {
+    "key": "j_stone",
+    "name": "Stone Joker",
+    "set": "Joker",
+    "order": 89,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 25
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Stone Card Buff",
+    "enhancement_gate": "m_stone",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "j_stuntman": {
+    "key": "j_stuntman",
+    "name": "Stuntman",
+    "set": "Joker",
+    "order": 136,
+    "rarity": 3,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 250,
+        "h_size": 2
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 6
+    },
+    "unlock_condition": {
+      "chips": 100000000,
+      "type": "chip_score"
+    },
+    "unlocked": false
+  },
+  "j_supernova": {
+    "key": "j_supernova",
+    "name": "Supernova",
+    "set": "Joker",
+    "order": 43,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand played mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 2,
+      "y": 4
+    },
+    "unlocked": true
+  },
+  "j_superposition": {
+    "key": "j_superposition",
+    "name": "Superposition",
+    "set": "Joker",
+    "order": 59,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": [],
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_swashbuckler": {
+    "key": "j_swashbuckler",
+    "name": "Swashbuckler",
+    "set": "Joker",
+    "order": 110,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "mult": 1
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Set Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 5
+    },
+    "unlock_condition": {
+      "extra": 20,
+      "type": "c_jokers_sold"
+    },
+    "unlocked": false
+  },
+  "j_throwback": {
+    "key": "j_throwback",
+    "name": "Throwback",
+    "set": "Joker",
+    "order": 114,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 0.25
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 7
+    },
+    "unlock_condition": {
+      "type": "continue_game"
+    },
+    "unlocked": false
+  },
+  "j_ticket": {
+    "key": "j_ticket",
+    "name": "Golden Ticket",
+    "set": "Joker",
+    "order": 106,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "dollars for Gold cards",
+    "enhancement_gate": "m_gold",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 3
+    },
+    "unlock_condition": {
+      "extra": "Gold",
+      "type": "hand_contents"
+    },
+    "unlocked": false
+  },
+  "j_to_the_moon": {
+    "key": "j_to_the_moon",
+    "name": "To the Moon",
+    "set": "Joker",
+    "order": 84,
+    "rarity": 2,
+    "cost": 5,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_todo_list": {
+    "key": "j_todo_list",
+    "name": "To Do List",
+    "set": "Joker",
+    "order": 60,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "dollars": 4,
+        "poker_hand": "High Card"
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 11
+    },
+    "unlocked": true
+  },
+  "j_trading": {
+    "key": "j_trading",
+    "name": "Trading Card",
+    "set": "Joker",
+    "order": 95,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_tribe": {
+    "key": "j_tribe",
+    "name": "The Tribe",
+    "set": "Joker",
+    "order": 135,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 2,
+      "type": "Flush"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X3 Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 9,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "Flush",
+      "type": "win_no_hand"
+    },
+    "unlocked": false
+  },
+  "j_triboulet": {
+    "key": "j_triboulet",
+    "name": "Triboulet",
+    "set": "Joker",
+    "order": 147,
+    "rarity": 4,
+    "cost": 20,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 8
+    },
+    "soul_pos": {
+      "x": 4,
+      "y": 9
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": false
+  },
+  "j_trio": {
+    "key": "j_trio",
+    "name": "The Trio",
+    "set": "Joker",
+    "order": 132,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 3,
+      "type": "Three of a Kind"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "X2 Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 6,
+      "y": 4
+    },
+    "unlock_condition": {
+      "extra": "Three of a Kind",
+      "type": "win_no_hand"
+    },
+    "unlocked": false
+  },
+  "j_troubadour": {
+    "key": "j_troubadour",
+    "name": "Troubadour",
+    "set": "Joker",
+    "order": 111,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": {
+        "h_plays": -1,
+        "h_size": 2
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Hand Size, Plays",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 0,
+      "y": 2
+    },
+    "unlock_condition": {
+      "extra": 5,
+      "type": "round_win"
+    },
+    "unlocked": false
+  },
+  "j_trousers": {
+    "key": "j_trousers",
+    "name": "Spare Trousers",
+    "set": "Joker",
+    "order": 98,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 4,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_turtle_bean": {
+    "key": "j_turtle_bean",
+    "name": "Turtle Bean",
+    "set": "Joker",
+    "order": 80,
+    "rarity": 2,
+    "cost": 6,
+    "blueprint_compat": false,
+    "config": {
+      "extra": {
+        "h_mod": 1,
+        "h_size": 5
+      }
+    },
+    "discovered": false,
+    "eternal_compat": false,
+    "perishable_compat": true,
+    "pos": {
+      "x": 4,
+      "y": 13
+    },
+    "unlocked": true
+  },
+  "j_vagabond": {
+    "key": "j_vagabond",
+    "name": "Vagabond",
+    "set": "Joker",
+    "order": 71,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_vampire": {
+    "key": "j_vampire",
+    "name": "Vampire",
+    "set": "Joker",
+    "order": 68,
+    "rarity": 2,
+    "cost": 7,
+    "blueprint_compat": true,
+    "config": {
+      "Xmult": 1,
+      "extra": 0.1
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 2,
+      "y": 12
+    },
+    "unlocked": true
+  },
+  "j_walkie_talkie": {
+    "key": "j_walkie_talkie",
+    "name": "Walkie Talkie",
+    "set": "Joker",
+    "order": 101,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chips": 10,
+        "mult": 4
+      }
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 15
+    },
+    "unlocked": true
+  },
+  "j_wee": {
+    "key": "j_wee",
+    "name": "Wee Joker",
+    "set": "Joker",
+    "order": 124,
+    "rarity": 3,
+    "cost": 8,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "chip_mod": 8,
+        "chips": 0
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlock_condition": {
+      "n_rounds": 18,
+      "type": "win"
+    },
+    "unlocked": false
+  },
+  "j_wily": {
+    "key": "j_wily",
+    "name": "Wily Joker",
+    "set": "Joker",
+    "order": 12,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_chips": 100,
+      "type": "Three of a Kind"
+    },
+    "discovered": false,
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 1,
+      "y": 14
+    },
+    "unlocked": true
+  },
+  "j_wrathful_joker": {
+    "key": "j_wrathful_joker",
+    "name": "Wrathful Joker",
+    "set": "Joker",
+    "order": 4,
+    "rarity": 1,
+    "cost": 5,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "s_mult": 3,
+        "suit": "Spades"
+      }
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Suit Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 8,
+      "y": 1
+    },
+    "unlocked": true
+  },
+  "j_yorick": {
+    "key": "j_yorick",
+    "name": "Yorick",
+    "set": "Joker",
+    "order": 148,
+    "rarity": 4,
+    "cost": 20,
+    "blueprint_compat": true,
+    "config": {
+      "extra": {
+        "discards": 23,
+        "xmult": 1
+      }
+    },
+    "discovered": false,
+    "effect": "",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 5,
+      "y": 8
+    },
+    "soul_pos": {
+      "x": 5,
+      "y": 9
+    },
+    "unlock_condition": {
+      "extra": "",
+      "hidden": true,
+      "type": ""
+    },
+    "unlocked": false
+  },
+  "j_zany": {
+    "key": "j_zany",
+    "name": "Zany Joker",
+    "set": "Joker",
+    "order": 7,
+    "rarity": 1,
+    "cost": 4,
+    "blueprint_compat": true,
+    "config": {
+      "t_mult": 12,
+      "type": "Three of a Kind"
+    },
+    "cost_mult": 1,
+    "discovered": false,
+    "effect": "Type Mult",
+    "eternal_compat": true,
+    "perishable_compat": true,
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "m_bonus": {
+    "key": "m_bonus",
+    "name": "Bonus",
+    "set": "Enhanced",
+    "order": 2,
+    "config": {
+      "bonus": 30
+    },
+    "effect": "Bonus Card",
+    "label": "Bonus Card",
+    "max": 500,
+    "pos": {
+      "x": 1,
+      "y": 1
+    }
+  },
+  "m_glass": {
+    "key": "m_glass",
+    "name": "Glass Card",
+    "set": "Enhanced",
+    "order": 5,
+    "config": {
+      "Xmult": 2,
+      "extra": 4
+    },
+    "effect": "Glass Card",
+    "label": "Glass Card",
+    "max": 500,
+    "pos": {
+      "x": 5,
+      "y": 1
+    }
+  },
+  "m_gold": {
+    "key": "m_gold",
+    "name": "Gold Card",
+    "set": "Enhanced",
+    "order": 8,
+    "config": {
+      "h_dollars": 3
+    },
+    "effect": "Gold Card",
+    "label": "Gold Card",
+    "max": 500,
+    "pos": {
+      "x": 6,
+      "y": 0
+    }
+  },
+  "m_lucky": {
+    "key": "m_lucky",
+    "name": "Lucky Card",
+    "set": "Enhanced",
+    "order": 9,
+    "config": {
+      "mult": 20,
+      "p_dollars": 20
+    },
+    "effect": "Lucky Card",
+    "label": "Lucky Card",
+    "max": 500,
+    "pos": {
+      "x": 4,
+      "y": 1
+    }
+  },
+  "m_mult": {
+    "key": "m_mult",
+    "name": "Mult",
+    "set": "Enhanced",
+    "order": 3,
+    "config": {
+      "mult": 4
+    },
+    "effect": "Mult Card",
+    "label": "Mult Card",
+    "max": 500,
+    "pos": {
+      "x": 2,
+      "y": 1
+    }
+  },
+  "m_steel": {
+    "key": "m_steel",
+    "name": "Steel Card",
+    "set": "Enhanced",
+    "order": 6,
+    "config": {
+      "h_x_mult": 1.5
+    },
+    "effect": "Steel Card",
+    "label": "Steel Card",
+    "max": 500,
+    "pos": {
+      "x": 6,
+      "y": 1
+    }
+  },
+  "m_stone": {
+    "key": "m_stone",
+    "name": "Stone Card",
+    "set": "Enhanced",
+    "order": 7,
+    "config": {
+      "bonus": 50
+    },
+    "effect": "Stone Card",
+    "label": "Stone Card",
+    "max": 500,
+    "pos": {
+      "x": 5,
+      "y": 0
+    }
+  },
+  "m_wild": {
+    "key": "m_wild",
+    "name": "Wild Card",
+    "set": "Enhanced",
+    "order": 4,
+    "config": [],
+    "effect": "Wild Card",
+    "label": "Wild Card",
+    "max": 500,
+    "pos": {
+      "x": 3,
+      "y": 1
+    }
+  },
+  "p_arcana_jumbo_1": {
+    "key": "p_arcana_jumbo_1",
+    "name": "Jumbo Arcana Pack",
+    "set": "Booster",
+    "order": 5,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 0,
+      "y": 2
+    },
+    "weight": 1
+  },
+  "p_arcana_jumbo_2": {
+    "key": "p_arcana_jumbo_2",
+    "name": "Jumbo Arcana Pack",
+    "set": "Booster",
+    "order": 6,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 1,
+      "y": 2
+    },
+    "weight": 1
+  },
+  "p_arcana_mega_1": {
+    "key": "p_arcana_mega_1",
+    "name": "Mega Arcana Pack",
+    "set": "Booster",
+    "order": 7,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 2,
+      "y": 2
+    },
+    "weight": 0.25
+  },
+  "p_arcana_mega_2": {
+    "key": "p_arcana_mega_2",
+    "name": "Mega Arcana Pack",
+    "set": "Booster",
+    "order": 8,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 3,
+      "y": 2
+    },
+    "weight": 0.25
+  },
+  "p_arcana_normal_1": {
+    "key": "p_arcana_normal_1",
+    "name": "Arcana Pack",
+    "set": "Booster",
+    "order": 1,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "weight": 1
+  },
+  "p_arcana_normal_2": {
+    "key": "p_arcana_normal_2",
+    "name": "Arcana Pack",
+    "set": "Booster",
+    "order": 2,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "weight": 1
+  },
+  "p_arcana_normal_3": {
+    "key": "p_arcana_normal_3",
+    "name": "Arcana Pack",
+    "set": "Booster",
+    "order": 3,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "weight": 1
+  },
+  "p_arcana_normal_4": {
+    "key": "p_arcana_normal_4",
+    "name": "Arcana Pack",
+    "set": "Booster",
+    "order": 4,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Arcana",
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "weight": 1
+  },
+  "p_buffoon_jumbo_1": {
+    "key": "p_buffoon_jumbo_1",
+    "name": "Jumbo Buffoon Pack",
+    "set": "Booster",
+    "order": 27,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 4
+    },
+    "discovered": false,
+    "kind": "Buffoon",
+    "pos": {
+      "x": 2,
+      "y": 8
+    },
+    "weight": 0.6
+  },
+  "p_buffoon_mega_1": {
+    "key": "p_buffoon_mega_1",
+    "name": "Mega Buffoon Pack",
+    "set": "Booster",
+    "order": 28,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 4
+    },
+    "discovered": false,
+    "kind": "Buffoon",
+    "pos": {
+      "x": 3,
+      "y": 8
+    },
+    "weight": 0.15
+  },
+  "p_buffoon_normal_1": {
+    "key": "p_buffoon_normal_1",
+    "name": "Buffoon Pack",
+    "set": "Booster",
+    "order": 25,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 2
+    },
+    "discovered": false,
+    "kind": "Buffoon",
+    "pos": {
+      "x": 0,
+      "y": 8
+    },
+    "weight": 0.6
+  },
+  "p_buffoon_normal_2": {
+    "key": "p_buffoon_normal_2",
+    "name": "Buffoon Pack",
+    "set": "Booster",
+    "order": 26,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 2
+    },
+    "discovered": false,
+    "kind": "Buffoon",
+    "pos": {
+      "x": 1,
+      "y": 8
+    },
+    "weight": 0.6
+  },
+  "p_celestial_jumbo_1": {
+    "key": "p_celestial_jumbo_1",
+    "name": "Jumbo Celestial Pack",
+    "set": "Booster",
+    "order": 13,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 0,
+      "y": 3
+    },
+    "weight": 1
+  },
+  "p_celestial_jumbo_2": {
+    "key": "p_celestial_jumbo_2",
+    "name": "Jumbo Celestial Pack",
+    "set": "Booster",
+    "order": 14,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 1,
+      "y": 3
+    },
+    "weight": 1
+  },
+  "p_celestial_mega_1": {
+    "key": "p_celestial_mega_1",
+    "name": "Mega Celestial Pack",
+    "set": "Booster",
+    "order": 15,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 2,
+      "y": 3
+    },
+    "weight": 0.25
+  },
+  "p_celestial_mega_2": {
+    "key": "p_celestial_mega_2",
+    "name": "Mega Celestial Pack",
+    "set": "Booster",
+    "order": 16,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 3,
+      "y": 3
+    },
+    "weight": 0.25
+  },
+  "p_celestial_normal_1": {
+    "key": "p_celestial_normal_1",
+    "name": "Celestial Pack",
+    "set": "Booster",
+    "order": 9,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "weight": 1
+  },
+  "p_celestial_normal_2": {
+    "key": "p_celestial_normal_2",
+    "name": "Celestial Pack",
+    "set": "Booster",
+    "order": 10,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "weight": 1
+  },
+  "p_celestial_normal_3": {
+    "key": "p_celestial_normal_3",
+    "name": "Celestial Pack",
+    "set": "Booster",
+    "order": 11,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 2,
+      "y": 1
+    },
+    "weight": 1
+  },
+  "p_celestial_normal_4": {
+    "key": "p_celestial_normal_4",
+    "name": "Celestial Pack",
+    "set": "Booster",
+    "order": 12,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Celestial",
+    "pos": {
+      "x": 3,
+      "y": 1
+    },
+    "weight": 1
+  },
+  "p_spectral_jumbo_1": {
+    "key": "p_spectral_jumbo_1",
+    "name": "Jumbo Spectral Pack",
+    "set": "Booster",
+    "order": 31,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 4
+    },
+    "discovered": false,
+    "kind": "Spectral",
+    "pos": {
+      "x": 2,
+      "y": 4
+    },
+    "weight": 0.3
+  },
+  "p_spectral_mega_1": {
+    "key": "p_spectral_mega_1",
+    "name": "Mega Spectral Pack",
+    "set": "Booster",
+    "order": 32,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 4
+    },
+    "discovered": false,
+    "kind": "Spectral",
+    "pos": {
+      "x": 3,
+      "y": 4
+    },
+    "weight": 0.07
+  },
+  "p_spectral_normal_1": {
+    "key": "p_spectral_normal_1",
+    "name": "Spectral Pack",
+    "set": "Booster",
+    "order": 29,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 2
+    },
+    "discovered": false,
+    "kind": "Spectral",
+    "pos": {
+      "x": 0,
+      "y": 4
+    },
+    "weight": 0.3
+  },
+  "p_spectral_normal_2": {
+    "key": "p_spectral_normal_2",
+    "name": "Spectral Pack",
+    "set": "Booster",
+    "order": 30,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 2
+    },
+    "discovered": false,
+    "kind": "Spectral",
+    "pos": {
+      "x": 1,
+      "y": 4
+    },
+    "weight": 0.3
+  },
+  "p_standard_jumbo_1": {
+    "key": "p_standard_jumbo_1",
+    "name": "Jumbo Standard Pack",
+    "set": "Booster",
+    "order": 21,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 0,
+      "y": 7
+    },
+    "weight": 1
+  },
+  "p_standard_jumbo_2": {
+    "key": "p_standard_jumbo_2",
+    "name": "Jumbo Standard Pack",
+    "set": "Booster",
+    "order": 22,
+    "cost": 6,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 1,
+      "y": 7
+    },
+    "weight": 1
+  },
+  "p_standard_mega_1": {
+    "key": "p_standard_mega_1",
+    "name": "Mega Standard Pack",
+    "set": "Booster",
+    "order": 23,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 2,
+      "y": 7
+    },
+    "weight": 0.25
+  },
+  "p_standard_mega_2": {
+    "key": "p_standard_mega_2",
+    "name": "Mega Standard Pack",
+    "set": "Booster",
+    "order": 24,
+    "cost": 8,
+    "atlas": "Booster",
+    "config": {
+      "choose": 2,
+      "extra": 5
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 3,
+      "y": 7
+    },
+    "weight": 0.25
+  },
+  "p_standard_normal_1": {
+    "key": "p_standard_normal_1",
+    "name": "Standard Pack",
+    "set": "Booster",
+    "order": 17,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 0,
+      "y": 6
+    },
+    "weight": 1
+  },
+  "p_standard_normal_2": {
+    "key": "p_standard_normal_2",
+    "name": "Standard Pack",
+    "set": "Booster",
+    "order": 18,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 1,
+      "y": 6
+    },
+    "weight": 1
+  },
+  "p_standard_normal_3": {
+    "key": "p_standard_normal_3",
+    "name": "Standard Pack",
+    "set": "Booster",
+    "order": 19,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 2,
+      "y": 6
+    },
+    "weight": 1
+  },
+  "p_standard_normal_4": {
+    "key": "p_standard_normal_4",
+    "name": "Standard Pack",
+    "set": "Booster",
+    "order": 20,
+    "cost": 4,
+    "atlas": "Booster",
+    "config": {
+      "choose": 1,
+      "extra": 3
+    },
+    "discovered": false,
+    "kind": "Standard",
+    "pos": {
+      "x": 3,
+      "y": 6
+    },
+    "weight": 1
+  },
+  "soul": {
+    "key": "soul",
+    "pos": {
+      "x": 0,
+      "y": 1
+    }
+  },
+  "undiscovered_joker": {
+    "key": "undiscovered_joker",
+    "pos": {
+      "x": 5,
+      "y": 3
+    }
+  },
+  "undiscovered_tarot": {
+    "key": "undiscovered_tarot",
+    "pos": {
+      "x": 6,
+      "y": 3
+    }
+  },
+  "v_antimatter": {
+    "key": "v_antimatter",
+    "name": "Antimatter",
+    "set": "Voucher",
+    "order": 24,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 15
+    },
+    "discovered": false,
+    "pos": {
+      "x": 7,
+      "y": 1
+    },
+    "requires": [
+      "v_blank"
+    ],
+    "unlock_condition": {
+      "extra": 10,
+      "type": "blank_redeems"
+    },
+    "unlocked": false
+  },
+  "v_blank": {
+    "key": "v_blank",
+    "name": "Blank",
+    "set": "Voucher",
+    "order": 23,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 5
+    },
+    "discovered": false,
+    "pos": {
+      "x": 7,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_clearance_sale": {
+    "key": "v_clearance_sale",
+    "name": "Clearance Sale",
+    "set": "Voucher",
+    "order": 3,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 25
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_crystal_ball": {
+    "key": "v_crystal_ball",
+    "name": "Crystal Ball",
+    "set": "Voucher",
+    "order": 9,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_directors_cut": {
+    "key": "v_directors_cut",
+    "name": "Director's Cut",
+    "set": "Voucher",
+    "order": 29,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 10
+    },
+    "discovered": false,
+    "pos": {
+      "x": 6,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_glow_up": {
+    "key": "v_glow_up",
+    "name": "Glow Up",
+    "set": "Voucher",
+    "order": 6,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 1
+    },
+    "requires": [
+      "v_hone"
+    ],
+    "unlock_condition": {
+      "extra": 5,
+      "type": "have_edition"
+    },
+    "unlocked": false
+  },
+  "v_grabber": {
+    "key": "v_grabber",
+    "name": "Grabber",
+    "set": "Voucher",
+    "order": 13,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_hieroglyph": {
+    "key": "v_hieroglyph",
+    "name": "Hieroglyph",
+    "set": "Voucher",
+    "order": 27,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_hone": {
+    "key": "v_hone",
+    "name": "Hone",
+    "set": "Voucher",
+    "order": 5,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_illusion": {
+    "key": "v_illusion",
+    "name": "Illusion",
+    "set": "Voucher",
+    "order": 26,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 3
+    },
+    "requires": [
+      "v_magic_trick"
+    ],
+    "unlock_condition": {
+      "extra": 20,
+      "type": "c_playing_cards_bought"
+    },
+    "unlocked": false
+  },
+  "v_liquidation": {
+    "key": "v_liquidation",
+    "name": "Liquidation",
+    "set": "Voucher",
+    "order": 4,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 50
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 1
+    },
+    "requires": [
+      "v_clearance_sale"
+    ],
+    "unlock_condition": {
+      "extra": 10,
+      "type": "run_redeem"
+    },
+    "unlocked": false
+  },
+  "v_magic_trick": {
+    "key": "v_magic_trick",
+    "name": "Magic Trick",
+    "set": "Voucher",
+    "order": 25,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 4,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_money_tree": {
+    "key": "v_money_tree",
+    "name": "Money Tree",
+    "set": "Voucher",
+    "order": 22,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 100
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 3
+    },
+    "requires": [
+      "v_seed_money"
+    ],
+    "unlock_condition": {
+      "extra": 10,
+      "type": "interest_streak"
+    },
+    "unlocked": false
+  },
+  "v_nacho_tong": {
+    "key": "v_nacho_tong",
+    "name": "Nacho Tong",
+    "set": "Voucher",
+    "order": 14,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 1
+    },
+    "requires": [
+      "v_grabber"
+    ],
+    "unlock_condition": {
+      "extra": 2500,
+      "type": "c_cards_played"
+    },
+    "unlocked": false
+  },
+  "v_observatory": {
+    "key": "v_observatory",
+    "name": "Observatory",
+    "set": "Voucher",
+    "order": 12,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1.5
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 3
+    },
+    "requires": [
+      "v_telescope"
+    ],
+    "unlock_condition": {
+      "extra": 25,
+      "type": "c_planetarium_used"
+    },
+    "unlocked": false
+  },
+  "v_omen_globe": {
+    "key": "v_omen_globe",
+    "name": "Omen Globe",
+    "set": "Voucher",
+    "order": 10,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 3
+    },
+    "requires": [
+      "v_crystal_ball"
+    ],
+    "unlock_condition": {
+      "extra": 25,
+      "type": "c_tarot_reading_used"
+    },
+    "unlocked": false
+  },
+  "v_overstock_norm": {
+    "key": "v_overstock_norm",
+    "name": "Overstock",
+    "set": "Voucher",
+    "order": 1,
+    "cost": 10,
+    "available": true,
+    "config": [],
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_overstock_plus": {
+    "key": "v_overstock_plus",
+    "name": "Overstock Plus",
+    "set": "Voucher",
+    "order": 2,
+    "cost": 10,
+    "available": true,
+    "config": [],
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "requires": [
+      "v_overstock_norm"
+    ],
+    "unlock_condition": {
+      "extra": 2500,
+      "type": "c_shop_dollars_spent"
+    },
+    "unlocked": false
+  },
+  "v_paint_brush": {
+    "key": "v_paint_brush",
+    "name": "Paint Brush",
+    "set": "Voucher",
+    "order": 31,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 7,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_palette": {
+    "key": "v_palette",
+    "name": "Palette",
+    "set": "Voucher",
+    "order": 32,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 7,
+      "y": 3
+    },
+    "requires": [
+      "v_paint_brush"
+    ],
+    "unlock_condition": {
+      "extra": 5,
+      "type": "min_hand_size"
+    },
+    "unlocked": false
+  },
+  "v_petroglyph": {
+    "key": "v_petroglyph",
+    "name": "Petroglyph",
+    "set": "Voucher",
+    "order": 28,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 5,
+      "y": 3
+    },
+    "requires": [
+      "v_hieroglyph"
+    ],
+    "unlock_condition": {
+      "ante": 12,
+      "extra": 12,
+      "type": "ante_up"
+    },
+    "unlocked": false
+  },
+  "v_planet_merchant": {
+    "key": "v_planet_merchant",
+    "name": "Planet Merchant",
+    "set": "Voucher",
+    "order": 19,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 2.4,
+      "extra_disp": 2
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_planet_tycoon": {
+    "key": "v_planet_tycoon",
+    "name": "Planet Tycoon",
+    "set": "Voucher",
+    "order": 20,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 8,
+      "extra_disp": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 2,
+      "y": 1
+    },
+    "requires": [
+      "v_planet_merchant"
+    ],
+    "unlock_condition": {
+      "extra": 50,
+      "type": "c_planets_bought"
+    },
+    "unlocked": false
+  },
+  "v_recyclomancy": {
+    "key": "v_recyclomancy",
+    "name": "Recyclomancy",
+    "set": "Voucher",
+    "order": 16,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 6,
+      "y": 1
+    },
+    "requires": [
+      "v_wasteful"
+    ],
+    "unlock_condition": {
+      "extra": 2500,
+      "type": "c_cards_discarded"
+    },
+    "unlocked": false
+  },
+  "v_reroll_glut": {
+    "key": "v_reroll_glut",
+    "name": "Reroll Glut",
+    "set": "Voucher",
+    "order": 8,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 3
+    },
+    "requires": [
+      "v_reroll_surplus"
+    ],
+    "unlock_condition": {
+      "extra": 100,
+      "type": "c_shop_rerolls"
+    },
+    "unlocked": false
+  },
+  "v_reroll_surplus": {
+    "key": "v_reroll_surplus",
+    "name": "Reroll Surplus",
+    "set": "Voucher",
+    "order": 7,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 2
+    },
+    "discovered": false,
+    "pos": {
+      "x": 0,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_retcon": {
+    "key": "v_retcon",
+    "name": "Retcon",
+    "set": "Voucher",
+    "order": 30,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 10
+    },
+    "discovered": false,
+    "pos": {
+      "x": 6,
+      "y": 3
+    },
+    "requires": [
+      "v_directors_cut"
+    ],
+    "unlock_condition": {
+      "extra": 25,
+      "type": "blind_discoveries"
+    },
+    "unlocked": false
+  },
+  "v_seed_money": {
+    "key": "v_seed_money",
+    "name": "Seed Money",
+    "set": "Voucher",
+    "order": 21,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 50
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_tarot_merchant": {
+    "key": "v_tarot_merchant",
+    "name": "Tarot Merchant",
+    "set": "Voucher",
+    "order": 17,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 2.4,
+      "extra_disp": 2
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "unlocked": true
+  },
+  "v_tarot_tycoon": {
+    "key": "v_tarot_tycoon",
+    "name": "Tarot Tycoon",
+    "set": "Voucher",
+    "order": 18,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 8,
+      "extra_disp": 4
+    },
+    "discovered": false,
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "requires": [
+      "v_tarot_merchant"
+    ],
+    "unlock_condition": {
+      "extra": 50,
+      "type": "c_tarots_bought"
+    },
+    "unlocked": false
+  },
+  "v_telescope": {
+    "key": "v_telescope",
+    "name": "Telescope",
+    "set": "Voucher",
+    "order": 11,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 3
+    },
+    "discovered": false,
+    "pos": {
+      "x": 3,
+      "y": 2
+    },
+    "unlocked": true
+  },
+  "v_wasteful": {
+    "key": "v_wasteful",
+    "name": "Wasteful",
+    "set": "Voucher",
+    "order": 15,
+    "cost": 10,
+    "available": true,
+    "config": {
+      "extra": 1
+    },
+    "discovered": false,
+    "pos": {
+      "x": 6,
+      "y": 0
+    },
+    "unlocked": true
+  }
+}

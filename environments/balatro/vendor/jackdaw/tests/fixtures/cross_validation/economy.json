@@ -1,0 +1,49 @@
+{
+  "cases": [
+    {
+      "money": 0,
+      "hands_left": 2,
+      "discards_left": 1,
+      "blind_reward": 3,
+      "unused_hands": 2,
+      "interest": 0,
+      "total": 5
+    },
+    {
+      "money": 5,
+      "hands_left": 2,
+      "discards_left": 1,
+      "blind_reward": 3,
+      "unused_hands": 2,
+      "interest": 1,
+      "total": 6
+    },
+    {
+      "money": 10,
+      "hands_left": 2,
+      "discards_left": 1,
+      "blind_reward": 3,
+      "unused_hands": 2,
+      "interest": 2,
+      "total": 7
+    },
+    {
+      "money": 25,
+      "hands_left": 2,
+      "discards_left": 1,
+      "blind_reward": 3,
+      "unused_hands": 2,
+      "interest": 5,
+      "total": 10
+    },
+    {
+      "money": 50,
+      "hands_left": 2,
+      "discards_left": 1,
+      "blind_reward": 3,
+      "unused_hands": 2,
+      "interest": 5,
+      "total": 10
+    }
+  ]
+}

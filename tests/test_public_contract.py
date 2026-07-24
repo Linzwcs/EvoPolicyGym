@@ -53,8 +53,17 @@ from evopolicygym.results import (
     Feedback,
     SubmissionResult,
 )
+from evopolicygym.run import RunEvent
 from evopolicygym.run._feedback import record_submission
 from evopolicygym.run._service import run_process_agent
+
+
+class RecordingRunObserver:
+    def __init__(self) -> None:
+        self.events: list[RunEvent] = []
+
+    def on_event(self, event: RunEvent, /) -> None:
+        self.events.append(event)
 
 
 class ConstantPolicy:
@@ -274,15 +283,26 @@ class PublicContractTests(unittest.TestCase):
         run = RunConfig(
             max_submissions=4,
             episode_budget=20,
-            max_episodes_per_submission=5,
         )
         agent = Codex(model="gpt-5")
 
         self.assertEqual(evaluation.episodes, 2)
         self.assertEqual(run.max_submissions, 4)
+        self.assertEqual(run.episode_budget, 20)
+        self.assertIsNone(run.max_episodes_per_submission)
+        capped = RunConfig(
+            episode_budget=20,
+            max_episodes_per_submission=5,
+        )
+        self.assertEqual(capped.max_episodes_per_submission, 5)
         self.assertEqual(agent.model, "gpt-5")
         with self.assertRaises(ValueError):
-            RunConfig(episode_budget=2, max_episodes_per_submission=3)
+            RunConfig(episode_budget=0)
+        with self.assertRaises(ValueError):
+            RunConfig(
+                episode_budget=2,
+                max_episodes_per_submission=3,
+            )
 
     def test_public_results_compose_without_private_episode_records(self) -> None:
         feedback = Feedback(score=1.0, content={"outcome": "passed"})
@@ -830,6 +850,7 @@ print("fake-agent-finished")
             agent_script = root / "fake_agent.py"
             agent_script.write_text(agent_source, encoding="utf-8")
             run_directory = root / "run-record"
+            observer = RecordingRunObserver()
 
             result = run_process_agent(
                 program,
@@ -841,9 +862,9 @@ print("fake-agent-finished")
                 config=RunConfig(
                     max_submissions=2,
                     episode_budget=2,
-                    max_episodes_per_submission=1,
                     agent_timeout_seconds=10,
                 ),
+                observer=observer,
             )
 
             stdout = (run_directory / "agent" / "stdout.log").read_text()
@@ -908,6 +929,14 @@ print("fake-agent-finished")
             [event["event"] for event in events].count("submission_published"),
             2,
         )
+        self.assertEqual(
+            [event["event"] for event in events].count("episode_completed"),
+            2,
+        )
+        self.assertEqual(
+            [event.name for event in observer.events],
+            [event["event"] for event in events],
+        )
         self.assertEqual(manifest["schema"], "evopolicygym/run-record/v1")
         self.assertEqual(manifest["terminal_reason"], "finished")
         self.assertEqual(manifest["final_submission_id"], "submission-000002")
@@ -964,7 +993,6 @@ subprocess.run(
                 config=RunConfig(
                     max_submissions=2,
                     episode_budget=3,
-                    max_episodes_per_submission=2,
                     agent_timeout_seconds=10,
                 ),
             )
@@ -1127,7 +1155,6 @@ print(json.dumps({{"type": "turn.completed"}}))
                     config=RunConfig(
                         max_submissions=1,
                         episode_budget=1,
-                        max_episodes_per_submission=1,
                         agent_timeout_seconds=10,
                     ),
                 )

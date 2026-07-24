@@ -1,0 +1,159 @@
+{
+  "cases": [
+    {
+      "back": "b_red",
+      "stake": 1,
+      "seed": "TESTSEED",
+      "dollars": 4,
+      "hands": 4,
+      "discards": 4,
+      "hand_size": 8,
+      "joker_slots": 5,
+      "consumable_slots": 2,
+      "ante": 1,
+      "boss": "bl_head",
+      "small_tag": "tag_economy",
+      "big_tag": "tag_investment",
+      "voucher": "v_crystal_ball",
+      "deck_size": 52,
+      "deck_first5": [
+        "D_5",
+        "D_9",
+        "D_2",
+        "H_J",
+        "H_4"
+      ],
+      "deck_last5": [
+        "C_4",
+        "H_8",
+        "C_A",
+        "D_J",
+        "S_8"
+      ]
+    },
+    {
+      "back": "b_black",
+      "stake": 5,
+      "seed": "TESTSEED",
+      "dollars": 4,
+      "hands": 3,
+      "discards": 2,
+      "hand_size": 8,
+      "joker_slots": 6,
+      "consumable_slots": 2,
+      "ante": 1,
+      "boss": "bl_head",
+      "small_tag": "tag_economy",
+      "big_tag": "tag_investment",
+      "voucher": "v_crystal_ball",
+      "deck_size": 52,
+      "deck_first5": [
+        "D_5",
+        "D_9",
+        "D_2",
+        "H_J",
+        "H_4"
+      ],
+      "deck_last5": [
+        "C_4",
+        "H_8",
+        "C_A",
+        "D_J",
+        "S_8"
+      ]
+    },
+    {
+      "back": "b_abandoned",
+      "stake": 1,
+      "seed": "TESTSEED",
+      "dollars": 4,
+      "hands": 4,
+      "discards": 3,
+      "hand_size": 8,
+      "joker_slots": 5,
+      "consumable_slots": 2,
+      "ante": 1,
+      "boss": "bl_head",
+      "small_tag": "tag_economy",
+      "big_tag": "tag_investment",
+      "voucher": "v_crystal_ball",
+      "deck_size": 40,
+      "deck_first5": [
+        "D_8",
+        "S_3",
+        "D_T",
+        "S_7",
+        "C_T"
+      ],
+      "deck_last5": [
+        "C_3",
+        "H_6",
+        "C_8",
+        "D_9",
+        "S_6"
+      ]
+    },
+    {
+      "back": "b_zodiac",
+      "stake": 1,
+      "seed": "TESTSEED",
+      "dollars": 4,
+      "hands": 4,
+      "discards": 3,
+      "hand_size": 8,
+      "joker_slots": 5,
+      "consumable_slots": 2,
+      "ante": 1,
+      "boss": "bl_head",
+      "small_tag": "tag_economy",
+      "big_tag": "tag_investment",
+      "voucher": "v_crystal_ball",
+      "deck_size": 52,
+      "deck_first5": [
+        "D_5",
+        "D_9",
+        "D_2",
+        "H_J",
+        "H_4"
+      ],
+      "deck_last5": [
+        "C_4",
+        "H_8",
+        "C_A",
+        "D_J",
+        "S_8"
+      ]
+    },
+    {
+      "back": "b_plasma",
+      "stake": 6,
+      "seed": "TESTSEED",
+      "dollars": 4,
+      "hands": 4,
+      "discards": 2,
+      "hand_size": 8,
+      "joker_slots": 5,
+      "consumable_slots": 2,
+      "ante": 1,
+      "boss": "bl_head",
+      "small_tag": "tag_economy",
+      "big_tag": "tag_investment",
+      "voucher": "v_crystal_ball",
+      "deck_size": 52,
+      "deck_first5": [
+        "D_5",
+        "D_9",
+        "D_2",
+        "H_J",
+        "H_4"
+      ],
+      "deck_last5": [
+        "C_4",
+        "H_8",
+        "C_A",
+        "D_J",
+        "S_8"
+      ]
+    }
+  ]
+}

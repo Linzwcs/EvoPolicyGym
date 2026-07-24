@@ -63,8 +63,9 @@ next Program or finish(selected submission)
 ```
 
 A `RunConfig` fixes the split, maximum submissions, total Episode budget,
-maximum Episodes per Submission, seeds, and timeouts. The Agent cannot extend
-this authority.
+optional per-Submission Episode cap, seeds, and timeouts. The optional cap
+defaults to `None`, so the Agent normally chooses its own allocation without
+extending the total authority.
 
 ## Trust boundary
 

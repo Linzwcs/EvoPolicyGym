@@ -76,7 +76,6 @@ result = run(
         split="train",
         max_submissions=20,
         episode_budget=1_000,
-        max_episodes_per_submission=100,
         seed=42,
     ),
 )
@@ -85,6 +84,9 @@ result = run(
 The Host owns the Agent task, workspace rules, budget, submit and finish
 commands, process supervision, and publication. A provider translates the
 Host task into a validated invocation; it does not redefine Run semantics.
+The Agent chooses how many of the remaining Episode units to spend on each
+submission by default. Set `max_episodes_per_submission` to a positive integer
+only when the Host needs an additional cap; its default is `None`.
 
 ## Submission accounting
 

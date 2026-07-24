@@ -1,0 +1,157 @@
+{
+  "cases": [
+    {
+      "seed": "TARGET0",
+      "ante": 1,
+      "idol": {
+        "suit": "Clubs",
+        "rank": "4"
+      },
+      "mail": {
+        "rank": "6"
+      },
+      "ancient": {
+        "suit": "Hearts"
+      },
+      "castle": {
+        "suit": "Diamonds"
+      }
+    },
+    {
+      "seed": "TARGET0",
+      "ante": 2,
+      "idol": {
+        "suit": "Clubs",
+        "rank": "4"
+      },
+      "mail": {
+        "rank": "6"
+      },
+      "ancient": {
+        "suit": "Hearts"
+      },
+      "castle": {
+        "suit": "Diamonds"
+      }
+    },
+    {
+      "seed": "TARGET0",
+      "ante": 3,
+      "idol": {
+        "suit": "Clubs",
+        "rank": "4"
+      },
+      "mail": {
+        "rank": "6"
+      },
+      "ancient": {
+        "suit": "Hearts"
+      },
+      "castle": {
+        "suit": "Diamonds"
+      }
+    },
+    {
+      "seed": "TARGET1",
+      "ante": 1,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "6"
+      },
+      "mail": {
+        "rank": "2"
+      },
+      "ancient": {
+        "suit": "Clubs"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    },
+    {
+      "seed": "TARGET1",
+      "ante": 2,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "6"
+      },
+      "mail": {
+        "rank": "2"
+      },
+      "ancient": {
+        "suit": "Clubs"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    },
+    {
+      "seed": "TARGET1",
+      "ante": 3,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "6"
+      },
+      "mail": {
+        "rank": "2"
+      },
+      "ancient": {
+        "suit": "Clubs"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    },
+    {
+      "seed": "TARGET2",
+      "ante": 1,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "10"
+      },
+      "mail": {
+        "rank": "King"
+      },
+      "ancient": {
+        "suit": "Diamonds"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    },
+    {
+      "seed": "TARGET2",
+      "ante": 2,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "10"
+      },
+      "mail": {
+        "rank": "King"
+      },
+      "ancient": {
+        "suit": "Diamonds"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    },
+    {
+      "seed": "TARGET2",
+      "ante": 3,
+      "idol": {
+        "suit": "Hearts",
+        "rank": "10"
+      },
+      "mail": {
+        "rank": "King"
+      },
+      "ancient": {
+        "suit": "Diamonds"
+      },
+      "castle": {
+        "suit": "Spades"
+      }
+    }
+  ]
+}

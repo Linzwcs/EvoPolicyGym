@@ -12,6 +12,7 @@ from ..benchmark import Benchmark
 from ..execution import ProcessExecution
 from ..program import Program
 from ..results import RunResult
+from .progress import ConsoleProgress, RunEvent, RunObserver
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -21,7 +22,7 @@ class RunConfig:
     split: str = "train"
     max_submissions: int = 20
     episode_budget: int = 1_000
-    max_episodes_per_submission: int = 100
+    max_episodes_per_submission: int | None = None
     seed: int = 0
     episode_timeout_seconds: float = 30.0
     agent_timeout_seconds: float = 3_600.0
@@ -32,15 +33,20 @@ class RunConfig:
         for name in (
             "max_submissions",
             "episode_budget",
-            "max_episodes_per_submission",
         ):
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
-        if self.max_episodes_per_submission > self.episode_budget:
-            raise ValueError(
-                "max_episodes_per_submission cannot exceed episode_budget"
-            )
+        submission_limit = self.max_episodes_per_submission
+        if submission_limit is not None:
+            if type(submission_limit) is not int or submission_limit <= 0:
+                raise ValueError(
+                    "max_episodes_per_submission must be a positive integer or None"
+                )
+            if submission_limit > self.episode_budget:
+                raise ValueError(
+                    "max_episodes_per_submission cannot exceed episode_budget"
+                )
         if type(self.seed) is not int or not 0 <= self.seed <= 2**64 - 1:
             raise ValueError("seed must be an unsigned 64-bit integer")
         for name in ("episode_timeout_seconds", "agent_timeout_seconds"):
@@ -63,6 +69,7 @@ def run(
     execution: ProcessExecution,
     record_to: str | os.PathLike[str],
     config: RunConfig | None = None,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     """Let one Coding Agent improve a Program through a bounded local Session.
 
@@ -81,6 +88,8 @@ def run(
     selected_config = RunConfig() if config is None else config
     if type(selected_config) is not RunConfig:
         raise TypeError("config must be RunConfig or None")
+    if observer is not None and not isinstance(observer, RunObserver):
+        raise TypeError("observer must implement RunObserver or be None")
     try:
         run_directory = Path(os.fspath(record_to))
     except TypeError:
@@ -94,7 +103,15 @@ def run(
         agent=agent,
         run_directory=run_directory,
         config=selected_config,
+        observer=observer,
     )
 
 
-__all__ = ["RunConfig", "RunResult", "run"]
+__all__ = [
+    "ConsoleProgress",
+    "RunConfig",
+    "RunEvent",
+    "RunObserver",
+    "RunResult",
+    "run",
+]

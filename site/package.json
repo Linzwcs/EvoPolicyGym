@@ -13,6 +13,6 @@
     "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview"
   },
   "devDependencies": {
-    "astro": "7.1.0"
+    "astro": "7.1.3"
   }
 }

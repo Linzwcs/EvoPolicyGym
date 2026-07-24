@@ -39,6 +39,7 @@ packages = ["src/evopolicygym"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/ARCHITECTURE.md",
+    "/CITATION.cff",
     "/CHANGELOG.md",
     "/CONTRIBUTING.md",
     "/LICENSE",

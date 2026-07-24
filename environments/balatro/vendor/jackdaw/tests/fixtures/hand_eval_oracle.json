@@ -1,0 +1,281 @@
+{
+  "lua_version": "Lua 5.1 (LuaJIT)",
+  "tests": [
+    {
+      "card_count": 5,
+      "detected": "High Card",
+      "name": "high_card",
+      "populated": [
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Ace of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Pair",
+      "name": "pair",
+      "populated": [
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "5 of Hearts",
+        "5 of Spades"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Two Pair",
+      "name": "two_pair",
+      "populated": [
+        "Two Pair",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Jack of Clubs",
+        "Jack of Diamonds",
+        "5 of Hearts",
+        "5 of Spades"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Three of a Kind",
+      "name": "three_of_a_kind",
+      "populated": [
+        "Three of a Kind",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "King of Hearts",
+        "King of Spades",
+        "King of Clubs"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Straight",
+      "name": "straight",
+      "populated": [
+        "Straight",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "4 of Hearts",
+        "5 of Spades",
+        "6 of Clubs",
+        "7 of Diamonds",
+        "8 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Straight",
+      "name": "ace_low_straight",
+      "populated": [
+        "Straight",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Ace of Hearts",
+        "2 of Spades",
+        "3 of Clubs",
+        "4 of Diamonds",
+        "5 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Flush",
+      "name": "flush",
+      "populated": [
+        "Flush",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "2 of Hearts",
+        "5 of Hearts",
+        "8 of Hearts",
+        "Jack of Hearts",
+        "Ace of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Full House",
+      "name": "full_house",
+      "populated": [
+        "Full House",
+        "Three of a Kind",
+        "Two Pair",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "King of Hearts",
+        "King of Spades",
+        "King of Clubs",
+        "5 of Diamonds",
+        "5 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Four of a Kind",
+      "name": "four_of_a_kind",
+      "populated": [
+        "Four of a Kind",
+        "Three of a Kind",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "7 of Hearts",
+        "7 of Spades",
+        "7 of Clubs",
+        "7 of Diamonds"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Straight Flush",
+      "name": "straight_flush",
+      "populated": [
+        "Straight Flush",
+        "Flush",
+        "Straight",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "4 of Hearts",
+        "5 of Hearts",
+        "6 of Hearts",
+        "7 of Hearts",
+        "8 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Five of a Kind",
+      "name": "five_of_a_kind",
+      "populated": [
+        "Five of a Kind",
+        "Four of a Kind",
+        "Three of a Kind",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Ace of Hearts",
+        "Ace of Spades",
+        "Ace of Clubs",
+        "Ace of Diamonds",
+        "Ace of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Flush Five",
+      "name": "flush_five",
+      "populated": [
+        "Flush Five",
+        "Five of a Kind",
+        "Four of a Kind",
+        "Flush",
+        "Three of a Kind",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Ace of Hearts",
+        "Ace of Hearts",
+        "Ace of Hearts",
+        "Ace of Hearts",
+        "Ace of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Flush House",
+      "name": "flush_house",
+      "populated": [
+        "Flush House",
+        "Full House",
+        "Flush",
+        "Three of a Kind",
+        "Two Pair",
+        "Pair",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "King of Hearts",
+        "King of Hearts",
+        "King of Hearts",
+        "5 of Hearts",
+        "5 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Flush",
+      "name": "four_fingers_flush",
+      "populated": [
+        "Flush",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "3 of Clubs",
+        "7 of Clubs",
+        "10 of Clubs",
+        "King of Clubs"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Straight",
+      "name": "shortcut_straight",
+      "populated": [
+        "Straight",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "3 of Hearts",
+        "5 of Spades",
+        "6 of Clubs",
+        "7 of Diamonds",
+        "8 of Hearts"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "High Card",
+      "name": "no_wrap",
+      "populated": [
+        "High Card"
+      ],
+      "scoring_cards": [
+        "Ace of Clubs"
+      ]
+    },
+    {
+      "card_count": 5,
+      "detected": "Flush",
+      "name": "wild_in_flush",
+      "populated": [
+        "Flush",
+        "High Card"
+      ],
+      "scoring_cards": [
+        "2 of Spades",
+        "5 of Spades",
+        "8 of Spades",
+        "Jack of Spades",
+        "Ace of Hearts"
+      ]
+    }
+  ]
+}

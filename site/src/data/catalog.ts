@@ -75,10 +75,10 @@ export const catalogEnvironments: CatalogEnvironment[] = [
       "A long-horizon deckbuilding environment where an Agent must author strategy across hands, shops, Jokers, and antes.",
     descriptionZh:
       "一个长时程牌组构筑环境，Agent 需要为出牌、商店、Joker 与 Ante 编写完整策略。",
-    status: "incubating",
-    statusEn: "In development",
-    statusZh: "开发中",
-    tone: "planned",
+    status: "active",
+    statusEn: "Implemented",
+    statusZh: "已实现",
+    tone: "active",
     visual: "balatro",
     facts: [
       {
@@ -96,13 +96,13 @@ export const catalogEnvironments: CatalogEnvironment[] = [
       {
         labelEn: "Runtime",
         labelZh: "运行要求",
-        valueEn: "Licensed game + bridge",
-        valueZh: "正版游戏 + Bridge",
+        valueEn: "Pinned Jackdaw engine",
+        valueZh: "锁定版本的 Jackdaw 引擎",
       },
     ],
-    actionEn: "See integration plan",
-    actionZh: "查看接入计划",
-    actionPath: "environments/#balatro",
+    actionEn: "Open game replay",
+    actionZh: "打开游戏回放",
+    actionPath: "environments/balatro/replay/",
   },
   {
     id: "core16",

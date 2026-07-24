@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "hand_type": "High Card",
+      "level": 1,
+      "chips": 5,
+      "mult": 1
+    },
+    {
+      "hand_type": "High Card",
+      "level": 4,
+      "chips": 35,
+      "mult": 4
+    },
+    {
+      "hand_type": "Pair",
+      "level": 1,
+      "chips": 10,
+      "mult": 2
+    },
+    {
+      "hand_type": "Pair",
+      "level": 4,
+      "chips": 55,
+      "mult": 5
+    },
+    {
+      "hand_type": "Flush",
+      "level": 1,
+      "chips": 35,
+      "mult": 4
+    },
+    {
+      "hand_type": "Flush",
+      "level": 4,
+      "chips": 80,
+      "mult": 10
+    }
+  ]
+}

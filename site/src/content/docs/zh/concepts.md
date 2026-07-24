@@ -60,8 +60,9 @@ Coding Agent reads workspace/feedback/
 next Program or finish(selected submission)
 ```
 
-`RunConfig` 固定 split、最大 submissions、总 Episode 预算、每次 Submission 的
-最大 Episodes、seeds 与 timeouts。Agent 不能扩展这些权限。
+`RunConfig` 固定 split、最大 submissions、总 Episode 预算、可选的单次
+Submission Episode 上限、seeds 与 timeouts。该上限默认为 `None`，因此 Agent
+通常自行分配预算，但不能扩展总权限。
 
 ## 信任边界
 

@@ -81,9 +81,11 @@ uv run --project environments/cartpole \
   --record-to runs/cartpole-001 \
   --max-submissions 3 \
   --episode-budget 30 \
-  --max-episodes-per-submission 10 \
   --allow-unsafe-process
 ```
+
+The Agent decides each Submission's Episode count by default. Add
+`--max-episodes-per-submission N` only when you want an extra cap.
 
 The Agent edits only `runs/cartpole-001/workspace/program/`. Committed public
 Feedback is materialized under the adjacent `workspace/feedback/` directory.

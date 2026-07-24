@@ -13,6 +13,21 @@ from ._json import encode_public_json_value
 def build_agent_task(spec: BenchmarkSpec, config: RunConfig) -> AgentTask:
     """Build the provider-independent instructions for one development Run."""
 
+    submission_limit = config.max_episodes_per_submission
+    if submission_limit is None:
+        episode_guidance = (
+            "Choose any positive N no greater than the remaining Episode budget. "
+            "You decide how to allocate it. The whole Run has "
+            f"{config.episode_budget} Episode units and at most "
+            f"{config.max_submissions} submissions."
+        )
+    else:
+        episode_guidance = (
+            f"Choose a positive N no greater than {submission_limit} and no greater "
+            "than the remaining Episode budget. You decide how to allocate it. "
+            f"The whole Run has {config.episode_budget} Episode units and at most "
+            f"{config.max_submissions} submissions."
+        )
     public_spec = {
         "id": spec.id,
         "description": spec.description,
@@ -51,13 +66,12 @@ Do not modify feedback/. Evaluate the current Program with:
 
     evopolicygym submit program --episodes N
 
-Choose a positive N no greater than {config.max_episodes_per_submission}. The
-whole Run has {config.episode_budget} Episode units and at most
-{config.max_submissions} submissions. Read feedback/latest.json and the
-referenced Feedback and Artifact files after every successful submission.
-The Feedback document's content field and all Artifact contents are defined by
-the Benchmark. Inspect their structure, names, media types, and contents to
-understand the available development evidence.
+{episode_guidance} Small submissions support fast iteration; larger submissions
+provide more evidence. Read feedback/latest.json and the referenced Feedback
+and Artifact files after every successful submission. The Feedback document's
+content field and all Artifact contents are defined by the Benchmark. Inspect
+their structure, names, media types, and contents to understand the available
+development evidence.
 
 Iterate by inspecting the Program, editing it, submitting it, and using the
 published Feedback. When you have selected the best published submission, end

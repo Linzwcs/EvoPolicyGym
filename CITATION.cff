@@ -1,0 +1,85 @@
+cff-version: 1.2.0
+message: "If you use EvoPolicyGym in your research, please cite the paper below; its companion implementation is release v0.1.0."
+title: "EvoPolicyGym"
+type: software
+version: 0.3.0
+license: MIT
+repository-code: "https://github.com/Linzwcs/EvoPolicyGym"
+url: "https://linzwcs.github.io/EvoPolicyGym/"
+identifiers:
+  - type: url
+    value: "https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0"
+    description: "Paper companion implementation and experiment release"
+authors:
+  - family-names: Wang
+    given-names: Zhilin
+  - family-names: Song
+    given-names: Han
+  - family-names: Zhan
+    given-names: Runzhe
+  - family-names: Du
+    given-names: Jusen
+  - family-names: Chen
+    given-names: Jiacheng
+  - family-names: Li
+    given-names: Tianle
+  - family-names: Yin
+    given-names: Qingyu
+  - family-names: Wu
+    given-names: Yulun
+  - family-names: Shen
+    given-names: Zhennan
+  - family-names: Zhu
+    given-names: Tong
+  - family-names: Li
+    given-names: Yanshu
+  - family-names: Chen
+    given-names: Guanjie
+  - family-names: Wong
+    given-names: Derek F.
+  - family-names: Li
+    given-names: Yafu
+  - family-names: Cheng
+    given-names: Yu
+  - family-names: Yang
+    given-names: Yang
+preferred-citation:
+  type: article
+  title: "EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments"
+  authors:
+    - family-names: Wang
+      given-names: Zhilin
+    - family-names: Song
+      given-names: Han
+    - family-names: Zhan
+      given-names: Runzhe
+    - family-names: Du
+      given-names: Jusen
+    - family-names: Chen
+      given-names: Jiacheng
+    - family-names: Li
+      given-names: Tianle
+    - family-names: Yin
+      given-names: Qingyu
+    - family-names: Wu
+      given-names: Yulun
+    - family-names: Shen
+      given-names: Zhennan
+    - family-names: Zhu
+      given-names: Tong
+    - family-names: Li
+      given-names: Yanshu
+    - family-names: Chen
+      given-names: Guanjie
+    - family-names: Wong
+      given-names: Derek F.
+    - family-names: Li
+      given-names: Yafu
+    - family-names: Cheng
+      given-names: Yu
+    - family-names: Yang
+      given-names: Yang
+  journal: "arXiv preprint arXiv:2607.02440"
+  year: 2026
+  doi: "10.48550/arXiv.2607.02440"
+  url: "https://arxiv.org/abs/2607.02440"

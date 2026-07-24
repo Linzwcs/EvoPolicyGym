@@ -11,6 +11,7 @@ does not depend on them, and sibling Environments must not import one another.
 Current Environments:
 
 - `cartpole/`: the Gymnasium CartPole-v1 conformance Benchmark.
+- `balatro/`: an unofficial white-stake Red Deck Benchmark powered by the
+  pinned Jackdaw headless engine.
 
-Add future distributions, including the planned original poker-Roguelite
-Benchmark, as new independently packaged child directories.
+Add future distributions as new independently packaged child directories.

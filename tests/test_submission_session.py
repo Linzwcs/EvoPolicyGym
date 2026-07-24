@@ -154,6 +154,46 @@ def make_program(root: Path) -> Program:
 
 
 class SubmissionSessionTests(unittest.TestCase):
+    def test_agent_can_allocate_the_entire_budget_to_one_submission(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            evaluator = FakeEvaluator()
+            session = self._session(
+                FakeProgramSource(program),
+                evaluator,
+                FakePublisher(),
+                episode_budget=7,
+            )
+
+            submitted = session.submit(7)
+
+        self.assertIsInstance(submitted, SubmissionReceipt)
+        assert isinstance(submitted, SubmissionReceipt)
+        self.assertEqual(submitted.episodes_used, 7)
+        self.assertEqual(submitted.episodes_remaining, 0)
+        self.assertEqual(evaluator.configs[0].episodes, 7)
+
+    def test_optional_submission_cap_rejects_only_oversized_requests(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(),
+                FakePublisher(),
+                episode_budget=7,
+                max_episodes_per_submission=3,
+            )
+
+            rejected = session.submit(4)
+            accepted = session.submit(3)
+
+        self.assertIsInstance(rejected, SessionError)
+        assert isinstance(rejected, SessionError)
+        self.assertEqual(rejected.code, "episode_limit")
+        self.assertIsInstance(accepted, SubmissionReceipt)
+        assert isinstance(accepted, SubmissionReceipt)
+        self.assertEqual(accepted.episodes_remaining, 4)
+
     def test_invalid_program_does_not_consume_episode_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             program = make_program(Path(temporary))
@@ -287,6 +327,7 @@ class SubmissionSessionTests(unittest.TestCase):
         *,
         recorder: FakeRecorder | None = None,
         episode_budget: int = 5,
+        max_episodes_per_submission: int | None = None,
     ) -> SubmissionSession:
         return SubmissionSession(
             programs=source,
@@ -295,7 +336,7 @@ class SubmissionSessionTests(unittest.TestCase):
             benchmark=StubBenchmark(),
             config=RunConfig(
                 episode_budget=episode_budget,
-                max_episodes_per_submission=episode_budget,
+                max_episodes_per_submission=max_episodes_per_submission,
             ),
             recorder=FakeRecorder() if recorder is None else recorder,
         )

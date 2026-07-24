@@ -79,9 +79,11 @@ uv run --project environments/cartpole \
   --record-to runs/cartpole-001 \
   --max-submissions 3 \
   --episode-budget 30 \
-  --max-episodes-per-submission 10 \
   --allow-unsafe-process
 ```
+
+默认由 Agent 决定每次 Submission 的 Episode 数量。只有需要额外限制时才添加
+`--max-episodes-per-submission N`。
 
 Agent 只能编辑 `runs/cartpole-001/workspace/program/`。已经提交的公开
 Feedback 会写入相邻的 `workspace/feedback/`。Host 侧 Programs、artifacts、

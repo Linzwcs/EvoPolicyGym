@@ -92,7 +92,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-submissions", type=int, default=2)
     parser.add_argument("--episode-budget", type=int, default=6)
-    parser.add_argument("--max-episodes-per-submission", type=int, default=3)
+    parser.add_argument("--max-episodes-per-submission", type=int)
     parser.add_argument("--episode-timeout-seconds", type=float, default=20)
     parser.add_argument("--agent-timeout-seconds", type=float, default=600)
     parser.add_argument(

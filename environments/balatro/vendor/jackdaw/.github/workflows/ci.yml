@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv sync --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv python install ${{ matrix.python-version }}
+      - run: uv sync --dev --python ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: uv run pytest --cov=jackdaw --cov-report=term-missing
+
+      - name: Coverage summary
+        if: always()
+        run: uv run pytest --cov=jackdaw --cov-report=markdown >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true

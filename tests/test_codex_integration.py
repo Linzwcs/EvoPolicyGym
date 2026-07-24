@@ -40,7 +40,6 @@ class CodexIntegrationTests(unittest.TestCase):
                 ),
                 RunConfig(
                     episode_budget=7,
-                    max_episodes_per_submission=3,
                 ),
             )
             invocation = Codex(
@@ -67,9 +66,10 @@ class CodexIntegrationTests(unittest.TestCase):
         assert invocation.instructions is not None
         self.assertIn("whole Run has 7 Episode units", invocation.instructions)
         self.assertIn(
-            "positive N no greater than 3",
+            "You decide",
             invocation.instructions,
         )
+        self.assertIn("remaining Episode budget", invocation.instructions)
         self.assertIn(
             "content field and all Artifact contents are defined by",
             invocation.instructions,

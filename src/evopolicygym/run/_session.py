@@ -153,7 +153,8 @@ class SubmissionSession:
             return _error("invalid_request", "episodes must be a positive integer")
         if len(self._submissions) >= self._config.max_submissions:
             return _error("submission_limit", "the submission limit is exhausted")
-        if episodes > self._config.max_episodes_per_submission:
+        submission_limit = self._config.max_episodes_per_submission
+        if submission_limit is not None and episodes > submission_limit:
             return _error(
                 "episode_limit",
                 "episodes exceeds max_episodes_per_submission",

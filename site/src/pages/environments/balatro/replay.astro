@@ -1,0 +1,218 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import Copy from "../../../components/Copy.astro";
+import StatusPill from "../../../components/StatusPill.astro";
+import { withBase } from "../../../lib/paths";
+import "../../../styles/balatro-replay.css";
+
+const replaySource = withBase("data/balatro-baseline-replay.jsonl");
+---
+
+<BaseLayout
+  title="Balatro replay — EvoPolicyGym"
+  description="Replay a complete EvoPolicyGym Balatro evaluation from its bounded semantic JSONL artifact."
+  bodyClass="balatro-replay-page"
+>
+  <header class="replay-intro page-wide">
+    <div class="replay-intro-index">ENV / 002 · REPLAY</div>
+    <div>
+      <a class="replay-backlink" href={withBase("environments/")}>
+        ← <Copy en="Environment collection" zh="环境目录" />
+      </a>
+      <Copy en="Balatro game replay" zh="Balatro 游戏回放" as="h1" />
+      <Copy
+        class="replay-lead"
+        en="A step-by-step rendering of the semantic replay emitted by the benchmark. The viewer runs entirely in this page; no game process or server is involved."
+        zh="逐步呈现 Benchmark 输出的语义回放。Viewer 完全在当前页面运行，不启动游戏进程，也不连接后端服务。"
+        as="p"
+      />
+      <div class="replay-intro-meta">
+        <StatusPill en="Baseline replay" zh="Baseline 回放" tone="active" />
+        <span><Copy en="Red Deck · White Stake · deterministic demo episode" zh="红色牌组 · 白注 · 确定性演示 Episode" /></span>
+      </div>
+    </div>
+  </header>
+
+  <section
+    class="replay-viewer page-wide"
+    data-replay-viewer
+    data-source={replaySource}
+    aria-label="Balatro replay viewer"
+  >
+    <div class="replay-toolbar">
+      <div class="replay-transport" role="group" aria-label="Replay controls">
+        <button type="button" class="replay-icon-button" data-replay-prev aria-label="Previous step">←</button>
+        <button type="button" class="replay-play-button" data-replay-play>
+          <span data-play-symbol>▶</span>
+          <span data-play-label data-en="Play" data-zh="播放">Play</span>
+        </button>
+        <button type="button" class="replay-icon-button" data-replay-next aria-label="Next step">→</button>
+      </div>
+
+      <div class="replay-position">
+        <span data-replay-step>00 / 00</span>
+        <input
+          type="range"
+          min="0"
+          max="0"
+          value="0"
+          step="1"
+          data-replay-range
+          aria-label="Replay position"
+        />
+      </div>
+
+      <div class="replay-source-controls">
+        <label>
+          <span class="sr-only"><Copy en="Playback speed" zh="播放速度" /></span>
+          <select data-replay-speed aria-label="Playback speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <button type="button" class="replay-file-button" data-replay-open>
+          <Copy en="Open replay.jsonl" zh="打开 replay.jsonl" />
+        </button>
+        <input type="file" accept=".jsonl,.ndjson,application/x-ndjson" data-replay-file hidden />
+      </div>
+    </div>
+
+    <div class="replay-game" data-replay-drop>
+      <div class="replay-scoreboard">
+        <div>
+          <span><Copy en="Progress" zh="进度" /></span>
+          <strong data-replay-progress>Ante — / 8</strong>
+          <small data-replay-rounds>0 blinds cleared</small>
+        </div>
+        <div>
+          <span><Copy en="Blind score" zh="盲注分数" /></span>
+          <strong><b data-replay-chips>0</b> <i>/</i> <b data-replay-target>0</b></strong>
+          <small data-replay-chip-delta>Current round</small>
+        </div>
+        <div>
+          <span><Copy en="Economy" zh="经济" /></span>
+          <strong>$<b data-replay-money>0</b></strong>
+          <small data-replay-money-delta>No change</small>
+        </div>
+        <div>
+          <span><Copy en="Resources" zh="资源" /></span>
+          <strong><b data-replay-hands>0</b> H · <b data-replay-discards>0</b> D</strong>
+          <small><Copy en="Hands / discards left" zh="剩余出牌 / 弃牌" /></small>
+        </div>
+      </div>
+
+      <div class="replay-table">
+        <aside class="replay-blind-panel">
+          <span class="replay-panel-label"><Copy en="Current blind" zh="当前盲注" /></span>
+          <div class="blind-token" data-replay-blind-token>
+            <small data-replay-blind-kind>SMALL BLIND</small>
+            <strong data-replay-blind-name>Small Blind</strong>
+            <span><Copy en="Score at least" zh="至少得分" /></span>
+            <b data-replay-blind-target>300</b>
+            <span data-replay-blind-dollar-reward>Dollar reward $3</span>
+          </div>
+          <div class="replay-last-hand">
+            <span><Copy en="Last hand" zh="上一手牌" /></span>
+            <strong data-replay-hand-name>—</strong>
+            <code><b data-replay-hand-chips>0</b> × <b data-replay-hand-mult>0</b></code>
+          </div>
+        </aside>
+
+        <div class="replay-board">
+          <section class="replay-card-zone replay-joker-zone">
+            <div class="replay-zone-heading">
+              <span><Copy en="Jokers" zh="Jokers" /></span>
+              <small data-replay-joker-count>0 / 5</small>
+            </div>
+            <div class="replay-card-row" data-replay-jokers></div>
+          </section>
+
+          <section class="replay-action-readout" aria-live="polite">
+            <span data-replay-phase>Loading replay…</span>
+            <strong data-replay-action>Initial state</strong>
+            <small data-replay-action-detail>—</small>
+          </section>
+
+          <section class="replay-card-zone replay-hand-zone">
+            <div class="replay-zone-heading">
+              <span><Copy en="Hand" zh="手牌" /></span>
+              <small data-replay-hand-count>0 cards</small>
+            </div>
+            <div class="replay-card-row replay-playing-cards" data-replay-hand></div>
+          </section>
+        </div>
+
+        <aside class="replay-context-panel">
+          <section>
+            <div class="replay-zone-heading">
+              <span><Copy en="Consumables" zh="消耗牌" /></span>
+              <small data-replay-consumable-count>0 / 2</small>
+            </div>
+            <div class="replay-mini-cards" data-replay-consumables></div>
+          </section>
+          <section data-replay-market-section>
+            <div class="replay-zone-heading">
+              <span data-replay-market-label>Shop</span>
+              <small data-replay-market-count>0 items</small>
+            </div>
+            <div class="replay-market-list" data-replay-market></div>
+          </section>
+        </aside>
+      </div>
+
+      <div class="replay-drop-message" data-replay-drop-message>
+        <strong><Copy en="Drop replay.jsonl to load" zh="拖入 replay.jsonl 以载入" /></strong>
+        <span><Copy en="The file stays in this browser." zh="文件只在当前浏览器中读取。" /></span>
+      </div>
+    </div>
+
+    <div class="replay-timeline">
+      <div class="replay-timeline-head">
+        <div>
+          <span data-replay-source-name>Baseline replay</span>
+          <small data-replay-status>Loading…</small>
+        </div>
+        <button type="button" data-replay-reset>
+          <Copy en="Restore bundled replay" zh="恢复内置回放" />
+        </button>
+      </div>
+      <div class="replay-event-track" data-replay-events aria-label="Replay steps"></div>
+    </div>
+  </section>
+
+  <section class="replay-notes page-width">
+    <div>
+      <span>01</span>
+      <Copy en="Replay, not simulation" zh="回放，而非模拟" as="h2" />
+      <Copy
+        en="Every frame comes from the bounded replay artifact produced after evaluation. Moving through the timeline never executes an Action."
+        zh="每一帧均来自评估完成后产生的有界回放文件。拖动时间轴不会执行任何 Action。"
+        as="p"
+      />
+    </div>
+    <div>
+      <span>02</span>
+      <Copy en="Safe to share" zh="适合分享" as="h2" />
+      <Copy
+        en="The artifact contains semantic public state and Agent actions, but no environment seed, policy seed, host path, or execution evidence."
+        zh="文件包含公开的语义状态与 Agent Action，但不包含环境 seed、Policy seed、Host 路径或执行证据。"
+        as="p"
+      />
+    </div>
+    <div>
+      <span>03</span>
+      <Copy en="Asset-independent" zh="不依赖游戏素材" as="h2" />
+      <Copy
+        en="Cards are rendered from rank, suit, and entity metadata. No official Balatro artwork, music, font, or sprite is included."
+        zh="卡牌依据点数、花色与实体元数据绘制，不包含 Balatro 官方美术、音乐、字体或 sprite。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <script>
+    import "../../../scripts/balatro-replay";
+  </script>
+</BaseLayout>

@@ -7,9 +7,9 @@ and result filtering.
 The visual shell lives in `src/layouts/`, `src/components/`, and
 `src/styles/global.css`. Core guides are schema-validated bilingual Markdown
 entries under `src/content/docs/{en,zh}/`; `src/pages/docs/[slug].astro` renders
-them through the shared documentation theme. Keep data-heavy galleries and
-interactive catalog pages as Astro components rather than forcing them into
-Markdown.
+them through the shared documentation theme. The Balatro page renders bounded
+`replay.jsonl` artifacts entirely in the browser. Keep data-heavy galleries and
+replay pages as Astro components rather than forcing them into Markdown.
 
 ```bash
 npm install

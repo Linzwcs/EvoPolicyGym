@@ -4,6 +4,8 @@
 
 - Added persisted Episode progress events, the public `RunObserver` contract,
   and a standard-library `ConsoleProgress` reporter.
+- Made the per-Submission Episode cap optional; it now defaults to `None` so
+  the Coding Agent can allocate the finite Run budget itself.
 
 ## 0.3.0
 

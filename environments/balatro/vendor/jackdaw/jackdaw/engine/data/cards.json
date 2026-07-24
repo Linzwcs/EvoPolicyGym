@@ -1,0 +1,522 @@
+{
+  "C_2": {
+    "key": "C_2",
+    "name": "2 of Clubs",
+    "pos": {
+      "x": 0,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "2"
+  },
+  "C_3": {
+    "key": "C_3",
+    "name": "3 of Clubs",
+    "pos": {
+      "x": 1,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "3"
+  },
+  "C_4": {
+    "key": "C_4",
+    "name": "4 of Clubs",
+    "pos": {
+      "x": 2,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "4"
+  },
+  "C_5": {
+    "key": "C_5",
+    "name": "5 of Clubs",
+    "pos": {
+      "x": 3,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "5"
+  },
+  "C_6": {
+    "key": "C_6",
+    "name": "6 of Clubs",
+    "pos": {
+      "x": 4,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "6"
+  },
+  "C_7": {
+    "key": "C_7",
+    "name": "7 of Clubs",
+    "pos": {
+      "x": 5,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "7"
+  },
+  "C_8": {
+    "key": "C_8",
+    "name": "8 of Clubs",
+    "pos": {
+      "x": 6,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "8"
+  },
+  "C_9": {
+    "key": "C_9",
+    "name": "9 of Clubs",
+    "pos": {
+      "x": 7,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "9"
+  },
+  "C_A": {
+    "key": "C_A",
+    "name": "Ace of Clubs",
+    "pos": {
+      "x": 12,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "Ace"
+  },
+  "C_J": {
+    "key": "C_J",
+    "name": "Jack of Clubs",
+    "pos": {
+      "x": 9,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "Jack"
+  },
+  "C_K": {
+    "key": "C_K",
+    "name": "King of Clubs",
+    "pos": {
+      "x": 11,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "King"
+  },
+  "C_Q": {
+    "key": "C_Q",
+    "name": "Queen of Clubs",
+    "pos": {
+      "x": 10,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "Queen"
+  },
+  "C_T": {
+    "key": "C_T",
+    "name": "10 of Clubs",
+    "pos": {
+      "x": 8,
+      "y": 1
+    },
+    "suit": "Clubs",
+    "value": "10"
+  },
+  "D_2": {
+    "key": "D_2",
+    "name": "2 of Diamonds",
+    "pos": {
+      "x": 0,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "2"
+  },
+  "D_3": {
+    "key": "D_3",
+    "name": "3 of Diamonds",
+    "pos": {
+      "x": 1,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "3"
+  },
+  "D_4": {
+    "key": "D_4",
+    "name": "4 of Diamonds",
+    "pos": {
+      "x": 2,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "4"
+  },
+  "D_5": {
+    "key": "D_5",
+    "name": "5 of Diamonds",
+    "pos": {
+      "x": 3,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "5"
+  },
+  "D_6": {
+    "key": "D_6",
+    "name": "6 of Diamonds",
+    "pos": {
+      "x": 4,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "6"
+  },
+  "D_7": {
+    "key": "D_7",
+    "name": "7 of Diamonds",
+    "pos": {
+      "x": 5,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "7"
+  },
+  "D_8": {
+    "key": "D_8",
+    "name": "8 of Diamonds",
+    "pos": {
+      "x": 6,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "8"
+  },
+  "D_9": {
+    "key": "D_9",
+    "name": "9 of Diamonds",
+    "pos": {
+      "x": 7,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "9"
+  },
+  "D_A": {
+    "key": "D_A",
+    "name": "Ace of Diamonds",
+    "pos": {
+      "x": 12,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "Ace"
+  },
+  "D_J": {
+    "key": "D_J",
+    "name": "Jack of Diamonds",
+    "pos": {
+      "x": 9,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "Jack"
+  },
+  "D_K": {
+    "key": "D_K",
+    "name": "King of Diamonds",
+    "pos": {
+      "x": 11,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "King"
+  },
+  "D_Q": {
+    "key": "D_Q",
+    "name": "Queen of Diamonds",
+    "pos": {
+      "x": 10,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "Queen"
+  },
+  "D_T": {
+    "key": "D_T",
+    "name": "10 of Diamonds",
+    "pos": {
+      "x": 8,
+      "y": 2
+    },
+    "suit": "Diamonds",
+    "value": "10"
+  },
+  "H_2": {
+    "key": "H_2",
+    "name": "2 of Hearts",
+    "pos": {
+      "x": 0,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "2"
+  },
+  "H_3": {
+    "key": "H_3",
+    "name": "3 of Hearts",
+    "pos": {
+      "x": 1,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "3"
+  },
+  "H_4": {
+    "key": "H_4",
+    "name": "4 of Hearts",
+    "pos": {
+      "x": 2,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "4"
+  },
+  "H_5": {
+    "key": "H_5",
+    "name": "5 of Hearts",
+    "pos": {
+      "x": 3,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "5"
+  },
+  "H_6": {
+    "key": "H_6",
+    "name": "6 of Hearts",
+    "pos": {
+      "x": 4,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "6"
+  },
+  "H_7": {
+    "key": "H_7",
+    "name": "7 of Hearts",
+    "pos": {
+      "x": 5,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "7"
+  },
+  "H_8": {
+    "key": "H_8",
+    "name": "8 of Hearts",
+    "pos": {
+      "x": 6,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "8"
+  },
+  "H_9": {
+    "key": "H_9",
+    "name": "9 of Hearts",
+    "pos": {
+      "x": 7,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "9"
+  },
+  "H_A": {
+    "key": "H_A",
+    "name": "Ace of Hearts",
+    "pos": {
+      "x": 12,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "Ace"
+  },
+  "H_J": {
+    "key": "H_J",
+    "name": "Jack of Hearts",
+    "pos": {
+      "x": 9,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "Jack"
+  },
+  "H_K": {
+    "key": "H_K",
+    "name": "King of Hearts",
+    "pos": {
+      "x": 11,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "King"
+  },
+  "H_Q": {
+    "key": "H_Q",
+    "name": "Queen of Hearts",
+    "pos": {
+      "x": 10,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "Queen"
+  },
+  "H_T": {
+    "key": "H_T",
+    "name": "10 of Hearts",
+    "pos": {
+      "x": 8,
+      "y": 0
+    },
+    "suit": "Hearts",
+    "value": "10"
+  },
+  "S_2": {
+    "key": "S_2",
+    "name": "2 of Spades",
+    "pos": {
+      "x": 0,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "2"
+  },
+  "S_3": {
+    "key": "S_3",
+    "name": "3 of Spades",
+    "pos": {
+      "x": 1,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "3"
+  },
+  "S_4": {
+    "key": "S_4",
+    "name": "4 of Spades",
+    "pos": {
+      "x": 2,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "4"
+  },
+  "S_5": {
+    "key": "S_5",
+    "name": "5 of Spades",
+    "pos": {
+      "x": 3,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "5"
+  },
+  "S_6": {
+    "key": "S_6",
+    "name": "6 of Spades",
+    "pos": {
+      "x": 4,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "6"
+  },
+  "S_7": {
+    "key": "S_7",
+    "name": "7 of Spades",
+    "pos": {
+      "x": 5,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "7"
+  },
+  "S_8": {
+    "key": "S_8",
+    "name": "8 of Spades",
+    "pos": {
+      "x": 6,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "8"
+  },
+  "S_9": {
+    "key": "S_9",
+    "name": "9 of Spades",
+    "pos": {
+      "x": 7,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "9"
+  },
+  "S_A": {
+    "key": "S_A",
+    "name": "Ace of Spades",
+    "pos": {
+      "x": 12,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "Ace"
+  },
+  "S_J": {
+    "key": "S_J",
+    "name": "Jack of Spades",
+    "pos": {
+      "x": 9,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "Jack"
+  },
+  "S_K": {
+    "key": "S_K",
+    "name": "King of Spades",
+    "pos": {
+      "x": 11,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "King"
+  },
+  "S_Q": {
+    "key": "S_Q",
+    "name": "Queen of Spades",
+    "pos": {
+      "x": 10,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "Queen"
+  },
+  "S_T": {
+    "key": "S_T",
+    "name": "10 of Spades",
+    "pos": {
+      "x": 8,
+      "y": 3
+    },
+    "suit": "Spades",
+    "value": "10"
+  }
+}

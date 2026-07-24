@@ -1,0 +1,26 @@
+{
+  "Blue": {
+    "key": "Blue",
+    "set": "Seal",
+    "order": 3,
+    "discovered": false
+  },
+  "Gold": {
+    "key": "Gold",
+    "set": "Seal",
+    "order": 1,
+    "discovered": false
+  },
+  "Purple": {
+    "key": "Purple",
+    "set": "Seal",
+    "order": 4,
+    "discovered": false
+  },
+  "Red": {
+    "key": "Red",
+    "set": "Seal",
+    "order": 2,
+    "discovered": false
+  }
+}

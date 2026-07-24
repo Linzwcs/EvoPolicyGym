@@ -74,7 +74,6 @@ result = run(
         split="train",
         max_submissions=20,
         episode_budget=1_000,
-        max_episodes_per_submission=100,
         seed=42,
     ),
 )
@@ -83,6 +82,9 @@ result = run(
 Host 拥有 Agent task、workspace rules、预算、submit/finish commands、进程监督
 与 publication。Provider 只把 Host task 转换为经过验证的 invocation，不重新定义
 Run 语义。
+默认由 Agent 自主决定每次 Submission 使用多少剩余 Episode 预算。
+`max_episodes_per_submission` 默认为 `None`；只有 Host 需要额外限制时才设置
+正整数上限。
 
 ## Submission 记账
 

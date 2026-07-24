@@ -57,8 +57,7 @@ def publish_feedback(feedback_root: Path, result: SubmissionResult) -> None:
     temporary.mkdir(mode=0o700)
     try:
         _materialize_feedback(temporary, result)
-        _make_tree_read_only(temporary)
-        os.replace(temporary, destination)
+        _commit_read_only_tree(temporary, destination)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -85,8 +84,7 @@ def record_submission(submissions_root: Path, result: SubmissionResult) -> None:
     try:
         result.program.write_to(temporary / "program")
         _materialize_feedback(temporary, result)
-        _make_tree_read_only(temporary)
-        os.replace(temporary, destination)
+        _commit_read_only_tree(temporary, destination)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
@@ -112,6 +110,20 @@ def _discard_tree(destination: Path) -> None:
         for name in files:
             os.chmod(path / name, 0o600)
     shutil.rmtree(destination)
+
+
+def _commit_read_only_tree(temporary: Path, destination: Path) -> None:
+    # Keep the staging root writable through the rename. macOS may reject
+    # replacing a directory after the source tree itself has been frozen.
+    os.replace(temporary, destination)
+    try:
+        _make_tree_read_only(destination)
+    except BaseException:
+        try:
+            _discard_tree(destination)
+        except Exception:
+            pass
+        raise
 
 
 def _materialize_feedback(

@@ -1,147 +1,53 @@
-"""EvoPolicyGym.
+"""The small, lazily loaded user-facing EvoPolicyGym facade."""
 
-EvoPolicyGym evaluates whether coding agents can improve executable
-policies from budget-limited environment feedback while generalizing to
-hidden validation and final pools.
-"""
+from __future__ import annotations
 
-from .agent import (
-    Claude,
-    ClaudeSession,
-    Codec,
-    Codex,
-    CodexSession,
-    Command,
-    Harness,
-    Jsonl,
-    Kimi,
-    KimiSession,
-    Launch,
-    Loop,
-    Reply,
-    Session,
-    Transcript,
-)
-from .core import (
-    Budget,
-    Caps,
-    Case,
-    Env,
-    Eval,
-    Evals,
-    Exec,
-    Feed,
-    Feeds,
-    OutcomeStatus,
-    Phase,
-    Pick,
-    Pool,
-    PoolKind,
-    Report,
-    Run,
-    Runs,
-    RunState,
-    Runtime,
-    Score,
-    Secret,
-    Snap,
-    Snaps,
-    Store,
-    Task,
-    Trace,
-    Turn,
-    Value,
-    Verdict,
-    Work,
-    Works,
-    World,
-)
-from .core import (
-    Submit as SubmitRecord,
-)
-from .host import Drive, Host, Trial, drive, local
-from .infra.runtime import Sandbox, SandboxRuntime
-from .judge import (
-    Close,
-    CloseOutcome,
-    JudgeClose,
-    JudgeSubmit,
-    Limits,
-    Open,
-    Outcome,
-    Step,
-    Submit,
-)
-from .protocol import PROTOCOL
-from .suite import Job, Result, Suite
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+from ._version import __version__
+
+if TYPE_CHECKING:
+    from .benchmark import Benchmark
+    from .evaluation import EvaluationConfig, evaluate
+    from .program import Program
+    from .results import EvaluationResult, RunResult
+    from .run import RunConfig, run
+
+_EXPORTS = {
+    "Benchmark": (".benchmark", "Benchmark"),
+    "EvaluationConfig": (".evaluation", "EvaluationConfig"),
+    "EvaluationResult": (".results", "EvaluationResult"),
+    "Program": (".program", "Program"),
+    "RunConfig": (".run", "RunConfig"),
+    "RunResult": (".results", "RunResult"),
+    "evaluate": (".evaluation", "evaluate"),
+    "run": (".run", "run"),
+}
 
 __all__ = [
-    "Close",
-    "CloseOutcome",
-    "Budget",
-    "Caps",
-    "Case",
-    "Claude",
-    "ClaudeSession",
-    "Codec",
-    "Command",
-    "Codex",
-    "CodexSession",
-    "Drive",
-    "Env",
-    "Eval",
-    "Exec",
-    "Evals",
-    "Feed",
-    "Feeds",
-    "JudgeClose",
-    "JudgeSubmit",
-    "Host",
-    "Harness",
-    "Jsonl",
-    "Job",
-    "Kimi",
-    "KimiSession",
-    "Limits",
-    "Launch",
-    "drive",
-    "local",
-    "Loop",
-    "Open",
-    "OutcomeStatus",
-    "Outcome",
-    "Pick",
-    "Phase",
-    "Pool",
-    "PoolKind",
-    "Report",
-    "Result",
-    "Reply",
-    "PROTOCOL",
-    "Run",
-    "RunState",
-    "Runtime",
-    "Runs",
-    "Sandbox",
-    "SandboxRuntime",
-    "Score",
-    "Secret",
-    "Snap",
-    "Snaps",
-    "Step",
-    "Store",
-    "Suite",
-    "Session",
-    "SubmitRecord",
-    "Submit",
-    "Task",
-    "Trace",
-    "Trial",
-    "Transcript",
-    "Turn",
-    "Verdict",
-    "Value",
-    "Work",
-    "World",
-    "Works",
+    "Benchmark",
+    "EvaluationConfig",
+    "EvaluationResult",
+    "Program",
+    "RunConfig",
+    "RunResult",
+    "__version__",
+    "evaluate",
+    "run",
 ]
+
+
+def __getattr__(name: str) -> object:
+    target = _EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute = target
+    module = import_module(module_name, __name__)
+    # Import machinery places a loaded submodule on its parent package. For
+    # facades named like a root function (``run``), replace that transient
+    # module attribute with every public value owned by the facade.
+    for export_name, (owner, owner_attribute) in _EXPORTS.items():
+        if owner == module_name:
+            globals()[export_name] = getattr(module, owner_attribute)
+    return globals()[name]

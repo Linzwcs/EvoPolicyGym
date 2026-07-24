@@ -1,0 +1,46 @@
+---
+import type { Clip } from "../lib/showcase";
+import { formatScore } from "../lib/showcase";
+import { withBase } from "../lib/paths";
+import Copy from "./Copy.astro";
+
+interface Props {
+  clip: Clip;
+  rank?: number;
+  winner?: boolean;
+  compact?: boolean;
+}
+
+const { clip, rank, winner = false, compact = false } = Astro.props;
+---
+
+<article class:list={["rollout-card", winner && "is-winner", compact && "is-compact"]}>
+  <div class="rollout-media">
+    <img src={withBase(clip.media)} alt={`${clip.model_display} policy rerun in ${clip.env_display}`} loading="lazy" />
+    <span class="capture-label">{clip.capture_source.replaceAll("_", " ")}</span>
+  </div>
+  <div class="rollout-body">
+    <div class="rollout-title">
+      <div>
+        <h3>{clip.model_display}</h3>
+        <span>{clip.harness}</span>
+      </div>
+      {rank && <span class="rank-label">{winner ? "BEST" : `#${rank}`}</span>}
+    </div>
+    <dl class="rollout-stats">
+      <div>
+        <dt><Copy en="Held-out score" zh="Held-out 分数" /></dt>
+        <dd>{formatScore(clip.score)}</dd>
+      </div>
+      <div>
+        <dt><Copy en="Checkpoint" zh="Checkpoint" /></dt>
+        <dd>#{String(clip.submit_index).padStart(3, "0")}</dd>
+      </div>
+      <div>
+        <dt><Copy en="Rerun" zh="重跑步数" /></dt>
+        <dd>{clip.rerun_steps} steps</dd>
+      </div>
+    </dl>
+    {!compact && <p>{clip.event_notes}</p>}
+  </div>
+</article>

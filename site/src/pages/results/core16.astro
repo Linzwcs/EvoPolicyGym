@@ -1,0 +1,85 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Copy from "../../components/Copy.astro";
+import PageHero from "../../components/PageHero.astro";
+import RolloutCard from "../../components/RolloutCard.astro";
+import StatusPill from "../../components/StatusPill.astro";
+import { environmentMeta } from "../../data/environments";
+import {
+  clipsForEnvironment,
+  environments,
+  formatScore,
+} from "../../lib/showcase";
+import { withBase } from "../../lib/paths";
+---
+
+<BaseLayout
+  title="Core16 rollout gallery — EvoPolicyGym"
+  description="All 64 validation-selected final policy reruns from the Core16 paper experiment."
+  bodyClass="gallery-page"
+>
+  <PageHero
+    eyebrowEn="Core16 · complete qualitative record"
+    eyebrowZh="Core16 · 完整定性记录"
+    titleEn="64 final policy reruns"
+    titleZh="64 段最终策略重跑"
+    leadEn="Sixteen environments, four coding-agent/model lanes, and one original-environment rerun for every validation-selected checkpoint."
+    leadZh="十六个环境、四条 CodingAgent/模型链路；每个 validation-selected checkpoint 都在原环境中重跑一次。"
+    index="R1"
+  >
+    <div class="hero-status-line">
+      <StatusPill en="Paper companion" zh="论文伴随材料" tone="research" />
+      <span><Copy en="GIF assets load lazily as you browse." zh="GIF 资源会随浏览延迟加载。" /></span>
+    </div>
+  </PageHero>
+
+  <nav class="gallery-index" aria-label="Environment quick links">
+    {environments.map((env) => (
+      <a href={`#${env.id}`}><span>{String(env.order + 1).padStart(2, "0")}</span>{env.display}</a>
+    ))}
+  </nav>
+
+  <div class="gallery-environments">
+    {environments.map((env) => {
+      const originalOrder = clipsForEnvironment(env.id);
+      const ranking = [...originalOrder].sort((a, b) => b.score - a.score);
+      const bestScore = ranking[0].score;
+      return (
+        <section class="gallery-environment" id={env.id}>
+          <div class="gallery-environment-head page-width">
+            <div>
+              <span class="gallery-number">{String(env.order + 1).padStart(2, "0")}</span>
+              <div>
+                <p class="eyebrow">{env.category}</p>
+                <h2>{env.display}</h2>
+              </div>
+            </div>
+            <div class="gallery-environment-meta">
+              <p><Copy en={environmentMeta[env.id].shortEn} zh={environmentMeta[env.id].shortZh} /></p>
+              <dl>
+                <div><dt><Copy en="Best reported" zh="最佳报告分数" /></dt><dd>{formatScore(bestScore)}</dd></div>
+                <div><dt><Copy en="Policy focus" zh="策略重点" /></dt><dd><Copy en={environmentMeta[env.id].focusEn} zh={environmentMeta[env.id].focusZh} /></dd></div>
+              </dl>
+              <a href={withBase(`results/environments/${env.id}/`)}><Copy en="Result detail" zh="结果详情" /> →</a>
+            </div>
+          </div>
+          <div class="rollout-grid page-wide">
+            {originalOrder.map((clip) => {
+              const rank = ranking.findIndex((item) => item.id === clip.id) + 1;
+              return <RolloutCard clip={clip} rank={rank} winner={clip.score === bestScore} />;
+            })}
+          </div>
+        </section>
+      );
+    })}
+  </div>
+
+  <section class="gallery-end page-width">
+    <Copy class="eyebrow" en="End of record" zh="记录结束" as="p" />
+    <Copy en="Return to the score matrix or inspect the protocol behind these results." zh="返回分数矩阵，或查看这些结果背后的协议。" as="h2" />
+    <div class="hero-actions">
+      <a class="button button-primary" href={withBase("results/")}><Copy en="Score matrix" zh="分数矩阵" /> →</a>
+      <a class="button button-secondary" href={withBase("research/protocol-design/")}><Copy en="Protocol design" zh="协议设计" /></a>
+    </div>
+  </section>
+</BaseLayout>

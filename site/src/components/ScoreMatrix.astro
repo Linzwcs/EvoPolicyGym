@@ -1,0 +1,38 @@
+---
+import { environments, formatScore, showcase } from "../lib/showcase";
+import Copy from "./Copy.astro";
+
+const rows = showcase.leaderboard;
+const bestByEnvironment = Object.fromEntries(
+  environments.map((env) => [
+    env.id,
+    Math.max(...rows.map((row) => row.scores[env.id]).filter(Number.isFinite)),
+  ]),
+);
+---
+
+<div class="score-matrix-wrap">
+  <table class="score-matrix">
+    <thead>
+      <tr>
+        <th scope="col"><Copy en="Model / harness" zh="模型 / harness" /></th>
+        {environments.map((env) => <th scope="col">{env.display}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((row) => (
+        <tr class={row.model_slug === "random_policy" ? "baseline-row" : undefined}>
+          <th scope="row">
+            <strong>{row.model_display}</strong>
+            <span>{row.harness}</span>
+          </th>
+          {environments.map((env) => (
+            <td class={row.scores[env.id] === bestByEnvironment[env.id] ? "is-best" : undefined}>
+              {formatScore(row.scores[env.id])}
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>

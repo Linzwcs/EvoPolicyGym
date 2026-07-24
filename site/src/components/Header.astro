@@ -1,0 +1,51 @@
+---
+import BrandMark from "./BrandMark.astro";
+import Copy from "./Copy.astro";
+import { projectMeta } from "../data/project";
+import { withBase } from "../lib/paths";
+
+interface Props {
+  active?: string;
+}
+
+const { active = "home" } = Astro.props;
+const nav = [
+  { key: "home", path: "", en: "Intro", zh: "介绍" },
+  { key: "environments", path: "environments/", en: "Environments", zh: "环境" },
+  { key: "runs", path: "runs/", en: "Runs", zh: "运行" },
+  { key: "docs", path: "docs/", en: "Docs", zh: "文档" },
+  { key: "research", path: "research/", en: "Research", zh: "研究" },
+];
+---
+
+<header class="site-header">
+  <nav class="topbar" aria-label="Primary navigation">
+    <a class="brand" href={withBase()} aria-label="EvoPolicyGym home">
+      <BrandMark />
+      <span>EvoPolicyGym</span>
+      <span class="version-mark">{projectMeta.versionLabel}</span>
+    </a>
+
+    <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">
+      <span></span><span></span>
+      <Copy en="Menu" zh="菜单" />
+    </button>
+
+    <div class="site-nav" id="site-nav">
+      <div class="nav-links">
+        {nav.map((item) => (
+          <a href={withBase(item.path)} aria-current={active === item.key ? "page" : undefined}>
+            <Copy en={item.en} zh={item.zh} />
+          </a>
+        ))}
+      </div>
+      <div class="nav-actions">
+        <a href="https://github.com/Linzwcs/EvoPolicyGym" target="_blank" rel="noreferrer">GitHub ↗</a>
+        <div class="language-toggle" role="group" aria-label="Language">
+          <button type="button" data-lang-toggle="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang-toggle="zh" aria-pressed="false">中文</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>

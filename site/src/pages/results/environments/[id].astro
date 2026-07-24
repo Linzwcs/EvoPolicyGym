@@ -1,0 +1,176 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import Copy from "../../../components/Copy.astro";
+import PageHero from "../../../components/PageHero.astro";
+import RolloutCard from "../../../components/RolloutCard.astro";
+import SectionHeading from "../../../components/SectionHeading.astro";
+import StatusPill from "../../../components/StatusPill.astro";
+import { environmentMeta } from "../../../data/environments";
+import {
+  clipsForEnvironment,
+  environments,
+  formatScore,
+  scoresForEnvironment,
+  type Environment,
+} from "../../../lib/showcase";
+import { withBase } from "../../../lib/paths";
+
+export function getStaticPaths() {
+  return environments.map((env) => ({
+    params: { id: env.id },
+    props: { env },
+  }));
+}
+
+interface Props {
+  env: Environment;
+}
+
+const { env } = Astro.props;
+const meta = environmentMeta[env.id];
+const clips = [...clipsForEnvironment(env.id)].sort((a, b) => b.score - a.score);
+const scores = scoresForEnvironment(env.id);
+const best = scores[0];
+const agentScores = scores.filter((row) => row.model_slug !== "random_policy");
+const range = Math.max(...agentScores.map((row) => row.score)) - Math.min(...agentScores.map((row) => row.score));
+const position = environments.findIndex((item) => item.id === env.id);
+const previous = environments[(position - 1 + environments.length) % environments.length];
+const next = environments[(position + 1) % environments.length];
+---
+
+<BaseLayout
+  title={`${env.display} — EvoPolicyGym results`}
+  description={`${env.display} Core16 paper-companion scores and final policy reruns.`}
+  bodyClass="environment-detail-page"
+>
+  <PageHero
+    eyebrowEn={`${env.category} · Core16 paper suite`}
+    eyebrowZh={`${env.category} · Core16 论文套件`}
+    titleEn={env.display}
+    titleZh={env.display}
+    leadEn={meta.shortEn}
+    leadZh={meta.shortZh}
+    index={`R${String(env.order + 1).padStart(2, "0")}`}
+  >
+    <div class="hero-status-line">
+      <StatusPill en="Historical result" zh="历史结果" tone="research" />
+      <span><Copy en="Adapter status" zh="Adapter 状态" />: <strong><Copy en="not active in current v0.3" zh="当前 v0.3 未启用" /></strong></span>
+    </div>
+  </PageHero>
+
+  <section class="environment-summary-strip">
+    <div><span><Copy en="Category" zh="类别" /></span><strong>{env.category}</strong></div>
+    <div><span><Copy en="Best reported" zh="最佳报告分数" /></span><strong>{formatScore(best.score)}</strong></div>
+    <div><span><Copy en="Best model" zh="最佳模型" /></span><strong>{best.model_display}</strong></div>
+    <div><span><Copy en="Agent score range" zh="Agent 分数跨度" /></span><strong>{formatScore(range)}</strong></div>
+  </section>
+
+  <section class="detail-section page-width">
+    <SectionHeading
+      number="01"
+      eyebrowEn="Task lens"
+      eyebrowZh="任务视角"
+      titleEn="What the policy has to discover."
+      titleZh="Policy 需要发现什么。"
+    />
+    <div class="task-lens">
+      <div>
+        <Copy en={meta.shortEn} zh={meta.shortZh} as="p" />
+      </div>
+      <dl>
+        <div>
+          <dt><Copy en="Policy focus" zh="策略重点" /></dt>
+          <dd><Copy en={meta.focusEn} zh={meta.focusZh} /></dd>
+        </div>
+        <div>
+          <dt><Copy en="Evaluation surface" zh="评估表面" /></dt>
+          <dd><Copy en="Validation-selected checkpoint; hidden held-out mean return" zh="按 validation 选择 checkpoint；hidden held-out mean return" /></dd>
+        </div>
+        <div>
+          <dt><Copy en="Research budget" zh="研究预算" /></dt>
+          <dd>128 episodes / run</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="detail-section rollout-section">
+    <div class="page-width split-heading">
+      <SectionHeading
+        number="02"
+        eyebrowEn="Final policy evidence"
+        eyebrowZh="最终策略依据"
+        titleEn="Four agents, one environment."
+        titleZh="四个 Agent，同一个环境。"
+      />
+      <div class="split-copy">
+        <Copy
+          en="Each clip reruns the validation-selected checkpoint in the original research environment. Cards are ranked by reported held-out return."
+          zh="每段视频都在原研究环境中重跑 validation 选中的 checkpoint；卡片按报告的 held-out return 排序。"
+          as="p"
+        />
+      </div>
+    </div>
+    <div class="rollout-grid page-wide">
+      {clips.map((clip, index) => (
+        <RolloutCard clip={clip} rank={index + 1} winner={index === 0} />
+      ))}
+    </div>
+  </section>
+
+  <section class="detail-section page-width">
+    <SectionHeading
+      number="03"
+      eyebrowEn="Reported scores"
+      eyebrowZh="报告分数"
+      titleEn="Held-out return for the selected checkpoint."
+      titleZh="所选 checkpoint 的 held-out return。"
+    />
+    <div class="single-score-table">
+      <div class="single-score-head">
+        <span><Copy en="Rank" zh="排名" /></span>
+        <span><Copy en="Model" zh="模型" /></span>
+        <span>Harness</span>
+        <span><Copy en="Score" zh="分数" /></span>
+      </div>
+      {scores.map((row, index) => (
+        <div class:list={["single-score-row", row.model_slug === "random_policy" && "is-baseline"]}>
+          <span>{index + 1}</span>
+          <strong>{row.model_display}</strong>
+          <span>{row.harness}</span>
+          <code>{formatScore(row.score)}</code>
+        </div>
+      ))}
+    </div>
+    <Copy
+      class="table-note"
+      en="Higher is better within this environment. Raw reward scales are not comparable across environments."
+      zh="在该环境内分数越高越好；不同环境的原始 reward scale 不可直接比较。"
+      as="p"
+    />
+  </section>
+
+  <section class="detail-section boundary-note page-width">
+    <div>
+      <StatusPill en="Important boundary" zh="重要边界" tone="draft" />
+      <Copy en="Research evidence is not an adapter guarantee." zh="研究依据不等于 adapter 保证。" as="h2" />
+    </div>
+    <Copy
+      en={`The ${env.display} files and reruns document the paper experiment. To become active again, the environment needs a new deterministic Case manifest, strict PolicyValue codecs, Action semantics, pinned runtime dependencies, and conformance tests.`}
+      zh={`${env.display} 的文件与重跑用于记录论文实验。若要重新成为当前环境，它需要新的确定性 Case manifest、严格 PolicyValue codec、Action 语义、固定 runtime dependency 与 conformance 测试。`}
+      as="p"
+    />
+  </section>
+
+  <nav class="environment-pager page-width" aria-label="Environment pages">
+    <a href={withBase(`results/environments/${previous.id}/`)}>
+      <span>← <Copy en="Previous" zh="上一个" /></span>
+      <strong>{previous.display}</strong>
+    </a>
+    <a href={withBase("results/core16/")} class="pager-index"><Copy en="All reruns" zh="全部重跑" /></a>
+    <a href={withBase(`results/environments/${next.id}/`)}>
+      <span><Copy en="Next" zh="下一个" /> →</span>
+      <strong>{next.display}</strong>
+    </a>
+  </nav>
+</BaseLayout>

@@ -1,0 +1,216 @@
+---
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import Copy from "../../components/Copy.astro";
+import { withBase } from "../../lib/paths";
+
+const toc = [
+  { id: "research-question", en: "Research question", zh: "研究问题" },
+  { id: "paper", en: "Primary paper", zh: "主要论文" },
+  { id: "claims", en: "Core claims", zh: "核心主张" },
+  { id: "evidence", en: "Evidence and scope", zh: "证据与范围" },
+  { id: "current-program", en: "Current research program", zh: "当前研究方向" },
+  { id: "resources", en: "Resources", zh: "资料" },
+];
+---
+
+<ReferenceLayout
+  title="Research — EvoPolicyGym Documentation"
+  description="Research questions, paper evidence, protocol design, and open problems in executable Policy evolution."
+  current="research"
+  {toc}
+>
+  <header>
+    <Copy en="Research" zh="研究" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="EvoPolicyGym studies coding agents as optimizers of executable decision systems rather than producers of one-shot answers."
+      zh="EvoPolicyGym 研究 Coding Agent 如何优化可执行决策系统，而不是只生成一次性答案。"
+      as="p"
+    />
+  </header>
+
+  <section id="research-question">
+    <Copy en="Research question" zh="研究问题" as="h2" />
+    <Copy
+      en="Can a coding agent use a finite budget of environment interaction to author a Policy that continues to make good decisions after the coding agent has stopped running?"
+      zh="Coding Agent 能否利用有限的环境交互预算，编写一个在 Coding Agent 停止运行后仍能持续做出良好决策的 Policy？"
+      as="p"
+    />
+    <Copy
+      en="This changes the evaluation object. The durable artifact is an executable Program, not the agent transcript. Environment feedback becomes a measured resource, and lifecycle separation becomes part of what the score means."
+      zh="这改变了评估对象：持久产物是可执行 Program，而不是 Agent transcript。Environment Feedback 成为被计量的资源，生命周期分离也成为分数含义的一部分。"
+      as="p"
+    />
+    <div class="reference-flow">
+      <div><span>OBJECT</span><strong>Program</strong><small>executable Policy source</small></div>
+      <div><span>RESOURCE</span><strong>Episodes</strong><small>bounded interaction</small></div>
+      <div><span>SIGNAL</span><strong>Feedback</strong><small>committed public evidence</small></div>
+      <div><span>MEASURE</span><strong>Score</strong><small>Benchmark-defined metric</small></div>
+    </div>
+  </section>
+
+  <section id="paper">
+    <Copy en="Primary paper" zh="主要论文" as="h2" />
+    <h3>EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments</h3>
+    <Copy
+      en="The paper evaluates whether coding agents can iteratively improve executable Policies through budgeted interaction across heterogeneous interactive environments."
+      zh="论文评估 Coding Agent 能否通过有预算约束的交互，在异构交互环境中迭代改进可执行 Policy。"
+      as="p"
+    />
+    <table class="reference-table">
+      <tbody>
+        <tr>
+          <th><Copy en="Identifier" zh="标识" /></th>
+          <td><code>arXiv:2607.02440</code></td>
+        </tr>
+        <tr>
+          <th><Copy en="Companion evidence" zh="伴随证据" /></th>
+          <td><Copy en="Core16 score matrices and final-Policy reruns" zh="Core16 分数矩阵与最终 Policy 重跑" /></td>
+        </tr>
+        <tr>
+          <th><Copy en="Experiment version" zh="实验版本" /></th>
+          <td><code>EvoPolicyGym 0.1.0</code> <Copy en="research implementation" zh="研究实现" /></td>
+        </tr>
+        <tr>
+          <th><Copy en="Current implementation" zh="当前实现" /></th>
+          <td><Copy en="The clean-slate v0.3 portable Kernel and independent CartPole Benchmark" zh="Clean-slate v0.3 可移植 Kernel 与独立 CartPole Benchmark" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      <a href="http://arxiv.org/abs/2607.02440" target="_blank" rel="noreferrer">arXiv ↗</a>
+      ·
+      <a href="https://huggingface.co/papers/2607.02440" target="_blank" rel="noreferrer">Hugging Face ↗</a>
+      ·
+      <a href={withBase("results/")}><Copy en="Companion results →" zh="伴随结果 →" /></a>
+    </p>
+    <details>
+      <summary><Copy en="BibTeX citation" zh="BibTeX 引用" /></summary>
+      <pre><code>{`@misc{wang2026evopolicygym,
+  title  = {EvoPolicyGym: Evaluating Autonomous Policy
+            Evolution in Interactive Environments},
+  author = {Wang, Zhilin and others},
+  year   = {2026},
+  eprint = {2607.02440},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI}
+}`}</code></pre>
+    </details>
+  </section>
+
+  <section id="claims">
+    <Copy en="Core claims" zh="核心主张" as="h2" />
+    <h3><Copy en="The Policy is the evaluated artifact" zh="Policy 是被评估的产物" /></h3>
+    <Copy
+      en="The coding agent operates in an outer loop. The submitted Policy acts at environment cadence without asking the coding agent to reason at every step."
+      zh="Coding Agent 位于外层循环。提交的 Policy 按照环境节奏执行，不要求 Coding Agent 在每个 step 都重新推理。"
+      as="p"
+    />
+
+    <h3><Copy en="Feedback is an optimization resource" zh="Feedback 是优化资源" /></h3>
+    <Copy
+      en="Each visible Episode can reveal reward structure, failure modes, termination behavior, and generalization errors. Fair comparison therefore requires explicit interaction budgets."
+      zh="每个可见 Episode 都可能揭示 reward structure、failure mode、termination behavior 与泛化错误。因此公平比较需要明确的交互预算。"
+      as="p"
+    />
+
+    <h3><Copy en="Evaluation roles must remain separate" zh="评估角色必须分离" /></h3>
+    <Copy
+      en="Evidence used to author a Policy, evidence used to select a checkpoint, and evidence used for final measurement play different statistical roles."
+      zh="用于编写 Policy、选择 checkpoint 与最终测量的证据具有不同的统计角色。"
+      as="p"
+    />
+
+    <h3><Copy en="Runtime semantics affect validity" zh="Runtime 语义影响有效性" /></h3>
+    <Copy
+      en="A Policy that survives across Episodes can accumulate hidden state. A fresh process and instance for every Episode therefore defines what counts as cross-Episode improvement."
+      zh="跨 Episode 存活的 Policy 可以积累隐藏状态。因此每个 Episode 使用全新进程与实例，定义了什么才算跨 Episode 改进。"
+      as="p"
+    />
+  </section>
+
+  <section id="evidence">
+    <Copy en="Evidence and scope" zh="证据与范围" as="h2" />
+    <Copy
+      en="The site separates three kinds of evidence so that historical claims are not confused with current package availability."
+      zh="本站区分三类证据，避免把历史研究主张与当前 package 可用性混为一谈。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Surface" zh="范围" /></th>
+          <th><Copy en="Meaning" zh="含义" /></th>
+          <th><Copy en="Status" zh="状态" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><Copy en="Portable Kernel" zh="可移植 Kernel" /></td>
+          <td><Copy en="Current public SDK, evaluation, Run, and authoring semantics" zh="当前公共 SDK、Evaluation、Run 与 authoring 语义" /></td>
+          <td><span class="reference-status is-active">v0.3 alpha</span></td>
+        </tr>
+        <tr>
+          <td>CartPole</td>
+          <td><Copy en="Current independently installable reference Benchmark" zh="当前可独立安装的参考 Benchmark" /></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+        </tr>
+        <tr>
+          <td>Core16</td>
+          <td><Copy en="Scores and reruns produced with the original EvoPolicyGym 0.1.0 research implementation" zh="由最初的 EvoPolicyGym 0.1.0 研究实现产生的分数与重跑" /></td>
+          <td><span class="reference-status is-historical"><Copy en="Historical" zh="历史" /></span></td>
+        </tr>
+        <tr>
+          <td>Balatro</td>
+          <td><Copy en="Candidate long-horizon game Benchmark" zh="候选长时程游戏 Benchmark" /></td>
+          <td><span class="reference-status is-development"><Copy en="In development" zh="开发中" /></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="reference-note">
+      <strong><Copy en="Historical experiment version" zh="历史实验版本" /></strong>
+      <Copy
+        en="The Core16 scores and 64 final-Policy reruns were produced with the original EvoPolicyGym 0.1.0 research implementation. They were not generated by the current v0.3 Kernel or the later superseded v0.2 redesign."
+        zh="Core16 分数与 64 段最终 Policy 重跑由最初的 EvoPolicyGym 0.1.0 研究实现产生，并非来自当前 v0.3 Kernel，也不是后来已被取代的 v0.2 重构。"
+        as="p"
+      />
+      <p>
+        <a href={withBase("results/")}><Copy en="Open the Core16 results →" zh="查看 Core16 实验结果 →" /></a>
+        {" · "}
+        <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0" target="_blank" rel="noreferrer">
+          <Copy en="View the tagged v0.1.0 experiment source ↗" zh="查看已标记的 v0.1.0 实验源码 ↗" />
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <section id="current-program">
+    <Copy en="Current research program" zh="当前研究方向" as="h2" />
+    <ol>
+      <li><Copy en="How should interaction budgets compare across Environments with different horizons and information density?" zh="如何在 horizon 与信息密度不同的 Environments 之间比较交互预算？" /></li>
+      <li><Copy en="Which public diagnostics help coding agents improve without leaking private Episode identity or runtime evidence?" zh="哪些公开诊断能帮助 Coding Agent 改进，同时不泄漏私有 Episode identity 或 runtime evidence？" /></li>
+      <li><Copy en="How should long-horizon game decisions be represented without collapsing the strategic action space?" zh="如何表示长时程游戏决策，同时不压缩掉真正的策略 Action space？" /></li>
+      <li><Copy en="Which conformance evidence is required before an Environment supports benchmark claims?" zh="Environment 在支持 Benchmark 主张之前需要哪些 conformance 证据？" /></li>
+      <li><Copy en="How can durable retries preserve budget and publication semantics across process loss?" zh="持久重试如何在进程丢失后保持预算与 publication 语义？" /></li>
+      <li><Copy en="What isolation profile is sufficient for evaluating third-party Policy and Agent code?" zh="评估第三方 Policy 与 Agent 代码需要何种隔离 profile？" /></li>
+    </ol>
+  </section>
+
+  <section id="resources">
+    <Copy en="Resources" zh="资料" as="h2" />
+    <div class="reference-next">
+      <a href={withBase("research/protocol-design/")}>
+        <strong><Copy en="Protocol design" zh="协议设计" /></strong>
+        <small><Copy en="Evaluation object, budgets, trust, and lifecycle." zh="评估对象、预算、信任与生命周期。" /></small>
+      </a>
+      <a href={withBase("results/")}>
+        <strong><Copy en="Core16 archive" zh="Core16 档案" /></strong>
+        <small><Copy en="Historical scores and policy reruns." zh="历史分数与 Policy 重跑。" /></small>
+      </a>
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/blob/main/ARCHITECTURE.md" target="_blank" rel="noreferrer">
+        <strong><Copy en="Architecture" zh="架构" /></strong>
+        <small><Copy en="Current ownership and dependency rules." zh="当前所有权与依赖规则。" /></small>
+      </a>
+    </div>
+  </section>
+</ReferenceLayout>

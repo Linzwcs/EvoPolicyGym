@@ -1,0 +1,22 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Copy from "../components/Copy.astro";
+import { withBase } from "../lib/paths";
+---
+
+<BaseLayout
+  title="Page not found — EvoPolicyGym"
+  description="The requested EvoPolicyGym page could not be found."
+  bodyClass="not-found-page"
+>
+  <section class="not-found page-width">
+    <span class="not-found-code">404 / INVALID ROUTE</span>
+    <h1>Episode<br /><em>terminated.</em></h1>
+    <Copy
+      en="This route is not part of the committed site artifact."
+      zh="这个路由不属于已提交的网站 artifact。"
+      as="p"
+    />
+    <a class="button button-primary" href={withBase()}><Copy en="Return home" zh="返回首页" /> →</a>
+  </section>
+</BaseLayout>

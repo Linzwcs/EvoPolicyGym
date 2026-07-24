@@ -1,0 +1,95 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import SignalBand from "../components/SignalBand.astro";
+import { sectionFromPath, withBase } from "../lib/paths";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  signal?: boolean;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description,
+  signal = false,
+  bodyClass = "",
+} = Astro.props;
+const active = sectionFromPath(Astro.url.pathname);
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : Astro.url;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#eeece5" />
+    <link rel="icon" type="image/svg+xml" href={withBase("favicon.svg")} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EvoPolicyGym" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <title>{title}</title>
+  </head>
+  <body class={bodyClass}>
+    <div class="site-shell">
+      <Header active={active} />
+      {signal && <SignalBand />}
+      <main id="main-content">
+        <slot />
+      </main>
+      <Footer />
+    </div>
+
+    <script>
+      const languageButtons = document.querySelectorAll("[data-lang-toggle]");
+      const copyNodes = document.querySelectorAll<HTMLElement>("[data-copy]");
+      const languageViews = document.querySelectorAll<HTMLElement>("[data-lang-view]");
+      const menuButton = document.querySelector<HTMLButtonElement>(".menu-button");
+      const siteNav = document.querySelector<HTMLElement>(".site-nav");
+
+      function setLanguage(language: "en" | "zh") {
+        document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+        copyNodes.forEach((node) => {
+          const value = language === "zh" ? node.dataset.zh : node.dataset.en;
+          if (value) node.textContent = value;
+        });
+        languageViews.forEach((node) => {
+          node.hidden = node.dataset.langView !== language;
+        });
+        languageButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.getAttribute("data-lang-toggle") === language));
+        });
+        localStorage.setItem("epg-language", language);
+        window.dispatchEvent(new CustomEvent("epg:language", { detail: { language } }));
+      }
+
+      const stored = localStorage.getItem("epg-language");
+      const preferred = stored === "zh" || stored === "en"
+        ? stored
+        : navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+      setLanguage(preferred);
+
+      languageButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const language = button.getAttribute("data-lang-toggle");
+          if (language === "en" || language === "zh") setLanguage(language);
+        });
+      });
+
+      menuButton?.addEventListener("click", () => {
+        const expanded = menuButton.getAttribute("aria-expanded") === "true";
+        menuButton.setAttribute("aria-expanded", String(!expanded));
+        siteNav?.classList.toggle("is-open", !expanded);
+      });
+    </script>
+  </body>
+</html>

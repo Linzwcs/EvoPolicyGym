@@ -1,0 +1,237 @@
+---
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import Copy from "../../components/Copy.astro";
+import { withBase } from "../../lib/paths";
+
+const toc = [
+  { id: "object", en: "Evaluation object", zh: "评估对象" },
+  { id: "budget", en: "Interaction budget", zh: "交互预算" },
+  { id: "boundary", en: "Trust boundary", zh: "信任边界" },
+  { id: "measurement", en: "Selection and measurement", zh: "选择与测量" },
+  { id: "lifecycle", en: "Episode lifecycle", zh: "Episode 生命周期" },
+  { id: "current-scope", en: "Current implementation", zh: "当前实现" },
+  { id: "open-questions", en: "Open questions", zh: "开放问题" },
+];
+---
+
+<ReferenceLayout
+  title="Protocol design — EvoPolicyGym Documentation"
+  description="Why EvoPolicyGym evaluates executable Policy systems with bounded feedback and fresh Episode lifecycles."
+  current="protocol-design"
+  {toc}
+>
+  <header>
+    <Copy en="Protocol design" zh="协议设计" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="Why the evaluation object is executable behavior, why Environment feedback is a scarce resource, and why lifecycle separation is part of validity."
+      zh="为什么评估对象是可执行行为、为什么 Environment Feedback 是稀缺资源，以及为什么生命周期分离属于有效性的一部分。"
+      as="p"
+    />
+  </header>
+
+  <div class="reference-note">
+    <strong><Copy en="Research model and implementation" zh="研究模型与当前实现" /></strong>
+    <Copy
+      en="This note distinguishes the broader research protocol from the smaller v0.3 portable Kernel. Features are described as current only when they are implemented by the public SDK."
+      zh="本文区分更广泛的研究协议与较小的 v0.3 可移植 Kernel。只有公共 SDK 已实现的能力才会被描述为当前能力。"
+      as="p"
+    />
+  </div>
+
+  <section id="object">
+    <Copy en="The evaluation object" zh="评估对象" as="h2" />
+    <Copy
+      en="Interactive tasks continue after one model response. Control, navigation, scheduling, games, and experimental design unfold as repeated observation–action transitions."
+      zh="交互任务不会在一次模型回答后结束。控制、导航、调度、游戏与实验设计都由重复的 Observation–Action transition 构成。"
+      as="p"
+    />
+    <Copy
+      en="EvoPolicyGym therefore evaluates an executable Policy Program. The coding agent is the outer optimizer: it inspects committed evidence, changes source code or frozen parameters, and submits a new immutable Program. The Policy is the inner decision system that acts at Environment cadence."
+      zh="因此 EvoPolicyGym 评估可执行 Policy Program。Coding Agent 是外层优化器：它检查已提交证据、修改源码或冻结参数，并提交新的不可变 Program。Policy 是按照 Environment 节奏执行的内层决策系统。"
+      as="p"
+    />
+    <div class="reference-flow">
+      <div><span>OUTER</span><strong>Coding Agent</strong><small>inspect and revise</small></div>
+      <div><span>ARTIFACT</span><strong>Program</strong><small>immutable source</small></div>
+      <div><span>INNER</span><strong>Policy</strong><small>observation to action</small></div>
+      <div><span>EVIDENCE</span><strong>Feedback</strong><small>committed signal</small></div>
+    </div>
+  </section>
+
+  <section id="budget">
+    <Copy en="Interaction budget" zh="交互预算" as="h2" />
+    <Copy
+      en="Once the coding agent is treated as an optimizer, comparison depends on the amount of experimental evidence it receives. An Episode reveals reward structure, failure modes, termination behavior, and whether a change generalizes across visible scenarios."
+      zh="一旦把 Coding Agent 视为优化器，比较就取决于它获得多少实验依据。Episode 会揭示 reward structure、failure mode、termination behavior，以及修改能否泛化到多个可见 scenario。"
+      as="p"
+    />
+    <Copy
+      en="A Run therefore fixes a total Episode budget, a maximum submission count, and a maximum batch size. The Agent may choose how to spend that authority, but it cannot obtain real Environment feedback outside the controlled Submission path."
+      zh="因此一次 Run 固定总 Episode 预算、最大 submission 数与最大 batch size。Agent 可以决定如何使用这些权限，但不能在受控 Submission 路径之外获得真实 Environment Feedback。"
+      as="p"
+    />
+    <blockquote>
+      <Copy
+        en="Control the learning opportunity without prescribing the optimization strategy."
+        zh="控制学习机会，但不规定优化策略。"
+      />
+    </blockquote>
+  </section>
+
+  <section id="boundary">
+    <Copy en="Trust boundary" zh="信任边界" as="h2" />
+    <Copy
+      en="The same component must not own submitted Policy code, private Episode identity, Environment state, Action validation, scoring, and publication. EvoPolicyGym keeps these responsibilities on the trusted Host and Benchmark side."
+      zh="同一组件不应同时拥有提交的 Policy 代码、私有 Episode identity、Environment 状态、Action 校验、评分与 publication。EvoPolicyGym 将这些职责保留在可信 Host 与 Benchmark 一侧。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Policy receives" zh="Policy 接收" /></th>
+          <th><Copy en="Trusted side retains" zh="可信侧保留" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>PolicyContext</code></td>
+          <td><Copy en="Episode scenario and Environment seed" zh="Episode scenario 与 Environment seed" /></td>
+        </tr>
+        <tr>
+          <td><Copy en="Visible Observation" zh="可见 Observation" /></td>
+          <td><Copy en="Complete Environment state and private metrics" zh="完整 Environment 状态与私有 metrics" /></td>
+        </tr>
+        <tr>
+          <td><Copy en="Episode-local process state" zh="Episode 内进程状态" /></td>
+          <td><Copy en="Action validation, scoring, budget, and publication" zh="Action 校验、评分、预算与 publication" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <Copy
+      en="The ABI carries only bounded PolicyValue data. Host paths, credentials, file descriptors, Case identity, Environment seeds, pool identity, runtime evidence, and scorer objects do not cross it."
+      zh="ABI 只传递有界 PolicyValue。Host path、credential、文件描述符、Case identity、Environment seed、pool identity、runtime evidence 与 scorer object 都不能跨越该边界。"
+      as="p"
+    />
+  </section>
+
+  <section id="measurement">
+    <Copy en="Selection and measurement" zh="选择与测量" as="h2" />
+    <Copy
+      en="A full research experiment may separate visible training Feedback, checkpoint selection data, and final held-out measurement. These surfaces have different statistical roles and should not be presented as interchangeable."
+      zh="完整研究实验可以分离可见训练 Feedback、checkpoint selection data 与最终 held-out measurement。这些表面具有不同统计角色，不能作为可互换数据展示。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Role" zh="角色" /></th>
+          <th><Copy en="Visibility" zh="可见性" /></th>
+          <th><Copy en="Purpose" zh="用途" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Train</td>
+          <td><Copy en="Visible to the optimizer" zh="优化器可见" /></td>
+          <td><Copy en="Policy improvement" zh="Policy 改进" /></td>
+        </tr>
+        <tr>
+          <td>Validation</td>
+          <td><Copy en="Protocol-dependent" zh="由协议决定" /></td>
+          <td><Copy en="Checkpoint selection" zh="Checkpoint 选择" /></td>
+        </tr>
+        <tr>
+          <td>Held-out</td>
+          <td><Copy en="Hidden until final reporting" zh="最终报告前隐藏" /></td>
+          <td><Copy en="Unbiased measurement" zh="无偏测量" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="reference-note">
+      <strong><Copy en="v0.3 scope" zh="v0.3 范围" /></strong>
+      <Copy
+        en="The current Kernel supports explicit split names and deterministic Episode planning. It does not yet own a durable Experiment-level checkpoint-selection and held-out reporting workflow."
+        zh="当前 Kernel 支持显式 split 名称与确定性 Episode 规划，但尚未拥有持久的 Experiment-level checkpoint selection 与 held-out reporting workflow。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="lifecycle">
+    <Copy en="Episode lifecycle" zh="Episode 生命周期" as="h2" />
+    <Copy
+      en="If one Policy process survives across Episodes, it can accumulate hidden cross-Episode state. That would blur the distinction between Policy execution and outer-loop Program evolution."
+      zh="如果一个 Policy 进程跨 Episodes 存活，它可以积累隐藏的跨 Episode 状态，从而模糊 Policy 执行与外层 Program 演化之间的区别。"
+      as="p"
+    />
+    <pre><code>Episode 0 → new process → make_policy(context) → act() × N → destroy
+Episode 1 → new process → make_policy(context) → act() × N → destroy
+Episode N → new process → make_policy(context) → act() × N → destroy</code></pre>
+    <Copy
+      en="State may persist across act() calls in one Episode. Cross-Episode change requires a new submitted Program."
+      zh="状态可以在同一 Episode 的多次 act() 调用之间保留。跨 Episode 改变必须通过新提交的 Program 完成。"
+      as="p"
+    />
+  </section>
+
+  <section id="current-scope">
+    <Copy en="Current implementation" zh="当前实现" as="h2" />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Capability" zh="能力" /></th>
+          <th><Copy en="v0.3 status" zh="v0.3 状态" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><Copy en="Immutable Program snapshots" zh="不可变 Program 快照" /></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+        </tr>
+        <tr>
+          <td><Copy en="Fresh Policy process per Episode" zh="每个 Episode 全新 Policy 进程" /></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+        </tr>
+        <tr>
+          <td><Copy en="Bounded local Coding Agent Run" zh="有界本地 Coding Agent Run" /></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+        </tr>
+        <tr>
+          <td><Copy en="Atomic local Feedback publication" zh="原子本地 Feedback publication" /></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+        </tr>
+        <tr>
+          <td><Copy en="Durable recovery and resume" zh="持久恢复与 resume" /></td>
+          <td><span class="reference-status is-development"><Copy en="Not implemented" zh="未实现" /></span></td>
+        </tr>
+        <tr>
+          <td><Copy en="Qualified hostile-code isolation" zh="经过资格认证的恶意代码隔离" /></td>
+          <td><span class="reference-status is-development"><Copy en="Not available" zh="不可用" /></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <Copy
+      en="Current `ProcessExecution` is explicitly unsafe and shares the Host kernel and user authority. The separate Firecracker package is alpha groundwork, not a selectable production sandbox or formal profile."
+      zh="当前 `ProcessExecution` 明确不安全，并共享 Host kernel 与用户权限。独立 Firecracker package 是 alpha 基础设施，不是可选择的 production sandbox 或 formal profile。"
+      as="p"
+    />
+  </section>
+
+  <section id="open-questions">
+    <Copy en="Open questions" zh="开放问题" as="h2" />
+    <ol>
+      <li><Copy en="How should Episode budgets be normalized across tasks with radically different horizon and information density?" zh="如何在 horizon 与信息密度差异巨大的任务之间归一化 Episode 预算？" /></li>
+      <li><Copy en="Which public artifacts improve agent learning without leaking private evaluation state?" zh="哪些公开 artifacts 能改善 Agent 学习，同时不泄漏私有评估状态？" /></li>
+      <li><Copy en="How should durable retries preserve accounting while hiding infrastructure failures from Policy scoring?" zh="持久重试如何保持记账，同时避免基础设施失败进入 Policy 评分？" /></li>
+      <li><Copy en="What conformance evidence is sufficient before an Environment supports a benchmark claim?" zh="Environment 在支持 Benchmark 主张前需要哪些充分的 conformance 证据？" /></li>
+    </ol>
+    <p>
+      <a href={withBase("docs/concepts/")}><Copy en="Core concepts →" zh="核心概念 →" /></a>
+      ·
+      <a href={withBase("docs/runtime/")}><Copy en="Execution and safety →" zh="执行与安全 →" /></a>
+      ·
+      <a href={withBase("results/")}><Copy en="Core16 archive →" zh="Core16 档案 →" /></a>
+    </p>
+  </section>
+</ReferenceLayout>

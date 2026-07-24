@@ -1,0 +1,33 @@
+---
+import Copy from "./Copy.astro";
+
+interface Props {
+  eyebrowEn: string;
+  eyebrowZh: string;
+  titleEn: string;
+  titleZh: string;
+  leadEn: string;
+  leadZh: string;
+  index?: string;
+}
+
+const {
+  eyebrowEn,
+  eyebrowZh,
+  titleEn,
+  titleZh,
+  leadEn,
+  leadZh,
+  index = "00",
+} = Astro.props;
+---
+
+<section class="page-hero">
+  <div class="hero-index">{index}</div>
+  <div class="hero-copy">
+    <Copy class="eyebrow" en={eyebrowEn} zh={eyebrowZh} as="p" />
+    <Copy en={titleEn} zh={titleZh} as="h1" />
+    <Copy class="hero-lead" en={leadEn} zh={leadZh} as="p" />
+    <slot />
+  </div>
+</section>

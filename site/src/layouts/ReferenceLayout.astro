@@ -1,0 +1,114 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import Copy from "../components/Copy.astro";
+import { projectMeta } from "../data/project";
+import { withBase } from "../lib/paths";
+import "../styles/reference.css";
+
+interface TocItem {
+  id?: string;
+  idEn?: string;
+  idZh?: string;
+  en: string;
+  zh: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  current: string;
+  toc: TocItem[];
+}
+
+const { title, description, current, toc } = Astro.props;
+
+const groups = [
+  {
+    en: "Start here",
+    zh: "开始",
+    links: [
+      { key: "intro", path: "", en: "EvoPolicyGym", zh: "EvoPolicyGym" },
+      { key: "docs", path: "docs/", en: "Documentation", zh: "文档总览" },
+      { key: "getting-started", path: "docs/getting-started/", en: "Getting started", zh: "快速开始" },
+      { key: "concepts", path: "docs/concepts/", en: "Core concepts", zh: "核心概念" },
+    ],
+  },
+  {
+    en: "Policy and evaluation",
+    zh: "Policy 与评估",
+    links: [
+      { key: "policy", path: "docs/policy/", en: "Policy ABI", zh: "Policy ABI" },
+      { key: "evaluation", path: "docs/evaluation/", en: "Evaluation and Runs", zh: "Evaluation 与 Runs" },
+      { key: "runtime", path: "docs/runtime/", en: "Execution and safety", zh: "执行与安全" },
+    ],
+  },
+  {
+    en: "Benchmarks",
+    zh: "Benchmarks",
+    links: [
+      { key: "environments", path: "environments/", en: "Environment collection", zh: "环境目录" },
+      { key: "authoring", path: "docs/authoring/", en: "Benchmark authoring", zh: "Benchmark 编写" },
+      { key: "runs", path: "runs/", en: "Run records", zh: "Run 记录" },
+    ],
+  },
+  {
+    en: "Project",
+    zh: "项目",
+    links: [
+      { key: "research", path: "research/", en: "Research", zh: "研究" },
+      { key: "protocol-design", path: "research/protocol-design/", en: "Protocol design", zh: "协议设计" },
+      { key: "historical", path: "results/", en: "Historical results", zh: "历史结果" },
+    ],
+  },
+];
+---
+
+<BaseLayout title={title} description={description} bodyClass="reference-page">
+  <div class="reference-layout page-wide">
+    <aside class="reference-sidebar" aria-label="Documentation sections">
+      <div class="reference-sidebar-head">
+        <strong>Documentation</strong>
+        <span>{projectMeta.versionLabel}</span>
+      </div>
+      {groups.map((group) => (
+        <section>
+          <Copy en={group.en} zh={group.zh} as="strong" />
+          <nav>
+            {group.links.map((link) => (
+              <a
+                href={withBase(link.path)}
+                aria-current={current === link.key ? "page" : undefined}
+              >
+                <Copy en={link.en} zh={link.zh} />
+              </a>
+            ))}
+          </nav>
+        </section>
+      ))}
+    </aside>
+
+    <article class="reference-article">
+      <slot />
+    </article>
+
+    <aside class="reference-toc" aria-label="On this page">
+      <Copy en="On this page" zh="本页目录" as="strong" />
+      <nav data-lang-view="en">
+        {toc.map((item) => (
+          <a href={`#${item.idEn ?? item.id}`}>{item.en}</a>
+        ))}
+      </nav>
+      <nav data-lang-view="zh" hidden>
+        {toc.map((item) => (
+          <a href={`#${item.idZh ?? item.id}`}>{item.zh}</a>
+        ))}
+      </nav>
+      <div class="reference-source">
+        <span>{projectMeta.protocolVersion}</span>
+        <a href="https://github.com/Linzwcs/EvoPolicyGym" target="_blank" rel="noreferrer">
+          <Copy en="Source code ↗" zh="源代码 ↗" />
+        </a>
+      </div>
+    </aside>
+  </div>
+</BaseLayout>

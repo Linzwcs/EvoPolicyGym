@@ -1,0 +1,109 @@
+---
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import Copy from "../../components/Copy.astro";
+import { withBase } from "../../lib/paths";
+
+const toc = [
+  { id: "documentation-structure", en: "Documentation structure", zh: "文档结构" },
+  { id: "recommended-path", en: "Recommended path", zh: "推荐阅读路径" },
+  { id: "source-of-truth", en: "Source of truth", zh: "事实来源" },
+];
+---
+
+<ReferenceLayout
+  title="Documentation — EvoPolicyGym"
+  description="Documentation for the EvoPolicyGym v0.3 public SDK, Policy ABI, evaluation lifecycle, and Benchmark authoring SPI."
+  current="docs"
+  {toc}
+>
+  <header>
+    <Copy en="Documentation" zh="文档" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="Reference material for running EvoPolicyGym, authoring Policy Programs, evaluating submissions, integrating coding agents, and implementing external Benchmarks."
+      zh="用于运行 EvoPolicyGym、编写 Policy Program、评估提交、接入 Coding Agent，以及实现外部 Benchmark 的参考资料。"
+      as="p"
+    />
+  </header>
+
+  <div class="reference-note">
+    <strong><Copy en="Current documentation: v0.3" zh="当前文档：v0.3" /></strong>
+    <Copy
+      en="These pages describe the current clean-slate public SDK. Superseded v0.2 material is retained only under the repository's reference archive."
+      zh="这些页面描述当前 clean-slate 公共 SDK。已经被取代的 v0.2 材料只保留在仓库的 reference 档案中。"
+      as="p"
+    />
+  </div>
+
+  <section id="documentation-structure">
+    <Copy en="Documentation structure" zh="文档结构" as="h2" />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Section" zh="章节" /></th>
+          <th><Copy en="Purpose" zh="用途" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href={withBase("docs/getting-started/")}><Copy en="Getting started" zh="快速开始" /></a></td>
+          <td><Copy en="Install the Kernel and run the CartPole reference Benchmark." zh="安装 Kernel 并运行 CartPole 参考 Benchmark。" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("docs/concepts/")}><Copy en="Core concepts" zh="核心概念" /></a></td>
+          <td><Copy en="Program, Evaluation, Submission, Feedback, and Program-Evolution Run." zh="Program、Evaluation、Submission、Feedback 与 Program-Evolution Run。" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("docs/policy/")}>Policy ABI</a></td>
+          <td><Copy en="The complete interface and value boundary visible to submitted code." zh="提交代码可见的完整接口与值边界。" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("docs/evaluation/")}><Copy en="Evaluation and Runs" zh="Evaluation 与 Runs" /></a></td>
+          <td><Copy en="Direct evaluation and bounded coding-agent evolution workflows." zh="直接评估与有界 Coding Agent 演化工作流。" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("docs/authoring/")}><Copy en="Benchmark authoring" zh="Benchmark 编写" /></a></td>
+          <td><Copy en="The public SPI for independently distributed Environments." zh="用于独立分发 Environment 的公共 SPI。" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("docs/runtime/")}><Copy en="Execution and safety" zh="执行与安全" /></a></td>
+          <td><Copy en="Fresh lifecycle guarantees, failure ownership, and isolation limits." zh="全新生命周期保证、故障归属与隔离限制。" /></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="recommended-path">
+    <Copy en="Recommended path" zh="推荐阅读路径" as="h2" />
+    <ol>
+      <li><Copy en="Run the CartPole baseline in Getting started." zh="按照快速开始运行 CartPole baseline。" /></li>
+      <li><Copy en="Read Core concepts to learn the vocabulary and ownership boundaries." zh="阅读核心概念，理解领域词汇与所有权边界。" /></li>
+      <li><Copy en="Use Policy ABI when writing submitted code." zh="编写提交代码时参考 Policy ABI。" /></li>
+      <li><Copy en="Use Evaluation and Runs when integrating a caller or coding agent." zh="接入 caller 或 Coding Agent 时参考 Evaluation 与 Runs。" /></li>
+      <li><Copy en="Use Benchmark authoring when publishing a new Environment distribution." zh="发布新的 Environment distribution 时参考 Benchmark 编写。" /></li>
+    </ol>
+  </section>
+
+  <section id="source-of-truth">
+    <Copy en="Source of truth" zh="事实来源" as="h2" />
+    <Copy
+      en="Public behavior is defined jointly by the package's exported interfaces, architecture document, tests, and this documentation. Generated run artifacts and historical paper pages are evidence, not compatibility contracts."
+      zh="公共行为由 package 导出的接口、架构文档、测试和本说明共同定义。生成的 Run artifacts 与历史论文页面属于证据，不是兼容性契约。"
+      as="p"
+    />
+    <div class="reference-next">
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/blob/main/README.md" target="_blank" rel="noreferrer">
+        <strong>README</strong>
+        <small><Copy en="Current package behavior." zh="当前 package 行为。" /></small>
+      </a>
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/blob/main/ARCHITECTURE.md" target="_blank" rel="noreferrer">
+        <strong>ARCHITECTURE</strong>
+        <small><Copy en="Ownership and dependency rules." zh="所有权与依赖规则。" /></small>
+      </a>
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments" target="_blank" rel="noreferrer">
+        <strong>Environments</strong>
+        <small><Copy en="Independent Benchmark distributions." zh="独立 Benchmark distributions。" /></small>
+      </a>
+    </div>
+  </section>
+</ReferenceLayout>

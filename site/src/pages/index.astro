@@ -1,0 +1,186 @@
+---
+import ReferenceLayout from "../layouts/ReferenceLayout.astro";
+import Copy from "../components/Copy.astro";
+import { withBase } from "../lib/paths";
+
+const toc = [
+  { id: "overview", en: "Overview", zh: "概述" },
+  { id: "installation", en: "Installation", zh: "安装" },
+  { id: "basic-usage", en: "Basic usage", zh: "基本使用" },
+  { id: "evaluation-model", en: "Evaluation model", zh: "评估模型" },
+  { id: "environments", en: "Environments", zh: "环境" },
+  { id: "next-steps", en: "Next steps", zh: "下一步" },
+];
+---
+
+<ReferenceLayout
+  title="EvoPolicyGym Documentation"
+  description="A portable benchmark kernel for evaluating coding agents through executable Policy evolution."
+  current="intro"
+  {toc}
+>
+  <header>
+    <Copy en="EvoPolicyGym" zh="EvoPolicyGym" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="A portable benchmark kernel for evaluating whether coding agents can improve executable Policies through bounded interaction with Environments."
+      zh="一个可移植的 Benchmark 内核，用于评估 Coding Agent 能否通过与 Environment 的有限交互改进可执行 Policy。"
+      as="p"
+    />
+  </header>
+
+  <div class="reference-note">
+    <strong><Copy en="Version 0.3" zh="版本 0.3" /></strong>
+    <Copy
+      en="The current release is an active alpha. CartPole is the reference Benchmark; Balatro is under design; Core16 is retained as historical research evidence."
+      zh="当前版本为活跃 Alpha。CartPole 是参考 Benchmark；Balatro 正在设计；Core16 作为历史研究证据保留。"
+      as="p"
+    />
+  </div>
+
+  <section id="overview">
+    <Copy en="Overview" zh="概述" as="h2" />
+    <Copy
+      en="EvoPolicyGym evaluates an outer coding agent as a Policy-system optimizer. The coding agent does not choose individual game actions. It authors a complete Python Program whose Policy repeatedly maps observations to actions over previously unseen Episodes."
+      zh="EvoPolicyGym 将外层 Coding Agent 作为 Policy 系统优化器进行评估。Coding Agent 不直接选择单个游戏动作，而是编写完整的 Python Program；其中的 Policy 在未见过的 Episodes 中持续把 Observation 映射为 Action。"
+      as="p"
+    />
+    <Copy
+      en="Each submitted Program is immutable and content-addressed. Evaluation produces a scalar score, sanitized Episode outcomes, Benchmark-defined feedback, and optional public artifacts. The agent may use only committed public feedback to author its next submission."
+      zh="每个已提交 Program 都是不可变且内容寻址的。评估产生标量分数、经过净化的 Episode 结果、由 Benchmark 定义的 Feedback，以及可选的公开 artifacts。Agent 只能使用已经提交的公开反馈编写下一次提交。"
+      as="p"
+    />
+
+    <div class="reference-flow" aria-label="Program evolution lifecycle">
+      <div><span>01</span><strong>Author</strong><small>edit Policy source</small></div>
+      <div><span>02</span><strong>Submit</strong><small>freeze the Program</small></div>
+      <div><span>03</span><strong>Evaluate</strong><small>run fresh Episodes</small></div>
+      <div><span>04</span><strong>Feedback</strong><small>publish public evidence</small></div>
+    </div>
+  </section>
+
+  <section id="installation">
+    <Copy en="Installation" zh="安装" as="h2" />
+    <Copy
+      en="The repository uses Python 3.12 and uv. Clone the repository and synchronize the Kernel environment:"
+      zh="仓库使用 Python 3.12 与 uv。克隆仓库并同步 Kernel 环境："
+      as="p"
+    />
+    <pre><code>git clone https://github.com/Linzwcs/EvoPolicyGym
+cd EvoPolicyGym
+uv sync
+uv run evopolicygym --version</code></pre>
+
+    <Copy
+      en="Benchmark distributions are installed independently. For the CartPole reference Benchmark:"
+      zh="Benchmark distribution 独立安装。对于 CartPole 参考 Benchmark："
+      as="p"
+    />
+    <pre><code>uv sync --project environments/cartpole --extra dev</code></pre>
+  </section>
+
+  <section id="basic-usage">
+    <Copy en="Basic usage" zh="基本使用" as="h2" />
+    <Copy
+      en="Evaluate the packaged CartPole baseline over five Episodes:"
+      zh="使用 5 个 Episodes 评估 CartPole package 中的 baseline："
+      as="p"
+    />
+    <pre><code>uv run --project environments/cartpole \
+  evopolicygym-cartpole evaluate \
+  --episodes 5 \
+  --allow-unsafe-process</code></pre>
+
+    <div class="reference-note is-warning">
+      <strong><Copy en="Local execution is not a sandbox" zh="本地执行不是沙箱" /></strong>
+      <Copy
+        en="ProcessExecution runs trusted Policy code with the authority of the current operating-system user. The acknowledgement flag does not provide isolation."
+        zh="ProcessExecution 以当前操作系统用户的权限运行可信 Policy 代码；确认参数并不提供隔离。"
+        as="p"
+      />
+    </div>
+
+    <Copy en="A Policy Program provides one fixed entry point:" zh="Policy Program 提供一个固定入口：" as="p" />
+    <pre><code>from evopolicygym.policy import PolicyContext, PolicyValue
+
+
+class Policy:
+    def act(self, observation: PolicyValue) -> PolicyValue:
+        del observation
+        return 0
+
+
+def make_policy(context: PolicyContext) -> Policy:
+    del context
+    return Policy()</code></pre>
+    <Copy
+      en="Every Episode receives a fresh Policy process and instance. State may persist across act() calls within that Episode, but never crosses into the next Episode."
+      zh="每个 Episode 都获得全新的 Policy 进程与实例。状态可以在同一 Episode 的多次 act() 调用之间保留，但不会进入下一个 Episode。"
+      as="p"
+    />
+  </section>
+
+  <section id="evaluation-model">
+    <Copy en="Evaluation model" zh="评估模型" as="h2" />
+    <ol>
+      <li><Copy en="The Host requests a trusted Episode specification from the Benchmark." zh="Host 从 Benchmark 获取可信的 Episode specification。" /></li>
+      <li><Copy en="A fresh Environment and fresh Policy process are created for that Episode." zh="为该 Episode 创建全新的 Environment 与 Policy 进程。" /></li>
+      <li><Copy en="Policy Actions are validated exactly; invalid values are never repaired or replaced." zh="Policy Action 被严格校验；非法值不会被修复或替换。" /></li>
+      <li><Copy en="Policy failures become sanitized outcomes, while Environment and Backend faults abort evaluation." zh="Policy failure 转化为经过净化的结果；Environment 与 Backend fault 则中止评估。" /></li>
+      <li><Copy en="Feedback and public artifacts become visible only after one atomic commit point." zh="Feedback 与公开 artifacts 仅在一个原子提交点之后变得可见。" /></li>
+    </ol>
+  </section>
+
+  <section id="environments">
+    <Copy en="Environments" zh="环境" as="h2" />
+    <Copy
+      en="Environment packages depend only on the public EvoPolicyGym SDK and authoring SPI. They own Episode planning, scoring, feedback, dependencies, and tests."
+      zh="Environment package 只依赖 EvoPolicyGym 公共 SDK 与 authoring SPI，并自行拥有 Episode 规划、评分、Feedback、依赖与测试。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Environment" zh="环境" /></th>
+          <th><Copy en="Status" zh="状态" /></th>
+          <th><Copy en="Role" zh="用途" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href={withBase("environments/#cartpole")}>CartPole</a></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+          <td><Copy en="Reference control Benchmark" zh="参考控制 Benchmark" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("environments/#balatro")}>Balatro</a></td>
+          <td><span class="reference-status is-development"><Copy en="In development" zh="开发中" /></span></td>
+          <td><Copy en="Long-horizon game Benchmark" zh="长时程游戏 Benchmark" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("environments/#core16")}>Core16</a></td>
+          <td><span class="reference-status is-historical"><Copy en="Historical" zh="历史结果" /></span></td>
+          <td><Copy en="Paper experiment archive" zh="论文实验档案" /></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="next-steps">
+    <Copy en="Next steps" zh="下一步" as="h2" />
+    <div class="reference-next">
+      <a href={withBase("docs/getting-started/")}>
+        <strong><Copy en="Getting started" zh="快速开始" /></strong>
+        <small><Copy en="Install and evaluate a Program." zh="安装并评估一个 Program。" /></small>
+      </a>
+      <a href={withBase("environments/")}>
+        <strong><Copy en="Environments" zh="环境" /></strong>
+        <small><Copy en="Compare current Benchmark contracts." zh="比较当前 Benchmark 契约。" /></small>
+      </a>
+      <a href={withBase("docs/policy/")}>
+        <strong><Copy en="Policy ABI" zh="Policy ABI" /></strong>
+        <small><Copy en="Read the submitted-code boundary." zh="阅读提交代码的边界。" /></small>
+      </a>
+    </div>
+  </section>
+</ReferenceLayout>

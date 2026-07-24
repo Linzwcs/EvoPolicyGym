@@ -1,0 +1,41 @@
+---
+import ReferenceLayout from "./ReferenceLayout.astro";
+import Copy from "../components/Copy.astro";
+
+interface TocItem {
+  idEn: string;
+  idZh: string;
+  en: string;
+  zh: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  pageTitleEn: string;
+  pageTitleZh: string;
+  leadEn: string;
+  leadZh: string;
+  current: string;
+  toc: TocItem[];
+}
+
+const {
+  title,
+  description,
+  pageTitleEn,
+  pageTitleZh,
+  leadEn,
+  leadZh,
+  current,
+  toc,
+} = Astro.props;
+---
+
+<ReferenceLayout {title} {description} {current} {toc}>
+  <header>
+    <Copy en={pageTitleEn} zh={pageTitleZh} as="h1" />
+    <Copy class="reference-lead" en={leadEn} zh={leadZh} as="p" />
+  </header>
+  <slot />
+</ReferenceLayout>

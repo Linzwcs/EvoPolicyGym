@@ -1,0 +1,147 @@
+---
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import Copy from "../../components/Copy.astro";
+import { withBase } from "../../lib/paths";
+
+const toc = [
+  { id: "overview", en: "Overview", zh: "概述" },
+  { id: "cartpole", en: "CartPole", zh: "CartPole" },
+  { id: "balatro", en: "Balatro", zh: "Balatro" },
+  { id: "core16", en: "Core16 archive", zh: "Core16 档案" },
+  { id: "authoring", en: "Authoring", zh: "编写环境" },
+];
+---
+
+<ReferenceLayout
+  title="Environments — EvoPolicyGym Documentation"
+  description="Implemented, developing, and historical Environment distributions for EvoPolicyGym."
+  current="environments"
+  {toc}
+>
+  <header>
+    <Copy en="Environments" zh="环境" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="Environment distributions define the world in which a Policy acts and the Benchmark contract by which a Program is evaluated."
+      zh="Environment distribution 定义 Policy 所处的世界，以及评估 Program 所使用的 Benchmark 契约。"
+      as="p"
+    />
+  </header>
+
+  <section id="overview">
+    <Copy en="Overview" zh="概述" as="h2" />
+    <Copy
+      en="The portable Kernel does not bundle environment implementations. Each independently installable distribution owns its Environment, deterministic Episode planning, scoring, Feedback, baseline Program, dependencies, and tests."
+      zh="可移植 Kernel 不内置具体环境实现。每个可独立安装的 distribution 自行拥有 Environment、确定性 Episode 规划、评分、Feedback、baseline Program、依赖与测试。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Environment" zh="环境" /></th>
+          <th><Copy en="Status" zh="状态" /></th>
+          <th><Copy en="Observation" zh="Observation" /></th>
+          <th><Copy en="Action" zh="Action" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="#cartpole">CartPole</a></td>
+          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
+          <td><Copy en="Four finite floats" zh="4 个有限浮点数" /></td>
+          <td><Copy en="Integer 0 or 1" zh="整数 0 或 1" /></td>
+        </tr>
+        <tr>
+          <td><a href="#balatro">Balatro</a></td>
+          <td><span class="reference-status is-development"><Copy en="In development" zh="开发中" /></span></td>
+          <td><Copy en="Structured game state" zh="结构化游戏状态" /></td>
+          <td><Copy en="Play, discard, shop decisions" zh="出牌、弃牌与商店决策" /></td>
+        </tr>
+        <tr>
+          <td><a href="#core16">Core16</a></td>
+          <td><span class="reference-status is-historical"><Copy en="Historical" zh="历史结果" /></span></td>
+          <td><Copy en="Task-specific" zh="按任务定义" /></td>
+          <td><Copy en="Task-specific" zh="按任务定义" /></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="cartpole">
+    <Copy en="CartPole" zh="CartPole" as="h2" />
+    <p><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></p>
+    <Copy
+      en="The CartPole-v1 distribution is the current reference Benchmark. It exercises the complete public authoring SPI and Evaluation lifecycle without being part of the base wheel."
+      zh="CartPole-v1 distribution 是当前参考 Benchmark。它验证完整的公共 authoring SPI 与 Evaluation 生命周期，但不属于基础 wheel。"
+      as="p"
+    />
+    <dl class="reference-definition">
+      <dt><Copy en="Package" zh="Package" /></dt>
+      <dd><code>evopolicygym-benchmark-cartpole==0.1.0</code></dd>
+      <dt><Copy en="Import" zh="Import" /></dt>
+      <dd><code>evopolicygym_cartpole</code></dd>
+      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
+      <dd><code>gymnasium/CartPole-v1/mean-return-v1</code></dd>
+      <dt><Copy en="Score" zh="评分" /></dt>
+      <dd><Copy en="Mean Episode return; maximum 500" zh="Episode 平均回报；最高 500" /></dd>
+      <dt><Copy en="Splits" zh="Splits" /></dt>
+      <dd><code>train</code>, <code>validation</code>, <code>test</code></dd>
+    </dl>
+    <Copy en="Install and evaluate the packaged baseline:" zh="安装并评估 package 中的 baseline：" as="p" />
+    <pre><code>uv sync --project environments/cartpole --extra dev
+
+uv run --project environments/cartpole \
+  evopolicygym-cartpole evaluate \
+  --episodes 5 \
+  --allow-unsafe-process</code></pre>
+  </section>
+
+  <section id="balatro">
+    <Copy en="Balatro" zh="Balatro" as="h2" />
+    <p><span class="reference-status is-development"><Copy en="In development" zh="开发中" /></span></p>
+    <Copy
+      en="Balatro is being investigated as a long-horizon game Benchmark. A Policy would make decisions across hands, discards, shops, Jokers, consumables, and antes rather than solving a short control episode."
+      zh="Balatro 正在作为长时程游戏 Benchmark 进行研究。Policy 需要跨越手牌、弃牌、商店、Joker、消耗品与 Antes 作出决策，而不是只解决一个短控制 Episode。"
+      as="p"
+    />
+    <Copy
+      en="The intended integration uses the licensed game with a bridge for structured state and actions. The public contract, deterministic replay requirements, failure semantics, and evaluation budget must be fixed before the environment is advertised as implemented."
+      zh="预期接入方式使用正版游戏，并通过 Bridge 提供结构化状态与 Action。在标记为已实现之前，必须先固定公共契约、确定性重放要求、故障语义与评估预算。"
+      as="p"
+    />
+    <div class="reference-note">
+      <strong><Copy en="Current status" zh="当前状态" /></strong>
+      <Copy
+        en="Environment design and integration planning only. No active Balatro Benchmark distribution is published by this repository yet."
+        zh="目前仅处于环境设计与接入规划阶段；仓库尚未发布可用的 Balatro Benchmark distribution。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="core16">
+    <Copy en="Core16 archive" zh="Core16 档案" as="h2" />
+    <p><span class="reference-status is-historical"><Copy en="Historical research" zh="历史研究" /></span></p>
+    <Copy
+      en="Core16 contains the sixteen control, navigation, driving, and robotics tasks used in the paper experiment. Their score matrices and sixty-four final-Policy reruns are retained as research evidence."
+      zh="Core16 包含论文实验使用的 16 个控制、导航、驾驶与机器人任务。对应分数矩阵与 64 段最终 Policy 重跑作为研究证据保留。"
+      as="p"
+    />
+    <Copy
+      en="These pages do not imply that the current v0.3 Kernel ships active Core16 adapters."
+      zh="这些页面并不表示当前 v0.3 Kernel 提供可用的 Core16 adapters。"
+      as="p"
+    />
+    <p><a href={withBase("results/")}><Copy en="Open the historical results →" zh="查看历史结果 →" /></a></p>
+  </section>
+
+  <section id="authoring">
+    <Copy en="Authoring an Environment" zh="编写 Environment" as="h2" />
+    <Copy
+      en="An external distribution implements the structural Benchmark and Environment protocols through evopolicygym.authoring. The distribution must define deterministic Episode planning, strict Action validation, scoring, sanitized public Feedback, cleanup behavior, and conformance tests."
+      zh="外部分发包通过 evopolicygym.authoring 实现结构化 Benchmark 与 Environment protocols。该 distribution 必须定义确定性 Episode 规划、严格 Action 校验、评分、经过净化的公开 Feedback、清理行为与 conformance tests。"
+      as="p"
+    />
+    <p><a href={withBase("docs/")}><Copy en="Read the API documentation →" zh="阅读 API 文档 →" /></a></p>
+  </section>
+</ReferenceLayout>

@@ -1,0 +1,12 @@
+---
+interface Props {
+  en: string;
+  zh: string;
+  as?: "span" | "p" | "strong" | "em" | "small" | "h1" | "h2" | "h3";
+  class?: string;
+}
+
+const { en, zh, as: Tag = "span", class: className } = Astro.props;
+---
+
+<Tag class={className} data-copy data-en={en} data-zh={zh}>{en}</Tag>

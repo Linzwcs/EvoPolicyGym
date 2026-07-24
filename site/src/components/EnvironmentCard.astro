@@ -1,0 +1,50 @@
+---
+import type { Clip, Environment } from "../lib/showcase";
+import type { EnvironmentMeta } from "../data/environments";
+import { formatScore } from "../lib/showcase";
+import { withBase } from "../lib/paths";
+import Copy from "./Copy.astro";
+import StatusPill from "./StatusPill.astro";
+
+interface Props {
+  env: Environment;
+  meta: EnvironmentMeta;
+  preview?: Clip;
+  bestScore?: number;
+  compact?: boolean;
+}
+
+const { env, meta, preview, bestScore, compact = false } = Astro.props;
+---
+
+<article class:list={["environment-card", compact && "is-compact"]} data-category={env.category}>
+  {preview && (
+    <a class="environment-preview" href={withBase(`results/environments/${env.id}/`)} tabindex="-1" aria-hidden="true">
+      <img src={withBase(preview.media)} alt="" loading="lazy" />
+      <span class="preview-grid"></span>
+    </a>
+  )}
+  <div class="environment-card-body">
+    <div class="card-meta">
+      <span>{env.category}</span>
+      <StatusPill en="Paper suite" zh="论文套件" tone="research" />
+    </div>
+    <h3><a href={withBase(`results/environments/${env.id}/`)}>{env.display}</a></h3>
+    <Copy class="card-description" en={meta.shortEn} zh={meta.shortZh} as="p" />
+    <dl class="compact-facts">
+      <div>
+        <dt><Copy en="Policy focus" zh="策略重点" /></dt>
+        <dd><Copy en={meta.focusEn} zh={meta.focusZh} /></dd>
+      </div>
+      {bestScore !== undefined && (
+        <div>
+          <dt><Copy en="Best reported" zh="最佳报告分数" /></dt>
+          <dd>{formatScore(bestScore)}</dd>
+        </div>
+      )}
+    </dl>
+    <a class="card-link" href={withBase(`results/environments/${env.id}/`)}>
+      <Copy en="Open result" zh="查看结果" /><span aria-hidden="true">↗</span>
+    </a>
+  </div>
+</article>

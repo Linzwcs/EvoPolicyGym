@@ -1,0 +1,74 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getCollection, render } from "astro:content";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+interface Props {
+  en: CollectionEntry<"docs">;
+  zh: CollectionEntry<"docs">;
+}
+
+export async function getStaticPaths() {
+  const docs = await getCollection("docs");
+  const englishDocs = docs.filter(
+    (entry) =>
+      entry.data.locale === "en" && entry.data.page !== "environments",
+  );
+
+  return englishDocs.map((en) => {
+    const zh = docs.find(
+      (entry) =>
+        entry.data.locale === "zh" &&
+        entry.data.page === en.data.page,
+    );
+
+    if (!zh) {
+      throw new Error(`Missing Chinese documentation entry for ${en.data.page}`);
+    }
+
+    return {
+      params: { slug: en.data.page },
+      props: { en, zh },
+    };
+  });
+}
+
+const { en, zh } = Astro.props as Props;
+const {
+  Content: EnglishContent,
+  headings: englishHeadings,
+} = await render(en);
+const {
+  Content: ChineseContent,
+  headings: chineseHeadings,
+} = await render(zh);
+
+const englishSections = englishHeadings.filter((heading) => heading.depth === 2);
+const chineseSections = chineseHeadings.filter((heading) => heading.depth === 2);
+const toc = englishSections.map((heading, index) => ({
+  idEn: heading.slug,
+  idZh: chineseSections[index]?.slug ?? heading.slug,
+  en: heading.text,
+  zh: chineseSections[index]?.text ?? heading.text,
+}));
+---
+
+<DocsLayout
+  title={`${en.data.title} — EvoPolicyGym`}
+  description={en.data.description}
+  pageTitleEn={en.data.title}
+  pageTitleZh={zh.data.title}
+  leadEn={en.data.lead}
+  leadZh={zh.data.lead}
+  current={en.data.page}
+  {toc}
+>
+  <div class="docs-markdown">
+    <div data-lang-view="en">
+      <EnglishContent />
+    </div>
+    <div data-lang-view="zh" hidden>
+      <ChineseContent />
+    </div>
+  </div>
+</DocsLayout>

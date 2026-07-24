@@ -1,0 +1,16 @@
+---
+import Copy from "./Copy.astro";
+
+interface Props {
+  en: string;
+  zh: string;
+  tone?: "active" | "planned" | "research" | "draft";
+}
+
+const { en, zh, tone = "draft" } = Astro.props;
+---
+
+<span class:list={["status-pill", `status-${tone}`]}>
+  <i aria-hidden="true"></i>
+  <Copy en={en} zh={zh} />
+</span>

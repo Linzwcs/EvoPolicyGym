@@ -1,0 +1,30 @@
+---
+import Copy from "./Copy.astro";
+import { projectMeta } from "../data/project";
+import { withBase } from "../lib/paths";
+---
+
+<footer class="site-footer">
+  <div class="footer-brand">
+    <strong>EvoPolicyGym</strong>
+    <Copy en="Executable policy evolution, measured." zh="衡量可执行策略如何演化。" />
+  </div>
+  <div class="footer-note">
+    <Copy
+      en={`The ${projectMeta.versionLabel} runtime is a clean-slate protocol reference. Core16 pages preserve the paper-companion results and do not imply active adapter support.`}
+      zh={`${projectMeta.versionLabel} 运行时是全新协议参考实现；Core16 页面保留论文伴随结果，不代表这些环境已成为当前 adapter。`}
+      as="p"
+    />
+  </div>
+  <nav class="footer-links" aria-label="Footer">
+    <a href={withBase("docs/")}><Copy en="Documentation" zh="文档" /></a>
+    <a href={withBase("research/")}><Copy en="Research" zh="研究" /></a>
+    <a href="http://arxiv.org/abs/2607.02440" target="_blank" rel="noreferrer">arXiv ↗</a>
+    <a href="https://github.com/Linzwcs/EvoPolicyGym" target="_blank" rel="noreferrer">GitHub ↗</a>
+  </nav>
+  <div class="footer-bottom">
+    <span>MIT License</span>
+    <span>Protocol {projectMeta.protocolVersion}</span>
+    <span>© {new Date().getFullYear()} EvoPolicyGym contributors</span>
+  </div>
+</footer>

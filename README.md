@@ -30,6 +30,11 @@ experiment configuration, and Core16 results are preserved at
 [`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0); they are
 historical research artifacts, not outputs of the current 0.3 Kernel.
 
+For AI-assisted setup, Benchmark integration, runs, and diagnostics, this
+repository ships the reusable
+[`use-evopolicygym` Agent Skill](skills/use-evopolicygym/). Install that folder
+with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
+
 ## Environments
 
 Environment distributions are independent packages that depend only on the

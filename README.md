@@ -1,293 +1,429 @@
-# EvoPolicyGym
+# EvoPolicyGym 0.3
 
-[English](README.md) | [中文](README.zh-CN.md)
+This repository contains the clean-slate portable Kernel for evaluating
+immutable Policy Programs and letting a Coding Agent improve them through
+bounded submissions. Its import name is `evopolicygym`; there are no `v2`,
+`next`, `legacy`, or compatibility namespaces.
 
-**Project website:** <https://linzwcs.github.io/EvoPolicyGym/>  
-**Paper:** [EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments](http://arxiv.org/abs/2607.02440)  
-**Protocol design essay:** [web](https://linzwcs.github.io/EvoPolicyGym/protocol-design.html) · [local HTML](web/protocol-design.html) · [Markdown draft](docs/blog/evaluating-agents-as-policy-optimizers.md)
+## Current status
 
-EvoPolicyGym is benchmark infrastructure for evaluating whether coding agents can
-improve executable policies from budget-limited environment feedback. It follows
-an online-judge style protocol: an agent edits code in a workspace, submits
-policy rollouts through a local API, receives feedback artifacts, and continues
-until the episode budget is exhausted.
+Implemented:
 
-## 🟠 Roadmap
+- bounded-carrier Policy ABI, including dense tensors;
+- case-independent `PolicyContext` with a separate Policy random seed;
+- detached, content-addressed `Program` snapshots;
+- structural Benchmark and Environment protocols;
+- trusted Episode specifications and records;
+- sanitized Feedback, Artifact, Evaluation, Submission, and Run values;
+- immutable Evaluation and Run configuration;
+- direct evaluation with one fresh Policy subprocess per Episode;
+- typed Policy failure versus trusted Environment failure behavior;
+- explicit acknowledgement of unsafe local-process execution;
+- an in-memory outer-Agent Session with bounded submission authority;
+- Agent-facing `submit` and `finish` CLI commands over a private local socket;
+- retained Run directories with `workspace/{program,feedback}`;
+- Host-owned initial and per-Submission Program snapshots;
+- a terminal `run-record/v1` manifest;
+- distinct Agent exit classifications for natural exit, timeout, start
+  failure, and Host stop after Session terminal state;
+- atomic public Feedback and Artifact materialization;
+- physically separate Host-side Agent stdout, stderr, and event logs;
+- a first-party Codex configuration and executable `run()` workflow;
+- an ephemeral, machine-readable Codex CLI invocation contract;
+- deterministic Benchmark fixture replay.
 
-> [!IMPORTANT]
-> **Current priority:** complete and present the current experimental results.
->
-> **Next:** comprehensively refactor the code and runtime infrastructure into a
-> cleaner, more robust, and extensible foundation for policy execution, online
-> learning, isolation and virtualization, and reproducible evaluation.
+Not implemented or exported yet:
+
+- Docker or virtual-machine execution settings;
+- persistence, recovery, catalogs, releases, and formal operators.
+
+Remaining executable entry points will be exported only after their complete
+semantics exist. The package contains no functions that merely raise
+`NotImplementedError`.
+
+## Stable interface roles
+
+| Namespace | Audience |
+| --- | --- |
+| `evopolicygym` | common caller-facing values |
+| `evopolicygym.policy` | submitted Policy ABI |
+| `evopolicygym.program` | immutable Program snapshots |
+| `evopolicygym.benchmark` | caller-facing Benchmark identity and metadata |
+| `evopolicygym.authoring` | complete external Benchmark authoring and conformance SPI |
+| `evopolicygym.artifacts` | bounded public Artifact values |
+| `evopolicygym.results` | public Feedback and result values |
+| `evopolicygym.evaluation` | direct Program evaluation |
+| `evopolicygym.execution` | explicit unsafe-process acknowledgement |
+| `evopolicygym.run` | executable Coding Agent runs and configuration |
+| `evopolicygym.agents` | CodingAgent integration template and providers |
+| `evopolicygym.agents.codex` | Codex provider configuration |
+| `evopolicygym.errors` | sanitized public failures |
+
+Evaluation and Program-Evolution internals, execution-setting implementations,
+storage, subprocess, and protocol details are not public extension surfaces.
+
+## Policy Program
+
+A Program directory contains a fixed `policy.py:make_policy` entry point:
+
+```python
+from evopolicygym.policy import PolicyContext, PolicyValue
 
 
-## What It Evaluates
+def make_policy(context: PolicyContext):
+    return MyPolicy(context)
 
-EvoPolicyGym measures whether a coding agent can turn environment feedback into
-better executable policy code. The benchmark does not prescribe the internal
-method: a submitted policy may use rules, search, planning, learned components,
-or other Python logic. What is controlled is the interaction protocol. Real
-environment rollouts must go through the EvoPolicyGym server, consume the run
-budget, and leave reproducible artifacts.
 
-## Overall Experimental Protocol
+class MyPolicy:
+    def __init__(self, context: PolicyContext):
+        self._seed = context.policy_seed
 
-Each benchmark run is a closed-loop optimization session with three roles:
-
-- **Agent**: edits `workspace/system/`, decides when to submit, and reads
-  feedback artifacts.
-- **Server**: snapshots submitted policy code, runs controlled rollouts in a
-  sandbox, writes feedback, tracks budget, and performs final scoring.
-- **Workspace**: exposes writable policy code under `system/` and read-only
-  feedback under `feedback/submit_NNN/`.
-
-The loop is:
-
-1. The agent queries `/info` for runtime state and `/task` for the task
-   contract.
-2. The agent edits `system/`.
-3. The agent calls `/submit` with one or more training `env_instances`.
-4. The server snapshots the policy, runs those episodes, charges the episode
-   budget, and writes `summary.json`, per-step trajectories, optional videos,
-   observations, stdout/stderr, and errors under `feedback/submit_NNN/`.
-5. The agent analyzes only this visible train feedback and repeats until the
-   episode budget is exhausted.
-6. When `remaining_budget == 0`, the server automatically finalizes the run:
-   all `status == "ok"` checkpoints are evaluated on hidden validation cases,
-   the checkpoint with the best validation score is selected, and that selected
-   policy is evaluated on hidden held-out cases for the final score.
-
-Visibility is intentionally separated:
-
-- **Visible during optimization**: task text, runtime budget state, train
-  `env_instance` IDs, and train feedback from `/submit`.
-- **Hidden during optimization**: validation cases, held-out cases, their seeds,
-  random/expert scoring anchors, validation scores, held-out returns, and the
-  final score.
-
-All rollout data used for optimization must be produced by `/submit`. Agents may
-run local syntax checks or static analysis, but they must not create extra
-environment episodes through local Gymnasium, MuJoCo, Box2D, HighwayEnv, or other
-simulators outside the server-controlled submit path.
-
-For the main Core-16 experiment stack, the checked-in `config/main-128-*.toml`
-suites use 128 visible training episodes per run. The protocol default hidden
-selection/evaluation pools are 64 validation episodes per successful checkpoint
-and 256 held-out episodes for the selected checkpoint. See
-[`docs/protocol/`](docs/protocol/) for the normative protocol and
-[`docs/envs/core_suite.md`](docs/envs/core_suite.md) for the Core-16 suite.
-For a design-level explanation of the protocol choices, see the
-[protocol design essay](web/protocol-design.html).
-
-## Status
-
-EvoPolicyGym is alpha software. The active package is `src/evopolicygym`; frozen
-v1 material lives under `archive/v1/` for reference only.
-
-## Install
-
-```bash
-uv sync
+    def act(self, observation: PolicyValue) -> PolicyValue:
+        return 0
 ```
 
-For the main Core-16 experiment stack, install the Gymnasium and compatible
-environment families:
+Each Episode receives a fresh Policy process, instance, and scratch directory.
+State may persist between `act()` calls in that Episode. There is no
+`learn()`, `reset()`, `update()`, Submission, or Feedback method.
 
-```bash
-uv sync --extra dev --extra env-gym --extra env-compatible
+Capture a caller-owned directory before evaluation:
+
+```python
+from evopolicygym import Program
+
+program = Program.from_directory("policy/")
+print(program.digest)
 ```
 
-The same setup is wrapped by:
+The snapshot retains no Host source path. Later source mutations cannot change
+its files or digest.
 
-```bash
-scripts/setup-env.sh --core
+## Direct evaluation
+
+Local subprocess execution is intentionally explicit:
+
+```python
+from evopolicygym import EvaluationConfig, Program, evaluate
+from evopolicygym.execution import ProcessExecution
+
+program = Program.from_directory("policy/")
+
+result = evaluate(
+    program,
+    benchmark,
+    execution=ProcessExecution.unsafe(),
+    config=EvaluationConfig(
+        split="validation",
+        episodes=100,
+        seed=42,
+    ),
+)
 ```
 
-`--core` installs the dependencies needed by `config/main-128-*.toml`:
-Gymnasium classic control, Box2D, MuJoCo, MiniGrid, HighwayEnv, and
-Gymnasium-Robotics. The small smoke configs only need the base package:
+`ProcessExecution` is not a sandbox. Submitted Policy code has the authority of
+the current operating-system user.
 
-```bash
-scripts/setup-env.sh --smoke
+For every Episode the evaluator:
+
+1. obtains a trusted `EpisodeSpec`;
+2. opens and resets a fresh Environment;
+3. derives a separate Policy seed;
+4. materializes the immutable Program into fresh scratch;
+5. starts a fresh Policy process and constructs `make_policy(context)`;
+6. preserves that instance across the Episode's `act()` calls;
+7. records strict, unmodified Actions and trusted Steps;
+8. closes and reaps the Policy process and Environment on every exit path.
+
+Policy exceptions, timeouts, malformed outputs, and invalid Actions produce
+sanitized Policy failures. Environment, Benchmark, process-control, and cleanup
+faults abort evaluation and never become Policy score penalties.
+
+## Coding Agent integrations
+
+`run()` accepts any structural `CodingAgent`. The Kernel owns the complete
+`AgentTask`, including workspace rules, budget, submit/finish commands, and the
+public Benchmark specification. A provider only translates that task into its
+validated command invocation:
+
+```python
+from dataclasses import dataclass
+
+from evopolicygym.agents import (
+    AgentInvocation,
+    AgentTask,
+    resolve_executable,
+)
+
+
+@dataclass(frozen=True)
+class ExampleAgent:
+    executable: str
+
+    def build_invocation(self, task: AgentTask) -> AgentInvocation:
+        executable = resolve_executable(self.executable)
+        return AgentInvocation(
+            command=(executable, task.instructions),
+            recorded_command=(executable, "@agent/instructions.md"),
+            identity={"provider": "example"},
+            instructions=task.instructions,
+        )
 ```
 
-Optional environment families are split into extras and should be installed
-only when needed:
+The returned invocation must retain the Host task unchanged. Process startup,
+workspace selection, logging, timeout, and process-tree cleanup remain
+Kernel-owned. Codex is the first implementation of this same interface.
 
-```bash
-uv sync --extra env-visual
-uv sync --extra env-multi
-uv sync --extra env-web
-uv sync --extra env-heavy
-uv sync --extra env-jax
-uv sync --extra env-mario
+## Codex development Run
+
+The caller supplies an immutable initial Program, a Benchmark, and a new Run
+directory:
+
+```python
+from evopolicygym import Program, RunConfig, run
+from evopolicygym.agents import Codex
+from evopolicygym.execution import ProcessExecution
+
+result = run(
+    Program.from_directory("policy/"),
+    benchmark,
+    agent=Codex(model="gpt-5.5"),
+    execution=ProcessExecution.unsafe(),
+    record_to="runs/run-001",
+    config=RunConfig(
+        max_submissions=20,
+        episode_budget=1_000,
+        max_episodes_per_submission=100,
+    ),
+)
 ```
 
-`env-jax` and `env-mario` are separate runtime targets. Gymnasium's JAX envs
-need `numpy>=2.1`, while MO-Gymnasium's Mario extra currently pins
-`numpy<2.0`, so they should be tested in separate virtual environments.
+Codex runs from the fixed `workspace/` child. Its only editable and
+submittable Policy Program is `workspace/program/`; authorized evaluation
+output is visible beside it under `workspace/feedback/`:
 
-### Runtime Assets
+```text
+<run directory>/
+├── run.json                        # written last on normal termination
+├── events.jsonl                    # Host lifecycle events
+├── workspace/
+│   ├── program/                    # Agent-writable Program source
+│   └── feedback/                   # Benchmark-authorized Agent view
+│       ├── latest.json
+│       └── submissions/<id>/
+│           ├── feedback.json
+│           └── artifacts/...
+├── initial/
+│   └── program/                    # retained initial snapshot
+├── submissions/
+│   └── <id>/
+│       ├── program/                # retained submitted snapshot
+│       ├── feedback.json
+│       └── artifacts/...
+├── agent/
+│   ├── instructions.md             # exact retained Codex task
+│   ├── invocation.json
+│   ├── stdout.log                  # Codex JSONL event stream
+│   └── stderr.log
+└── control/                        # present only while the Run is active
+    └── session.sock
+```
 
-Some optional environment families need non-Python assets:
+The Host injects `EVOPOLICYGYM_WORKSPACE` and
+`EVOPOLICYGYM_SESSION_SOCKET`. From an active Session, the Agent uses:
 
-- BrowserGym MiniWoB++: run `scripts/setup-env.sh --core --web`. This installs
-  `env-web`, checks out `Farama-Foundation/miniwob-plusplus` under ignored
-  `third_party/miniwob-plusplus` at commit
-  `7fd85d71a4b60325c6585396ec4f48377d049838`, and installs Playwright
-  Chromium. EvoPolicyGym auto-detects this path from the repository root; if
-  running elsewhere, set `MINIWOB_URL` to the printed `file://.../miniwob/`
-  URL.
-- Atari/ALE: install Gymnasium assets with `scripts/setup-env.sh --core
-  --atari-roms`, which runs AutoROM into the active `.venv`.
-- MiniGrid WFC assets are vendored in
-  `src/evopolicygym/envs/gym/assets/minigrid_wfc_patterns/`; no extra manual
-  step is needed.
+```console
+evopolicygym submit program --episodes 10
+evopolicygym finish submission-000002
+```
 
-See [`docs/envs/overview.md`](docs/envs/overview.md) for the broader optional
-environment roadmap.
+`feedback.json` has one uniform Kernel-generated envelope: submission
+accounting, the Benchmark's scalar score, and sanitized per-Episode `status`,
+`reward`, `steps`, and failure code. Its `content` field is entirely defined by
+the Benchmark and may be any `PolicyValue`; the Kernel does not prescribe or
+interpret its keys. JSON-native mappings, lists, and scalars are the simplest
+choice, while Host paths and custom Python objects are rejected. The Benchmark
+may also add public Artifact files. Artifact content is likewise open-ended and
+has no declared content schema; the Agent inspects each file's name, media
+type, and contents. This lets a Benchmark publish domain-specific
+explanations, traces, diagnostics, images, or reports without teaching the
+Kernel their semantics.
 
-## Quickstart
+The Kernel still owns safe publication constraints. One Artifact is limited to
+16 MiB; one Feedback may reference at most 64 files and 64 MiB total. Artifact
+names are safe relative POSIX paths, and every published file is committed with
+its size and SHA-256 digest. Oversized or invalid Benchmark output fails before
+publication instead of producing a partial bundle.
 
-Run the unit suite:
+Private process protocols use bounded, length-prefixed strict JSON-object
+frames; malformed UTF-8, non-object payloads, and nonstandard numeric constants
+such as `NaN` are rejected. CLI and Host frames are identified as
+`agent-session/v1`; this transport is private to matching library versions.
+Published Feedback uses the internal `evopolicygym/feedback/v1` envelope
+version; this does not constrain Benchmark-defined `content` or Artifact
+contents.
 
-```bash
+`submit` accepts only the fixed workspace `program/` directory. It never sends
+a Host path through the Session protocol. Its stdout is a compact receipt; the
+complete authorized Feedback, sanitized Episode summaries, and Artifact files
+are read from `feedback/`.
+
+Submission accounting has one explicit commit point:
+
+1. freeze the current `program/` tree into an immutable `Program`;
+2. reserve and deduct the requested Episode budget;
+3. evaluate the snapshot;
+4. atomically retain the Program, Feedback, and Artifacts under the Host
+   `submissions/` record;
+5. independently materialize and atomically publish the Agent-facing
+   `workspace/feedback/` copy;
+6. advance `latest.json` and admit that submission ID into the in-memory set
+   accepted by `finish`.
+
+Invalid Program capture does not start evaluation and does not consume Episode
+budget. Once evaluation starts, its reserved budget is not refunded: Policy
+failure is a committed scored result, while trusted Environment or
+infrastructure failure closes the Run as `evaluation_failed`. `finish` can
+select only a fully published submission, and the returned final `Program`
+must equal that submission's retained immutable `Program`. Every
+`SubmissionResult` also carries its detached Program rather than only a digest.
+
+The workspace remains in the Run bundle after termination, including any
+unsubmitted final edits. It is observational and never determines the final
+Program: `run.json.final_submission_id` selects the authoritative retained
+Submission. Agent-facing Feedback and Host records are independent files and
+never hard links.
+
+Agent stdout, stderr, retained instructions, invocation metadata, and
+structured execution events are siblings of `workspace/`; the Agent does not
+receive their paths as part of its workspace contract. `invocation.json`
+records environment variable names but never their credential values.
+
+The caller uses Codex's
+[non-interactive `exec` mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+with ephemeral session storage and JSONL output. Because the current Session
+socket is Host-owned outside `workspace/`, this initial `ProcessExecution`
+integration launches Codex with `danger-full-access` and approvals disabled.
+It is explicitly non-isolated: an unsafe local Agent can traverse to sibling
+Host paths and has the authority of the current operating-system user. Use it
+only with trusted Benchmarks and Programs. A future whole-Run container will
+preserve the same workspace layout while reducing Host authority.
+
+Session state is intentionally volatile: there is no SQLite store, crash
+recovery, or resume protocol in this version. `run.json` is a terminal export
+written last; a partial directory without it is diagnostic evidence, not
+resumable state.
+
+## Benchmark
+
+External packages implement `Benchmark` and `Environment` structurally:
+
+```python
+from collections.abc import Sequence
+
+from evopolicygym.authoring import (
+    BenchmarkSpec,
+    EpisodeRecord,
+    EpisodeSpec,
+    Feedback,
+    Step,
+)
+
+
+class CounterEnvironment:
+    def reset(self):
+        return 0
+
+    def step(self, action):
+        return Step(
+            observation=1,
+            reward=1.0,
+            terminated=True,
+            metrics={"private_success": True},
+        )
+
+    def close(self):
+        pass
+
+
+class CounterBenchmark:
+    @property
+    def spec(self):
+        return BenchmarkSpec(
+            id="example/counter-v1",
+            description="A deterministic counter.",
+            observation_space={"type": "integer"},
+            action_space={"enum": [0, 1]},
+            metadata={},
+            max_episode_steps=10,
+            primary_metric="reward",
+            score_direction="maximize",
+        )
+
+    def episodes(self, split, *, seed, count):
+        return tuple(
+            EpisodeSpec(environment_seed=seed + index)
+            for index in range(count)
+        )
+
+    def make_environment(self, episode):
+        return CounterEnvironment()
+
+    def feedback(self, episodes: Sequence[EpisodeRecord]):
+        return Feedback(
+            score=sum(episode.total_reward for episode in episodes),
+            content={
+                "message": "Evaluation complete.",
+                "episodes": len(episodes),
+            },
+        )
+```
+
+`EpisodeSpec.scenario`, its Environment seed, the Policy seed, and per-Step
+metrics stay on the trusted Benchmark side. Only the explicit `Feedback`
+content and its public Artifacts may reach a caller or Coding Agent.
+
+Simple Benchmarks need only Environment seeds. A structured scenario is
+available for dataset examples, maps, horizons, or task configurations that
+are semantically distinct from randomness.
+
+## Conformance
+
+```python
+from evopolicygym.authoring import (
+    BenchmarkFixture,
+    EpisodeSpec,
+    check_benchmark,
+)
+
+report = check_benchmark(
+    benchmark,
+    fixtures=(
+        BenchmarkFixture(
+            episode=EpisodeSpec(environment_seed=0),
+            actions=(1,),
+        ),
+    ),
+)
+report.raise_for_errors()
+```
+
+The initial checker verifies structural compatibility, cleanup, bounded value
+carriers, and deterministic replay. Additional fault-injection and publication
+checks remain additive work.
+
+## Development checks
+
+Run the active Kernel from the repository root:
+
+```console
+uv sync --extra dev
 uv run python -m unittest discover -s tests
+uv run ruff check src tests
+uv run mypy
+uv run evopolicygym --version
 ```
 
-Run the CLI help:
-
-```bash
-uv run evopolicygym --help
-```
-
-The old `feedbackgym` package and CLI names are not supported.
-
-Create reproducible external case splits:
-
-```bash
-uv run evopolicygym data make \
-  --env gym/taxi \
-  --root data/gym/taxi \
-  --seed 0 \
-  --train-size 64 \
-  --valid-size 64 \
-  --heldout-size 256
-```
-
-Run a local command-agent benchmark session:
-
-```bash
-uv run evopolicygym run \
-  --env toy \
-  --runs runs \
-  --model script \
-  --exp-id smoke-001 \
-  --budget 8 \
-  --agent command -- python agent.py
-```
-
-Run from a TOML/JSON config:
-
-```bash
-uv run evopolicygym run --config docs/examples/cartpole-codex.toml
-```
-
-Run the small live-agent smoke suite:
-
-```bash
-uv run evopolicygym suite --config config/smoke-8-suite.toml
-```
-
-Run the 128-budget main suites:
-
-```bash
-uv run evopolicygym suite --config config/main-128-codex-suite.toml
-uv run evopolicygym suite --config config/main-128-claude-suite.toml
-uv run evopolicygym suite --config config/main-128-kimi-suite.toml
-```
-
-These configs require the corresponding CLI (`codex`, `claude`, or `kimi`) to
-be authenticated locally. The Codex config uses `bypass = true` so the harness
-can reach the local EvoPolicyGym HTTP API; server-side policy rollout remains
-controlled by EvoPolicyGym.
-
-## Repository Layout
-
-- `src/evopolicygym/`: package source.
-- `config/`: checked-in smoke and main experiment suite configs.
-- `scripts/`: local setup helpers.
-- `docs/protocol/`: normative protocol draft.
-- `docs/envs/`: environment coverage notes, roadmap, and discovery output.
-- `docs/examples/`: small checked-in example configs and fixtures.
-- `tests/`: standard-library `unittest` suite.
-- `third_party/`: ignored local runtime assets such as MiniWoB++ HTML.
-- `archive/v1/`: frozen legacy code, docs, analysis, and v0 run data.
-
-Generated run outputs belong under `runs/` or `experiment/` and are ignored by
-default. Local generated case splits belong under ignored `data/`; checked-in
-fixtures live under `docs/examples/data/`.
-
-## Agent Adapters
-
-EvoPolicyGym currently includes adapters for:
-
-- generic persistent JSONL command agents;
-- OpenAI Codex CLI;
-- Claude Code;
-- Kimi Code.
-
-Each adapter preserves one logical agent session across benchmark turns while
-the server controls rollout budget, feedback artifacts, hidden validation, and
-final scoring.
-
-## Environment Discovery
-
-Check the structured EvoPolicyGym environment manifest and run smoke checks for
-registered environments:
-
-```bash
-uv run evopolicygym check-envs
-uv run evopolicygym check-envs --env gym/taxi
-uv run evopolicygym check-envs --bulk --isolate --jobs 4 --min-level L1
-uv run evopolicygym check-envs --discover --min-level L0
-```
-
-Regenerate the installed environment registry report with:
-
-```bash
-uv run evopolicygym discover-envs \
-  --output docs/envs/discovered.json \
-  --markdown docs/envs/env_list.md
-```
-
-The discovery report reflects installed optional packages; it is not a promise
-that every discovered task already has a calibrated EvoPolicyGym scoring setup.
-
-For Core-16 readiness checks, use:
-
-```bash
-uv run evopolicygym check-envs --bulk --isolate --jobs 4 --min-level L1 --timeout 60
-```
-
-## Safety
-
-EvoPolicyGym executes agent-authored Python policies. Treat benchmark runs as
-untrusted code execution. Use sandboxing, isolated workspaces, and disposable
-credentials for live agent experiments. See [`SECURITY.md`](SECURITY.md).
-
-## Citation
-
-```bibtex
-@software{evopolicygym2026,
-  title  = {EvoPolicyGym},
-  author = {Zhilin Wang and Han Song and Runzhe Zhan and Jusen Du and Jiacheng Chen and Tianle Li and Qingyu Yin and Yulun Wu and Zhennan Shen and Tong Zhu and Yanshu Li and Guanjie Chen and Derek F. Wong and Yafu Li and Yu Cheng and Yang Yang},
-  year   = {2026},
-  url    = {https://github.com/Linzwcs/EvoPolicyGym}
-}
-```
-
-## License
-
-EvoPolicyGym is released under the MIT License. See [`LICENSE`](LICENSE).
+Independently installable Benchmark distributions live under `environments/`.
+The active CartPole Benchmark is at `environments/cartpole/`. Superseded
+implementations, tests, catalogs, and experimental virtualization products are
+intentionally excluded from the active repository and dependency graph.

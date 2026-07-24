@@ -3,41 +3,86 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "web/**"
-      - ".github/workflows/pages.yml"
-      - ".github/workflows/ci.yml"
   pull_request:
-    paths-ignore:
-      - "web/**"
-      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  kernel:
+    name: Kernel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
+
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.16"
           python-version: "3.12"
+          enable-cache: true
 
-      - name: Install dependencies
-        run: uv sync --extra dev
+      - name: Sync locked development environment
+        run: uv sync --locked --extra dev
 
-      - name: Lint
-        run: uv run ruff check src tests
+      - name: Check source quality
+        run: |
+          uv run ruff check src tests
+          uv run mypy
 
-      - name: Test
+      - name: Run Kernel tests
         run: uv run python -m unittest discover -s tests
 
-      - name: CLI smoke
-        run: uv run evopolicygym --help
+      - name: Check CLI and build
+        run: |
+          uv run evopolicygym --version
+          uv build
 
-      - name: Package build smoke
-        run: uv build
+  cartpole:
+    name: CartPole Benchmark (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.16"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync locked Benchmark environment
+        run: >-
+          uv sync
+          --project environments/cartpole
+          --locked
+          --extra dev
+
+      - name: Check and test external Benchmark
+        working-directory: environments/cartpole
+        run: |
+          uv run ruff check src tests
+          uv run mypy
+          uv run python -m unittest discover -s tests
+          uv build

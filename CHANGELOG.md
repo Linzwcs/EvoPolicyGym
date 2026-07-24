@@ -1,18 +1,20 @@
 # Changelog
 
-All notable changes will be documented here.
+## 0.3.0
 
-This project currently follows a pre-1.0 development track. Protocol and
-artifact contracts may still change while `protocol/v2.0-draft` is active.
-
-## Unreleased
-
-- Promoted EvoPolicyGym to the active package under `src/evopolicygym`.
-- Added the `evopolicygym` console script.
-- Archived legacy v1 code, docs, analysis, and v0 experiment data under
-  `archive/v1/`.
-- Added optional dependency groups for Gymnasium, compatible environments,
-  visual/browser environments, heavy simulators, and multi-agent ecosystems.
-- Added environment discovery reporting for installed Gymnasium-compatible
-  registries.
-- Added core open-source project documentation and CI scaffolding.
+- Replaced the superseded implementation with a small clean-slate Kernel.
+- Added immutable Program snapshots and direct per-Episode Policy processes.
+- Added bounded Program-Evolution Runs with Agent submissions and final
+  selection.
+- Added Benchmark-defined Feedback content and public Artifact publication.
+- Added the first-party Codex integration for explicitly unsafe local process
+  execution.
+- Made `evaluation`, `run`, and `execution` cohesive public feature packages;
+  removed their parallel private shadow packages and the global composition
+  root.
+- Added a provider-neutral `CodingAgent` task/invocation template and made
+  Codex its first implementation.
+- Organized independently installable Benchmark distributions under
+  `environments/` and marked the Kernel package as typed for external authors.
+- Removed the superseded 0.2 implementation and its experimental products from
+  the active repository.

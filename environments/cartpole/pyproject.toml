@@ -1,7 +1,7 @@
 [project]
-name = "evopolicygym"
-version = "0.3.0"
-description = "A small benchmark kernel for coding-agent policy evolution."
+name = "evopolicygym-benchmark-cartpole"
+version = "0.1.0"
+description = "The CartPole-v1 Benchmark distribution for EvoPolicyGym."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
@@ -15,10 +15,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = []
-
-[project.scripts]
-evopolicygym = "evopolicygym.cli:main"
+dependencies = [
+    "evopolicygym==0.3.*",
+    "gymnasium>=1.2.2,<2",
+]
 
 [build-system]
 requires = ["hatchling==1.31.0"]
@@ -33,17 +33,15 @@ dev = [
 [tool.uv]
 required-version = "==0.11.16"
 
+[tool.uv.sources]
+evopolicygym = { path = "../..", editable = true }
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/evopolicygym"]
+packages = ["src/cartpole"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/ARCHITECTURE.md",
-    "/CHANGELOG.md",
-    "/CONTRIBUTING.md",
-    "/LICENSE",
     "/README.md",
-    "/SECURITY.md",
     "/pyproject.toml",
     "/src",
     "/tests",

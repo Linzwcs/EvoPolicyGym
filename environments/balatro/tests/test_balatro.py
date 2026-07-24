@@ -33,7 +33,11 @@ from jackdaw.engine.rng import PseudoRandom
 from jackdaw.engine.tags import assign_ante_blinds
 
 from balatro import BalatroBenchmark, baseline_program
-from balatro.environment import EXCLUDED_TAG_KEYS, EXCLUDED_VOUCHER_KEYS
+from balatro.environment import (
+    EXCLUDED_TAG_KEYS,
+    EXCLUDED_VOUCHER_KEYS,
+    BalatroEnvironment,
+)
 from balatro.observation import encode_observation
 from balatro.rules import blind_rule, visible_card_rule, visible_tag_rule
 
@@ -282,7 +286,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
         benchmark = BalatroBenchmark()
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
-        environment = benchmark.make_environment(episode)
+        environment = BalatroEnvironment(episode)
         try:
             environment.reset()
             state = environment._state

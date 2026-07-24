@@ -14,6 +14,8 @@ formal evaluation are not design inputs for this version.
 - A `ProgramEvolutionRun` is one bounded outer loop in which a Coding Agent
   edits Programs, submits candidates, reads Feedback, and selects a final
   Submission.
+- A `RunEvent` is immutable, Host-side observation delivered only after its
+  matching lifecycle event is persisted.
 - An `Experiment` is reserved for a future collection of comparable Runs.
 - An `AgentRunner` starts and reaps one Coding Agent. It does not own Submission
   accounting, Feedback publication, or Run records.
@@ -41,6 +43,7 @@ evopolicygym/
 │
 ├── run/                        complete Program-Evolution use case
 │   ├── __init__.py             RunConfig and run()
+│   ├── progress.py             public Run events, observer, and console reporter
 │   ├── _service.py             Run coordination and process-setting assembly
 │   ├── _session.py             Submission budget and final-selection rules
 │   ├── _directory.py           workspace, events, invocation, and run.json
@@ -112,6 +115,11 @@ The rules are:
   selection without depending on an execution setting or provider;
 - `run/` owns Run directories, Feedback publication, and Session transport;
   these responsibilities do not live under process execution;
+- `run/progress.py` owns non-authoritative observation and terminal
+  presentation; observers never participate in Run state transitions and
+  receive no private Case, seed, Policy exchange, or Host path;
+- `evaluation/_service.py` reports only sanitized Episode completion through a
+  narrow callback and performs no terminal or file I/O;
 - `execution/process` owns only generic process mechanisms and never imports a
   Codex, Claude, or other provider integration;
 - `agents.base.CodingAgent` is the supported structural integration template:

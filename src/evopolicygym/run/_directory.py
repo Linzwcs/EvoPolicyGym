@@ -9,7 +9,8 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TextIO
+from threading import Lock
+from typing import TextIO, cast
 
 from .._version import __version__
 from ..agents import AgentInvocation
@@ -18,6 +19,7 @@ from ..execution.process.agent.runner import AgentExit
 from ..program import Program
 from ..results import RunResult
 from . import RunConfig
+from .progress import RunEvent, RunEventValue, RunObserver
 
 _RUN_RECORD_SCHEMA = "evopolicygym/run-record/v1"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
@@ -80,13 +82,16 @@ class RunDirectoryRecorder:
         initial_program: Program,
         config: RunConfig,
         agent_identity: Mapping[str, str],
+        observer: RunObserver | None = None,
     ) -> None:
         self._paths = paths
         self._benchmark_id = benchmark_id
         self._initial_program = initial_program
         self._config = config
         self._agent_identity = dict(agent_identity)
+        self._observer = observer
         self._events: TextIO | None = None
+        self._event_lock = Lock()
 
     def __enter__(self) -> RunDirectoryRecorder:
         self._events = self._paths.events.open("x", encoding="utf-8")
@@ -109,10 +114,17 @@ class RunDirectoryRecorder:
         event: str,
         fields: Mapping[str, object],
     ) -> None:
-        events = self._events
-        if events is None:
-            raise RuntimeError("Run recorder is not open")
-        append_event(events, event, fields)
+        with self._event_lock:
+            events = self._events
+            if events is None:
+                raise RuntimeError("Run recorder is not open")
+            published = append_event(events, event, fields)
+            observer = self._observer
+            if observer is not None:
+                try:
+                    observer.on_event(published)
+                except Exception:
+                    self._observer = None
 
     def commit(self, result: RunResult, agent_exit: AgentExit) -> None:
         _write_run_manifest(
@@ -176,13 +188,24 @@ def append_event(
     stream: TextIO,
     event: str,
     fields: Mapping[str, object],
-) -> None:
+) -> RunEvent:
+    normalized: dict[str, RunEventValue] = {}
+    for name, value in fields.items():
+        if type(value) not in {str, int, float, bool, type(None)}:
+            raise TypeError("Run event fields must contain JSON scalar values")
+        normalized[name] = cast(RunEventValue, value)
+    published = RunEvent(
+        name=event,
+        time_unix_ns=time.time_ns(),
+        monotonic_ns=time.monotonic_ns(),
+        fields=normalized,
+    )
     document = {
         "schema": _RUN_EVENT_SCHEMA,
-        "time_unix_ns": time.time_ns(),
-        "monotonic_ns": time.monotonic_ns(),
-        "event": event,
-        **fields,
+        "time_unix_ns": published.time_unix_ns,
+        "monotonic_ns": published.monotonic_ns,
+        "event": published.name,
+        **published.fields,
     }
     payload = json.dumps(
         document,
@@ -193,6 +216,7 @@ def append_event(
     )
     stream.write(payload + "\n")
     stream.flush()
+    return published
 
 
 def _write_invocation(

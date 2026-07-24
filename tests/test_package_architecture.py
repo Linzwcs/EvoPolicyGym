@@ -90,10 +90,13 @@ import sys
 from evopolicygym.agents.codex import Codex
 from evopolicygym.evaluation import EvaluationConfig
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import RunConfig
+from evopolicygym.run import ConsoleProgress, RunConfig, RunEvent, RunObserver
 
 assert EvaluationConfig.__module__ == "evopolicygym.evaluation"
 assert RunConfig.__module__ == "evopolicygym.run"
+assert ConsoleProgress.__module__ == "evopolicygym.run.progress"
+assert RunEvent.__module__ == "evopolicygym.run.progress"
+assert RunObserver.__module__ == "evopolicygym.run.progress"
 assert Codex.__module__ == "evopolicygym.agents.codex"
 assert ProcessExecution.__module__ == "evopolicygym.execution"
 

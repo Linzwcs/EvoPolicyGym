@@ -53,8 +53,17 @@ from evopolicygym.results import (
     Feedback,
     SubmissionResult,
 )
+from evopolicygym.run import RunEvent
 from evopolicygym.run._feedback import record_submission
 from evopolicygym.run._service import run_process_agent
+
+
+class RecordingRunObserver:
+    def __init__(self) -> None:
+        self.events: list[RunEvent] = []
+
+    def on_event(self, event: RunEvent, /) -> None:
+        self.events.append(event)
 
 
 class ConstantPolicy:
@@ -830,6 +839,7 @@ print("fake-agent-finished")
             agent_script = root / "fake_agent.py"
             agent_script.write_text(agent_source, encoding="utf-8")
             run_directory = root / "run-record"
+            observer = RecordingRunObserver()
 
             result = run_process_agent(
                 program,
@@ -844,6 +854,7 @@ print("fake-agent-finished")
                     max_episodes_per_submission=1,
                     agent_timeout_seconds=10,
                 ),
+                observer=observer,
             )
 
             stdout = (run_directory / "agent" / "stdout.log").read_text()
@@ -907,6 +918,14 @@ print("fake-agent-finished")
         self.assertEqual(
             [event["event"] for event in events].count("submission_published"),
             2,
+        )
+        self.assertEqual(
+            [event["event"] for event in events].count("episode_completed"),
+            2,
+        )
+        self.assertEqual(
+            [event.name for event in observer.events],
+            [event["event"] for event in events],
         )
         self.assertEqual(manifest["schema"], "evopolicygym/run-record/v1")
         self.assertEqual(manifest["terminal_reason"], "finished")

@@ -14,6 +14,7 @@ from ..execution.process.agent.runner import AgentExit
 from ..program import Program
 from ..results import RunResult, RunTerminalReason, SubmissionResult
 from . import RunConfig
+from .progress import RunObserver
 
 
 class TerminalSignal(Protocol):
@@ -185,6 +186,7 @@ def run_agent_with_processes(
     agent: CodingAgent,
     run_directory: Path,
     config: RunConfig,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     from ._task import build_agent_task
 
@@ -207,6 +209,7 @@ def run_agent_with_processes(
         invocation=invocation,
         run_directory=run_directory,
         config=config,
+        observer=observer,
     )
 
 
@@ -218,6 +221,7 @@ def run_process_agent(
     run_directory: Path,
     config: RunConfig,
     spec: BenchmarkSpec | None = None,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     """Execute the process-Agent graph used by the public Run and tests."""
 
@@ -246,6 +250,8 @@ def run_process_agent(
         raise TypeError("invocation must be AgentInvocation")
     if type(config) is not RunConfig:
         raise TypeError("config must be RunConfig")
+    if observer is not None and not isinstance(observer, RunObserver):
+        raise TypeError("observer must implement RunObserver or be None")
 
     selected_spec = _benchmark_spec(benchmark) if spec is None else spec
     if type(selected_spec) is not BenchmarkSpec:
@@ -260,6 +266,7 @@ def run_process_agent(
             initial_program=initial_program,
             config=config,
             agent_identity=invocation.identity,
+            observer=observer,
         ) as recorder:
             session = SubmissionSession(
                 programs=WorkspaceProgramSource(paths.program),

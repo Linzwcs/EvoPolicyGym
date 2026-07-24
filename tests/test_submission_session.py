@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from evopolicygym.authoring import (
@@ -89,6 +89,10 @@ class FakeEvaluator:
         program: Program,
         benchmark: Benchmark,
         config: EvaluationConfig,
+        *,
+        episode_completed: (
+            Callable[[int, int, EpisodeSummary], None] | None
+        ) = None,
     ) -> EvaluationResult:
         del benchmark
         self.configs.append(config)
@@ -98,6 +102,9 @@ class FakeEvaluator:
             EpisodeSummary(status="completed", reward=1.0, steps=1)
             for _ in range(config.episodes)
         )
+        if episode_completed is not None:
+            for index, episode in enumerate(episodes, start=1):
+                episode_completed(index, len(episodes), episode)
         return EvaluationResult(
             benchmark_id="example/session-v1",
             program_digest=program.digest,
@@ -199,10 +206,12 @@ class SubmissionSessionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             program = make_program(Path(temporary))
             publisher = FakePublisher()
+            recorder = FakeRecorder()
             session = self._session(
                 FakeProgramSource(program),
                 FakeEvaluator(),
                 publisher,
+                recorder=recorder,
                 episode_budget=5,
             )
 
@@ -214,6 +223,28 @@ class SubmissionSessionTests(unittest.TestCase):
         self.assertEqual(session.terminal_reason, "finished")
         self.assertEqual(session.final_program, program)
         self.assertEqual(len(publisher.results), 1)
+        episode_events = [
+            fields
+            for name, fields in recorder.events
+            if name == "episode_completed"
+        ]
+        self.assertEqual(
+            episode_events,
+            [
+                {
+                    "submission_id": "submission-000001",
+                    "completed": 1,
+                    "total": 2,
+                    "status": "completed",
+                },
+                {
+                    "submission_id": "submission-000001",
+                    "completed": 2,
+                    "total": 2,
+                    "status": "completed",
+                },
+            ],
+        )
 
     def test_publication_failure_is_terminal_and_not_admitted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

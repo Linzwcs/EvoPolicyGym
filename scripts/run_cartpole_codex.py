@@ -11,6 +11,7 @@ from cartpole import CartPoleBenchmark, baseline_program
 from evopolicygym import RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
+from evopolicygym.run import ConsoleProgress
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -47,6 +48,11 @@ def main(arguments: list[str] | None = None) -> int:
             seed=namespace.seed,
             episode_timeout_seconds=namespace.episode_timeout_seconds,
             agent_timeout_seconds=namespace.agent_timeout_seconds,
+        ),
+        observer=(
+            None
+            if namespace.progress == "off"
+            else ConsoleProgress(mode=namespace.progress)
         ),
     )
     print(
@@ -89,6 +95,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-episodes-per-submission", type=int, default=3)
     parser.add_argument("--episode-timeout-seconds", type=float, default=20)
     parser.add_argument("--agent-timeout-seconds", type=float, default=600)
+    parser.add_argument(
+        "--progress",
+        choices=("auto", "plain", "off"),
+        default="auto",
+        help="render Host-side Run progress to stderr",
+    )
     parser.add_argument(
         "--allow-unsafe-process",
         action="store_true",

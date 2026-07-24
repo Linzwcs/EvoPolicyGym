@@ -28,6 +28,7 @@ Implemented:
   failure, and Host stop after Session terminal state;
 - atomic public Feedback and Artifact materialization;
 - physically separate Host-side Agent stdout, stderr, and event logs;
+- optional Host-side Run observation and terminal progress reporting;
 - a first-party Codex configuration and executable `run()` workflow;
 - an ephemeral, machine-readable Codex CLI invocation contract;
 - deterministic Benchmark fixture replay.
@@ -182,6 +183,7 @@ directory:
 from evopolicygym import Program, RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
+from evopolicygym.run import ConsoleProgress
 
 result = run(
     Program.from_directory("policy/"),
@@ -194,6 +196,7 @@ result = run(
         episode_budget=1_000,
         max_episodes_per_submission=100,
     ),
+    observer=ConsoleProgress(),
 )
 ```
 
@@ -297,6 +300,17 @@ Agent stdout, stderr, retained instructions, invocation metadata, and
 structured execution events are siblings of `workspace/`; the Agent does not
 receive their paths as part of its workspace contract. `invocation.json`
 records environment variable names but never their credential values.
+
+`run(..., observer=...)` optionally receives a public `RunObserver`.
+`RunDirectoryRecorder` first flushes each event to `events.jsonl` and only then
+delivers the immutable `RunEvent`. Observer exceptions disable that observer
+without changing evaluation, budget, publication, or terminal state.
+`ConsoleProgress` renders recognized events to Host-owned stderr, uses a
+single updating line on a terminal, and emits ordinary lines when redirected
+or running in CI. Progress never enters `workspace/`, Agent stdout, or
+Benchmark-defined Feedback. Episode progress contains only the Submission ID,
+completed/total counts, and public status; it contains no Case, seed,
+Observation, Action, trace, or Host path.
 
 The caller uses Codex's
 [non-interactive `exec` mode](https://learn.chatgpt.com/docs/non-interactive-mode)

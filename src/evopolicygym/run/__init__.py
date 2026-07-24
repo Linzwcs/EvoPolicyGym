@@ -12,6 +12,7 @@ from ..benchmark import Benchmark
 from ..execution import ProcessExecution
 from ..program import Program
 from ..results import RunResult
+from .progress import ConsoleProgress, RunEvent, RunObserver
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -63,6 +64,7 @@ def run(
     execution: ProcessExecution,
     record_to: str | os.PathLike[str],
     config: RunConfig | None = None,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     """Let one Coding Agent improve a Program through a bounded local Session.
 
@@ -81,6 +83,8 @@ def run(
     selected_config = RunConfig() if config is None else config
     if type(selected_config) is not RunConfig:
         raise TypeError("config must be RunConfig or None")
+    if observer is not None and not isinstance(observer, RunObserver):
+        raise TypeError("observer must implement RunObserver or be None")
     try:
         run_directory = Path(os.fspath(record_to))
     except TypeError:
@@ -94,7 +98,15 @@ def run(
         agent=agent,
         run_directory=run_directory,
         config=selected_config,
+        observer=observer,
     )
 
 
-__all__ = ["RunConfig", "RunResult", "run"]
+__all__ = [
+    "ConsoleProgress",
+    "RunConfig",
+    "RunEvent",
+    "RunObserver",
+    "RunResult",
+    "run",
+]

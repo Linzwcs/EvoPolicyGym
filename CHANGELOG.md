@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added persisted Episode progress events, the public `RunObserver` contract,
+  and a standard-library `ConsoleProgress` reporter.
+
 ## 0.3.0
 
 - Replaced the superseded implementation with a small clean-slate Kernel.

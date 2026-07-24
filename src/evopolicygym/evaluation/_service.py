@@ -80,6 +80,10 @@ class EvaluationService:
         program: Program,
         benchmark: Benchmark,
         config: EvaluationConfig,
+        *,
+        episode_completed: (
+            Callable[[int, int, EpisodeSummary], None] | None
+        ) = None,
     ) -> EvaluationResult:
         try:
             spec = benchmark.spec
@@ -99,17 +103,22 @@ class EvaluationService:
 
         records: list[EpisodeRecord] = []
         for index, episode in enumerate(planned):
-            records.append(
-                self._evaluate_episode(
-                    program,
-                    benchmark,
-                    episode,
-                    spec=spec,
-                    policy_seed=_derive_policy_seed(config.seed, index),
-                    max_steps=spec.max_episode_steps,
-                    timeout_seconds=config.episode_timeout_seconds,
-                )
+            record = self._evaluate_episode(
+                program,
+                benchmark,
+                episode,
+                spec=spec,
+                policy_seed=_derive_policy_seed(config.seed, index),
+                max_steps=spec.max_episode_steps,
+                timeout_seconds=config.episode_timeout_seconds,
             )
+            records.append(record)
+            if episode_completed is not None:
+                episode_completed(
+                    index + 1,
+                    len(planned),
+                    _public_summary(record),
+                )
 
         try:
             feedback = benchmark.feedback(tuple(records))

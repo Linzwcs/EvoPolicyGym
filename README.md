@@ -40,10 +40,10 @@ with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
 Environment distributions are independent packages that depend only on the
 public EvoPolicyGym SDK.
 
-| Environment | Package | Description |
+| Collection | Contents | Description |
 | --- | --- | --- |
-| [CartPole](environments/cartpole/) | `evopolicygym-benchmark-cartpole` | Minimal Gymnasium reference Benchmark with public trace feedback |
-| [Balatro](environments/balatro/) | `evopolicygym-benchmark-balatro` | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
+| [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
+| [Jackdaw](environments/jackdaw/) | Balatro | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
 | [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | [`v0.1.0` paper archive](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | The 16 control, navigation, driving, and robotics tasks used in the paper |
 
 Balatro includes no official game assets and is not affiliated with LocalThunk
@@ -63,7 +63,7 @@ uv sync --extra dev
 Install an Environment in its own project:
 
 ```console
-cd environments/cartpole
+cd environments/gymnasium/classic_control/cartpole
 uv sync --extra dev
 ```
 
@@ -198,7 +198,7 @@ sanitized Feedback, and public Artifacts.
 
 Use `check_benchmark()` with deterministic fixtures before distribution. See
 the [authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/)
-and [CartPole reference package](environments/cartpole/).
+and [CartPole reference package](environments/gymnasium/classic_control/cartpole/).
 
 ## Development
 

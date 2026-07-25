@@ -93,7 +93,7 @@ tests.
 An Environment distribution depends only on the supported public SDK and
 `evopolicygym.authoring` SPI. It is not included in the base wheel, the Kernel
 does not import it, and sibling distributions do not import one another.
-`environments/cartpole/`, for example, builds
+`environments/gymnasium/classic_control/cartpole/`, for example, builds
 `evopolicygym-benchmark-cartpole` and imports as `cartpole`.
 
 ## Dependency direction

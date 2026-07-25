@@ -75,12 +75,12 @@ jobs:
       - name: Sync locked Benchmark environment
         run: >-
           uv sync
-          --project environments/cartpole
+          --project environments/gymnasium/classic_control/cartpole
           --locked
           --extra dev
 
       - name: Check and test external Benchmark
-        working-directory: environments/cartpole
+        working-directory: environments/gymnasium/classic_control/cartpole
         run: |
           uv run ruff check src tests
           uv run mypy

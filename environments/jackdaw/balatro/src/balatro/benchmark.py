@@ -19,6 +19,7 @@ from evopolicygym.authoring import (
 )
 from evopolicygym.policy import PolicyValue
 
+from .config import BalatroConfig
 from .environment import (
     CONTENT_PROFILE,
     EXCLUDED_TAG_KEYS,
@@ -40,7 +41,6 @@ JACKDAW_LOCAL_PATCHES = ("content-exclusion-pool-plumbing-v1",)
 JACKDAW_REVISION = "c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg1"
 _EPISODE_SEED_DOMAIN = b"evopolicygym-balatro/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
-_SCENARIO: dict[str, PolicyValue] = {"back": "b_red", "stake": 1}
 _MAX_TRACED_TRANSITIONS = 256
 _MAX_REPLAY_BYTES = 15 * 1024 * 1024
 _AGENT_SKILL_NAME = "optimize-balatro-policy"
@@ -63,137 +63,147 @@ def _agent_skill() -> str:
     return source.read_text(encoding="utf-8")
 
 
-_SPEC = BenchmarkSpec(
-    id="jackdaw/Balatro/red-deck-white-stake/run-score-v2",
-    description=(
-        "Play one complete white-stake Red Deck run through the Jackdaw "
-        "headless Balatro engine. A win is worth 1000 points plus one point "
-        "for every Blind cleared; failed Policies receive zero."
-    ),
-    observation_space={
-        "type": "semantic_object",
-        "schema": "evopolicygym-balatro/observation-v1",
-        "fields": [
-            "phase",
-            "progress",
-            "resources",
-            "rules",
-            "blind",
-            "last_hand",
-            "round_earnings",
-            "hand",
-            "jokers",
-            "consumables",
-            "shop",
-            "pack",
-            "deck",
-            "poker_hands",
-            "vouchers",
-            "tags",
-            "legal_actions",
-        ],
-        "notes": (
-            "Entity indices refer to the matching list in the same "
-            "observation. Draw-pile order and the Episode seed are hidden."
+def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
+    return BenchmarkSpec(
+        id="jackdaw/Balatro/red-deck-white-stake/run-score-v2",
+        description=(
+            "Play one complete white-stake Red Deck run through the Jackdaw "
+            "headless Balatro engine. A win is worth 1000 points plus one point "
+            "for every Blind cleared; failed Policies receive zero."
         ),
-    },
-    action_space={
-        "type": "tagged_object",
-        "discriminator": "kind",
-        "kinds": [
-            "play_hand",
-            "discard",
-            "select_blind",
-            "skip_blind",
-            "cash_out",
-            "reroll_shop",
-            "next_round",
-            "skip_pack",
-            "buy_card",
-            "sell_joker",
-            "sell_consumable",
-            "use_consumable",
-            "redeem_voucher",
-            "open_booster",
-            "pick_pack_card",
-            "swap_joker_left",
-            "swap_joker_right",
-            "swap_hand_left",
-            "swap_hand_right",
-            "sort_hand_by_rank",
-            "sort_hand_by_suit",
-        ],
-        "shapes": {
-            "card_selection": {
-                "fields": ["kind", "card_indices"],
-                "applies_to": ["play_hand", "discard"],
-            },
-            "entity_target": {
-                "fields": ["kind", "target_index"],
-                "applies_to": [
-                    "buy_card",
-                    "sell_joker",
-                    "sell_consumable",
-                    "redeem_voucher",
-                    "open_booster",
-                    "swap_joker_left",
-                    "swap_joker_right",
-                    "swap_hand_left",
-                    "swap_hand_right",
-                ],
-            },
-            "entity_and_cards": {
-                "fields": ["kind", "target_index", "card_indices"],
-                "applies_to": [
-                    "use_consumable",
-                    "pick_pack_card",
-                ],
-            },
-        },
-        "notes": (
-            "Actions must contain exactly the documented fields. Consult "
-            "observation.legal_actions before every decision. Selection "
-            "order matters when playing cards."
-        ),
-    },
-    metadata={
-        "environment": "Balatro",
-        "engine": "Jackdaw",
-        "engine_version": "0.1.0",
-        "engine_revision": JACKDAW_REVISION,
-        "engine_upstream_base": JACKDAW_UPSTREAM_BASE,
-        "engine_patches": list(JACKDAW_PATCHES),
-        "engine_local_patches": list(JACKDAW_LOCAL_PATCHES),
-        "engine_license": "MIT",
-        "deck": "b_red",
-        "stake": 1,
-        "content_profile": CONTENT_PROFILE,
-        "excluded_content": {
-            "tags": list(EXCLUDED_TAG_KEYS),
-            "vouchers": list(EXCLUDED_VOUCHER_KEYS),
-            "reason": (
-                "Excluded before RNG-backed pool selection because their gameplay "
-                "effects are not active in the pinned Jackdaw revision."
+        observation_space={
+            "type": "semantic_object",
+            "schema": "evopolicygym-balatro/observation-v1",
+            "fields": [
+                "phase",
+                "progress",
+                "resources",
+                "rules",
+                "blind",
+                "last_hand",
+                "round_earnings",
+                "hand",
+                "jokers",
+                "consumables",
+                "shop",
+                "pack",
+                "deck",
+                "poker_hands",
+                "vouchers",
+                "tags",
+                "legal_actions",
+            ],
+            "notes": (
+                "Entity indices refer to the matching list in the same "
+                "observation. Draw-pile order and the Episode seed are hidden."
             ),
         },
-        "win_bonus": WIN_BONUS,
-        "unofficial": True,
-        "original_game_assets_included": False,
-        "policy_guide": POLICY_GUIDE,
-    },
-    max_episode_steps=MAX_EPISODE_STEPS,
-    primary_metric="mean_run_score",
-    score_direction="maximize",
-    agent_skill=_agent_skill(),
-)
+        action_space={
+            "type": "tagged_object",
+            "discriminator": "kind",
+            "kinds": [
+                "play_hand",
+                "discard",
+                "select_blind",
+                "skip_blind",
+                "cash_out",
+                "reroll_shop",
+                "next_round",
+                "skip_pack",
+                "buy_card",
+                "sell_joker",
+                "sell_consumable",
+                "use_consumable",
+                "redeem_voucher",
+                "open_booster",
+                "pick_pack_card",
+                "swap_joker_left",
+                "swap_joker_right",
+                "swap_hand_left",
+                "swap_hand_right",
+                "sort_hand_by_rank",
+                "sort_hand_by_suit",
+            ],
+            "shapes": {
+                "card_selection": {
+                    "fields": ["kind", "card_indices"],
+                    "applies_to": ["play_hand", "discard"],
+                },
+                "entity_target": {
+                    "fields": ["kind", "target_index"],
+                    "applies_to": [
+                        "buy_card",
+                        "sell_joker",
+                        "sell_consumable",
+                        "redeem_voucher",
+                        "open_booster",
+                        "swap_joker_left",
+                        "swap_joker_right",
+                        "swap_hand_left",
+                        "swap_hand_right",
+                    ],
+                },
+                "entity_and_cards": {
+                    "fields": ["kind", "target_index", "card_indices"],
+                    "applies_to": [
+                        "use_consumable",
+                        "pick_pack_card",
+                    ],
+                },
+            },
+            "notes": (
+                "Actions must contain exactly the documented fields. Consult "
+                "observation.legal_actions before every decision. Selection "
+                "order matters when playing cards."
+            ),
+        },
+        metadata={
+            "environment": "Balatro",
+            "engine": "Jackdaw",
+            "engine_version": "0.1.0",
+            "engine_revision": JACKDAW_REVISION,
+            "engine_upstream_base": JACKDAW_UPSTREAM_BASE,
+            "engine_patches": list(JACKDAW_PATCHES),
+            "engine_local_patches": list(JACKDAW_LOCAL_PATCHES),
+            "engine_license": "MIT",
+            "excluded_content": {
+                "tags": list(EXCLUDED_TAG_KEYS),
+                "vouchers": list(EXCLUDED_VOUCHER_KEYS),
+                "reason": (
+                    "Excluded before RNG-backed pool selection because their gameplay "
+                    "effects are not active in the pinned Jackdaw revision."
+                ),
+            },
+            "win_bonus": WIN_BONUS,
+            "unofficial": True,
+            "original_game_assets_included": False,
+            "policy_guide": POLICY_GUIDE,
+        },
+        max_episode_steps=MAX_EPISODE_STEPS,
+        primary_metric="mean_run_score",
+        score_direction="maximize",
+        environment_parameters={
+            "deck": config.deck,
+            "stake": config.stake,
+            "content_profile": CONTENT_PROFILE,
+        },
+        agent_skill=_agent_skill(),
+    )
 
 
 class BalatroBenchmark:
     """Win-weighted progress over deterministic Jackdaw Balatro runs."""
 
+    def __init__(self, config: BalatroConfig | None = None) -> None:
+        selected = BalatroConfig() if config is None else config
+        if type(selected) is not BalatroConfig:
+            raise TypeError("config must be BalatroConfig or None")
+        self._config = selected
+        self._spec = _benchmark_spec(selected)
+
     @property
     def spec(self) -> BenchmarkSpec:
-        return _SPEC
+        return self._spec
 
     def episodes(
         self,
@@ -211,7 +221,6 @@ class BalatroBenchmark:
         return tuple(
             EpisodeSpec(
                 environment_seed=_episode_seed(split, seed, index),
-                scenario=_SCENARIO,
             )
             for index in range(count)
         )
@@ -219,7 +228,7 @@ class BalatroBenchmark:
     def make_environment(self, episode: EpisodeSpec) -> Environment:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
-        return BalatroEnvironment(episode)
+        return BalatroEnvironment(episode, config=self._config)
 
     def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
         records = tuple(episodes)

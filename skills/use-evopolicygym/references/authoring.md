@@ -18,11 +18,20 @@ reference.
 
 Define a `Benchmark` with:
 
-- `spec`: immutable public `BenchmarkSpec`;
+- `spec`: immutable public `BenchmarkSpec`, including the exact applied
+  `environment_parameters`;
 - `episodes(split, seed, count)`: exactly `count` deterministic
   split-and-seed-scoped `EpisodeSpec` values;
 - `make_environment(episode)`: one fresh Environment;
 - `feedback(records)`: one sanitized public `Feedback`.
+
+Expose simulator-specific options through a typed distribution-owned
+Benchmark constructor. Validate and bind them once, publish the exact public
+values in `BenchmarkSpec.environment_parameters`, and use that same bound
+configuration from `make_environment()`. Do not add generic Environment
+keyword arguments to Kernel Run or Evaluation configuration. The Kernel
+computes `environment_digest` and uses it with the Benchmark ID to prevent
+mixing results from different configured tasks.
 
 Define an `Environment` with:
 
@@ -38,6 +47,8 @@ Raise `InvalidAction` for an out-of-domain Action. Do not repair it. Return a
 
 - Keep `EpisodeSpec`, Environment seeds, Policy seeds, Case identity, and
   scorer objects on the trusted side.
+- Keep public, Case-independent Environment parameters separate from private
+  per-Episode `scenario` values.
 - Emit only PolicyValue observations, Actions, metadata, metrics, and
   Benchmark-authorized Feedback across public boundaries.
 - Do not publish Host paths, descriptors, credentials, process evidence, or

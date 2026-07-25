@@ -47,10 +47,16 @@ def _context_from_message(message: Mapping[str, object]) -> PolicyContext:
     metadata = decode_policy_value(message.get("metadata"))
     if type(metadata) is not dict:
         raise TypeError("Policy metadata must be a mapping")
+    environment_parameters = decode_policy_value(
+        message.get("environment_parameters")
+    )
+    if type(environment_parameters) is not dict:
+        raise TypeError("Policy environment_parameters must be a mapping")
     return PolicyContext(
         observation_space=decode_policy_value(message.get("observation_space")),
         action_space=decode_policy_value(message.get("action_space")),
         metadata=metadata,
+        environment_parameters=environment_parameters,
         policy_seed=integer_seed,
     )
 

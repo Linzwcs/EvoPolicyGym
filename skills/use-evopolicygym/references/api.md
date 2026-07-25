@@ -148,6 +148,10 @@ def make_policy(context: PolicyContext) -> Policy:
     return Policy()
 ```
 
+`PolicyContext.environment_parameters` contains the public, Case-independent
+values fixed by the configured Benchmark. It never contains the private
+Episode scenario or Environment seed.
+
 The Program snapshot includes all regular source files under its directory,
 except `.git`, `__pycache__`, and `.pyc` content. Keep the submitted Program
 self-contained and import-safe.

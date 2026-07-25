@@ -47,6 +47,7 @@ Episodes。
 | 字段 | 含义 |
 | --- | --- |
 | `benchmark_id` | 稳定的公开 Benchmark identity。 |
+| `environment_digest` | 实际使用的公开 Environment 参数的规范化 identity。 |
 | `program_digest` | 被评估 Program 的 SHA-256 identity。 |
 | `feedback` | Benchmark 定义的分数、公开 content 与可选 artifacts。 |
 | `episodes` | 经过净化的公开 Episode summaries。 |

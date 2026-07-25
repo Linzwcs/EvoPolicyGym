@@ -7,6 +7,9 @@ not design inputs for this version.
 ## Domain language
 
 - A `Program` is one immutable, content-addressed Policy source snapshot.
+- Environment parameters are the public, Case-independent values bound to one
+  configured Benchmark before Evaluation. Their canonical digest distinguishes
+  otherwise identical Benchmark IDs with different task configurations.
 - An `Evaluation` runs one Program through a bounded set of Episodes.
 - A `Submission` commits one Program and its public Feedback.
 - A finished candidate set is an ordered, bounded tuple of published
@@ -96,6 +99,42 @@ does not import it, and sibling distributions do not import one another.
 `environments/gymnasium/classic_control/cartpole/`, for example, builds
 `evopolicygym-benchmark-cartpole` and imports as `cartpole`.
 
+## Environment configuration boundary
+
+The caller constructs a configured Benchmark using the distribution's typed
+API. The distribution validates those values, retains them on the Benchmark,
+publishes the exact applied values through
+`BenchmarkSpec.environment_parameters`, and uses that bound configuration from
+`make_environment(episode)`.
+
+```text
+distribution-owned typed parameters
+                 │
+                 ▼
+       configured Benchmark
+          │              │
+          ▼              ▼
+ public BenchmarkSpec   make_environment(EpisodeSpec)
+ parameters + digest        uses bound parameters
+```
+
+The Kernel never accepts an untyped bag of simulator keyword arguments and
+does not pass a second configurable value into `make_environment()`. This
+keeps validation and application under one owner and prevents two competing
+configuration sources.
+
+Environment parameters are static, public, and visible to the Coding Agent and
+the Episode-local Policy through `PolicyContext`. `EpisodeSpec.scenario` and
+`environment_seed` remain trusted per-Episode inputs and never cross the Policy
+boundary. Run budgets, timeouts, rendering, and execution settings are not
+Environment parameters.
+
+The canonical Environment digest is derived from the exact bounded
+`PolicyValue` mapping, including carrier types. Evaluation results carry that
+digest; Run submission, Validation, and Assessment rules reject results whose
+Benchmark ID or Environment digest differs from the Run's selected
+`BenchmarkSpec`.
+
 ## Dependency direction
 
 Public values are the shared vocabulary. A public use-case `__init__.py` owns
@@ -118,6 +157,8 @@ The rules are:
 
 - importing public configurations or `policy.py` does not load a private
   runtime, process implementation, or protocol codec;
+- `policy/v2` provides the Case-independent public Environment parameters
+  separately from descriptive Benchmark metadata;
 - `evaluation/_service.py` declares the Policy-runtime capabilities it
   consumes and never selects an execution setting or Agent provider;
 - `run/_session.py` owns budgets, admission, publication ordering, and the
@@ -200,8 +241,9 @@ The Agent-visible `workspace/` contains only editable `program/`, public
 are not created until after Agent cleanup. Successful phases retain only
 aggregate scores and Policy-failure counts in their reports; private Episodes,
 seeds, cases, traces, and execution evidence do not cross into Feedback.
-`run.json` uses `evopolicygym/run-record/v3` and references the available
-aggregate reports.
+`run.json` uses `evopolicygym/run-record/v4`, retains the public Environment
+parameters and canonical digest beside the Benchmark ID, and references the
+available aggregate reports.
 
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires

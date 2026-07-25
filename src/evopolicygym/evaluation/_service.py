@@ -130,6 +130,7 @@ class EvaluationService:
         summaries = tuple(_public_summary(record) for record in records)
         return EvaluationResult(
             benchmark_id=spec.id,
+            environment_digest=spec.environment_digest,
             program_digest=program.digest,
             feedback=feedback,
             episodes=summaries,
@@ -178,6 +179,7 @@ class EvaluationService:
                     observation_space=spec.observation_space,
                     action_space=spec.action_space,
                     metadata=spec.metadata,
+                    environment_parameters=spec.environment_parameters,
                     policy_seed=policy_seed,
                 )
                 policy = self._policy_runtimes.create(program, context)

@@ -80,8 +80,14 @@ class FakeProgramSource:
 
 
 class FakeEvaluator:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail: bool = False,
+        mismatch_environment: bool = False,
+    ) -> None:
         self.fail = fail
+        self.mismatch_environment = mismatch_environment
         self.configs: list[EvaluationConfig] = []
 
     def evaluate(
@@ -94,7 +100,6 @@ class FakeEvaluator:
             Callable[[int, int, EpisodeSummary], None] | None
         ) = None,
     ) -> EvaluationResult:
-        del benchmark
         self.configs.append(config)
         if self.fail:
             raise EvaluationError("trusted fixture failure")
@@ -107,6 +112,11 @@ class FakeEvaluator:
                 episode_completed(index, len(episodes), episode)
         return EvaluationResult(
             benchmark_id="example/session-v1",
+            environment_digest=(
+                "sha256:" + "0" * 64
+                if self.mismatch_environment
+                else benchmark.spec.environment_digest
+            ),
             program_digest=program.digest,
             feedback=Feedback(
                 score=float(config.episodes),
@@ -295,6 +305,25 @@ class SubmissionSessionTests(unittest.TestCase):
             ],
         )
 
+    def test_mismatched_environment_identity_is_not_published(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            publisher = FakePublisher()
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(mismatch_environment=True),
+                publisher,
+            )
+
+            outcome = session.submit(1)
+
+        self.assertIsInstance(outcome, SessionError)
+        assert isinstance(outcome, SessionError)
+        self.assertEqual(outcome.code, "evaluation_failed")
+        self.assertEqual(session.terminal_reason, "evaluation_failed")
+        self.assertEqual(session.submissions, ())
+        self.assertEqual(publisher.results, [])
+
     def test_publication_failure_is_terminal_and_not_admitted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             program = make_program(Path(temporary))
@@ -425,11 +454,13 @@ class SubmissionSessionTests(unittest.TestCase):
         max_episodes_per_submission: int | None = None,
         validation: ValidationConfig | None = None,
     ) -> SubmissionSession:
+        benchmark = StubBenchmark()
         return SubmissionSession(
             programs=source,
             evaluator=evaluator,
             publisher=publisher,
-            benchmark=StubBenchmark(),
+            benchmark=benchmark,
+            spec=benchmark.spec,
             config=RunConfig(
                 episode_budget=episode_budget,
                 max_episodes_per_submission=max_episodes_per_submission,

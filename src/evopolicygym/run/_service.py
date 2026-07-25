@@ -359,7 +359,7 @@ def run_process_agent(
         retain_agent_invocation(paths, invocation)
         with RunDirectoryRecorder(
             paths=paths,
-            benchmark_id=selected_spec.id,
+            benchmark_spec=selected_spec,
             initial_program=initial_program,
             config=config,
             agent_identity=invocation.identity,
@@ -377,6 +377,7 @@ def run_process_agent(
                     feedback_root=paths.feedback,
                 ),
                 benchmark=benchmark,
+                spec=selected_spec,
                 config=config,
                 recorder=recorder,
             )

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
-POLICY_ABI_VERSION = "policy/v1"
+POLICY_ABI_VERSION = "policy/v2"
 
 _DTYPE_FORMATS: dict[str, tuple[int, str | None]] = {
     "bool": (1, None),
@@ -103,6 +103,7 @@ class PolicyContext:
     observation_space: PolicyValue
     action_space: PolicyValue
     metadata: Mapping[str, PolicyValue]
+    environment_parameters: Mapping[str, PolicyValue]
     policy_seed: int
 
     def __post_init__(self) -> None:
@@ -110,12 +111,21 @@ class PolicyContext:
             raise ValueError("policy_seed must be an unsigned 64-bit integer")
         if not isinstance(self.metadata, Mapping):
             raise TypeError("metadata must be a mapping")
+        if not isinstance(self.environment_parameters, Mapping):
+            raise TypeError("environment_parameters must be a mapping")
 
         metadata: dict[str, PolicyValue] = {}
         for key, value in self.metadata.items():
             if type(key) is not str:
                 raise TypeError("metadata keys must be exact strings")
             metadata[key] = copy_policy_value(value)
+        environment_parameters: dict[str, PolicyValue] = {}
+        for key, value in self.environment_parameters.items():
+            if type(key) is not str:
+                raise TypeError(
+                    "environment_parameters keys must be exact strings"
+                )
+            environment_parameters[key] = copy_policy_value(value)
 
         object.__setattr__(
             self,
@@ -124,6 +134,11 @@ class PolicyContext:
         )
         object.__setattr__(self, "action_space", copy_policy_value(self.action_space))
         object.__setattr__(self, "metadata", MappingProxyType(metadata))
+        object.__setattr__(
+            self,
+            "environment_parameters",
+            MappingProxyType(environment_parameters),
+        )
 
 
 @runtime_checkable

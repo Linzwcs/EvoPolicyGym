@@ -37,6 +37,10 @@ class CodexIntegrationTests(unittest.TestCase):
                     max_episode_steps=10,
                     primary_metric="reward",
                     score_direction="maximize",
+                    environment_parameters={
+                        "map_name": "4x4",
+                        "is_slippery": True,
+                    },
                 ),
                 RunConfig(
                     episode_budget=7,
@@ -74,6 +78,9 @@ class CodexIntegrationTests(unittest.TestCase):
             "content field and all Artifact contents are defined by",
             invocation.instructions,
         )
+        self.assertIn('"environment_parameters": {', invocation.instructions)
+        self.assertIn('"map_name": "4x4"', invocation.instructions)
+        self.assertIn('"environment_digest": "sha256:', invocation.instructions)
         self.assertEqual(
             invocation.recorded_command[-1],
             "@agent/instructions.md",

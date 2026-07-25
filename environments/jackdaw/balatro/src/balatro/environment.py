@@ -11,12 +11,11 @@ from jackdaw.engine import step as jackdaw_step
 from jackdaw.engine.card import reset_sort_id_counter
 
 from .actions import decode_action
+from .config import BalatroConfig
 from .observation import encode_observation
 
 MAX_EPISODE_STEPS = 2_048
 WIN_BONUS = 1_000
-_BACK_KEY = "b_red"
-_STAKE = 1
 CONTENT_PROFILE = "jackdaw-active-content-v1"
 EXCLUDED_TAG_KEYS = (
     "tag_rare",
@@ -43,12 +42,20 @@ _CONTENT_PROFILE_CHALLENGE: dict[str, Any] = {
 class BalatroEnvironment:
     """A white-stake Red Deck run powered by Jackdaw's trusted engine."""
 
-    def __init__(self, episode: EpisodeSpec) -> None:
+    def __init__(
+        self,
+        episode: EpisodeSpec,
+        *,
+        config: BalatroConfig,
+    ) -> None:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
-        if episode.scenario != {"back": _BACK_KEY, "stake": _STAKE}:
-            raise ValueError("episode scenario is not supported")
+        if type(config) is not BalatroConfig:
+            raise TypeError("config must be BalatroConfig")
+        if episode.scenario is not None:
+            raise ValueError("the Balatro profile does not use an Episode scenario")
         self._environment_seed = episode.environment_seed
+        self._config = config
         self._state: dict[str, Any] | None = None
         self._steps = 0
         self._started = False
@@ -62,8 +69,8 @@ class BalatroEnvironment:
             raise RuntimeError("Environment can be reset only once")
         reset_sort_id_counter()
         self._state = initialize_run(
-            _BACK_KEY,
-            _STAKE,
+            self._config.deck,
+            self._config.stake,
             f"EPG{self._environment_seed:016X}",
             challenge=_CONTENT_PROFILE_CHALLENGE,
         )

@@ -2,5 +2,6 @@
 
 from .baseline import baseline_program
 from .benchmark import BalatroBenchmark
+from .config import BalatroConfig
 
-__all__ = ["BalatroBenchmark", "baseline_program"]
+__all__ = ["BalatroBenchmark", "BalatroConfig", "baseline_program"]

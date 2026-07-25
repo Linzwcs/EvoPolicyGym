@@ -14,9 +14,26 @@ The first profile is deliberately narrow:
 - 1000 points for a win plus one point per Blind cleared;
 - zero score for a Policy failure.
 
-The `jackdaw-active-content-v1` content profile excludes objects whose effects
-are inactive in the pinned engine. Exclusion happens while constructing the
-RNG-backed pool, before selection:
+The profile is selected through a typed Benchmark constructor:
+
+```python
+from balatro import BalatroBenchmark, BalatroConfig
+
+benchmark = BalatroBenchmark(
+    BalatroConfig(deck="b_red", stake=1)
+)
+```
+
+The current distribution accepts only this tested profile. Its deck, stake,
+and content profile are published through
+`BenchmarkSpec.environment_parameters`, contribute to `environment_digest`,
+and are delivered to every Policy in
+`PolicyContext.environment_parameters`. They are no longer duplicated in
+`EpisodeSpec.scenario`; Episodes contain only split-scoped hidden seeds.
+
+The `jackdaw-active-content-v1` environment parameter excludes objects whose
+effects are inactive in the pinned engine. Exclusion happens while
+constructing the RNG-backed pool, before selection:
 
 - Tags: `tag_rare`, `tag_uncommon`, and `tag_voucher`;
 - Vouchers: `v_omen_globe`, `v_telescope`, `v_observatory`,

@@ -1,0 +1,6 @@
+.venv/
+.ruff_cache/
+dist/*
+!dist/.gitignore
+**/__pycache__/
+**/*.pyc

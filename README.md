@@ -38,12 +38,16 @@ with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
 ## Environments
 
 Environment distributions are independent packages that depend only on the
-public EvoPolicyGym SDK.
+public EvoPolicyGym SDK. The Gymnasium collection covers all 23 current tasks
+in its four documented built-in suites; registered parameter variants are
+selected through each Benchmark's typed environment configuration.
 
 | Collection | Contents | Description |
 | --- | --- | --- |
+| [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing | Parameterized landing, locomotion, and pixel-based driving |
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
-| [Gymnasium Toy Text](environments/gymnasium/toy_text/) | FrozenLake | Parameterized stochastic navigation with public maps and transition dynamics |
+| [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks | Parameterized continuous-control physics using official packaged models and semantic nested observations |
+| [Gymnasium Toy Text](environments/gymnasium/toy_text/) | Blackjack, CliffWalking, FrozenLake, and Taxi | All four standard Toy Text tasks with typed rule and dynamics parameters |
 | [Jackdaw](environments/jackdaw/) | Balatro | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
 | [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | [`v0.1.0` paper archive](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | The 16 control, navigation, driving, and robotics tasks used in the paper |
 

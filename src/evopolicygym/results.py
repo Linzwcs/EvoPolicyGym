@@ -28,6 +28,7 @@ type RunTerminalReason = Literal[
     "budget_exhausted",
     "agent_failed",
     "evaluation_failed",
+    "validation_failed",
 ]
 
 
@@ -156,6 +157,82 @@ class SubmissionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidationCandidateResult:
+    """One aggregate server-side Validation outcome."""
+
+    submission_id: str
+    program_digest: str
+    score: float
+    episodes: int
+    policy_failures: int
+
+    def __post_init__(self) -> None:
+        _non_empty_text(self.submission_id, "submission_id")
+        _digest(self.program_digest, "program_digest")
+        if (
+            isinstance(self.score, bool)
+            or not isinstance(self.score, (int, float))
+            or not math.isfinite(float(self.score))
+        ):
+            raise ValueError("score must be a finite number")
+        if type(self.episodes) is not int or self.episodes <= 0:
+            raise ValueError("episodes must be a positive integer")
+        if (
+            type(self.policy_failures) is not int
+            or not 0 <= self.policy_failures <= self.episodes
+        ):
+            raise ValueError(
+                "policy_failures must be between zero and episodes"
+            )
+        object.__setattr__(self, "score", float(self.score))
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationResult:
+    """Aggregate server-side evidence and deterministic final selection."""
+
+    split: str
+    episodes_per_candidate: int
+    primary_metric: str
+    score_direction: Literal["maximize", "minimize"]
+    candidates: tuple[ValidationCandidateResult, ...]
+    selected_submission_id: str
+
+    def __post_init__(self) -> None:
+        _non_empty_text(self.split, "split")
+        _non_empty_text(self.primary_metric, "primary_metric")
+        if (
+            type(self.episodes_per_candidate) is not int
+            or self.episodes_per_candidate <= 0
+        ):
+            raise ValueError(
+                "episodes_per_candidate must be a positive integer"
+            )
+        if self.score_direction not in {"maximize", "minimize"}:
+            raise ValueError(
+                "score_direction must be 'maximize' or 'minimize'"
+            )
+        candidates = tuple(self.candidates)
+        if not candidates or any(
+            type(candidate) is not ValidationCandidateResult
+            for candidate in candidates
+        ):
+            raise TypeError(
+                "candidates must contain ValidationCandidateResult values"
+            )
+        identifiers = tuple(
+            candidate.submission_id for candidate in candidates
+        )
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("validation candidate IDs must be unique")
+        if self.selected_submission_id not in identifiers:
+            raise ValueError(
+                "selected_submission_id must select a validation candidate"
+            )
+        object.__setattr__(self, "candidates", candidates)
+
+
+@dataclass(frozen=True, slots=True)
 class RunResult:
     """The detached public outcome of one Coding Agent development run."""
 
@@ -163,6 +240,8 @@ class RunResult:
     final_submission_id: str | None
     submissions: tuple[SubmissionResult, ...]
     terminal_reason: RunTerminalReason
+    candidate_submission_ids: tuple[str, ...] = ()
+    validation: ValidationResult | None = None
 
     def __post_init__(self) -> None:
         if self.final_program is not None and type(self.final_program) is not Program:
@@ -190,15 +269,67 @@ class RunResult:
                 raise ValueError(
                     "final Program must match the selected submission"
                 )
+        candidates = tuple(self.candidate_submission_ids)
+        if any(type(item) is not str or not item for item in candidates):
+            raise ValueError(
+                "candidate_submission_ids must contain non-empty text"
+            )
+        if len(candidates) != len(set(candidates)):
+            raise ValueError("candidate submission IDs must be unique")
+        if any(item not in submission_ids for item in candidates):
+            raise ValueError(
+                "candidate submission IDs must select submissions"
+            )
+        if (
+            self.final_submission_id is not None
+            and self.final_submission_id not in candidates
+        ):
+            raise ValueError("final submission must be a finished candidate")
+        if self.validation is not None:
+            if type(self.validation) is not ValidationResult:
+                raise TypeError("validation must be ValidationResult or None")
+            validation_ids = tuple(
+                item.submission_id for item in self.validation.candidates
+            )
+            if validation_ids != candidates:
+                raise ValueError(
+                    "validation candidates must match finished candidates"
+                )
+            if self.final_submission_id != self.validation.selected_submission_id:
+                raise ValueError(
+                    "final submission must match validation selection"
+                )
+        if self.terminal_reason == "finished":
+            if self.final_submission_id is None or not candidates:
+                raise ValueError(
+                    "a finished Run requires a final candidate"
+                )
+        elif self.final_submission_id is not None:
+            raise ValueError(
+                "only a finished Run can contain a final Program"
+            )
+        if self.validation is not None and self.terminal_reason != "finished":
+            raise ValueError(
+                "only a finished Run can contain Validation results"
+            )
+        if (
+            candidates
+            and self.terminal_reason not in {"finished", "validation_failed"}
+        ):
+            raise ValueError(
+                "only finished or failed Validation can contain candidates"
+            )
         if self.terminal_reason not in {
             "finished",
             "agent_exited",
             "budget_exhausted",
             "agent_failed",
             "evaluation_failed",
+            "validation_failed",
         }:
             raise ValueError("terminal_reason is invalid")
         object.__setattr__(self, "submissions", submissions)
+        object.__setattr__(self, "candidate_submission_ids", candidates)
 
 
 def _non_empty_text(value: object, name: str) -> str:
@@ -231,4 +362,6 @@ __all__ = [
     "RunResult",
     "RunTerminalReason",
     "SubmissionResult",
+    "ValidationCandidateResult",
+    "ValidationResult",
 ]

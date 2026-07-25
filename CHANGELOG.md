@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added atomic ordered candidate handoff through `agent-session/v2` and
+  optional post-Agent server-side Validation with aggregate retained results.
+- Added `ValidationConfig`, candidate and Validation fields on `RunResult`,
+  the `validation_failed` terminal reason, and run-record schema v2.
 - Added persisted Episode progress events, the public `RunObserver` contract,
   and a standard-library `ConsoleProgress` reporter.
 - Made the per-Submission Episode cap optional; it now defaults to `None` so

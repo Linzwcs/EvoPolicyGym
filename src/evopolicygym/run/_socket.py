@@ -104,7 +104,7 @@ class UnixSessionGateway:
                     send_session_message(connection, response)
                 except (OSError, ValueError):
                     pass
-            if self._session.terminal_reason is not None:
+            if self._session.agent_authority_closed:
                 self.terminal.set()
 
 
@@ -112,7 +112,7 @@ def _handle_request(
     session: SubmissionSession,
     request: dict[str, object],
 ) -> dict[str, object]:
-    if session.terminal_reason is not None:
+    if session.agent_authority_closed:
         return _error("session_closed", "the Agent Session is already closed")
     if request.get("protocol") != SESSION_PROTOCOL:
         return _error("protocol_mismatch", "unsupported Agent Session protocol")
@@ -140,9 +140,9 @@ def _handle_request(
             },
         }
     if method == "finish":
-        if set(request) != {"protocol", "method", "submission_id"}:
+        if set(request) != {"protocol", "method", "submission_ids"}:
             return _error("invalid_request", "finish request fields are invalid")
-        finish_outcome = session.finish(request["submission_id"])
+        finish_outcome = session.finish(request["submission_ids"])
         if isinstance(finish_outcome, SessionError):
             return _error(finish_outcome.code, finish_outcome.message)
         assert isinstance(finish_outcome, FinishReceipt)
@@ -150,8 +150,10 @@ def _handle_request(
             "protocol": SESSION_PROTOCOL,
             "ok": True,
             "result": {
-                "submission_id": finish_outcome.submission_id,
-                "program_digest": finish_outcome.program_digest,
+                "candidate_submission_ids": list(
+                    finish_outcome.candidate_submission_ids
+                ),
+                "agent_authority_closed": True,
             },
         }
     return _error("invalid_request", "unknown Session method")

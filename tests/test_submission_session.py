@@ -22,7 +22,7 @@ from evopolicygym.results import (
     RunResult,
     SubmissionResult,
 )
-from evopolicygym.run import RunConfig
+from evopolicygym.run import RunConfig, ValidationConfig
 from evopolicygym.run._session import (
     FinishReceipt,
     SessionError,
@@ -257,11 +257,20 @@ class SubmissionSessionTests(unittest.TestCase):
 
             submitted = session.submit(2)
             assert isinstance(submitted, SubmissionReceipt)
-            finished = session.finish(submitted.submission_id)
+            finished = session.finish([submitted.submission_id])
 
         self.assertIsInstance(finished, FinishReceipt)
-        self.assertEqual(session.terminal_reason, "finished")
-        self.assertEqual(session.final_program, program)
+        assert isinstance(finished, FinishReceipt)
+        self.assertEqual(
+            finished.candidate_submission_ids,
+            (submitted.submission_id,),
+        )
+        self.assertIsNone(session.terminal_reason)
+        self.assertEqual(
+            session.candidate_submission_ids,
+            (submitted.submission_id,),
+        )
+        self.assertTrue(session.agent_authority_closed)
         self.assertEqual(len(publisher.results), 1)
         episode_events = [
             fields
@@ -312,12 +321,98 @@ class SubmissionSessionTests(unittest.TestCase):
                 FakePublisher(),
             )
 
-            outcome = session.finish("submission-999999")
+            outcome = session.finish(["submission-999999"])
 
         self.assertIsInstance(outcome, SessionError)
         assert isinstance(outcome, SessionError)
         self.assertEqual(outcome.code, "unknown_submission")
         self.assertIsNone(session.terminal_reason)
+        self.assertFalse(session.agent_authority_closed)
+
+    def test_finish_rejections_are_atomic_and_a_valid_retry_closes_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            recorder = FakeRecorder()
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(),
+                FakePublisher(),
+                recorder=recorder,
+                episode_budget=4,
+                validation=ValidationConfig(
+                    episodes_per_candidate=3,
+                    max_candidates=2,
+                ),
+            )
+            first = session.submit(1)
+            second = session.submit(1)
+            assert isinstance(first, SubmissionReceipt)
+            assert isinstance(second, SubmissionReceipt)
+
+            malformed = session.finish([])
+            over_limit = session.finish(
+                [
+                    first.submission_id,
+                    second.submission_id,
+                    "submission-999999",
+                ]
+            )
+            duplicate = session.finish(
+                [first.submission_id, first.submission_id]
+            )
+            unknown = session.finish(
+                [first.submission_id, "submission-999999"]
+            )
+            accepted = session.finish(
+                [second.submission_id, first.submission_id]
+            )
+            closed = session.submit(1)
+
+        for outcome, code in (
+            (malformed, "invalid_request"),
+            (over_limit, "candidate_limit"),
+            (duplicate, "duplicate_submission"),
+            (unknown, "unknown_submission"),
+        ):
+            self.assertIsInstance(outcome, SessionError)
+            assert isinstance(outcome, SessionError)
+            self.assertEqual(outcome.code, code)
+        self.assertIsInstance(accepted, FinishReceipt)
+        self.assertEqual(
+            session.candidate_submission_ids,
+            (second.submission_id, first.submission_id),
+        )
+        self.assertIsInstance(closed, SessionError)
+        assert isinstance(closed, SessionError)
+        self.assertEqual(closed.code, "session_closed")
+        self.assertEqual(
+            [name for name, _ in recorder.events].count("finish_rejected"),
+            4,
+        )
+
+    def test_finish_without_validation_accepts_only_one_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(),
+                FakePublisher(),
+            )
+            first = session.submit(1)
+            second = session.submit(1)
+            assert isinstance(first, SubmissionReceipt)
+            assert isinstance(second, SubmissionReceipt)
+
+            outcome = session.finish(
+                [first.submission_id, second.submission_id]
+            )
+
+        self.assertIsInstance(outcome, SessionError)
+        assert isinstance(outcome, SessionError)
+        self.assertEqual(outcome.code, "candidate_limit")
+        self.assertFalse(session.agent_authority_closed)
 
     def _session(
         self,
@@ -328,6 +423,7 @@ class SubmissionSessionTests(unittest.TestCase):
         recorder: FakeRecorder | None = None,
         episode_budget: int = 5,
         max_episodes_per_submission: int | None = None,
+        validation: ValidationConfig | None = None,
     ) -> SubmissionSession:
         return SubmissionSession(
             programs=source,
@@ -337,6 +433,7 @@ class SubmissionSessionTests(unittest.TestCase):
             config=RunConfig(
                 episode_budget=episode_budget,
                 max_episodes_per_submission=max_episodes_per_submission,
+                validation=validation,
             ),
             recorder=FakeRecorder() if recorder is None else recorder,
         )

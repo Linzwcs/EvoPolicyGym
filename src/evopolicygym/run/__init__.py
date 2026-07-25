@@ -16,6 +16,23 @@ from .progress import ConsoleProgress, RunEvent, RunObserver
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ValidationConfig:
+    """Fixed server-side evidence used to select finished candidates."""
+
+    episodes_per_candidate: int
+    split: str = "validation"
+    max_candidates: int = 3
+
+    def __post_init__(self) -> None:
+        if type(self.split) is not str or not self.split:
+            raise ValueError("validation split must be non-empty text")
+        for name in ("episodes_per_candidate", "max_candidates"):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RunConfig:
     """Finite authority granted to one Program Evolution Run."""
 
@@ -24,6 +41,7 @@ class RunConfig:
     episode_budget: int = 1_000
     max_episodes_per_submission: int | None = None
     use_benchmark_skill: bool = False
+    validation: ValidationConfig | None = None
     seed: int = 0
     episode_timeout_seconds: float = 30.0
     agent_timeout_seconds: float = 3_600.0
@@ -50,6 +68,13 @@ class RunConfig:
                 )
         if type(self.use_benchmark_skill) is not bool:
             raise TypeError("use_benchmark_skill must be bool")
+        if self.validation is not None:
+            if type(self.validation) is not ValidationConfig:
+                raise TypeError("validation must be ValidationConfig or None")
+            if self.validation.max_candidates > self.max_submissions:
+                raise ValueError(
+                    "validation max_candidates cannot exceed max_submissions"
+                )
         if type(self.seed) is not int or not 0 <= self.seed <= 2**64 - 1:
             raise ValueError("seed must be an unsigned 64-bit integer")
         for name in ("episode_timeout_seconds", "agent_timeout_seconds"):
@@ -116,5 +141,6 @@ __all__ = [
     "RunEvent",
     "RunObserver",
     "RunResult",
+    "ValidationConfig",
     "run",
 ]

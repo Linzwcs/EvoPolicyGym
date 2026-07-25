@@ -8,7 +8,7 @@ from pathlib import Path
 
 from balatro import BalatroBenchmark, baseline_program
 
-from evopolicygym import RunConfig, run
+from evopolicygym import RunConfig, ValidationConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -46,6 +46,17 @@ def main(arguments: list[str] | None = None) -> int:
                 namespace.max_episodes_per_submission
             ),
             use_benchmark_skill=namespace.benchmark_skill,
+            validation=(
+                None
+                if namespace.validation_episodes_per_candidate is None
+                else ValidationConfig(
+                    split=namespace.validation_split,
+                    episodes_per_candidate=(
+                        namespace.validation_episodes_per_candidate
+                    ),
+                    max_candidates=namespace.validation_max_candidates,
+                )
+            ),
             seed=namespace.seed,
             episode_timeout_seconds=namespace.episode_timeout_seconds,
             agent_timeout_seconds=namespace.agent_timeout_seconds,
@@ -61,6 +72,28 @@ def main(arguments: list[str] | None = None) -> int:
             {
                 "terminal_reason": result.terminal_reason,
                 "final_submission_id": result.final_submission_id,
+                "candidate_submission_ids": list(
+                    result.candidate_submission_ids
+                ),
+                "validation": (
+                    None
+                    if result.validation is None
+                    else {
+                        "selected_submission_id": (
+                            result.validation.selected_submission_id
+                        ),
+                        "candidates": [
+                            {
+                                "submission_id": candidate.submission_id,
+                                "score": candidate.score,
+                                "policy_failures": (
+                                    candidate.policy_failures
+                                ),
+                            }
+                            for candidate in result.validation.candidates
+                        ],
+                    }
+                ),
                 "record": str(record_to),
                 "submissions": [
                     {
@@ -94,6 +127,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-submissions", type=int, default=16)
     parser.add_argument("--episode-budget", type=int, default=48)
     parser.add_argument("--max-episodes-per-submission", type=int)
+    parser.add_argument(
+        "--validation-episodes-per-candidate",
+        type=int,
+        help="enable post-Agent server-side Validation",
+    )
+    parser.add_argument(
+        "--validation-split",
+        choices=("train", "validation", "test"),
+        default="validation",
+    )
+    parser.add_argument(
+        "--validation-max-candidates",
+        type=int,
+        default=3,
+    )
     parser.add_argument(
         "--benchmark-skill",
         action="store_true",

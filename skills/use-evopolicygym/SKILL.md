@@ -8,7 +8,8 @@ description: Set up, run, extend, and diagnose EvoPolicyGym policy-evolution wor
 Use the public EvoPolicyGym SDK to build a complete bounded loop:
 
 ```text
-Program → Evaluation → Feedback → Coding Agent edit → Submission → selection
+Program → Evaluation → Feedback → Agent edit → Submission → candidate handoff
+→ Host selection
 ```
 
 Preserve the separation between the trusted Host and Benchmark, the Coding
@@ -85,8 +86,15 @@ authority.
   it does not replace the Host task or expose data to the Policy.
 - Add `ConsoleProgress()` when interactive progress is useful.
 - Require the Agent to publish candidates through
-  `evopolicygym submit program --episodes N` and finish by selecting a
-  published submission with `evopolicygym finish SUBMISSION_ID`.
+  `evopolicygym submit program --episodes N` and finish by handing the Host
+  one or more published IDs with
+  `evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]`.
+- Use `ValidationConfig` when the Host should compare multiple candidates.
+  Give every candidate the same split, derived seed, Episode count, and Policy
+  seeds. Its Episode allocation is separate from the Agent search budget.
+- Treat successful `finish` as an authority boundary. Validation and final
+  selection occur only after the Agent process is reaped; do not expose their
+  evidence in workspace Feedback.
 - Treat failed trusted evaluation attempts as consumed budget. Never rewrite
   accounting after a failure.
 
@@ -118,5 +126,6 @@ commands in that package. Test deterministic Episode planning, cleanup,
 Policy-failure classification, Feedback privacy, and Artifact bounds.
 
 Report the selected Benchmark, Program digest or source, split, seed, Episode
-budget, terminal reason, final submission, validation commands, and the
-remaining lack of process isolation.
+budget, ordered candidate IDs, Validation configuration and aggregate result,
+terminal reason, final submission, verification commands, and the remaining
+lack of process isolation.

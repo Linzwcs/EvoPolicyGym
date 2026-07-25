@@ -21,9 +21,10 @@ from ..results import RunResult
 from . import RunConfig
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v1"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v2"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
+_VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
 _SESSION_SOCKET_VARIABLE = "EVOPOLICYGYM_SESSION_SOCKET"
 _WORKSPACE_VARIABLE = "EVOPOLICYGYM_WORKSPACE"
 
@@ -38,6 +39,7 @@ class RunDirectoryPaths:
     initial: Path
     submissions: Path
     agent: Path
+    validation: Path
     control: Path
     socket: Path
     events: Path
@@ -55,6 +57,7 @@ class RunDirectoryPaths:
             initial=root / "initial",
             submissions=root / "submissions",
             agent=root / "agent",
+            validation=root / "validation",
             control=control,
             socket=control / "session.sock",
             events=root / "events.jsonl",
@@ -129,6 +132,11 @@ class RunDirectoryRecorder:
                     self._observer = None
 
     def commit(self, result: RunResult, agent_exit: AgentExit) -> None:
+        if result.validation is not None:
+            _write_validation_report(
+                self._paths.validation,
+                result,
+            )
         _write_run_manifest(
             self._paths.root / "run.json",
             result,
@@ -321,6 +329,19 @@ def _write_run_manifest(
                 "use_benchmark_skill": config.use_benchmark_skill,
                 "episode_timeout_seconds": config.episode_timeout_seconds,
                 "agent_timeout_seconds": config.agent_timeout_seconds,
+                "validation": (
+                    None
+                    if config.validation is None
+                    else {
+                        "split": config.validation.split,
+                        "episodes_per_candidate": (
+                            config.validation.episodes_per_candidate
+                        ),
+                        "max_candidates": (
+                            config.validation.max_candidates
+                        ),
+                    }
+                ),
             },
             "agent": {
                 **agent_identity,
@@ -336,12 +357,71 @@ def _write_run_manifest(
             },
             "terminal_reason": result.terminal_reason,
             "final_submission_id": result.final_submission_id,
+            "candidate_submission_ids": list(
+                result.candidate_submission_ids
+            ),
+            "validation": (
+                None
+                if result.validation is None
+                else {"report": "validation/report.json"}
+            ),
             "submissions": submissions,
         },
     )
 
 
-def _write_json_atomic(path: Path, document: dict[str, object]) -> None:
+def _write_validation_report(
+    directory: Path,
+    result: RunResult,
+) -> None:
+    validation = result.validation
+    assert validation is not None
+    try:
+        directory.mkdir(mode=0o700)
+    except OSError as error:
+        raise AgentRunError(
+            "Validation record could not be committed"
+        ) from error
+    _write_json_atomic(
+        directory / "report.json",
+        {
+            "schema": _VALIDATION_REPORT_SCHEMA,
+            "split": validation.split,
+            "episodes_per_candidate": (
+                validation.episodes_per_candidate
+            ),
+            "primary_metric": validation.primary_metric,
+            "score_direction": validation.score_direction,
+            "candidates": [
+                {
+                    "submission_id": candidate.submission_id,
+                    "program_digest": candidate.program_digest,
+                    "score": candidate.score,
+                    "episodes": candidate.episodes,
+                    "policy_failures": candidate.policy_failures,
+                }
+                for candidate in validation.candidates
+            ],
+            "selected_submission_id": (
+                validation.selected_submission_id
+            ),
+        },
+        error_message="Validation record could not be committed",
+    )
+    try:
+        os.chmod(directory, 0o500)
+    except OSError as error:
+        raise AgentRunError(
+            "Validation record could not be committed"
+        ) from error
+
+
+def _write_json_atomic(
+    path: Path,
+    document: dict[str, object],
+    *,
+    error_message: str = "Run record could not be committed",
+) -> None:
     payload = (
         json.dumps(
             document,
@@ -361,7 +441,7 @@ def _write_json_atomic(path: Path, document: dict[str, object]) -> None:
         os.chmod(temporary, 0o400)
         os.replace(temporary, path)
     except OSError as error:
-        raise AgentRunError("Run record could not be committed") from error
+        raise AgentRunError(error_message) from error
     finally:
         temporary.unlink(missing_ok=True)
 

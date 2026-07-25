@@ -65,6 +65,12 @@ count while keeping aggregate scoring based on every record.
 If supplying `BenchmarkSpec.agent_skill`, keep it task-specific, bounded, and
 free of private state. It is projected read-only only when a Run opts in.
 
+The same `episodes()`, `make_environment()`, and `feedback()` methods may be
+used for server-side candidate Validation. Keep splits genuinely disjoint when
+the Benchmark promises disjoint data. The Kernel retains only aggregate score
+and Policy-failure counts from Validation; Benchmark-defined content and
+Artifacts are not published to the Agent workspace.
+
 ## Test before distribution
 
 Use `BenchmarkFixture` and `check_benchmark()` to replay deterministic Action

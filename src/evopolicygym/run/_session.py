@@ -1,4 +1,4 @@
-"""Submission accounting, receipts, and final-selection rules."""
+"""Submission accounting, receipts, and atomic candidate handoff."""
 
 from __future__ import annotations
 
@@ -49,10 +49,9 @@ class SubmissionReceipt:
 
 @dataclass(frozen=True, slots=True)
 class FinishReceipt:
-    """Agent-visible receipt selecting the final Program."""
+    """Agent-visible receipt transferring candidate selection to the Host."""
 
-    submission_id: str
-    program_digest: str
+    candidate_submission_ids: tuple[str, ...]
 
 
 type SubmissionOutcome = SubmissionReceipt | SessionError
@@ -113,7 +112,7 @@ class SubmissionSession:
         self._recorder = recorder
         self._episodes_remaining = config.episode_budget
         self._submissions: list[SubmissionResult] = []
-        self._final_submission_id: str | None = None
+        self._candidate_submission_ids: tuple[str, ...] | None = None
         self._terminal_reason: RunTerminalReason | None = None
 
     @property
@@ -121,23 +120,19 @@ class SubmissionSession:
         return tuple(self._submissions)
 
     @property
-    def final_submission_id(self) -> str | None:
-        return self._final_submission_id
-
-    @property
-    def final_program(self) -> Program | None:
-        identifier = self._final_submission_id
-        if identifier is None:
-            return None
-        return next(
-            item.program
-            for item in self._submissions
-            if item.submission_id == identifier
-        )
+    def candidate_submission_ids(self) -> tuple[str, ...]:
+        return self._candidate_submission_ids or ()
 
     @property
     def terminal_reason(self) -> RunTerminalReason | None:
         return self._terminal_reason
+
+    @property
+    def agent_authority_closed(self) -> bool:
+        return (
+            self._candidate_submission_ids is not None
+            or self._terminal_reason is not None
+        )
 
     @property
     def authority_exhausted(self) -> bool:
@@ -147,7 +142,7 @@ class SubmissionSession:
         )
 
     def submit(self, episodes: object) -> SubmissionOutcome:
-        if self._terminal_reason is not None:
+        if self.agent_authority_closed:
             return _error("session_closed", "the Agent Session is already closed")
         if type(episodes) is not int or episodes <= 0:
             return _error("invalid_request", "episodes must be a positive integer")
@@ -269,40 +264,77 @@ class SubmissionSession:
             episodes_remaining=self._episodes_remaining,
         )
 
-    def finish(self, submission_id: object) -> FinishOutcome:
-        if self._terminal_reason is not None:
+    def finish(self, submission_ids: object) -> FinishOutcome:
+        if self.agent_authority_closed:
             return _error("session_closed", "the Agent Session is already closed")
-        selected = tuple(
-            item
-            for item in self._submissions
-            if item.submission_id == submission_id
-        )
-        if type(submission_id) is not str or len(selected) != 1:
-            return _error(
-                "unknown_submission",
-                "finish must select a published submission",
+
+        if type(submission_ids) is not list or not submission_ids:
+            return self._reject_finish(
+                "invalid_request",
+                "finish requires a non-empty submission_ids list",
             )
-        assert isinstance(submission_id, str)
-        self._final_submission_id = submission_id
-        self._terminal_reason = "finished"
-        program = selected[0].program
+        if any(
+            type(submission_id) is not str or not submission_id
+            for submission_id in submission_ids
+        ):
+            return self._reject_finish(
+                "invalid_request",
+                "submission_ids must contain non-empty text",
+                candidate_count=len(submission_ids),
+            )
+
+        identifiers = tuple(submission_ids)
+        candidate_limit = (
+            1
+            if self._config.validation is None
+            else self._config.validation.max_candidates
+        )
+        if len(identifiers) > candidate_limit:
+            return self._reject_finish(
+                "candidate_limit",
+                "finish exceeds the candidate limit",
+                candidate_count=len(identifiers),
+            )
+        if len(identifiers) != len(set(identifiers)):
+            return self._reject_finish(
+                "duplicate_submission",
+                "finish candidates must be unique",
+                candidate_count=len(identifiers),
+            )
+
+        published = {item.submission_id for item in self._submissions}
+        if any(identifier not in published for identifier in identifiers):
+            return self._reject_finish(
+                "unknown_submission",
+                "finish candidates must be published submissions",
+                candidate_count=len(identifiers),
+            )
+
         self._recorder.record_event(
-            "run_finished",
-            {
-                "submission_id": submission_id,
-                "program_digest": program.digest,
-            },
+            "finish_requested",
+            {"candidate_count": len(identifiers)},
         )
-        return FinishReceipt(
-            submission_id=submission_id,
-            program_digest=program.digest,
-        )
+        self._candidate_submission_ids = identifiers
+        return FinishReceipt(candidate_submission_ids=identifiers)
 
     def fail(self) -> None:
         """Close admission after an unexpected Host-side gateway fault."""
 
-        if self._terminal_reason is None:
+        if not self.agent_authority_closed:
             self._terminal_reason = "evaluation_failed"
+
+    def _reject_finish(
+        self,
+        code: str,
+        message: str,
+        *,
+        candidate_count: int | None = None,
+    ) -> SessionError:
+        fields: dict[str, object] = {"reason": code}
+        if candidate_count is not None:
+            fields["candidate_count"] = candidate_count
+        self._recorder.record_event("finish_rejected", fields)
+        return _error(code, message)
 
 
 def _submission_seed(run_seed: int, ordinal: int) -> int:

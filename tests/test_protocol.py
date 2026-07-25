@@ -11,6 +11,7 @@ from evopolicygym._protocol.policy import (
 from evopolicygym._protocol.session import (
     SESSION_FRAMES,
     SESSION_MAX_FRAME_BYTES,
+    SESSION_PROTOCOL,
 )
 from evopolicygym.policy import PolicyValue, TensorValue
 
@@ -48,10 +49,13 @@ class PolicyProtocolTests(unittest.TestCase):
 
 class AgentSessionProtocolTests(unittest.TestCase):
     def test_session_frame_round_trip_and_boundaries(self) -> None:
-        message = {
-            "protocol": "agent-session/v1",
-            "method": "submit",
-            "episodes": 3,
+        message: dict[str, object] = {
+            "protocol": SESSION_PROTOCOL,
+            "method": "finish",
+            "submission_ids": [
+                "submission-000001",
+                "submission-000002",
+            ],
         }
         frame = SESSION_FRAMES.encode(message)
         self.assertEqual(SESSION_FRAMES.decode(frame), message)

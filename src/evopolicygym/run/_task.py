@@ -28,6 +28,32 @@ def build_agent_task(spec: BenchmarkSpec, config: RunConfig) -> AgentTask:
             f"The whole Run has {config.episode_budget} Episode units and at most "
             f"{config.max_submissions} submissions."
         )
+    validation = config.validation
+    if validation is None:
+        finish_guidance = """\
+When you have selected the best published submission, end the Run with:
+
+    evopolicygym finish SUBMISSION_ID
+
+finish accepts exactly one published submission. A successful finish closes
+your authority; the Host selects that sole candidate only after your process
+has exited.
+"""
+    else:
+        finish_guidance = f"""\
+When you are ready to end search, pass an ordered set of one to
+{validation.max_candidates} published candidates:
+
+    evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]
+
+A successful finish closes your authority. Only after your process has exited,
+the Host evaluates every candidate on identical private Validation Episodes and
+selects the final Program by {spec.primary_metric} ({spec.score_direction}),
+then fewer Policy failures, then your argument order. Validation results are
+not returned to this Agent Session. Exceeding the candidate limit, repeating a
+candidate, or naming an unpublished submission rejects the whole finish
+request, so you may correct it and retry.
+"""
     public_spec = {
         "id": spec.id,
         "description": spec.description,
@@ -88,13 +114,11 @@ their structure, names, media types, and contents to understand the available
 development evidence.
 
 Iterate by inspecting the Program, editing it, submitting it, and using the
-published Feedback. When you have selected the best published submission, end
-the Run with:
+published Feedback.
 
-    evopolicygym finish SUBMISSION_ID
-
-finish accepts only a published submission. Unsubmitted workspace edits are
-never the final Program. Do not exit before calling finish successfully.
+{finish_guidance}
+Unsubmitted workspace edits are never candidates or the final Program. Do not
+exit before calling finish successfully.
 
 Benchmark public specification:
 

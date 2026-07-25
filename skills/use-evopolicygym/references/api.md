@@ -40,7 +40,7 @@ construction failure; it is not a Policy penalty.
 ```python
 from example_benchmark import ExampleBenchmark, baseline_program
 
-from evopolicygym import RunConfig, run
+from evopolicygym import RunConfig, ValidationConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -57,6 +57,11 @@ result = run(
         episode_budget=48,
         max_episodes_per_submission=4,
         use_benchmark_skill=True,
+        validation=ValidationConfig(
+            split="validation",
+            episodes_per_candidate=10,
+            max_candidates=3,
+        ),
         seed=0,
         episode_timeout_seconds=30,
         agent_timeout_seconds=3600,
@@ -65,13 +70,28 @@ result = run(
 )
 
 print(result.terminal_reason)
+print(result.candidate_submission_ids)
 print(result.final_submission_id)
+print(result.validation)
 ```
 
 Use a unique `record_to`. Its parent must already exist and the Run directory
 must not. Omit `max_episodes_per_submission` only when the selected Benchmark's
 Feedback remains bounded for any allowed batch size and Agent-controlled
 allocation is intentional.
+
+During search, the Agent uses:
+
+```console
+evopolicygym submit program --episodes 4
+evopolicygym finish submission-000003 submission-000011
+```
+
+`finish` atomically accepts an ordered candidate list. With
+`ValidationConfig`, the Host closes Agent authority, reaps the Agent, evaluates
+all candidates on identical private Validation Episodes, and selects by score
+direction, fewer Policy failures, then argument order. Without it, exactly one
+candidate is accepted. Validation is not returned through workspace Feedback.
 
 ## Other command-line Coding Agents
 

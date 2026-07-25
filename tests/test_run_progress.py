@@ -181,6 +181,66 @@ class ConsoleProgressTests(unittest.TestCase):
         )
         self.assertEqual(output.getvalue(), "")
 
+    def test_plain_progress_renders_post_agent_validation(self) -> None:
+        output = io.StringIO()
+        progress = ConsoleProgress(output, mode="plain")
+
+        progress.on_event(
+            event("finish_requested", 1, candidate_count=2)
+        )
+        progress.on_event(
+            event(
+                "validation_started",
+                2,
+                candidate_count=2,
+                episodes_per_candidate=3,
+            )
+        )
+        progress.on_event(
+            event(
+                "validation_candidate_started",
+                1_000_000_000,
+                submission_id="submission-000002",
+                episodes=3,
+            )
+        )
+        progress.on_event(
+            event(
+                "validation_episode_completed",
+                1_500_000_000,
+                submission_id="submission-000002",
+                completed=1,
+                total=3,
+                status="completed",
+            )
+        )
+        progress.on_event(
+            event(
+                "validation_candidate_completed",
+                2_000_000_000,
+                submission_id="submission-000002",
+                score=499.0,
+                policy_failures=0,
+            )
+        )
+
+        self.assertEqual(
+            output.getvalue().splitlines(),
+            [
+                "Agent finished · 2 candidate(s) handed to Host",
+                "Validation started · 2 candidate(s) · 3 Episodes each",
+                "submission-000002 · validating 3 Episodes",
+                (
+                    "submission-000002 · Validation Episodes 1/3"
+                    " · 0.5s · completed"
+                ),
+                (
+                    "submission-000002 · validation score 499"
+                    " · 0 Policy failure(s)"
+                ),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

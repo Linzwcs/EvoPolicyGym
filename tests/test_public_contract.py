@@ -18,6 +18,7 @@ from evopolicygym import (
     Program,
     RunConfig,
     RunResult,
+    ValidationConfig,
     evaluate,
     run,
 )
@@ -161,6 +162,7 @@ class PublicContractTests(unittest.TestCase):
                 "Program",
                 "RunConfig",
                 "RunResult",
+                "ValidationConfig",
                 "__version__",
                 "evaluate",
                 "run",
@@ -171,6 +173,7 @@ class PublicContractTests(unittest.TestCase):
         self.assertFalse(hasattr(evopolicygym, "PolicyValue"))
         self.assertTrue(callable(evaluate))
         self.assertTrue(callable(run))
+        self.assertIs(ValidationConfig, evopolicygym.ValidationConfig)
 
     def test_policy_and_benchmark_are_structural(self) -> None:
         policy = ConstantPolicy()
@@ -320,9 +323,20 @@ class PublicContractTests(unittest.TestCase):
             episode_budget=20,
             max_episodes_per_submission=5,
             use_benchmark_skill=True,
+            validation=ValidationConfig(
+                episodes_per_candidate=7,
+                max_candidates=2,
+            ),
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
         self.assertTrue(capped.use_benchmark_skill)
+        self.assertEqual(
+            capped.validation,
+            ValidationConfig(
+                episodes_per_candidate=7,
+                max_candidates=2,
+            ),
+        )
         self.assertEqual(agent.model, "gpt-5")
         with self.assertRaises(ValueError):
             RunConfig(episode_budget=0)
@@ -333,6 +347,14 @@ class PublicContractTests(unittest.TestCase):
             )
         with self.assertRaises(TypeError):
             RunConfig(use_benchmark_skill=1)  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            RunConfig(
+                max_submissions=1,
+                validation=ValidationConfig(
+                    episodes_per_candidate=1,
+                    max_candidates=2,
+                ),
+            )
 
     def test_public_results_compose_without_private_episode_records(self) -> None:
         feedback = Feedback(score=1.0, content={"outcome": "passed"})
@@ -401,6 +423,7 @@ class ProgramTests(unittest.TestCase):
                 final_submission_id=submission.submission_id,
                 submissions=(submission,),
                 terminal_reason="finished",
+                candidate_submission_ids=(submission.submission_id,),
             )
             self.assertEqual(run.final_program, first)
 
@@ -878,7 +901,18 @@ assert artifact.read_text() == "completed=1\\n"
     {unsubmitted_source!r},
     encoding="utf-8",
 )
-call("finish", second["result"]["submission_id"])
+assert not (workspace.parent / "validation").exists()
+finished = call(
+    "finish",
+    first["result"]["submission_id"],
+    second["result"]["submission_id"],
+)
+assert finished["result"]["candidate_submission_ids"] == [
+    first["result"]["submission_id"],
+    second["result"]["submission_id"],
+]
+assert finished["result"]["agent_authority_closed"] is True
+assert not (workspace.parent / "validation").exists()
 print("fake-agent-finished")
 """
         with tempfile.TemporaryDirectory() as temporary:
@@ -899,6 +933,10 @@ print("fake-agent-finished")
                 config=RunConfig(
                     max_submissions=2,
                     episode_budget=2,
+                    validation=ValidationConfig(
+                        episodes_per_candidate=2,
+                        max_candidates=2,
+                    ),
                     agent_timeout_seconds=10,
                 ),
                 observer=observer,
@@ -910,6 +948,9 @@ print("fake-agent-finished")
                 for line in (run_directory / "events.jsonl").read_text().splitlines()
             )
             manifest = json.loads((run_directory / "run.json").read_text())
+            validation = json.loads(
+                (run_directory / "validation" / "report.json").read_text()
+            )
             retained_workspace = run_directory / "workspace"
             first_record = (
                 run_directory
@@ -949,6 +990,11 @@ print("fake-agent-finished")
 
         self.assertEqual(result.terminal_reason, "finished")
         self.assertEqual(result.final_submission_id, "submission-000002")
+        self.assertEqual(
+            result.candidate_submission_ids,
+            ("submission-000001", "submission-000002"),
+        )
+        self.assertIsNotNone(result.validation)
         self.assertEqual(len(result.submissions), 2)
         self.assertEqual(result.submissions[0].episodes[0].failure, "invalid_action")
         self.assertEqual(result.submissions[1].feedback.score, 1.0)
@@ -974,9 +1020,48 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v1")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v2")
         self.assertEqual(manifest["terminal_reason"], "finished")
         self.assertEqual(manifest["final_submission_id"], "submission-000002")
+        self.assertEqual(
+            manifest["candidate_submission_ids"],
+            ["submission-000001", "submission-000002"],
+        )
+        self.assertEqual(
+            manifest["validation"],
+            {"report": "validation/report.json"},
+        )
+        self.assertEqual(
+            validation,
+            {
+                "schema": "evopolicygym/validation-report/v1",
+                "split": "validation",
+                "episodes_per_candidate": 2,
+                "primary_metric": "completed",
+                "score_direction": "maximize",
+                "candidates": [
+                    {
+                        "submission_id": "submission-000001",
+                        "program_digest": (
+                            result.submissions[0].program_digest
+                        ),
+                        "score": 0.0,
+                        "episodes": 2,
+                        "policy_failures": 2,
+                    },
+                    {
+                        "submission_id": "submission-000002",
+                        "program_digest": (
+                            result.submissions[1].program_digest
+                        ),
+                        "score": 2.0,
+                        "episodes": 2,
+                        "policy_failures": 0,
+                    },
+                ],
+                "selected_submission_id": "submission-000002",
+            },
+        )
         self.assertFalse(manifest["agent"]["stopped_after_terminal"])
         self.assertEqual(first_record_source, initial_source.encode())
         self.assertEqual(second_record_source, improved_source.encode())

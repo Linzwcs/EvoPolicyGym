@@ -79,9 +79,9 @@ def _parser() -> argparse.ArgumentParser:
 
     finish = subcommands.add_parser(
         "finish",
-        help="select one previously published submission",
+        help="finish search with one or more published candidates",
     )
-    finish.add_argument("submission_id")
+    finish.add_argument("submission_ids", nargs="+")
     return parser
 
 
@@ -101,7 +101,7 @@ def _request(namespace: argparse.Namespace) -> dict[str, object]:
         return {
             "protocol": SESSION_PROTOCOL,
             "method": "finish",
-            "submission_id": cast(str, namespace.submission_id),
+            "submission_ids": cast(list[str], namespace.submission_ids),
         }
     raise RuntimeError("unknown command")
 

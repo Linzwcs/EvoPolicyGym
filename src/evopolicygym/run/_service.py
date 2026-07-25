@@ -9,11 +9,16 @@ from typing import Protocol
 
 from ..agents import AgentInvocation, CodingAgent
 from ..benchmark import Benchmark, BenchmarkSpec
-from ..errors import AgentRunError
+from ..errors import AgentRunError, EvaluationError
 from ..execution.process.agent.runner import AgentExit
 from ..program import Program
-from ..results import RunResult, RunTerminalReason, SubmissionResult
+from ..results import (
+    RunResult,
+    RunTerminalReason,
+    SubmissionResult,
+)
 from . import RunConfig
+from ._validation import CandidateSelection
 from .progress import RunObserver
 
 
@@ -50,11 +55,7 @@ class EvolutionSession(Protocol):
         ...
 
     @property
-    def final_submission_id(self) -> str | None:
-        ...
-
-    @property
-    def final_program(self) -> Program | None:
+    def candidate_submission_ids(self) -> tuple[str, ...]:
         ...
 
     @property
@@ -63,6 +64,15 @@ class EvolutionSession(Protocol):
 
     @property
     def authority_exhausted(self) -> bool:
+        ...
+
+
+class CandidateSelectionService(Protocol):
+    def select(
+        self,
+        submissions: tuple[SubmissionResult, ...],
+        candidate_submission_ids: tuple[str, ...],
+    ) -> CandidateSelection:
         ...
 
 
@@ -89,6 +99,7 @@ class ProgramEvolutionRun:
         session: EvolutionSession,
         gateway: SessionGateway,
         agent_runner: AgentRunner,
+        candidate_selector: CandidateSelectionService,
         recorder: RunRecorder,
         agent_timeout_seconds: float,
     ) -> None:
@@ -103,6 +114,7 @@ class ProgramEvolutionRun:
         self._session = session
         self._gateway = gateway
         self._agent_runner = agent_runner
+        self._candidate_selector = candidate_selector
         self._recorder = recorder
         self._agent_timeout_seconds = agent_timeout_seconds
 
@@ -128,11 +140,56 @@ class ProgramEvolutionRun:
             self._gateway.close()
 
         assert agent_exit is not None
+        candidate_ids = self._session.candidate_submission_ids
+        selection: CandidateSelection | None = None
+        terminal_reason = _terminal_reason(self._session, agent_exit)
+        if candidate_ids and self._session.terminal_reason is None:
+            try:
+                selection = self._candidate_selector.select(
+                    self._session.submissions,
+                    candidate_ids,
+                )
+            except EvaluationError:
+                terminal_reason = "validation_failed"
+                self._recorder.record_event(
+                    "validation_failed",
+                    {"candidate_count": len(candidate_ids)},
+                )
+            else:
+                terminal_reason = "finished"
+                self._recorder.record_event(
+                    "final_submission_selected",
+                    {
+                        "submission_id": selection.submission.submission_id,
+                        "program_digest": (
+                            selection.submission.program_digest
+                        ),
+                    },
+                )
+                self._recorder.record_event(
+                    "run_finished",
+                    {
+                        "submission_id": selection.submission.submission_id,
+                        "program_digest": (
+                            selection.submission.program_digest
+                        ),
+                    },
+                )
         result = RunResult(
-            final_program=self._session.final_program,
-            final_submission_id=self._session.final_submission_id,
+            final_program=(
+                None if selection is None else selection.submission.program
+            ),
+            final_submission_id=(
+                None
+                if selection is None
+                else selection.submission.submission_id
+            ),
             submissions=self._session.submissions,
-            terminal_reason=_terminal_reason(self._session, agent_exit),
+            terminal_reason=terminal_reason,
+            candidate_submission_ids=candidate_ids,
+            validation=(
+                None if selection is None else selection.validation
+            ),
         )
         self._recorder.commit(result, agent_exit)
         return result
@@ -241,6 +298,7 @@ def run_process_agent(
     from ._feedback import FilesystemSubmissionPublisher
     from ._session import SubmissionSession
     from ._socket import UnixSessionGateway
+    from ._validation import CandidateSelector
 
     if type(initial_program) is not Program:
         raise TypeError("initial_program must be Program")
@@ -276,12 +334,13 @@ def run_process_agent(
             agent_identity=invocation.identity,
             observer=observer,
         ) as recorder:
+            evaluator = EvaluationService(
+                policy_runtimes=ProcessPolicyRuntimeFactory(),
+                monotonic=monotonic,
+            )
             session = SubmissionSession(
                 programs=WorkspaceProgramSource(paths.program),
-                evaluator=EvaluationService(
-                    policy_runtimes=ProcessPolicyRuntimeFactory(),
-                    monotonic=monotonic,
-                ),
+                evaluator=evaluator,
                 publisher=FilesystemSubmissionPublisher(
                     submissions_root=paths.submissions,
                     feedback_root=paths.feedback,
@@ -308,6 +367,13 @@ def run_process_agent(
                 session=session,
                 gateway=gateway,
                 agent_runner=runner,
+                candidate_selector=CandidateSelector(
+                    evaluator=evaluator,
+                    benchmark=benchmark,
+                    spec=selected_spec,
+                    config=config,
+                    recorder=recorder,
+                ),
                 recorder=recorder,
                 agent_timeout_seconds=config.agent_timeout_seconds,
             )

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from evopolicygym.agents import Codex, CodingAgent, resolve_executable
 from evopolicygym.authoring import BenchmarkSpec
-from evopolicygym.run import RunConfig
+from evopolicygym.run import RunConfig, ValidationConfig
 from evopolicygym.run._task import build_agent_task
 
 
@@ -100,6 +100,39 @@ class CodexIntegrationTests(unittest.TestCase):
 
         self.assertNotIn("skill/SKILL.md", without_skill.instructions)
         self.assertIn("skill/SKILL.md", with_skill.instructions)
+
+    def test_validation_handoff_rules_are_owned_by_the_host_task(self) -> None:
+        spec = BenchmarkSpec(
+            id="example/validation-task-v1",
+            description="Validation task fixture.",
+            observation_space=None,
+            action_space=None,
+            metadata={},
+            max_episode_steps=1,
+            primary_metric="loss",
+            score_direction="minimize",
+        )
+
+        task = build_agent_task(
+            spec,
+            RunConfig(
+                validation=ValidationConfig(
+                    episodes_per_candidate=5,
+                    max_candidates=3,
+                ),
+            ),
+        )
+
+        self.assertIn(
+            "evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]",
+            task.instructions,
+        )
+        self.assertIn(
+            "Host evaluates every candidate on identical private Validation",
+            task.instructions,
+        )
+        self.assertIn("loss (minimize)", task.instructions)
+        self.assertIn("argument order", task.instructions)
 
 
 if __name__ == "__main__":

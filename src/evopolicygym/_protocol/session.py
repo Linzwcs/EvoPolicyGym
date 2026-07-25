@@ -2,7 +2,7 @@
 
 from ._framing import JsonFrameCodec
 
-SESSION_PROTOCOL = "agent-session/v1"
+SESSION_PROTOCOL = "agent-session/v2"
 SESSION_MAX_FRAME_BYTES = 64 * 1024
 
 SESSION_FRAMES = JsonFrameCodec(

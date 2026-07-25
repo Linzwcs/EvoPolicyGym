@@ -2,18 +2,23 @@
 
 This document is authoritative for the current clean-slate Kernel. It describes
 the local, non-durable product only. Docker, recovery, remote execution, and
-formal evaluation are not design inputs for this version.
+post-Run hidden assessment are not design inputs for this version.
 
 ## Domain language
 
 - A `Program` is one immutable, content-addressed Policy source snapshot.
 - An `Evaluation` runs one Program through a bounded set of Episodes.
 - A `Submission` commits one Program and its public Feedback.
+- A finished candidate set is an ordered, bounded tuple of published
+  Submissions handed from the Agent to the Host in one atomic request.
+- `Validation` is a Host-only, post-Agent Evaluation of every finished
+  candidate on identical Episodes. It selects the final Submission without
+  publishing evidence back to the Agent workspace.
 - `Feedback` has a Kernel-required scalar score, Benchmark-defined public
   content, and optional public Artifact files.
 - A `ProgramEvolutionRun` is one bounded outer loop in which a Coding Agent
-  edits Programs, submits candidates, reads Feedback, and selects a final
-  Submission.
+  edits Programs, submits candidates, reads Feedback, and hands candidates to
+  Host-side final selection.
 - A `RunEvent` is immutable, Host-side observation delivered only after its
   matching lifecycle event is persisted.
 - An `Experiment` is reserved for a future collection of comparable Runs.
@@ -42,10 +47,11 @@ evopolicygym/
 │   └── _service.py             Episode rules and narrow runtime contracts
 │
 ├── run/                        complete Program-Evolution use case
-│   ├── __init__.py             RunConfig and run()
+│   ├── __init__.py             RunConfig, ValidationConfig, and run()
 │   ├── progress.py             public Run events, observer, and console reporter
 │   ├── _service.py             Run coordination and process-setting assembly
-│   ├── _session.py             Submission budget and final-selection rules
+│   ├── _session.py             Submission budget and atomic finish admission
+│   ├── _validation.py          post-Agent candidate evaluation and selection
 │   ├── _directory.py           workspace, events, invocation, and run.json
 │   ├── _feedback.py            Feedback and Artifact publication
 │   ├── _json.py                retained public-value JSON projection
@@ -111,8 +117,12 @@ The rules are:
   runtime, process implementation, or protocol codec;
 - `evaluation/_service.py` declares the Policy-runtime capabilities it
   consumes and never selects an execution setting or Agent provider;
-- `run/_session.py` owns budgets, admission, publication ordering, and final
-  selection without depending on an execution setting or provider;
+- `run/_session.py` owns budgets, admission, publication ordering, and the
+  atomic transfer of an ordered candidate set without depending on an
+  execution setting or provider;
+- `run/_validation.py` owns deterministic final selection. It starts only
+  after the Agent runner has reaped the process tree and the Session gateway
+  has closed;
 - `run/` owns Run directories, Feedback publication, and Session transport;
   these responsibilities do not live under process execution;
 - `run/progress.py` owns non-authoritative observation and terminal
@@ -140,6 +150,42 @@ The rules are:
 Narrow `Protocol` contracts are colocated with the service that consumes them.
 There is no global `ports.py`, global adapter namespace, or global composition
 root.
+
+## Run phase and evidence boundaries
+
+```text
+Agent search
+  submit → public Feedback → edit → ... → finish(candidate IDs)
+                                             │
+                                             ▼
+                              close Session and reap Agent
+                                             │
+                                             ▼
+                                Host-only Validation
+                                             │
+                                             ▼
+                           final selection and Run commit
+```
+
+`finish` uses `agent-session/v2` and accepts a non-empty
+`submission_ids` list. The Host rejects malformed, duplicate, unknown, or
+over-limit candidates before changing Session state. A successful request
+closes Agent authority; it does not select a final Program inside the Session.
+Without Validation, exactly one candidate is allowed.
+
+Validation uses a Run-seed-derived domain-separated seed and one identical
+`EvaluationConfig` for every candidate. Selection compares primary score in
+the Benchmark's declared direction, then Policy-failure count, then finish
+argument order. A trusted fault terminates the Run as `validation_failed`
+without a partial final selection or automatic retry.
+
+The Agent-visible `workspace/` contains only editable `program/`, public
+`feedback/`, and an optional Benchmark skill. `validation/` is not created
+until after Agent cleanup. A successful validated Run retains only aggregate
+candidate scores and Policy-failure counts in
+`validation/report.json`; private Episodes, seeds, cases, traces, and
+execution evidence do not cross into Feedback. `run.json` uses
+`evopolicygym/run-record/v2` and references that aggregate report.
 
 ## Migration status
 

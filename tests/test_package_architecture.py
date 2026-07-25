@@ -90,10 +90,17 @@ import sys
 from evopolicygym.agents.codex import Codex
 from evopolicygym.evaluation import EvaluationConfig
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import ConsoleProgress, RunConfig, RunEvent, RunObserver
+from evopolicygym.run import (
+    ConsoleProgress,
+    RunConfig,
+    RunEvent,
+    RunObserver,
+    ValidationConfig,
+)
 
 assert EvaluationConfig.__module__ == "evopolicygym.evaluation"
 assert RunConfig.__module__ == "evopolicygym.run"
+assert ValidationConfig.__module__ == "evopolicygym.run"
 assert ConsoleProgress.__module__ == "evopolicygym.run.progress"
 assert RunEvent.__module__ == "evopolicygym.run.progress"
 assert RunObserver.__module__ == "evopolicygym.run.progress"
@@ -163,6 +170,20 @@ assert not any(name in sys.modules for name in forbidden)
                     )
                 )
                 for name in imports(session)
+            )
+        )
+
+    def test_validation_rules_do_not_select_execution_or_provider(self) -> None:
+        validation = PACKAGE / "run" / "_validation.py"
+        self.assertFalse(
+            any(
+                name.startswith(
+                    (
+                        "evopolicygym.execution",
+                        "evopolicygym.agents",
+                    )
+                )
+                for name in imports(validation)
             )
         )
 

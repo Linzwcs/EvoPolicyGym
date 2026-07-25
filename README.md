@@ -122,7 +122,7 @@ with `use_benchmark_skill=True`; the skill is never passed to the Policy:
 ```python
 from cartpole import CartPoleBenchmark, baseline_program
 
-from evopolicygym import RunConfig, run
+from evopolicygym import RunConfig, ValidationConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -138,23 +138,38 @@ result = run(
         episode_budget=48,
         max_episodes_per_submission=3,
         use_benchmark_skill=True,
+        validation=ValidationConfig(
+            split="validation",
+            episodes_per_candidate=10,
+            max_candidates=3,
+        ),
     ),
     observer=ConsoleProgress(),
 )
 ```
 
-During the Run, the agent evaluates and selects immutable submissions with:
+During the Run, the agent evaluates immutable submissions and hands candidates
+to the Host with:
 
 ```console
 evopolicygym submit program --episodes 3
-evopolicygym finish submission-000002
+evopolicygym finish submission-000002 submission-000007
 ```
 
+`finish` atomically hands an ordered candidate set to the Host and closes Agent
+authority. With `ValidationConfig`, the Host waits for the Agent process to be
+reaped, evaluates every candidate on the same private Validation Episodes, and
+selects by the Benchmark score direction, fewer Policy failures, then argument
+order. Validation has a separate Episode allocation and is never published
+back into workspace Feedback. Without `ValidationConfig`, `finish` accepts
+exactly one candidate and the Host selects it after Agent cleanup.
+
 The Host retains submitted Programs, public Feedback and Artifacts,
-`events.jsonl`, the final `run.json`, and separate Agent logs. Benchmark
-authors control the public Feedback content and may publish bounded traces,
-replays, diagnostics, images, or reports without exposing private seeds,
-paths, or execution evidence.
+`events.jsonl`, the final `run.json`, separate Agent logs, and—when
+configured—an aggregate `validation/report.json`. Benchmark authors control
+the public Feedback content and may publish bounded traces, replays,
+diagnostics, images, or reports without exposing private seeds, paths, or
+execution evidence.
 
 `ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
 with the authority of the current operating-system user. Use it only with

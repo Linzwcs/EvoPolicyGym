@@ -141,6 +141,62 @@ class ConsoleProgress:
             label = event.name.replace("_", " ")
             return (f"{submission} · {label}", False)
 
+        if event.name == "finish_requested":
+            candidates = _integer(fields, "candidate_count")
+            return (
+                f"Agent finished · {candidates} candidate(s) handed to Host",
+                False,
+            )
+
+        if event.name == "validation_started":
+            candidates = _integer(fields, "candidate_count")
+            episodes = _integer(fields, "episodes_per_candidate")
+            return (
+                f"Validation started · {candidates} candidate(s)"
+                f" · {episodes} Episodes each",
+                False,
+            )
+
+        if event.name == "validation_candidate_started":
+            submission = _text(fields, "submission_id")
+            episodes = _integer(fields, "episodes")
+            self._evaluation_started[submission] = event.monotonic_ns
+            return (
+                f"{submission} · validating {episodes} Episodes",
+                True,
+            )
+
+        if event.name == "validation_episode_completed":
+            submission = _text(fields, "submission_id")
+            completed = _integer(fields, "completed")
+            total = _integer(fields, "total")
+            status = _text(fields, "status")
+            started = self._evaluation_started.get(submission)
+            elapsed = (
+                ""
+                if started is None
+                else f" · {(event.monotonic_ns - started) / 1_000_000_000:.1f}s"
+            )
+            return (
+                f"{submission} · Validation Episodes {completed}/{total}"
+                f"{elapsed} · {status}",
+                True,
+            )
+
+        if event.name == "validation_candidate_completed":
+            submission = _text(fields, "submission_id")
+            score = _number(fields, "score")
+            failures = _integer(fields, "policy_failures")
+            self._evaluation_started.pop(submission, None)
+            return (
+                f"{submission} · validation score {score:g}"
+                f" · {failures} Policy failure(s)",
+                False,
+            )
+
+        if event.name == "validation_failed":
+            return ("Validation failed", False)
+
         if event.name == "run_finished":
             submission = _text(fields, "submission_id")
             return (f"Run finished · selected {submission}", False)
@@ -152,7 +208,7 @@ class ConsoleProgress:
             return ("Agent failed to start", False)
 
         if event.name == "agent_stopped_after_terminal":
-            return ("Agent stopped after terminal Run state", False)
+            return ("Agent stopped after Session authority closed", False)
 
         if event.name == "agent_exited":
             return (

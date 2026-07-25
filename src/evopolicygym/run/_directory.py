@@ -14,14 +14,16 @@ from typing import TextIO, cast
 
 from .._version import __version__
 from ..agents import AgentInvocation
+from ..benchmark import BenchmarkSpec
 from ..errors import AgentRunError
 from ..execution.process.agent.runner import AgentExit
 from ..program import Program
 from ..results import RunResult
 from . import RunConfig
+from ._json import encode_public_json_value
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v3"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v4"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
 _VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
@@ -86,14 +88,16 @@ class RunDirectoryRecorder:
         self,
         *,
         paths: RunDirectoryPaths,
-        benchmark_id: str,
+        benchmark_spec: BenchmarkSpec,
         initial_program: Program,
         config: RunConfig,
         agent_identity: Mapping[str, str],
         observer: RunObserver | None = None,
     ) -> None:
+        if type(benchmark_spec) is not BenchmarkSpec:
+            raise TypeError("benchmark_spec must be BenchmarkSpec")
         self._paths = paths
-        self._benchmark_id = benchmark_id
+        self._benchmark_spec = benchmark_spec
         self._initial_program = initial_program
         self._config = config
         self._agent_identity = dict(agent_identity)
@@ -148,7 +152,7 @@ class RunDirectoryRecorder:
         _write_run_manifest(
             self._paths.root / "run.json",
             result,
-            benchmark_id=self._benchmark_id,
+            benchmark_spec=self._benchmark_spec,
             initial_program=self._initial_program,
             config=self._config,
             agent_exit=agent_exit,
@@ -288,7 +292,7 @@ def _write_run_manifest(
     path: Path,
     result: RunResult,
     *,
-    benchmark_id: str,
+    benchmark_spec: BenchmarkSpec,
     initial_program: Program,
     config: RunConfig,
     agent_exit: AgentExit,
@@ -310,7 +314,15 @@ def _write_run_manifest(
         {
             "schema": _RUN_RECORD_SCHEMA,
             "library_version": __version__,
-            "benchmark": {"id": benchmark_id},
+            "benchmark": {
+                "id": benchmark_spec.id,
+                "environment": {
+                    "digest": benchmark_spec.environment_digest,
+                    "parameters": encode_public_json_value(
+                        benchmark_spec.environment_parameters
+                    ),
+                },
+            },
             "initial_program": {
                 "digest": initial_program.digest,
                 "record": "initial/program",

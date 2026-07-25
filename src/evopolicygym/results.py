@@ -107,12 +107,14 @@ class EvaluationResult:
     """The public result of evaluating one immutable Program."""
 
     benchmark_id: str
+    environment_digest: str
     program_digest: str
     feedback: Feedback
     episodes: tuple[EpisodeSummary, ...]
 
     def __post_init__(self) -> None:
         _non_empty_text(self.benchmark_id, "benchmark_id")
+        _digest(self.environment_digest, "environment_digest")
         _digest(self.program_digest, "program_digest")
         if type(self.feedback) is not Feedback:
             raise TypeError("feedback must be Feedback")

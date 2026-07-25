@@ -68,6 +68,10 @@ and its results are not returned to this Agent Session.
         "observation_space": encode_public_json_value(spec.observation_space),
         "action_space": encode_public_json_value(spec.action_space),
         "metadata": encode_public_json_value(spec.metadata),
+        "environment_parameters": encode_public_json_value(
+            spec.environment_parameters
+        ),
+        "environment_digest": spec.environment_digest,
         "max_episode_steps": spec.max_episode_steps,
         "primary_metric": spec.primary_metric,
         "score_direction": spec.score_direction,
@@ -128,6 +132,11 @@ published Feedback.
 {assessment_guidance}\
 Unsubmitted workspace edits are never candidates or the final Program. Do not
 exit before calling finish successfully.
+
+The Environment parameters in the specification are public and fixed for this
+entire Run. The Policy receives the same values through
+PolicyContext.environment_parameters. Neither you nor the Policy may change
+the evaluated Environment configuration.
 
 Benchmark public specification:
 

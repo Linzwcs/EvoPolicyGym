@@ -66,8 +66,14 @@ class StubBenchmark:
 
 
 class FakeEvaluator:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail: bool = False,
+        mismatch_environment: bool = False,
+    ) -> None:
         self.fail = fail
+        self.mismatch_environment = mismatch_environment
         self.configs: list[EvaluationConfig] = []
 
     def evaluate(
@@ -103,6 +109,11 @@ class FakeEvaluator:
                 episode_completed(index, len(episodes), episode)
         return EvaluationResult(
             benchmark_id=benchmark.spec.id,
+            environment_digest=(
+                "sha256:" + "0" * 64
+                if self.mismatch_environment
+                else benchmark.spec.environment_digest
+            ),
             program_digest=program.digest,
             feedback=Feedback(score=5.0),
             episodes=episodes,
@@ -221,6 +232,23 @@ class ProgramAssessorTests(unittest.TestCase):
             benchmark = StubBenchmark()
             assessor = ProgramAssessor(
                 evaluator=FakeEvaluator(fail=True),
+                benchmark=benchmark,
+                spec=benchmark.spec,
+                config=RunConfig(
+                    assessment=AssessmentConfig(episodes=2),
+                ),
+                recorder=FakeRecorder(),
+            )
+
+            with self.assertRaises(EvaluationError):
+                assessor.assess(submission)
+
+    def test_assessment_rejects_a_different_environment_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            submission = make_submission(Path(temporary))
+            benchmark = StubBenchmark()
+            assessor = ProgramAssessor(
+                evaluator=FakeEvaluator(mismatch_environment=True),
                 benchmark=benchmark,
                 spec=benchmark.spec,
                 config=RunConfig(

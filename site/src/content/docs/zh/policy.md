@@ -4,7 +4,7 @@ page: policy
 section: core
 title: "Policy ABI"
 navTitle: "Policy ABI"
-description: "policy/v1 entry point、PolicyContext、PolicyValue carrier、状态生命周期与故障语义。"
+description: "policy/v2 entry point、PolicyContext、PolicyValue carrier、状态生命周期与故障语义。"
 lead: "一个固定 factory、一个动作方法，以及提交代码可见的有界值表面。"
 index: D3
 order: 3
@@ -45,6 +45,7 @@ Policy 不可见 `learn()`、`reset()`、`update()`、Submission 或 Feedback �
 | `observation_space` | Policy 可见 Observation 的公开描述。 |
 | `action_space` | 合法 Action 的公开描述。 |
 | `metadata` | string-keyed、与 Case 无关的 Benchmark metadata。 |
+| `environment_parameters` | 绑定到已配置 Environment 的公开、与 Case 无关的参数。 |
 | `policy_seed` | 当前全新 Policy instance 使用的 unsigned 64-bit seed。 |
 
 `PolicyContext` 绝不包含 Case identity、Environment seed、Host path、文件描述符、

@@ -71,6 +71,7 @@ extending the total authority.
 
 | Trusted Host and Benchmark own | Policy can observe |
 | --- | --- |
+| Environment parameter selection | Public `environment_parameters` fixed before Evaluation |
 | Episode scenario and Environment seed | `PolicyContext` without Case identity |
 | Environment state and transitions | Public observations |
 | Action validation | Its own Episode-local state |

@@ -212,13 +212,91 @@ class PublicContractTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             spec(1)  # type: ignore[arg-type]
 
+    def test_environment_parameters_are_detached_and_content_addressed(
+        self,
+    ) -> None:
+        parameters: dict[str, PolicyValue] = {
+            "map": ["SFFF", "FHFH", "FFFH", "HFFG"],
+            "is_slippery": True,
+        }
+        first = BenchmarkSpec(
+            id="example/parameters-v1",
+            description="Environment parameter fixture.",
+            observation_space=None,
+            action_space=None,
+            metadata={},
+            max_episode_steps=100,
+            primary_metric="success",
+            score_direction="maximize",
+            environment_parameters=parameters,
+        )
+        second = BenchmarkSpec(
+            id="example/parameters-v1",
+            description="Environment parameter fixture.",
+            observation_space=None,
+            action_space=None,
+            metadata={},
+            max_episode_steps=100,
+            primary_metric="success",
+            score_direction="maximize",
+            environment_parameters={
+                "is_slippery": True,
+                "map": ["SFFF", "FHFH", "FFFH", "HFFG"],
+            },
+        )
+        changed = BenchmarkSpec(
+            id="example/parameters-v1",
+            description="Environment parameter fixture.",
+            observation_space=None,
+            action_space=None,
+            metadata={},
+            max_episode_steps=100,
+            primary_metric="success",
+            score_direction="maximize",
+            environment_parameters={
+                "map": ["SFFF", "FHFH", "FFFH", "HFFG"],
+                "is_slippery": False,
+            },
+        )
+
+        map_value = parameters["map"]
+        assert isinstance(map_value, list)
+        map_value[0] = "changed"
+        published_map = first.environment_parameters["map"]
+        assert isinstance(published_map, list)
+        published_map.append("changed")
+
+        self.assertEqual(
+            first.environment_parameters["map"],
+            ["SFFF", "FHFH", "FFFH", "HFFG"],
+        )
+        self.assertEqual(first.environment_digest, second.environment_digest)
+        self.assertNotEqual(first.environment_digest, changed.environment_digest)
+        self.assertRegex(first.environment_digest, r"^sha256:[0-9a-f]{64}$")
+        with self.assertRaises(TypeError):
+            BenchmarkSpec(
+                id="example/parameters-v1",
+                description="Invalid Environment parameters.",
+                observation_space=None,
+                action_space=None,
+                metadata={},
+                max_episode_steps=1,
+                primary_metric="success",
+                score_direction="maximize",
+                environment_parameters={1: "invalid"},  # type: ignore[dict-item]
+            )
+
     def test_policy_context_detaches_mutable_values(self) -> None:
         observation_space: PolicyValue = {"shape": [4]}
         metadata: dict[str, PolicyValue] = {"name": "counter"}
+        environment_parameters: dict[str, PolicyValue] = {
+            "required_actions": [1, 2],
+        }
         context = PolicyContext(
             observation_space=observation_space,
             action_space={"enum": [-1, 1]},
             metadata=metadata,
+            environment_parameters=environment_parameters,
             policy_seed=9,
         )
 
@@ -227,9 +305,16 @@ class PublicContractTests(unittest.TestCase):
         assert isinstance(shape, list)
         shape.append(5)
         metadata["name"] = "changed"
+        required_actions = environment_parameters["required_actions"]
+        assert isinstance(required_actions, list)
+        required_actions.append(3)
 
         self.assertEqual(context.observation_space, {"shape": [4]})
         self.assertEqual(context.metadata["name"], "counter")
+        self.assertEqual(
+            context.environment_parameters["required_actions"],
+            [1, 2],
+        )
 
     def test_tensor_value_validates_shape_and_finite_data(self) -> None:
         tensor = TensorValue(
@@ -382,6 +467,7 @@ class PublicContractTests(unittest.TestCase):
             program = Program.from_directory(directory)
         evaluation = EvaluationResult(
             benchmark_id="example/counter-v1",
+            environment_digest=CounterBenchmark().spec.environment_digest,
             program_digest=program.digest,
             feedback=feedback,
             episodes=(
@@ -577,6 +663,7 @@ class RecordingBenchmark:
             max_episode_steps=2,
             primary_metric="completed",
             score_direction="maximize",
+            environment_parameters={"required_actions": [1, 2]},
             agent_skill=self.agent_skill,
         )
 
@@ -641,6 +728,40 @@ def captured_program(root: Path, source: str) -> Program:
 
 
 class DirectEvaluationTests(unittest.TestCase):
+    def test_policy_receives_public_environment_parameters(self) -> None:
+        source = """\
+class ParameterPolicy:
+    def __init__(self, context):
+        self.actions = list(context.environment_parameters["required_actions"])
+        self.index = 0
+
+    def act(self, observation):
+        del observation
+        action = self.actions[self.index]
+        self.index += 1
+        return action
+
+
+def make_policy(context):
+    return ParameterPolicy(context)
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            program = captured_program(Path(temporary), source)
+            benchmark = RecordingBenchmark()
+
+            result = evaluate(
+                program,
+                benchmark,
+                execution=ProcessExecution.unsafe(),
+            )
+
+        self.assertEqual(result.feedback.score, 1.0)
+        self.assertEqual(
+            result.environment_digest,
+            benchmark.spec.environment_digest,
+        )
+        self.assertEqual(benchmark.environments[0].actions, [1, 2])
+
     def test_each_episode_gets_fresh_policy_but_keeps_same_episode_state(self) -> None:
         source = """\
 class CounterPolicy:
@@ -938,10 +1059,11 @@ print("fake-agent-finished")
             agent_script.write_text(agent_source, encoding="utf-8")
             run_directory = root / "run-record"
             observer = RecordingRunObserver()
+            benchmark = RecordingBenchmark()
 
             result = run_process_agent(
                 program,
-                RecordingBenchmark(),
+                benchmark,
                 invocation=command_invocation(
                     (sys.executable, str(agent_script)),
                 ),
@@ -1050,7 +1172,17 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v3")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v4")
+        self.assertEqual(
+            manifest["benchmark"],
+            {
+                "id": "example/recording-v1",
+                "environment": {
+                    "digest": benchmark.spec.environment_digest,
+                    "parameters": {"required_actions": [1, 2]},
+                },
+            },
+        )
         self.assertEqual(manifest["terminal_reason"], "finished")
         self.assertEqual(manifest["final_submission_id"], "submission-000002")
         self.assertEqual(

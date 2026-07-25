@@ -48,6 +48,7 @@ An `EvaluationResult` contains:
 | Field | Meaning |
 | --- | --- |
 | `benchmark_id` | Stable public Benchmark identity. |
+| `environment_digest` | Canonical identity of the applied public Environment parameters. |
 | `program_digest` | SHA-256 identity of the evaluated Program. |
 | `feedback` | Benchmark-defined score, public content, and optional artifacts. |
 | `episodes` | Sanitized public Episode summaries. |

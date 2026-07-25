@@ -22,6 +22,7 @@ EvoPolicyGym 公共 SDK 与 `evopolicygym.authoring`。
 一个 distribution 拥有：
 
 - 上游 simulator dependency；
+- 类型化 Environment 参数的校验与应用；
 - 静态 `BenchmarkSpec`；
 - 确定性 Episode 规划；
 - 每个 Episode 一个全新 Environment；
@@ -83,12 +84,18 @@ class ExampleBenchmark:
 | `observation_space` | 有界 `PolicyValue` 描述。 |
 | `action_space` | 有界 `PolicyValue` 描述。 |
 | `metadata` | string-keyed、与 Case 无关的公开 metadata。 |
+| `environment_parameters` | 绑定到 Environment 构建过程的准确公开参数。 |
 | `max_episode_steps` | 正整数 Episode hard horizon。 |
 | `primary_metric` | `Feedback.score` 表示的 metric 名称。 |
 | `score_direction` | 必须是 `maximize` 或 `minimize`。 |
 
 不要在 specification 中放入私有 scenario、Environment seed、path、credential
 或 scorer object。
+
+Distribution 拥有类型化 constructor。例如
+`FrozenLakeBenchmark(map_name="8x8", is_slippery=True)` 校验并保留这些参数，
+通过 `environment_parameters` 发布准确取值，并在 `make_environment()` 中应用
+同一份绑定配置。`environment_digest` 由 Kernel 计算，作者无需提供。
 
 ## Episode 规划
 

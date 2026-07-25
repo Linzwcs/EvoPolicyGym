@@ -120,6 +120,8 @@ class ProgramAssessor:
         if (
             type(evaluated) is not EvaluationResult
             or evaluated.benchmark_id != self._spec.id
+            or evaluated.environment_digest
+            != self._spec.environment_digest
             or evaluated.program_digest != submission.program_digest
             or len(evaluated.episodes) != assessment_config.episodes
         ):

@@ -260,6 +260,9 @@ def _context_message(context: PolicyContext) -> dict[str, object]:
         "observation_space": encode_policy_value(context.observation_space),
         "action_space": encode_policy_value(context.action_space),
         "metadata": encode_policy_value(dict(context.metadata)),
+        "environment_parameters": encode_policy_value(
+            dict(context.environment_parameters)
+        ),
         "policy_seed": str(context.policy_seed),
     }
 

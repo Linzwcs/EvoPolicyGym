@@ -75,9 +75,11 @@ class FakeEvaluator:
         outcomes: Mapping[str, tuple[float, int]],
         *,
         fail_digest: str | None = None,
+        mismatch_environment: bool = False,
     ) -> None:
         self.outcomes = dict(outcomes)
         self.fail_digest = fail_digest
+        self.mismatch_environment = mismatch_environment
         self.configs: list[EvaluationConfig] = []
 
     def evaluate(
@@ -114,6 +116,11 @@ class FakeEvaluator:
                 episode_completed(index, len(episodes), episode)
         return EvaluationResult(
             benchmark_id=benchmark.spec.id,
+            environment_digest=(
+                "sha256:" + "0" * 64
+                if self.mismatch_environment
+                else benchmark.spec.environment_digest
+            ),
             program_digest=program.digest,
             feedback=Feedback(score=score),
             episodes=episodes,
@@ -336,6 +343,31 @@ class CandidateSelectorTests(unittest.TestCase):
                 selector.select(
                     (first, second),
                     (first.submission_id, second.submission_id),
+                )
+
+    def test_validation_rejects_a_different_environment_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            submission = make_submission(Path(temporary), 1)
+            benchmark = StubBenchmark()
+            selector = CandidateSelector(
+                evaluator=FakeEvaluator(
+                    {submission.program_digest: (1.0, 0)},
+                    mismatch_environment=True,
+                ),
+                benchmark=benchmark,
+                spec=benchmark.spec,
+                config=RunConfig(
+                    validation=ValidationConfig(
+                        episodes_per_candidate=1,
+                    ),
+                ),
+                recorder=FakeRecorder(),
+            )
+
+            with self.assertRaises(EvaluationError):
+                selector.select(
+                    (submission,),
+                    (submission.submission_id,),
                 )
 
     def test_without_validation_the_single_candidate_is_not_reevaluated(

@@ -40,7 +40,12 @@ construction failure; it is not a Policy penalty.
 ```python
 from example_benchmark import ExampleBenchmark, baseline_program
 
-from evopolicygym import RunConfig, ValidationConfig, run
+from evopolicygym import (
+    AssessmentConfig,
+    RunConfig,
+    ValidationConfig,
+    run,
+)
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -62,6 +67,10 @@ result = run(
             episodes_per_candidate=10,
             max_candidates=3,
         ),
+        assessment=AssessmentConfig(
+            split="test",
+            episodes=20,
+        ),
         seed=0,
         episode_timeout_seconds=30,
         agent_timeout_seconds=3600,
@@ -73,6 +82,7 @@ print(result.terminal_reason)
 print(result.candidate_submission_ids)
 print(result.final_submission_id)
 print(result.validation)
+print(result.assessment)
 ```
 
 Use a unique `record_to`. Its parent must already exist and the Run directory
@@ -92,6 +102,9 @@ evopolicygym finish submission-000003 submission-000011
 all candidates on identical private Validation Episodes, and selects by score
 direction, fewer Policy failures, then argument order. Without it, exactly one
 candidate is accepted. Validation is not returned through workspace Feedback.
+When `AssessmentConfig` is present, the Host subsequently evaluates only the
+selected Program on an independently seeded held-out split. Assessment does
+not affect selection and is not returned through workspace Feedback.
 
 ## Other command-line Coding Agents
 

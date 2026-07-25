@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import evopolicygym
 from evopolicygym import (
+    AssessmentConfig,
     Benchmark,
     EvaluationConfig,
     EvaluationResult,
@@ -156,6 +157,7 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(
             set(evopolicygym.__all__),
             {
+                "AssessmentConfig",
                 "Benchmark",
                 "EvaluationConfig",
                 "EvaluationResult",
@@ -174,6 +176,7 @@ class PublicContractTests(unittest.TestCase):
         self.assertTrue(callable(evaluate))
         self.assertTrue(callable(run))
         self.assertIs(ValidationConfig, evopolicygym.ValidationConfig)
+        self.assertIs(AssessmentConfig, evopolicygym.AssessmentConfig)
 
     def test_policy_and_benchmark_are_structural(self) -> None:
         policy = ConstantPolicy()
@@ -327,6 +330,9 @@ class PublicContractTests(unittest.TestCase):
                 episodes_per_candidate=7,
                 max_candidates=2,
             ),
+            assessment=AssessmentConfig(
+                episodes=11,
+            ),
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
         self.assertTrue(capped.use_benchmark_skill)
@@ -336,6 +342,10 @@ class PublicContractTests(unittest.TestCase):
                 episodes_per_candidate=7,
                 max_candidates=2,
             ),
+        )
+        self.assertEqual(
+            capped.assessment,
+            AssessmentConfig(episodes=11),
         )
         self.assertEqual(agent.model, "gpt-5")
         with self.assertRaises(ValueError):
@@ -355,6 +365,10 @@ class PublicContractTests(unittest.TestCase):
                     max_candidates=2,
                 ),
             )
+        with self.assertRaises(ValueError):
+            AssessmentConfig(episodes=0)
+        with self.assertRaises(TypeError):
+            RunConfig(assessment=object())  # type: ignore[arg-type]
 
     def test_public_results_compose_without_private_episode_records(self) -> None:
         feedback = Feedback(score=1.0, content={"outcome": "passed"})
@@ -902,6 +916,7 @@ assert artifact.read_text() == "completed=1\\n"
     encoding="utf-8",
 )
 assert not (workspace.parent / "validation").exists()
+assert not (workspace.parent / "assessment").exists()
 finished = call(
     "finish",
     first["result"]["submission_id"],
@@ -913,6 +928,7 @@ assert finished["result"]["candidate_submission_ids"] == [
 ]
 assert finished["result"]["agent_authority_closed"] is True
 assert not (workspace.parent / "validation").exists()
+assert not (workspace.parent / "assessment").exists()
 print("fake-agent-finished")
 """
         with tempfile.TemporaryDirectory() as temporary:
@@ -937,6 +953,7 @@ print("fake-agent-finished")
                         episodes_per_candidate=2,
                         max_candidates=2,
                     ),
+                    assessment=AssessmentConfig(episodes=3),
                     agent_timeout_seconds=10,
                 ),
                 observer=observer,
@@ -950,6 +967,9 @@ print("fake-agent-finished")
             manifest = json.loads((run_directory / "run.json").read_text())
             validation = json.loads(
                 (run_directory / "validation" / "report.json").read_text()
+            )
+            assessment = json.loads(
+                (run_directory / "assessment" / "report.json").read_text()
             )
             retained_workspace = run_directory / "workspace"
             first_record = (
@@ -995,6 +1015,10 @@ print("fake-agent-finished")
             ("submission-000001", "submission-000002"),
         )
         self.assertIsNotNone(result.validation)
+        self.assertIsNotNone(result.assessment)
+        assert result.assessment is not None
+        self.assertEqual(result.assessment.score, 3.0)
+        self.assertEqual(result.assessment.policy_failures, 0)
         self.assertEqual(len(result.submissions), 2)
         self.assertEqual(result.submissions[0].episodes[0].failure, "invalid_action")
         self.assertEqual(result.submissions[1].feedback.score, 1.0)
@@ -1017,10 +1041,16 @@ print("fake-agent-finished")
             2,
         )
         self.assertEqual(
+            [event["event"] for event in events].count(
+                "assessment_episode_completed"
+            ),
+            3,
+        )
+        self.assertEqual(
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v2")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v3")
         self.assertEqual(manifest["terminal_reason"], "finished")
         self.assertEqual(manifest["final_submission_id"], "submission-000002")
         self.assertEqual(
@@ -1030,6 +1060,10 @@ print("fake-agent-finished")
         self.assertEqual(
             manifest["validation"],
             {"report": "validation/report.json"},
+        )
+        self.assertEqual(
+            manifest["assessment"],
+            {"report": "assessment/report.json"},
         )
         self.assertEqual(
             validation,
@@ -1062,12 +1096,32 @@ print("fake-agent-finished")
                 "selected_submission_id": "submission-000002",
             },
         )
+        self.assertEqual(
+            assessment,
+            {
+                "schema": "evopolicygym/assessment-report/v1",
+                "submission_id": "submission-000002",
+                "program_digest": (
+                    result.submissions[1].program_digest
+                ),
+                "split": "test",
+                "episodes": 3,
+                "primary_metric": "completed",
+                "score_direction": "maximize",
+                "score": 3.0,
+                "policy_failures": 0,
+            },
+        )
         self.assertFalse(manifest["agent"]["stopped_after_terminal"])
         self.assertEqual(first_record_source, initial_source.encode())
         self.assertEqual(second_record_source, improved_source.encode())
         self.assertEqual(initial_source_record, initial_source.encode())
         self.assertEqual(retained_workspace_source, unsubmitted_source.encode())
         self.assertNotEqual(*feedback_inodes)
+        self.assertFalse((retained_workspace / "assessment").exists())
+        self.assertFalse(
+            (retained_workspace / "feedback" / "assessment").exists()
+        )
         self.assertFalse(control_exists)
 
     def test_trusted_evaluation_failure_consumes_reserved_budget(self) -> None:

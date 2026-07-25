@@ -8,7 +8,12 @@ from pathlib import Path
 
 from cartpole import CartPoleBenchmark, baseline_program
 
-from evopolicygym import RunConfig, ValidationConfig, run
+from evopolicygym import (
+    AssessmentConfig,
+    RunConfig,
+    ValidationConfig,
+    run,
+)
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -56,6 +61,14 @@ def main(arguments: list[str] | None = None) -> int:
                     max_candidates=namespace.validation_max_candidates,
                 )
             ),
+            assessment=(
+                None
+                if namespace.assessment_episodes is None
+                else AssessmentConfig(
+                    split=namespace.assessment_split,
+                    episodes=namespace.assessment_episodes,
+                )
+            ),
             seed=namespace.seed,
             episode_timeout_seconds=namespace.episode_timeout_seconds,
             agent_timeout_seconds=namespace.agent_timeout_seconds,
@@ -91,6 +104,17 @@ def main(arguments: list[str] | None = None) -> int:
                             }
                             for candidate in result.validation.candidates
                         ],
+                    }
+                ),
+                "assessment": (
+                    None
+                    if result.assessment is None
+                    else {
+                        "submission_id": result.assessment.submission_id,
+                        "score": result.assessment.score,
+                        "policy_failures": (
+                            result.assessment.policy_failures
+                        ),
                     }
                 ),
                 "record": str(record_to),
@@ -140,6 +164,16 @@ def _parser() -> argparse.ArgumentParser:
         "--validation-max-candidates",
         type=int,
         default=2,
+    )
+    parser.add_argument(
+        "--assessment-episodes",
+        type=int,
+        help="enable held-out final-Program Assessment",
+    )
+    parser.add_argument(
+        "--assessment-split",
+        choices=("train", "validation", "test"),
+        default="test",
     )
     parser.add_argument("--episode-timeout-seconds", type=float, default=20)
     parser.add_argument("--agent-timeout-seconds", type=float, default=600)

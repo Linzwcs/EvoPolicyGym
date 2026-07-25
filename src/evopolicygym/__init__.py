@@ -12,9 +12,10 @@ if TYPE_CHECKING:
     from .evaluation import EvaluationConfig, evaluate
     from .program import Program
     from .results import EvaluationResult, RunResult
-    from .run import RunConfig, ValidationConfig, run
+    from .run import AssessmentConfig, RunConfig, ValidationConfig, run
 
 _EXPORTS = {
+    "AssessmentConfig": (".run", "AssessmentConfig"),
     "Benchmark": (".benchmark", "Benchmark"),
     "EvaluationConfig": (".evaluation", "EvaluationConfig"),
     "EvaluationResult": (".results", "EvaluationResult"),
@@ -27,6 +28,7 @@ _EXPORTS = {
 }
 
 __all__ = [
+    "AssessmentConfig",
     "Benchmark",
     "EvaluationConfig",
     "EvaluationResult",

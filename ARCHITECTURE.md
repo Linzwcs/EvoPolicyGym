@@ -1,8 +1,8 @@
 # EvoPolicyGym kernel architecture
 
 This document is authoritative for the current clean-slate Kernel. It describes
-the local, non-durable product only. Docker, recovery, remote execution, and
-post-Run hidden assessment are not design inputs for this version.
+the local, non-durable product only. Docker, recovery, and remote execution are
+not design inputs for this version.
 
 ## Domain language
 
@@ -14,6 +14,8 @@ post-Run hidden assessment are not design inputs for this version.
 - `Validation` is a Host-only, post-Agent Evaluation of every finished
   candidate on identical Episodes. It selects the final Submission without
   publishing evidence back to the Agent workspace.
+- `Assessment` is a Host-only held-out Evaluation of the already selected
+  final Program. It measures the result but never participates in selection.
 - `Feedback` has a Kernel-required scalar score, Benchmark-defined public
   content, and optional public Artifact files.
 - A `ProgramEvolutionRun` is one bounded outer loop in which a Coding Agent
@@ -47,11 +49,12 @@ evopolicygym/
 │   └── _service.py             Episode rules and narrow runtime contracts
 │
 ├── run/                        complete Program-Evolution use case
-│   ├── __init__.py             RunConfig, ValidationConfig, and run()
+│   ├── __init__.py             Run/Validation/Assessment configs and run()
 │   ├── progress.py             public Run events, observer, and console reporter
 │   ├── _service.py             Run coordination and process-setting assembly
 │   ├── _session.py             Submission budget and atomic finish admission
 │   ├── _validation.py          post-Agent candidate evaluation and selection
+│   ├── _assessment.py          held-out final-Program measurement
 │   ├── _directory.py           workspace, events, invocation, and run.json
 │   ├── _feedback.py            Feedback and Artifact publication
 │   ├── _json.py                retained public-value JSON projection
@@ -123,6 +126,8 @@ The rules are:
 - `run/_validation.py` owns deterministic final selection. It starts only
   after the Agent runner has reaped the process tree and the Session gateway
   has closed;
+- `run/_assessment.py` evaluates only the selected Submission, uses its own
+  seed domain, and cannot replace or rerank candidates;
 - `run/` owns Run directories, Feedback publication, and Session transport;
   these responsibilities do not live under process execution;
 - `run/progress.py` owns non-authoritative observation and terminal
@@ -164,7 +169,13 @@ Agent search
                                 Host-only Validation
                                              │
                                              ▼
-                           final selection and Run commit
+                                      final selection
+                                             │
+                                             ▼
+                              held-out Assessment (optional)
+                                             │
+                                             ▼
+                                        Run commit
 ```
 
 `finish` uses `agent-session/v2` and accepts a non-empty
@@ -179,13 +190,23 @@ the Benchmark's declared direction, then Policy-failure count, then finish
 argument order. A trusted fault terminates the Run as `validation_failed`
 without a partial final selection or automatic retry.
 
+Assessment uses an independent Run-seed-derived domain and evaluates only the
+selected Submission. A trusted fault terminates as `assessment_failed` while
+retaining that final Program; it never falls back to another candidate and
+does not create a partial report.
+
 The Agent-visible `workspace/` contains only editable `program/`, public
-`feedback/`, and an optional Benchmark skill. `validation/` is not created
-until after Agent cleanup. A successful validated Run retains only aggregate
-candidate scores and Policy-failure counts in
-`validation/report.json`; private Episodes, seeds, cases, traces, and
-execution evidence do not cross into Feedback. `run.json` uses
-`evopolicygym/run-record/v2` and references that aggregate report.
+`feedback/`, and an optional Benchmark skill. `validation/` and `assessment/`
+are not created until after Agent cleanup. Successful phases retain only
+aggregate scores and Policy-failure counts in their reports; private Episodes,
+seeds, cases, traces, and execution evidence do not cross into Feedback.
+`run.json` uses `evopolicygym/run-record/v3` and references the available
+aggregate reports.
+
+This is a logical lifecycle and publication boundary, not a security boundary:
+`ProcessExecution` remains non-isolated. A Benchmark that requires
+cryptographically hidden Cases still needs future remote execution or
+whole-Run virtualization.
 
 ## Migration status
 

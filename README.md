@@ -122,7 +122,12 @@ with `use_benchmark_skill=True`; the skill is never passed to the Policy:
 ```python
 from cartpole import CartPoleBenchmark, baseline_program
 
-from evopolicygym import RunConfig, ValidationConfig, run
+from evopolicygym import (
+    AssessmentConfig,
+    RunConfig,
+    ValidationConfig,
+    run,
+)
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
@@ -142,6 +147,10 @@ result = run(
             split="validation",
             episodes_per_candidate=10,
             max_candidates=3,
+        ),
+        assessment=AssessmentConfig(
+            split="test",
+            episodes=20,
         ),
     ),
     observer=ConsoleProgress(),
@@ -164,12 +173,17 @@ order. Validation has a separate Episode allocation and is never published
 back into workspace Feedback. Without `ValidationConfig`, `finish` accepts
 exactly one candidate and the Host selects it after Agent cleanup.
 
+With `AssessmentConfig`, the Host then evaluates only the selected final
+Program on a separately seeded held-out split. Assessment never changes the
+selection and is never returned to the Agent. Its aggregate score and Policy
+failure count are the Run's final benchmark evidence.
+
 The Host retains submitted Programs, public Feedback and Artifacts,
 `events.jsonl`, the final `run.json`, separate Agent logs, and—when
-configured—an aggregate `validation/report.json`. Benchmark authors control
-the public Feedback content and may publish bounded traces, replays,
-diagnostics, images, or reports without exposing private seeds, paths, or
-execution evidence.
+configured—aggregate `validation/report.json` and
+`assessment/report.json` records. Benchmark authors control the public
+Feedback content and may publish bounded traces, replays, diagnostics, images,
+or reports without exposing private seeds, paths, or execution evidence.
 
 `ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
 with the authority of the current operating-system user. Use it only with

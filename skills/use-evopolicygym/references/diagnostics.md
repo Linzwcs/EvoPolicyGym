@@ -21,6 +21,8 @@ run-root/
 │       └── artifacts/
 ├── validation/                 only after successful configured Validation
 │   └── report.json             aggregate candidate evidence
+├── assessment/                 only after successful configured Assessment
+│   └── report.json             aggregate final-Program evidence
 └── agent/
     ├── invocation.json
     ├── instructions.md
@@ -35,8 +37,8 @@ only after its Program and public Feedback commit successfully.
 ## Diagnose in order
 
 1. Read `run.json`: benchmark ID, config, terminal reason, final submission,
-   ordered candidates, published submissions, optional Validation report, and
-   Agent exit.
+   ordered candidates, published submissions, optional Validation and
+   Assessment reports, and Agent exit.
 2. Read the final events in `events.jsonl`: determine whether failure occurred
    before an Episode, during an Episode, after all Episodes, or during
    publication.
@@ -59,6 +61,9 @@ only after its Program and public Feedback commit successfully.
 - `evaluation_failed`: trusted evaluation could not produce a valid result.
 - `validation_failed`: post-Agent candidate Validation failed; no partial
   final selection or report is authoritative.
+- `assessment_failed`: held-out Evaluation failed after final selection. The
+  selected Program remains final, but there is no authoritative Assessment
+  result or fallback candidate.
 
 An Episode status of `policy_failed` is a scored Policy outcome, not a trusted
 evaluation failure. Its failure code is one of `exception`, `timeout`,

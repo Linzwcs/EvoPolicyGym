@@ -16,6 +16,20 @@ from .progress import ConsoleProgress, RunEvent, RunObserver
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AssessmentConfig:
+    """Fixed held-out evidence for the selected final Program."""
+
+    episodes: int
+    split: str = "test"
+
+    def __post_init__(self) -> None:
+        if type(self.split) is not str or not self.split:
+            raise ValueError("assessment split must be non-empty text")
+        if type(self.episodes) is not int or self.episodes <= 0:
+            raise ValueError("assessment episodes must be a positive integer")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ValidationConfig:
     """Fixed server-side evidence used to select finished candidates."""
 
@@ -42,6 +56,7 @@ class RunConfig:
     max_episodes_per_submission: int | None = None
     use_benchmark_skill: bool = False
     validation: ValidationConfig | None = None
+    assessment: AssessmentConfig | None = None
     seed: int = 0
     episode_timeout_seconds: float = 30.0
     agent_timeout_seconds: float = 3_600.0
@@ -74,6 +89,11 @@ class RunConfig:
             if self.validation.max_candidates > self.max_submissions:
                 raise ValueError(
                     "validation max_candidates cannot exceed max_submissions"
+                )
+        if self.assessment is not None:
+            if type(self.assessment) is not AssessmentConfig:
+                raise TypeError(
+                    "assessment must be AssessmentConfig or None"
                 )
         if type(self.seed) is not int or not 0 <= self.seed <= 2**64 - 1:
             raise ValueError("seed must be an unsigned 64-bit integer")
@@ -136,6 +156,7 @@ def run(
 
 
 __all__ = [
+    "AssessmentConfig",
     "ConsoleProgress",
     "RunConfig",
     "RunEvent",

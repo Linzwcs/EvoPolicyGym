@@ -9,7 +9,7 @@ Use the public EvoPolicyGym SDK to build a complete bounded loop:
 
 ```text
 Program → Evaluation → Feedback → Agent edit → Submission → candidate handoff
-→ Host selection
+→ Host selection → held-out Assessment
 ```
 
 Preserve the separation between the trusted Host and Benchmark, the Coding
@@ -95,6 +95,10 @@ authority.
 - Treat successful `finish` as an authority boundary. Validation and final
   selection occur only after the Agent process is reaped; do not expose their
   evidence in workspace Feedback.
+- Use `AssessmentConfig` to measure only the selected Program on a separately
+  seeded held-out split. Assessment must not rerank candidates, publish
+  evidence to the Agent, retry automatically, or fall back after a trusted
+  failure.
 - Treat failed trusted evaluation attempts as consumed budget. Never rewrite
   accounting after a failure.
 
@@ -127,5 +131,6 @@ Policy-failure classification, Feedback privacy, and Artifact bounds.
 
 Report the selected Benchmark, Program digest or source, split, seed, Episode
 budget, ordered candidate IDs, Validation configuration and aggregate result,
-terminal reason, final submission, verification commands, and the remaining
-lack of process isolation.
+Assessment configuration and aggregate result, terminal reason, final
+submission, verification commands, and the remaining lack of process
+isolation.

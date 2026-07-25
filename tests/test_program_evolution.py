@@ -9,6 +9,7 @@ from evopolicygym.errors import EvaluationError
 from evopolicygym.execution.process.agent.runner import AgentExit
 from evopolicygym.program import Program
 from evopolicygym.results import (
+    AssessmentResult,
     EpisodeSummary,
     Feedback,
     RunResult,
@@ -101,6 +102,31 @@ class FakeCandidateSelector:
         return self.selection
 
 
+class FakeFinalAssessor:
+    def __init__(
+        self,
+        result: AssessmentResult | None = None,
+        *,
+        gateway: FakeGateway | None = None,
+        fail: bool = False,
+    ) -> None:
+        self.result = result
+        self.gateway = gateway
+        self.fail = fail
+        self.calls: list[str] = []
+
+    def assess(
+        self,
+        submission: SubmissionResult,
+    ) -> AssessmentResult | None:
+        self.calls.append(submission.submission_id)
+        if self.gateway is not None:
+            assert self.gateway.closed
+        if self.fail:
+            raise EvaluationError("trusted Assessment fixture failure")
+        return self.result
+
+
 class FakeRecorder:
     def __init__(self) -> None:
         self.events: list[tuple[str, dict[str, object]]] = []
@@ -143,6 +169,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                 gateway=gateway,
                 agent_runner=runner,
                 candidate_selector=FakeCandidateSelector(),
+                final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
                 agent_timeout_seconds=10,
             ).execute()
@@ -177,6 +204,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                 gateway=gateway,
                 agent_runner=runner,
                 candidate_selector=FakeCandidateSelector(),
+                final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
                 agent_timeout_seconds=10,
             ).execute()
@@ -210,6 +238,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                     )
                 ),
                 candidate_selector=FakeCandidateSelector(),
+                final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
                 agent_timeout_seconds=10,
             ).execute()
@@ -268,6 +297,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                     )
                 ),
                 candidate_selector=selector,
+                final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
                 agent_timeout_seconds=10,
             ).execute()
@@ -322,6 +352,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                 gateway=FakeGateway(),
                 agent_runner=FakeAgentRunner(AgentExit(returncode=0)),
                 candidate_selector=FakeCandidateSelector(fail=True),
+                final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
                 agent_timeout_seconds=10,
             ).execute()
@@ -335,6 +366,67 @@ class ProgramEvolutionRunTests(unittest.TestCase):
         )
         self.assertIsNone(result.validation)
         self.assertEqual(recorder.events[-1][0], "validation_failed")
+
+    def test_assessment_failure_retains_the_selected_final_program(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            submission = SubmissionResult(
+                submission_id="submission-000001",
+                program=program,
+                episodes_used=1,
+                episodes_remaining=0,
+                feedback=Feedback(score=1.0),
+                episodes=(
+                    EpisodeSummary(
+                        status="completed",
+                        reward=1.0,
+                        steps=1,
+                    ),
+                ),
+            )
+            gateway = FakeGateway()
+            assessor = FakeFinalAssessor(
+                gateway=gateway,
+                fail=True,
+            )
+            recorder = FakeRecorder()
+
+            result = ProgramEvolutionRun(
+                benchmark_id="example/benchmark-v1",
+                initial_program=program,
+                session=FakeSession(
+                    submissions=(submission,),
+                    candidate_submission_ids=(
+                        submission.submission_id,
+                    ),
+                ),
+                gateway=gateway,
+                agent_runner=FakeAgentRunner(AgentExit(returncode=0)),
+                candidate_selector=FakeCandidateSelector(
+                    CandidateSelection(
+                        submission=submission,
+                        validation=None,
+                    )
+                ),
+                final_assessor=assessor,
+                recorder=recorder,
+                agent_timeout_seconds=10,
+            ).execute()
+
+        self.assertEqual(result.terminal_reason, "assessment_failed")
+        self.assertEqual(result.final_program, program)
+        self.assertEqual(
+            result.final_submission_id,
+            submission.submission_id,
+        )
+        self.assertIsNone(result.assessment)
+        self.assertEqual(assessor.calls, [submission.submission_id])
+        self.assertEqual(
+            [name for name, _ in recorder.events][-2:],
+            ["final_submission_selected", "assessment_failed"],
+        )
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from ..errors import AgentRunError, EvaluationError
 from ..execution.process.agent.runner import AgentExit
 from ..program import Program
 from ..results import (
+    AssessmentResult,
     RunResult,
     RunTerminalReason,
     SubmissionResult,
@@ -76,6 +77,14 @@ class CandidateSelectionService(Protocol):
         ...
 
 
+class FinalAssessmentService(Protocol):
+    def assess(
+        self,
+        submission: SubmissionResult,
+    ) -> AssessmentResult | None:
+        ...
+
+
 class RunRecorder(Protocol):
     def record_event(
         self,
@@ -100,6 +109,7 @@ class ProgramEvolutionRun:
         gateway: SessionGateway,
         agent_runner: AgentRunner,
         candidate_selector: CandidateSelectionService,
+        final_assessor: FinalAssessmentService,
         recorder: RunRecorder,
         agent_timeout_seconds: float,
     ) -> None:
@@ -115,6 +125,7 @@ class ProgramEvolutionRun:
         self._gateway = gateway
         self._agent_runner = agent_runner
         self._candidate_selector = candidate_selector
+        self._final_assessor = final_assessor
         self._recorder = recorder
         self._agent_timeout_seconds = agent_timeout_seconds
 
@@ -142,6 +153,7 @@ class ProgramEvolutionRun:
         assert agent_exit is not None
         candidate_ids = self._session.candidate_submission_ids
         selection: CandidateSelection | None = None
+        assessment: AssessmentResult | None = None
         terminal_reason = _terminal_reason(self._session, agent_exit)
         if candidate_ids and self._session.terminal_reason is None:
             try:
@@ -156,7 +168,6 @@ class ProgramEvolutionRun:
                     {"candidate_count": len(candidate_ids)},
                 )
             else:
-                terminal_reason = "finished"
                 self._recorder.record_event(
                     "final_submission_selected",
                     {
@@ -166,15 +177,33 @@ class ProgramEvolutionRun:
                         ),
                     },
                 )
-                self._recorder.record_event(
-                    "run_finished",
-                    {
-                        "submission_id": selection.submission.submission_id,
-                        "program_digest": (
-                            selection.submission.program_digest
-                        ),
-                    },
-                )
+                try:
+                    assessment = self._final_assessor.assess(
+                        selection.submission
+                    )
+                except EvaluationError:
+                    terminal_reason = "assessment_failed"
+                    self._recorder.record_event(
+                        "assessment_failed",
+                        {
+                            "submission_id": (
+                                selection.submission.submission_id
+                            ),
+                        },
+                    )
+                else:
+                    terminal_reason = "finished"
+                    self._recorder.record_event(
+                        "run_finished",
+                        {
+                            "submission_id": (
+                                selection.submission.submission_id
+                            ),
+                            "program_digest": (
+                                selection.submission.program_digest
+                            ),
+                        },
+                    )
         result = RunResult(
             final_program=(
                 None if selection is None else selection.submission.program
@@ -190,6 +219,7 @@ class ProgramEvolutionRun:
             validation=(
                 None if selection is None else selection.validation
             ),
+            assessment=assessment,
         )
         self._recorder.commit(result, agent_exit)
         return result
@@ -288,6 +318,7 @@ def run_process_agent(
         build_agent_environment,
     )
     from ..execution.process.policy.runtime import ProcessPolicyRuntimeFactory
+    from ._assessment import ProgramAssessor
     from ._directory import (
         RunDirectoryRecorder,
         WorkspaceProgramSource,
@@ -368,6 +399,13 @@ def run_process_agent(
                 gateway=gateway,
                 agent_runner=runner,
                 candidate_selector=CandidateSelector(
+                    evaluator=evaluator,
+                    benchmark=benchmark,
+                    spec=selected_spec,
+                    config=config,
+                    recorder=recorder,
+                ),
+                final_assessor=ProgramAssessor(
                     evaluator=evaluator,
                     benchmark=benchmark,
                     spec=selected_spec,

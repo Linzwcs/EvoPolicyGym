@@ -241,6 +241,55 @@ class ConsoleProgressTests(unittest.TestCase):
             ],
         )
 
+    def test_plain_progress_renders_held_out_assessment(self) -> None:
+        output = io.StringIO()
+        progress = ConsoleProgress(output, mode="plain")
+
+        progress.on_event(
+            event(
+                "assessment_started",
+                1_000_000_000,
+                submission_id="submission-000002",
+                episodes=4,
+            )
+        )
+        progress.on_event(
+            event(
+                "assessment_episode_completed",
+                1_500_000_000,
+                submission_id="submission-000002",
+                completed=1,
+                total=4,
+                status="completed",
+            )
+        )
+        progress.on_event(
+            event(
+                "assessment_completed",
+                2_000_000_000,
+                submission_id="submission-000002",
+                score=500.0,
+                policy_failures=0,
+            )
+        )
+
+        self.assertEqual(
+            output.getvalue().splitlines(),
+            [
+                (
+                    "submission-000002 · assessing 4 held-out Episodes"
+                ),
+                (
+                    "submission-000002 · Assessment Episodes 1/4"
+                    " · 0.5s · completed"
+                ),
+                (
+                    "submission-000002 · assessment score 500"
+                    " · 0 Policy failure(s)"
+                ),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

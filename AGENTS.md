@@ -16,9 +16,10 @@ is under `src/evopolicygym/`:
   Benchmark distributions;
 - `evaluation/`: public `EvaluationConfig`/`evaluate()` and private direct
   Evaluation rules;
-- `run/`: public `RunConfig`/`run()` plus Session rules, Run records, Feedback
-  publication, non-authoritative progress observation, and Agent Session
-  transport;
+- `run/`: public Run/Validation/Assessment configuration and `run()` plus
+  Session rules, Host-side selection and held-out measurement, Run records,
+  Feedback publication, non-authoritative progress observation, and Agent
+  Session transport;
 - `execution/`: public execution selections; `execution/process/` contains only
   the current Policy and command-Agent process mechanisms;
 - `_protocol/`: pure versioned Policy/Agent bytes-to-value codecs; it never
@@ -89,6 +90,9 @@ the typed failure domain and cleanup behavior. Required invariants include:
 - Policy failure stops before another `World.step()`;
 - Environment and Backend faults do not become Policy penalties;
 - Feedback contains no private Case, seed, path, or execution evidence;
+- Validation and Assessment start only after Agent cleanup and never publish
+  evidence into workspace Feedback;
+- Assessment evaluates only the selected Program and never changes selection;
 - Run observers receive events only after persistence, and observer failure
   never changes Run semantics;
 - complete malformed guest frames, partial frames, and trusted-input errors keep

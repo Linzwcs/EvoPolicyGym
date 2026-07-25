@@ -197,6 +197,48 @@ class ConsoleProgress:
         if event.name == "validation_failed":
             return ("Validation failed", False)
 
+        if event.name == "assessment_started":
+            submission = _text(fields, "submission_id")
+            episodes = _integer(fields, "episodes")
+            self._evaluation_started[submission] = event.monotonic_ns
+            return (
+                f"{submission} · assessing {episodes} held-out Episodes",
+                True,
+            )
+
+        if event.name == "assessment_episode_completed":
+            submission = _text(fields, "submission_id")
+            completed = _integer(fields, "completed")
+            total = _integer(fields, "total")
+            status = _text(fields, "status")
+            started = self._evaluation_started.get(submission)
+            elapsed = (
+                ""
+                if started is None
+                else f" · {(event.monotonic_ns - started) / 1_000_000_000:.1f}s"
+            )
+            return (
+                f"{submission} · Assessment Episodes {completed}/{total}"
+                f"{elapsed} · {status}",
+                True,
+            )
+
+        if event.name == "assessment_completed":
+            submission = _text(fields, "submission_id")
+            score = _number(fields, "score")
+            failures = _integer(fields, "policy_failures")
+            self._evaluation_started.pop(submission, None)
+            return (
+                f"{submission} · assessment score {score:g}"
+                f" · {failures} Policy failure(s)",
+                False,
+            )
+
+        if event.name == "assessment_failed":
+            submission = _text(fields, "submission_id")
+            self._evaluation_started.pop(submission, None)
+            return (f"{submission} · Assessment failed", False)
+
         if event.name == "run_finished":
             submission = _text(fields, "submission_id")
             return (f"Run finished · selected {submission}", False)

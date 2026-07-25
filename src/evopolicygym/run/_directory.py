@@ -21,10 +21,11 @@ from ..results import RunResult
 from . import RunConfig
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v2"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v3"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
 _VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
+_ASSESSMENT_REPORT_SCHEMA = "evopolicygym/assessment-report/v1"
 _SESSION_SOCKET_VARIABLE = "EVOPOLICYGYM_SESSION_SOCKET"
 _WORKSPACE_VARIABLE = "EVOPOLICYGYM_WORKSPACE"
 
@@ -40,6 +41,7 @@ class RunDirectoryPaths:
     submissions: Path
     agent: Path
     validation: Path
+    assessment: Path
     control: Path
     socket: Path
     events: Path
@@ -58,6 +60,7 @@ class RunDirectoryPaths:
             submissions=root / "submissions",
             agent=root / "agent",
             validation=root / "validation",
+            assessment=root / "assessment",
             control=control,
             socket=control / "session.sock",
             events=root / "events.jsonl",
@@ -135,6 +138,11 @@ class RunDirectoryRecorder:
         if result.validation is not None:
             _write_validation_report(
                 self._paths.validation,
+                result,
+            )
+        if result.assessment is not None:
+            _write_assessment_report(
+                self._paths.assessment,
                 result,
             )
         _write_run_manifest(
@@ -342,6 +350,14 @@ def _write_run_manifest(
                         ),
                     }
                 ),
+                "assessment": (
+                    None
+                    if config.assessment is None
+                    else {
+                        "split": config.assessment.split,
+                        "episodes": config.assessment.episodes,
+                    }
+                ),
             },
             "agent": {
                 **agent_identity,
@@ -364,6 +380,11 @@ def _write_run_manifest(
                 None
                 if result.validation is None
                 else {"report": "validation/report.json"}
+            ),
+            "assessment": (
+                None
+                if result.assessment is None
+                else {"report": "assessment/report.json"}
             ),
             "submissions": submissions,
         },
@@ -413,6 +434,41 @@ def _write_validation_report(
     except OSError as error:
         raise AgentRunError(
             "Validation record could not be committed"
+        ) from error
+
+
+def _write_assessment_report(
+    directory: Path,
+    result: RunResult,
+) -> None:
+    assessment = result.assessment
+    assert assessment is not None
+    try:
+        directory.mkdir(mode=0o700)
+    except OSError as error:
+        raise AgentRunError(
+            "Assessment record could not be committed"
+        ) from error
+    _write_json_atomic(
+        directory / "report.json",
+        {
+            "schema": _ASSESSMENT_REPORT_SCHEMA,
+            "submission_id": assessment.submission_id,
+            "program_digest": assessment.program_digest,
+            "split": assessment.split,
+            "episodes": assessment.episodes,
+            "primary_metric": assessment.primary_metric,
+            "score_direction": assessment.score_direction,
+            "score": assessment.score,
+            "policy_failures": assessment.policy_failures,
+        },
+        error_message="Assessment record could not be committed",
+    )
+    try:
+        os.chmod(directory, 0o500)
+    except OSError as error:
+        raise AgentRunError(
+            "Assessment record could not be committed"
         ) from error
 
 

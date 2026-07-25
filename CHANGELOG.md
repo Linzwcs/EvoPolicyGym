@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added optional held-out final-Program Assessment with an independent seed
+  domain, aggregate results, progress events, and run-record schema v3.
+- Added `AssessmentConfig`, `AssessmentResult`, and the `assessment_failed`
+  terminal reason without candidate fallback.
 - Added atomic ordered candidate handoff through `agent-session/v2` and
   optional post-Agent server-side Validation with aggregate retained results.
 - Added `ValidationConfig`, candidate and Validation fields on `RunResult`,

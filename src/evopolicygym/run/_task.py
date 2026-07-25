@@ -54,6 +54,14 @@ not returned to this Agent Session. Exceeding the candidate limit, repeating a
 candidate, or naming an unpublished submission rejects the whole finish
 request, so you may correct it and retry.
 """
+    assessment_guidance = ""
+    if config.assessment is not None:
+        assessment_guidance = """\
+After final selection, the Host evaluates only the selected Program on
+held-out Assessment Episodes. Assessment never changes the selected candidate,
+and its results are not returned to this Agent Session.
+
+"""
     public_spec = {
         "id": spec.id,
         "description": spec.description,
@@ -117,6 +125,7 @@ Iterate by inspecting the Program, editing it, submitting it, and using the
 published Feedback.
 
 {finish_guidance}
+{assessment_guidance}\
 Unsubmitted workspace edits are never candidates or the final Program. Do not
 exit before calling finish successfully.
 

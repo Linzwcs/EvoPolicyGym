@@ -29,6 +29,7 @@ type RunTerminalReason = Literal[
     "agent_failed",
     "evaluation_failed",
     "validation_failed",
+    "assessment_failed",
 ]
 
 
@@ -157,6 +158,46 @@ class SubmissionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class AssessmentResult:
+    """Aggregate held-out evidence for the selected final Program."""
+
+    submission_id: str
+    program_digest: str
+    split: str
+    episodes: int
+    primary_metric: str
+    score_direction: Literal["maximize", "minimize"]
+    score: float
+    policy_failures: int
+
+    def __post_init__(self) -> None:
+        _non_empty_text(self.submission_id, "submission_id")
+        _digest(self.program_digest, "program_digest")
+        _non_empty_text(self.split, "split")
+        _non_empty_text(self.primary_metric, "primary_metric")
+        if type(self.episodes) is not int or self.episodes <= 0:
+            raise ValueError("episodes must be a positive integer")
+        if self.score_direction not in {"maximize", "minimize"}:
+            raise ValueError(
+                "score_direction must be 'maximize' or 'minimize'"
+            )
+        if (
+            isinstance(self.score, bool)
+            or not isinstance(self.score, (int, float))
+            or not math.isfinite(float(self.score))
+        ):
+            raise ValueError("score must be a finite number")
+        if (
+            type(self.policy_failures) is not int
+            or not 0 <= self.policy_failures <= self.episodes
+        ):
+            raise ValueError(
+                "policy_failures must be between zero and episodes"
+            )
+        object.__setattr__(self, "score", float(self.score))
+
+
+@dataclass(frozen=True, slots=True)
 class ValidationCandidateResult:
     """One aggregate server-side Validation outcome."""
 
@@ -242,6 +283,7 @@ class RunResult:
     terminal_reason: RunTerminalReason
     candidate_submission_ids: tuple[str, ...] = ()
     validation: ValidationResult | None = None
+    assessment: AssessmentResult | None = None
 
     def __post_init__(self) -> None:
         if self.final_program is not None and type(self.final_program) is not Program:
@@ -299,25 +341,49 @@ class RunResult:
                 raise ValueError(
                     "final submission must match validation selection"
                 )
-        if self.terminal_reason == "finished":
+        final_reasons = {"finished", "assessment_failed"}
+        if self.terminal_reason in final_reasons:
             if self.final_submission_id is None or not candidates:
                 raise ValueError(
-                    "a finished Run requires a final candidate"
+                    "a post-selection Run requires a final candidate"
                 )
         elif self.final_submission_id is not None:
             raise ValueError(
-                "only a finished Run can contain a final Program"
-            )
-        if self.validation is not None and self.terminal_reason != "finished":
-            raise ValueError(
-                "only a finished Run can contain Validation results"
+                "only a post-selection Run can contain a final Program"
             )
         if (
-            candidates
-            and self.terminal_reason not in {"finished", "validation_failed"}
+            self.validation is not None
+            and self.terminal_reason not in final_reasons
         ):
             raise ValueError(
-                "only finished or failed Validation can contain candidates"
+                "Validation results require completed candidate selection"
+            )
+        if self.assessment is not None:
+            if type(self.assessment) is not AssessmentResult:
+                raise TypeError("assessment must be AssessmentResult or None")
+            if self.terminal_reason != "finished":
+                raise ValueError(
+                    "Assessment results require a finished Run"
+                )
+            if (
+                self.assessment.submission_id
+                != self.final_submission_id
+            ):
+                raise ValueError(
+                    "Assessment must match the final submission"
+                )
+            assert self.final_program is not None
+            if self.assessment.program_digest != self.final_program.digest:
+                raise ValueError(
+                    "Assessment must match the final Program"
+                )
+        if (
+            candidates
+            and self.terminal_reason
+            not in {"finished", "validation_failed", "assessment_failed"}
+        ):
+            raise ValueError(
+                "only post-finish phases can contain candidates"
             )
         if self.terminal_reason not in {
             "finished",
@@ -326,6 +392,7 @@ class RunResult:
             "agent_failed",
             "evaluation_failed",
             "validation_failed",
+            "assessment_failed",
         }:
             raise ValueError("terminal_reason is invalid")
         object.__setattr__(self, "submissions", submissions)
@@ -354,6 +421,7 @@ def _digest(value: object, name: str) -> str:
 
 
 __all__ = [
+    "AssessmentResult",
     "EpisodeStatus",
     "EpisodeSummary",
     "EvaluationResult",

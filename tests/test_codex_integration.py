@@ -6,7 +6,7 @@ from pathlib import Path
 
 from evopolicygym.agents import Codex, CodingAgent, resolve_executable
 from evopolicygym.authoring import BenchmarkSpec
-from evopolicygym.run import RunConfig, ValidationConfig
+from evopolicygym.run import AssessmentConfig, RunConfig, ValidationConfig
 from evopolicygym.run._task import build_agent_task
 
 
@@ -120,6 +120,7 @@ class CodexIntegrationTests(unittest.TestCase):
                     episodes_per_candidate=5,
                     max_candidates=3,
                 ),
+                assessment=AssessmentConfig(episodes=7),
             ),
         )
 
@@ -133,6 +134,14 @@ class CodexIntegrationTests(unittest.TestCase):
         )
         self.assertIn("loss (minimize)", task.instructions)
         self.assertIn("argument order", task.instructions)
+        self.assertIn(
+            "Host evaluates only the selected Program on",
+            task.instructions,
+        )
+        self.assertIn(
+            "Assessment never changes the selected candidate",
+            task.instructions,
+        )
 
 
 if __name__ == "__main__":

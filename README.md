@@ -43,6 +43,7 @@ public EvoPolicyGym SDK.
 | Collection | Contents | Description |
 | --- | --- | --- |
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
+| [Gymnasium Toy Text](environments/gymnasium/toy_text/) | FrozenLake | Parameterized stochastic navigation with public maps and transition dynamics |
 | [Jackdaw](environments/jackdaw/) | Balatro | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
 | [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | [`v0.1.0` paper archive](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | The 16 control, navigation, driving, and robotics tasks used in the paper |
 
@@ -207,14 +208,15 @@ corresponding `BenchmarkSpec.environment_parameters` records the exact public
 values that `make_environment()` applies. The generic Kernel does not accept or
 interpret simulator-specific keyword arguments.
 
-For example, a FrozenLake distribution can own a typed constructor such as
-`FrozenLakeBenchmark(map_name="8x8", is_slippery=True)`, publish those exact
-values in its specification, and use the bound configuration whenever it
+For example, the FrozenLake distribution accepts
+`FrozenLakeConfig(map_name="8x8", is_slippery=True)`, publishes that
+configuration in its specification, and uses the bound values whenever it
 creates a fresh Environment.
 
 Use `check_benchmark()` with deterministic fixtures before distribution. See
 the [authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/)
-and [CartPole reference package](environments/gymnasium/classic_control/cartpole/).
+and the [CartPole](environments/gymnasium/classic_control/cartpole/) and
+[FrozenLake](environments/gymnasium/toy_text/frozen_lake/) packages.
 
 ## Development
 

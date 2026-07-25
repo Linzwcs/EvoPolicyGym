@@ -7,12 +7,14 @@ upstream suite:
 ```text
 environments/
 ├── gymnasium/
-│   └── classic_control/
-│       ├── cartpole/
-│       ├── acrobot/
-│       ├── mountain_car/
-│       ├── mountain_car_continuous/
-│       └── pendulum/
+│   ├── classic_control/
+│   │   ├── cartpole/
+│   │   ├── acrobot/
+│   │   ├── mountain_car/
+│   │   ├── mountain_car_continuous/
+│   │   └── pendulum/
+│   └── toy_text/
+│       └── frozen_lake/
 └── jackdaw/
     └── balatro/
 ```
@@ -33,6 +35,7 @@ change public Python imports, distribution names, or Benchmark IDs.
 | [Gymnasium / Classic Control](gymnasium/classic_control/) | `evopolicygym-benchmark-mountain-car` | `mountain_car` | `gymnasium/MountainCar-v0/mean-return-v1` |
 | [Gymnasium / Classic Control](gymnasium/classic_control/) | `evopolicygym-benchmark-mountain-car-continuous` | `mountain_car_continuous` | `gymnasium/MountainCarContinuous-v0/mean-return-v1` |
 | [Gymnasium / Classic Control](gymnasium/classic_control/) | `evopolicygym-benchmark-pendulum` | `pendulum` | `gymnasium/Pendulum-v1/mean-return-v1` |
+| [Gymnasium / Toy Text](gymnasium/toy_text/) | `evopolicygym-benchmark-frozen-lake` | `frozen_lake` | `gymnasium/FrozenLake-v1/success-rate-v1` |
 | [Jackdaw / Balatro](jackdaw/) | `evopolicygym-benchmark-balatro` | `balatro` | `jackdaw/Balatro/red-deck-white-stake/run-score-v2` |
 
 From the repository root, select one leaf project explicitly:
@@ -42,5 +45,5 @@ uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
 uv build environments/gymnasium/classic_control/cartpole
 ```
 
-Future Gymnasium suites such as Toy Text, Box2D, and MuJoCo belong beside
-`classic_control/`, not beside individual environments.
+Future Gymnasium suites such as Box2D and MuJoCo belong beside
+`classic_control/` and `toy_text/`, not beside individual environments.

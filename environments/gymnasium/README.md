@@ -7,7 +7,7 @@ suite organization.
 | Suite | Status | Distributions |
 | --- | --- | --- |
 | [Classic Control](classic_control/) | Implemented | CartPole, Acrobot, Mountain Car, Continuous Mountain Car, Pendulum |
-| Toy Text | Planned | Added as individual leaf distributions |
+| [Toy Text](toy_text/) | Implemented | FrozenLake |
 | Box2D | Planned | Added as individual leaf distributions with suite-local dependencies |
 | MuJoCo | Planned | Added as individual leaf distributions with suite-local dependencies |
 

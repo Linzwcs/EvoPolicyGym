@@ -33,7 +33,7 @@ from jackdaw.engine.pools import UNAVAILABLE, get_current_pool
 from jackdaw.engine.rng import PseudoRandom
 from jackdaw.engine.tags import assign_ante_blinds
 
-from balatro import BalatroBenchmark, baseline_program
+from balatro import BalatroBenchmark, BalatroConfig, baseline_program
 from balatro.environment import (
     EXCLUDED_TAG_KEYS,
     EXCLUDED_VOUCHER_KEYS,
@@ -41,8 +41,6 @@ from balatro.environment import (
 )
 from balatro.observation import encode_observation
 from balatro.rules import blind_rule, visible_card_rule, visible_tag_rule
-
-_SCENARIO: dict[str, PolicyValue] = {"back": "b_red", "stake": 1}
 
 
 class BalatroBenchmarkTests(unittest.TestCase):
@@ -60,11 +58,19 @@ class BalatroBenchmarkTests(unittest.TestCase):
                 item.environment_seed for item in validation
             )
         )
-        self.assertTrue(all(item.scenario == _SCENARIO for item in train))
+        self.assertTrue(all(item.scenario is None for item in train))
+        self.assertEqual(
+            dict(benchmark.spec.environment_parameters),
+            {
+                "deck": "b_red",
+                "stake": 1,
+                "content_profile": "jackdaw-active-content-v1",
+            },
+        )
 
     def test_semantic_observation_is_deterministic(self) -> None:
         benchmark = BalatroBenchmark()
-        episode = EpisodeSpec(environment_seed=123, scenario=_SCENARIO)
+        episode = EpisodeSpec(environment_seed=123)
         report = check_benchmark(
             benchmark,
             fixtures=(
@@ -148,6 +154,15 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertEqual(excluded["tags"], list(EXCLUDED_TAG_KEYS))
         self.assertEqual(excluded["vouchers"], list(EXCLUDED_VOUCHER_KEYS))
         self.assertNotIn(skip_tag["key"], EXCLUDED_TAG_KEYS)
+
+    def test_configuration_rejects_unsupported_profiles(self) -> None:
+        self.assertEqual(BalatroConfig(), BalatroConfig(deck="b_red", stake=1))
+        with self.assertRaises(ValueError):
+            BalatroConfig(deck="b_blue")
+        with self.assertRaises(ValueError):
+            BalatroConfig(stake=2)
+        with self.assertRaises(TypeError):
+            BalatroBenchmark(config=object())  # type: ignore[arg-type]
 
     def test_every_joker_has_a_public_rule_and_parameters(self) -> None:
         for key in BLINDS:
@@ -299,7 +314,8 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
         benchmark = BalatroBenchmark()
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
-        environment = BalatroEnvironment(episode)
+        environment = benchmark.make_environment(episode)
+        assert isinstance(environment, BalatroEnvironment)
         try:
             environment.reset()
             state = environment._state
@@ -324,7 +340,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
     def test_invalid_action_does_not_advance_or_repair_state(self) -> None:
         benchmark = BalatroBenchmark()
-        episode = EpisodeSpec(environment_seed=456, scenario=_SCENARIO)
+        episode = EpisodeSpec(environment_seed=456)
         environment = benchmark.make_environment(episode)
         try:
             initial = environment.reset()
@@ -345,7 +361,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
     def test_last_hand_projects_the_actual_score_result(self) -> None:
         benchmark = BalatroBenchmark()
-        episode = EpisodeSpec(environment_seed=123, scenario=_SCENARIO)
+        episode = EpisodeSpec(environment_seed=123)
         environment = benchmark.make_environment(episode)
         try:
             initial = environment.reset()
@@ -399,7 +415,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
     def test_feedback_penalizes_failure_and_keeps_seeds_private(self) -> None:
         benchmark = BalatroBenchmark()
-        episode = EpisodeSpec(environment_seed=789, scenario=_SCENARIO)
+        episode = EpisodeSpec(environment_seed=789)
         environment = benchmark.make_environment(episode)
         try:
             initial = environment.reset()
@@ -435,7 +451,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
     def test_feedback_bounds_complete_episode_replays(self) -> None:
         benchmark = BalatroBenchmark()
-        episode = EpisodeSpec(environment_seed=789, scenario=_SCENARIO)
+        episode = EpisodeSpec(environment_seed=789)
         large_state: dict[str, PolicyValue] = {
             "schema": "evopolicygym-balatro/observation-v1",
             "payload": "x" * (1024 * 1024),
@@ -495,6 +511,10 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             result.benchmark_id,
             "jackdaw/Balatro/red-deck-white-stake/run-score-v2",
+        )
+        self.assertEqual(
+            result.environment_digest,
+            BalatroBenchmark().spec.environment_digest,
         )
         self.assertGreater(result.feedback.score, 0.0)
         self.assertEqual(result.episodes[0].status, "completed")

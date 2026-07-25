@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from ..benchmark import Benchmark
+from ..benchmark import Benchmark, BenchmarkSpec
 from ..errors import EvaluationError, ProgramError
 from ..evaluation import EvaluationConfig
 from ..program import Program
@@ -101,13 +101,17 @@ class SubmissionSession:
         evaluator: ProgramEvaluator,
         publisher: SubmissionPublisher,
         benchmark: Benchmark,
+        spec: BenchmarkSpec,
         config: RunConfig,
         recorder: EventRecorder,
     ) -> None:
+        if type(spec) is not BenchmarkSpec:
+            raise TypeError("spec must be BenchmarkSpec")
         self._programs = programs
         self._evaluator = evaluator
         self._publisher = publisher
         self._benchmark = benchmark
+        self._spec = spec
         self._config = config
         self._recorder = recorder
         self._episodes_remaining = config.episode_budget
@@ -208,6 +212,17 @@ class SubmissionSession:
                 ),
                 episode_completed=episode_completed,
             )
+            if (
+                type(evaluation) is not EvaluationResult
+                or evaluation.benchmark_id != self._spec.id
+                or evaluation.environment_digest
+                != self._spec.environment_digest
+                or evaluation.program_digest != program.digest
+                or len(evaluation.episodes) != episodes
+            ):
+                raise EvaluationError(
+                    "Evaluation returned a mismatched result"
+                )
         except EvaluationError:
             self._terminal_reason = "evaluation_failed"
             self._recorder.record_event(

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added first-class public Environment parameters to `BenchmarkSpec`, the
+  `policy/v2` `PolicyContext`, Coding Agent tasks, Evaluation identity, and
+  `run-record/v4`.
+- Added a canonical Environment-parameter digest so direct Evaluations,
+  Submissions, Validation, Assessment, and retained Runs cannot silently mix
+  different configured tasks under one Benchmark ID.
 - Added optional held-out final-Program Assessment with an independent seed
   domain, aggregate results, progress events, and run-record schema v3.
 - Added `AssessmentConfig`, `AssessmentResult`, and the `assessment_failed`

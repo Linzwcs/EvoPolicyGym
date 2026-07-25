@@ -68,6 +68,7 @@ Submission Episode 上限、seeds 与 timeouts。该上限默认为 `None`，因
 
 | 可信 Host 与 Benchmark 持有 | Policy 可以观察 |
 | --- | --- |
+| Environment 参数选择 | Evaluation 前固定的公开 `environment_parameters` |
 | Episode scenario 与 Environment seed | 不含 Case identity 的 `PolicyContext` |
 | Environment 状态与 transitions | 公开 Observations |
 | Action 校验 | 自己的 Episode 内状态 |

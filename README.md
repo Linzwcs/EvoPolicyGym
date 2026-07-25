@@ -82,6 +82,7 @@ class Policy:
 
 
 def make_policy(context: PolicyContext) -> Policy:
+    print(context.environment_parameters)
     return Policy()
 ```
 
@@ -111,6 +112,12 @@ Every Episode receives a fresh Policy process, instance, and scratch directory.
 State may persist between `act()` calls within that Episode. Invalid Actions
 are never repaired, and trusted Environment failures are not converted into
 Policy penalties.
+
+A Benchmark distribution may expose a configured task through
+`BenchmarkSpec.environment_parameters`. These values are fixed before an
+Evaluation or Run, visible to both the Coding Agent and every Policy instance,
+and included in the Evaluation and retained Run identity. Per-Episode
+`scenario` values and Environment seeds remain trusted and Policy-invisible.
 
 ## Coding-agent runs
 
@@ -194,7 +201,16 @@ trusted code; whole-Run virtualization is planned for a later release.
 External packages implement the structural `Benchmark` and `Environment`
 interfaces from `evopolicygym.authoring`. An Environment owns reset, step, and
 cleanup behavior. A Benchmark owns deterministic Episode planning, scoring,
-sanitized Feedback, and public Artifacts.
+sanitized Feedback, and public Artifacts. Environment-specific constructors
+validate typed parameters and bind them to the Benchmark instance; the
+corresponding `BenchmarkSpec.environment_parameters` records the exact public
+values that `make_environment()` applies. The generic Kernel does not accept or
+interpret simulator-specific keyword arguments.
+
+For example, a FrozenLake distribution can own a typed constructor such as
+`FrozenLakeBenchmark(map_name="8x8", is_slippery=True)`, publish those exact
+values in its specification, and use the bound configuration whenever it
+creates a fresh Environment.
 
 Use `check_benchmark()` with deterministic fixtures before distribution. See
 the [authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/)

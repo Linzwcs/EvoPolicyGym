@@ -155,6 +155,8 @@ class CandidateSelector:
             if (
                 type(evaluated) is not EvaluationResult
                 or evaluated.benchmark_id != self._spec.id
+                or evaluated.environment_digest
+                != self._spec.environment_digest
                 or evaluated.program_digest != candidate.program_digest
                 or len(evaluated.episodes)
                 != validation_config.episodes_per_candidate

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from evopolicygym.authoring import BenchmarkSpec
 from evopolicygym.program import Program
 from evopolicygym.run import ConsoleProgress, RunConfig, RunEvent
 from evopolicygym.run._directory import (
@@ -89,7 +90,16 @@ class RunDirectoryObserverTests(unittest.TestCase):
             observer = FailingObserver()
             with RunDirectoryRecorder(
                 paths=RunDirectoryPaths.under(root),
-                benchmark_id="example/progress-v1",
+                benchmark_spec=BenchmarkSpec(
+                    id="example/progress-v1",
+                    description="Run progress fixture.",
+                    observation_space=None,
+                    action_space=None,
+                    metadata={},
+                    max_episode_steps=1,
+                    primary_metric="reward",
+                    score_direction="maximize",
+                ),
                 initial_program=make_program(root),
                 config=RunConfig(),
                 agent_identity={},

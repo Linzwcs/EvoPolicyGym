@@ -4,7 +4,7 @@ page: policy
 section: core
 title: "Policy ABI"
 navTitle: "Policy ABI"
-description: "The policy/v1 entry point, PolicyContext, PolicyValue carriers, state lifecycle, and failure semantics."
+description: "The policy/v2 entry point, PolicyContext, PolicyValue carriers, state lifecycle, and failure semantics."
 lead: "One fixed factory, one action method, and a bounded value surface visible to submitted code."
 index: D3
 order: 3
@@ -46,6 +46,7 @@ Feedback method.
 | `observation_space` | Public description of Policy-visible observations. |
 | `action_space` | Public description of admissible Actions. |
 | `metadata` | String-keyed, Case-independent Benchmark metadata. |
+| `environment_parameters` | Public, Case-independent values bound to the configured Environment. |
 | `policy_seed` | An unsigned 64-bit seed for this fresh Policy instance. |
 
 `PolicyContext` never contains Case identity, Environment seed, Host paths,

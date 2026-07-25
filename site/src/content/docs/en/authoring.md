@@ -24,6 +24,7 @@ distributions do not import one another.
 A distribution owns:
 
 - its upstream simulator dependency;
+- typed Environment parameter validation and application;
 - static `BenchmarkSpec`;
 - deterministic Episode planning;
 - one fresh Environment per Episode;
@@ -86,12 +87,19 @@ conformance is structural.
 | `observation_space` | Bounded `PolicyValue` description. |
 | `action_space` | Bounded `PolicyValue` description. |
 | `metadata` | String-keyed, Case-independent public metadata. |
+| `environment_parameters` | Exact public values bound to Environment construction. |
 | `max_episode_steps` | Positive hard Episode horizon. |
 | `primary_metric` | Name of the score represented by `Feedback.score`. |
 | `score_direction` | Exactly `maximize` or `minimize`. |
 
 Do not put private scenarios, Environment seeds, paths, credentials, or
 scorer objects in the specification.
+
+The distribution owns its typed constructor. For example,
+`FrozenLakeBenchmark(map_name="8x8", is_slippery=True)` validates and retains
+those arguments, publishes the exact values through `environment_parameters`,
+and applies the same bound values in `make_environment()`. The Kernel computes
+`environment_digest`; authors do not provide it.
 
 ## Episode planning
 

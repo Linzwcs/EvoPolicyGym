@@ -67,6 +67,9 @@ authority.
 - Export `make_policy(context: PolicyContext)`.
 - Return an object with `act(observation: PolicyValue) -> PolicyValue`.
 - Use only the bounded PolicyValue ABI across the Policy boundary.
+- Read public task configuration from
+  `PolicyContext.environment_parameters`; never expect private Episode
+  scenarios or Environment seeds there.
 - Never expose Host paths, descriptors, credentials, private Episode seeds,
   Case identity, scorer objects, or custom Python objects to the Policy.
 - Expect a fresh process, Policy instance, and scratch directory for every

@@ -23,7 +23,7 @@ paper/
 reference/
 
 # Generated experiment/cache outputs
-runs/
+/runs/
 experiment/
 experiment/.cache/
 experiment/**/.cache/

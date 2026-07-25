@@ -1,0 +1,87 @@
+---
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import Copy from "../../components/Copy.astro";
+import { withBase } from "../../lib/paths";
+
+const toc = [
+  { id: "run-model", en: "Run model", zh: "Run 模型" },
+  { id: "record-layout", en: "Record layout", zh: "记录结构" },
+  { id: "current-records", en: "Current records", zh: "当前记录" },
+  { id: "historical", en: "Historical evidence", zh: "历史证据" },
+];
+---
+
+<ReferenceLayout
+  title="Run Records — EvoPolicyGym Documentation"
+  description="The auditable Program, Evaluation, Feedback, and Artifact sequence produced by an EvoPolicyGym Run."
+  current="runs"
+  {toc}
+>
+  <header>
+    <Copy en="Run records" zh="Run 记录" as="h1" />
+    <Copy
+      class="reference-lead"
+      en="A Program-Evolution Run is a bounded sequence of immutable Program submissions and committed Feedback."
+      zh="一次 Program-Evolution Run 是由不可变 Program 提交与已提交 Feedback 构成的有界序列。"
+      as="p"
+    />
+  </header>
+
+  <section id="run-model">
+    <Copy en="Run model" zh="Run 模型" as="h2" />
+    <Copy
+      en="The Kernel gives a Coding Agent a fixed workspace, submission authority, Episode budget, and Benchmark specification. The Agent edits only the Program workspace, submits candidates, reads committed public feedback, and selects one published Submission as final."
+      zh="Kernel 向 Coding Agent 提供固定 workspace、提交权限、Episode 预算与 Benchmark specification。Agent 只编辑 Program workspace，提交候选、读取已提交的公开反馈，并从已发布的 Submissions 中选择最终结果。"
+      as="p"
+    />
+    <div class="reference-flow">
+      <div><span>01</span><strong>Program</strong><small>immutable source</small></div>
+      <div><span>02</span><strong>Evaluation</strong><small>bounded Episodes</small></div>
+      <div><span>03</span><strong>Feedback</strong><small>public evidence</small></div>
+      <div><span>04</span><strong>Revision</strong><small>next Program</small></div>
+    </div>
+  </section>
+
+  <section id="record-layout">
+    <Copy en="Record layout" zh="记录结构" as="h2" />
+    <Copy
+      en="A completed local Run retains the initial Program, every submitted Program, Feedback and artifacts, the Agent invocation, separate logs, workspace state, and a terminal run manifest."
+      zh="完成的本地 Run 会保留初始 Program、每个已提交 Program、Feedback 与 artifacts、Agent invocation、独立日志、workspace 状态以及终态 run manifest。"
+      as="p"
+    />
+    <pre><code>run/
+├── run.json
+├── events.jsonl
+├── initial/program/
+├── submissions/&lt;id&gt;/
+│   ├── program/
+│   ├── feedback.json
+│   └── artifacts/
+├── agent/
+└── workspace/
+    ├── program/
+    └── feedback/</code></pre>
+  </section>
+
+  <section id="current-records">
+    <Copy en="Current records" zh="当前记录" as="h2" />
+    <div class="reference-note">
+      <strong><Copy en="No published v0.3 showcase yet" zh="尚未发布 v0.3 展示 Run" /></strong>
+      <Copy
+        en="The Run-record surface is implemented, but this site does not yet publish an active CartPole or Balatro evolution record."
+        zh="Run record 能力已经实现，但本站尚未发布可查看的 CartPole 或 Balatro 演化记录。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="historical">
+    <Copy en="Historical evidence" zh="历史证据" as="h2" />
+    <Copy
+      en="The Core16 archive contains paper-era score matrices and sixty-four final-Policy reruns. It is preserved separately from current v0.3 Run records."
+      zh="Core16 档案包含论文时期的分数矩阵与 64 段最终 Policy 重跑，并与当前 v0.3 Run records 分开保留。"
+      as="p"
+    />
+    <p><a href={withBase("results/")}><Copy en="Open the Core16 archive →" zh="打开 Core16 档案 →" /></a></p>
+  </section>
+</ReferenceLayout>

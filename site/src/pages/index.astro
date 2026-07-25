@@ -32,8 +32,8 @@ const toc = [
   <div class="reference-note">
     <strong><Copy en="Version 0.3" zh="版本 0.3" /></strong>
     <Copy
-      en="The current release is an active alpha. CartPole is the reference Benchmark; Balatro is under design; Core16 is retained as historical research evidence."
-      zh="当前版本为活跃 Alpha。CartPole 是参考 Benchmark；Balatro 正在设计；Core16 作为历史研究证据保留。"
+      en="The current release is an active alpha. All five Gymnasium Classic Control tasks and Balatro are implemented as independent Benchmark distributions; Core16 is retained as historical research evidence."
+      zh="当前版本为活跃 Alpha。Gymnasium 的 5 个 Classic Control 任务与 Balatro 均已作为独立 Benchmark distribution 实现；Core16 作为历史研究证据保留。"
       as="p"
     />
   </div>
@@ -72,11 +72,16 @@ uv sync
 uv run evopolicygym --version</code></pre>
 
     <Copy
-      en="Benchmark distributions are installed independently. For the CartPole reference Benchmark:"
-      zh="Benchmark distribution 独立安装。对于 CartPole 参考 Benchmark："
+      en="Benchmark distributions are installed independently. Synchronize the compact control Benchmark you need, or the long-horizon Balatro game Benchmark:"
+      zh="Benchmark distribution 独立安装。可按需同步轻量控制环境，或长时程 Balatro 游戏环境："
       as="p"
     />
-    <pre><code>uv sync --project environments/cartpole --extra dev</code></pre>
+    <pre><code>uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
+uv sync --project environments/gymnasium/classic_control/acrobot --extra dev
+uv sync --project environments/gymnasium/classic_control/mountain_car --extra dev
+uv sync --project environments/gymnasium/classic_control/mountain_car_continuous --extra dev
+uv sync --project environments/gymnasium/classic_control/pendulum --extra dev
+uv sync --project environments/jackdaw/balatro --extra dev</code></pre>
   </section>
 
   <section id="basic-usage">
@@ -86,7 +91,7 @@ uv run evopolicygym --version</code></pre>
       zh="使用 5 个 Episodes 评估 CartPole package 中的 baseline："
       as="p"
     />
-    <pre><code>uv run --project environments/cartpole \
+    <pre><code>uv run --project environments/gymnasium/classic_control/cartpole \
   evopolicygym-cartpole evaluate \
   --episodes 5 \
   --allow-unsafe-process</code></pre>
@@ -118,6 +123,16 @@ def make_policy(context: PolicyContext) -> Policy:
       zh="每个 Episode 都获得全新的 Policy 进程与实例。状态可以在同一 Episode 的多次 act() 调用之间保留，但不会进入下一个 Episode。"
       as="p"
     />
+    <Copy
+      en="CartPole is the shortest path for checking the SDK lifecycle. The two Mountain Car distributions contrast discrete and continuous Actions, while Pendulum adds fixed-horizon torque optimization without success termination. Balatro exercises complete-run planning across hands, shops, Jokers, and antes."
+      zh="CartPole 是检查 SDK 生命周期的最短路径。两个 Mountain Car distribution 对比离散与连续 Action；Pendulum 增加没有成功 termination 的固定时域扭矩优化。Balatro 则覆盖手牌、商店、Joker 与 Ante 的完整 run 决策。"
+      as="p"
+    />
+    <p>
+      <a href={withBase("environments/#balatro")}><Copy en="Read the Balatro contract →" zh="阅读 Balatro 契约 →" /></a>
+      {" · "}
+      <a href={withBase("environments/balatro/replay/")}><Copy en="Open the baseline replay →" zh="打开 Baseline 回放 →" /></a>
+    </p>
   </section>
 
   <section id="evaluation-model">
@@ -134,27 +149,27 @@ def make_policy(context: PolicyContext) -> Policy:
   <section id="environments">
     <Copy en="Environments" zh="环境" as="h2" />
     <Copy
-      en="Environment packages depend only on the public EvoPolicyGym SDK and authoring SPI. They own Episode planning, scoring, feedback, dependencies, and tests."
-      zh="Environment package 只依赖 EvoPolicyGym 公共 SDK 与 authoring SPI，并自行拥有 Episode 规划、评分、Feedback、依赖与测试。"
+      en="Environment distributions are grouped by upstream ecosystem and suite. Only leaf directories are installable packages; each leaf owns Episode planning, scoring, feedback, dependencies, and tests."
+      zh="Environment distribution 按上游生态与 suite 分类。只有叶子目录是可安装 package；每个叶子自行拥有 Episode 规划、评分、Feedback、依赖与测试。"
       as="p"
     />
     <table class="reference-table">
       <thead>
         <tr>
-          <th><Copy en="Environment" zh="环境" /></th>
-          <th><Copy en="Status" zh="状态" /></th>
+          <th><Copy en="Collection" zh="Collection" /></th>
+          <th><Copy en="Contents" zh="内容" /></th>
           <th><Copy en="Role" zh="用途" /></th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><a href={withBase("environments/#cartpole")}>CartPole</a></td>
-          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
-          <td><Copy en="Reference control Benchmark" zh="参考控制 Benchmark" /></td>
+          <td><a href={withBase("environments/#gymnasium-classic-control")}>Gymnasium / Classic Control</a></td>
+          <td><Copy en="Five independent control distributions" zh="5 个独立控制 distribution" /></td>
+          <td><Copy en="Discrete and continuous control" zh="离散与连续控制" /></td>
         </tr>
         <tr>
-          <td><a href={withBase("environments/#balatro")}>Balatro</a></td>
-          <td><span class="reference-status is-development"><Copy en="In development" zh="开发中" /></span></td>
+          <td><a href={withBase("environments/#jackdaw")}>Jackdaw / Balatro</a></td>
+          <td><Copy en="One independent game distribution" zh="1 个独立游戏 distribution" /></td>
           <td><Copy en="Long-horizon game Benchmark" zh="长时程游戏 Benchmark" /></td>
         </tr>
         <tr>

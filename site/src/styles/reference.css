@@ -111,8 +111,8 @@ html[lang="zh-CN"] .reference-article h3 {
 .reference-article h1 {
   margin-bottom: 18px;
   color: var(--ink);
-  font-size: clamp(2.25rem, 4vw, 3rem);
-  line-height: 1.12;
+  font-size: clamp(1.9rem, 3vw, 2.1rem);
+  line-height: 1.18;
 }
 
 .reference-article h2 {
@@ -121,7 +121,7 @@ html[lang="zh-CN"] .reference-article h3 {
   padding-bottom: 9px;
   border-bottom: 1px solid var(--rule);
   color: var(--ink);
-  font-size: 1.55rem;
+  font-size: 1.4rem;
   line-height: 1.25;
 }
 
@@ -129,14 +129,14 @@ html[lang="zh-CN"] .reference-article h3 {
   margin-top: 30px;
   margin-bottom: 10px;
   color: var(--ink);
-  font-size: 1.06rem;
+  font-size: 1rem;
 }
 
 .reference-lead {
   max-width: 700px;
   margin-bottom: 0;
   color: var(--label);
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.7;
 }
 
@@ -449,6 +449,84 @@ html[lang="zh-CN"] .reference-article h3 {
   font-size: 13px;
 }
 
+.reference-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-bottom: 26px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+.reference-breadcrumbs a {
+  color: var(--label);
+  text-decoration: none;
+}
+
+.reference-breadcrumbs a:hover {
+  color: var(--accent-dark);
+  text-decoration: underline;
+}
+
+.reference-tree {
+  margin: 22px 0 30px;
+  border-top: 1px solid var(--rule);
+}
+
+.reference-tree > div {
+  display: grid;
+  grid-template-columns: 120px 150px minmax(0, 1fr);
+  gap: 18px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.reference-tree strong,
+.reference-tree span,
+.reference-tree small {
+  display: block;
+}
+
+.reference-tree strong {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.reference-tree span {
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reference-tree small {
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.environment-comparison td:first-child strong,
+.environment-comparison td:first-child small {
+  display: block;
+}
+
+.environment-comparison td:first-child strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.environment-comparison td:first-child small {
+  margin-top: 3px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
 .results-reference .score-matrix-wrap {
   margin: 20px 0 12px;
   border: 1px solid var(--rule);
@@ -604,5 +682,14 @@ html[lang="zh-CN"] .reference-article h3 {
 
   .reference-rollouts {
     grid-template-columns: 1fr;
+  }
+
+  .reference-tree > div {
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: 6px 14px;
+  }
+
+  .reference-tree small {
+    grid-column: 2;
   }
 }

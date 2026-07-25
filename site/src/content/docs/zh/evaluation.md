@@ -19,7 +19,7 @@ status: draft
 ```python
 from evopolicygym import EvaluationConfig, Program, evaluate
 from evopolicygym.execution import ProcessExecution
-from evopolicygym_cartpole import CartPoleBenchmark
+from cartpole import CartPoleBenchmark
 
 result = evaluate(
     Program.from_directory("policy/"),
@@ -62,7 +62,7 @@ Episode summary 绝不公开可信 scenario、Environment seed、Host path、cre
 from evopolicygym import Program, RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
-from evopolicygym_cartpole import CartPoleBenchmark
+from cartpole import CartPoleBenchmark
 
 result = run(
     Program.from_directory("policy/"),
@@ -85,6 +85,11 @@ Run 语义。
 默认由 Agent 自主决定每次 Submission 使用多少剩余 Episode 预算。
 `max_episodes_per_submission` 默认为 `None`；只有 Host 需要额外限制时才设置
 正整数上限。
+
+部分 Benchmark 会发布可选的 authoring skill。它不会进入 Policy process，并且
+默认关闭。设置 `RunConfig(use_benchmark_skill=True)` 后，Run 会将其以只读形式
+提供到 `workspace/skill/SKILL.md`，并在 `run.json` 中记录该设置。Balatro
+distribution 提供了用于证据分配、策略开发与 Policy 加固的 skill。
 
 ## Submission 记账
 
@@ -127,4 +132,9 @@ v0.3 没有 durable ledger、crash recovery 或 resume protocol。
 
 - [执行与安全 →](../runtime/)
 - [Benchmark 编写 →](../authoring/)
-- [阅读 CartPole package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/cartpole)
+- [阅读 CartPole package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/cartpole)
+- [阅读 Acrobot package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/acrobot)
+- [阅读 Mountain Car package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car)
+- [阅读 Continuous Mountain Car package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car_continuous)
+- [阅读 Pendulum package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/pendulum)
+- [阅读 Balatro package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro)

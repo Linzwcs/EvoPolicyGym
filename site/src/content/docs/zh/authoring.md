@@ -19,6 +19,10 @@ EvoPolicyGym 公共 SDK 与 `evopolicygym.authoring`。
 
 基础 Kernel 不导入 Benchmark distribution，多个 distribution 之间也不相互导入。
 
+Distribution 也拥有 Policy-facing Observation 契约。它可以在 value 跨越 Policy
+边界前，把上游 simulator 的位置数组转换为有界的语义字典。公开 trace 应保留同一
+value，确保 Policy 输入与诊断证据一致。
+
 一个 distribution 拥有：
 
 - 上游 simulator dependency；
@@ -27,6 +31,7 @@ EvoPolicyGym 公共 SDK 与 `evopolicygym.authoring`。
 - 每个 Episode 一个全新 Environment；
 - Action 校验与可信 Steps；
 - 评分与公开 Feedback；
+- 可选的公开 Coding-Agent authoring skill；
 - baseline Programs 与测试；
 - 本地 conformance fixtures。
 
@@ -86,9 +91,14 @@ class ExampleBenchmark:
 | `max_episode_steps` | 正整数 Episode hard horizon。 |
 | `primary_metric` | `Feedback.score` 表示的 metric 名称。 |
 | `score_direction` | 必须是 `maximize` 或 `minimize`。 |
+| `agent_skill` | 可选的有界 Markdown；仅复制到显式启用的 Agent workspace，默认为 `None`。 |
 
 不要在 specification 中放入私有 scenario、Environment seed、path、credential
 或 scorer object。
+
+`agent_skill` 可以使用公开 Benchmark 信息说明策略开发方法，但永远不会对
+Policy code 可见。只有 Run 设置 `use_benchmark_skill=True` 后，Host 才会将该
+文本以只读形式发布到 `workspace/skill/SKILL.md`。
 
 ## Episode 规划
 
@@ -193,10 +203,22 @@ Conformance 检查结构兼容性、确定性重放、返回的 Step values、te
 - 确定性的 `train`、`validation` 与 `test` 规划。
 - 覆盖合法、非法、失败与 cleanup 路径的单元测试。
 - 本地 CLI 显式要求 unsafe-process acknowledgement。
+- 如果提供 Agent skill，应将它与 distribution 一同打包，并确保其中不包含私有
+  Episode 数据。
 - 不导入 Kernel private package。
 
-当前参考实现为
-[`environments/cartpole`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/cartpole)。
+当前实现示例包括
+[`environments/gymnasium/classic_control/cartpole`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/cartpole)
+、
+[`environments/gymnasium/classic_control/acrobot`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/acrobot)
+、
+[`environments/gymnasium/classic_control/mountain_car`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car)
+、
+[`environments/gymnasium/classic_control/mountain_car_continuous`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car_continuous)
+、
+[`environments/gymnasium/classic_control/pendulum`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/pendulum)
+与
+[`environments/jackdaw/balatro`](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro)。
 
 ## 下一步
 

@@ -20,7 +20,7 @@ status: draft
 ```python
 from evopolicygym import EvaluationConfig, Program, evaluate
 from evopolicygym.execution import ProcessExecution
-from evopolicygym_cartpole import CartPoleBenchmark
+from cartpole import CartPoleBenchmark
 
 result = evaluate(
     Program.from_directory("policy/"),
@@ -64,7 +64,7 @@ Program:
 from evopolicygym import Program, RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
-from evopolicygym_cartpole import CartPoleBenchmark
+from cartpole import CartPoleBenchmark
 
 result = run(
     Program.from_directory("policy/"),
@@ -87,6 +87,13 @@ Host task into a validated invocation; it does not redefine Run semantics.
 The Agent chooses how many of the remaining Episode units to spend on each
 submission by default. Set `max_episodes_per_submission` to a positive integer
 only when the Host needs an additional cap; its default is `None`.
+
+Some Benchmarks publish an optional authoring skill. It never enters the Policy
+process and is disabled by default. Set
+`RunConfig(use_benchmark_skill=True)` to expose it read-only at
+`workspace/skill/SKILL.md`; the setting is recorded in `run.json`. The Balatro
+distribution provides such a skill for evidence allocation, strategy
+development, and Policy hardening.
 
 ## Submission accounting
 
@@ -130,4 +137,9 @@ durable ledger, crash recovery, or resume protocol.
 
 - [Execution and safety →](../runtime/)
 - [Benchmark authoring →](../authoring/)
-- [Read the CartPole package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/cartpole)
+- [Read the CartPole package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/cartpole)
+- [Read the Acrobot package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/acrobot)
+- [Read the Mountain Car package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car)
+- [Read the Continuous Mountain Car package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/mountain_car_continuous)
+- [Read the Pendulum package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control/pendulum)
+- [Read the Balatro package →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro)

@@ -3,159 +3,247 @@ import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
 import Copy from "../../components/Copy.astro";
 import { withBase } from "../../lib/paths";
 
+const classicControl = [
+  {
+    id: "cartpole",
+    name: "CartPole",
+    benchmark: "CartPole-v1",
+    observationEn: "Ordered vector of 4 floats",
+    observationZh: "4 个浮点数的有序向量",
+    actionEn: "Discrete integer: 0 or 1",
+    actionZh: "离散整数：0 或 1",
+    horizon: "500",
+    scoreEn: "Mean return, maximum 500",
+    scoreZh: "平均回报，最高 500",
+    path: "environments/gymnasium/classic-control/cartpole/",
+  },
+  {
+    id: "acrobot",
+    name: "Acrobot",
+    benchmark: "Acrobot-v1",
+    observationEn: "Named dictionary of 6 floats",
+    observationZh: "包含 6 个浮点数的具名字典",
+    actionEn: "Discrete integer: 0, 1, or 2",
+    actionZh: "离散整数：0、1 或 2",
+    horizon: "500",
+    scoreEn: "Mean return; faster success is higher",
+    scoreZh: "平均回报；越快成功越高",
+  },
+  {
+    id: "mountain-car",
+    name: "Mountain Car",
+    benchmark: "MountainCar-v0",
+    observationEn: "Named dictionary of 2 floats",
+    observationZh: "包含 2 个浮点数的具名字典",
+    actionEn: "Discrete integer: 0, 1, or 2",
+    actionZh: "离散整数：0、1 或 2",
+    horizon: "200",
+    scoreEn: "Mean return; faster success is higher",
+    scoreZh: "平均回报；越快成功越高",
+  },
+  {
+    id: "mountain-car-continuous",
+    name: "Continuous Mountain Car",
+    benchmark: "MountainCarContinuous-v0",
+    observationEn: "Named dictionary of 2 floats",
+    observationZh: "包含 2 个浮点数的具名字典",
+    actionEn: "Float in [-1, 1]",
+    actionZh: "[-1, 1] 内的浮点数",
+    horizon: "999",
+    scoreEn: "Goal reward minus control cost",
+    scoreZh: "目标奖励减去控制代价",
+  },
+  {
+    id: "pendulum",
+    name: "Pendulum",
+    benchmark: "Pendulum-v1",
+    observationEn: "Named dictionary of 3 floats",
+    observationZh: "包含 3 个浮点数的具名字典",
+    actionEn: "Float in [-2, 2]",
+    actionZh: "[-2, 2] 内的浮点数",
+    horizon: "200",
+    scoreEn: "Mean return, maximum 0",
+    scoreZh: "平均回报，最高 0",
+  },
+];
+
 const toc = [
-  { id: "overview", en: "Overview", zh: "概述" },
-  { id: "cartpole", en: "CartPole", zh: "CartPole" },
-  { id: "balatro", en: "Balatro", zh: "Balatro" },
-  { id: "core16", en: "Core16 archive", zh: "Core16 档案" },
+  { id: "organization", en: "Organization", zh: "组织方式" },
+  { id: "gymnasium-classic-control", en: "Gymnasium / Classic Control", zh: "Gymnasium / Classic Control" },
+  { id: "jackdaw", en: "Jackdaw / Balatro", zh: "Jackdaw / Balatro" },
+  { id: "archive", en: "Research archive", zh: "研究档案" },
   { id: "authoring", en: "Authoring", zh: "编写环境" },
 ];
 ---
 
 <ReferenceLayout
-  title="Environments — EvoPolicyGym Documentation"
-  description="Implemented, developing, and historical Environment distributions for EvoPolicyGym."
+  title="Environment Collection — EvoPolicyGym Documentation"
+  description="Current Environment distributions and historical task evidence for EvoPolicyGym."
   current="environments"
   {toc}
 >
   <header>
-    <Copy en="Environments" zh="环境" as="h1" />
+    <Copy en="Environment collection" zh="环境目录" as="h1" />
     <Copy
       class="reference-lead"
-      en="Environment distributions define the world in which a Policy acts and the Benchmark contract by which a Program is evaluated."
-      zh="Environment distribution 定义 Policy 所处的世界，以及评估 Program 所使用的 Benchmark 契约。"
+      en="A structured index of the worlds available to a Policy, grouped first by simulation provider and then by upstream task suite."
+      zh="按照模拟引擎与上游任务套件组织的环境索引，用于说明 Policy 可以在哪些世界中行动。"
       as="p"
     />
   </header>
 
-  <section id="overview">
-    <Copy en="Overview" zh="概述" as="h2" />
+  <section id="organization">
+    <Copy en="Organization" zh="组织方式" as="h2" />
     <Copy
-      en="The portable Kernel does not bundle environment implementations. Each independently installable distribution owns its Environment, deterministic Episode planning, scoring, Feedback, baseline Program, dependencies, and tests."
-      zh="可移植 Kernel 不内置具体环境实现。每个可独立安装的 distribution 自行拥有 Environment、确定性 Episode 规划、评分、Feedback、baseline Program、依赖与测试。"
+      en="The portable Kernel contains no environment implementation. Every current environment is an independently installable Benchmark distribution that owns its observation and Action contract, deterministic Episode planning, scoring, public Feedback, baseline Program, dependencies, and tests."
+      zh="可移植 Kernel 不包含具体环境实现。每个当前环境都是可独立安装的 Benchmark distribution，自行定义 observation 与 Action 契约、确定性 Episode 规划、评分、公开 Feedback、baseline Program、依赖与测试。"
       as="p"
     />
-    <table class="reference-table">
+
+    <div class="reference-tree" aria-label="Environment collection hierarchy">
+      <div>
+        <strong>Gymnasium</strong>
+        <span>Classic Control</span>
+        <small>CartPole · Acrobot · Mountain Car · Continuous Mountain Car · Pendulum</small>
+      </div>
+      <div>
+        <strong>Jackdaw</strong>
+        <span>Balatro</span>
+        <small><Copy en="Red Deck · White Stake standard run" zh="Red Deck · White Stake 标准 run" /></small>
+      </div>
+      <div>
+        <strong>Core16</strong>
+        <span><Copy en="Research archive" zh="研究档案" /></span>
+        <small><Copy en="Historical evidence; not current packages" zh="历史证据；不是当前 packages" /></small>
+      </div>
+    </div>
+
+    <div class="reference-note">
+      <strong><Copy en="How to read this collection" zh="如何阅读本目录" /></strong>
+      <Copy
+        en="The table below supports comparison. A dedicated environment page is the normative human-readable contract. CartPole is the first page using the new contract template; the remaining current environments will follow the same structure."
+        zh="下表用于横向比较；每个环境的独立页面才是规范的人类可读契约。CartPole 是首个采用新模板的页面，其余当前环境之后会沿用同一结构。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="gymnasium-classic-control">
+    <Copy en="Gymnasium / Classic Control" zh="Gymnasium / Classic Control" as="h2" />
+    <Copy
+      en="Classic Control provides small, deterministic control problems with either discrete or scalar continuous Actions. Each row corresponds to one independent distribution under environments/gymnasium/classic_control/."
+      zh="Classic Control 提供规模较小、可确定性复现的控制问题，Action 可以是离散整数或连续标量。每一行对应 environments/gymnasium/classic_control/ 下的一个独立 distribution。"
+      as="p"
+    />
+
+    <table class="reference-table environment-comparison">
       <thead>
         <tr>
           <th><Copy en="Environment" zh="环境" /></th>
-          <th><Copy en="Status" zh="状态" /></th>
-          <th><Copy en="Observation" zh="Observation" /></th>
+          <th><Copy en="Policy observation" zh="Policy observation" /></th>
           <th><Copy en="Action" zh="Action" /></th>
+          <th><Copy en="Horizon" zh="时域" /></th>
+          <th><Copy en="Primary score" zh="主要评分" /></th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><a href="#cartpole">CartPole</a></td>
-          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
-          <td><Copy en="Four finite floats" zh="4 个有限浮点数" /></td>
-          <td><Copy en="Integer 0 or 1" zh="整数 0 或 1" /></td>
-        </tr>
-        <tr>
-          <td><a href="#balatro">Balatro</a></td>
-          <td><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></td>
-          <td><Copy en="Structured game state" zh="结构化游戏状态" /></td>
-          <td><Copy en="Play, discard, shop decisions" zh="出牌、弃牌与商店决策" /></td>
-        </tr>
-        <tr>
-          <td><a href="#core16">Core16</a></td>
-          <td><span class="reference-status is-historical"><Copy en="Historical" zh="历史结果" /></span></td>
-          <td><Copy en="Task-specific" zh="按任务定义" /></td>
-          <td><Copy en="Task-specific" zh="按任务定义" /></td>
-        </tr>
+        {classicControl.map((environment) => (
+          <tr id={environment.id}>
+            <td>
+              {environment.path ? (
+                <a href={withBase(environment.path)}><strong>{environment.name}</strong></a>
+              ) : (
+                <strong>{environment.name}</strong>
+              )}
+              <small>{environment.benchmark}</small>
+            </td>
+            <td><Copy en={environment.observationEn} zh={environment.observationZh} /></td>
+            <td><Copy en={environment.actionEn} zh={environment.actionZh} /></td>
+            <td>{environment.horizon}</td>
+            <td><Copy en={environment.scoreEn} zh={environment.scoreZh} /></td>
+          </tr>
+        ))}
       </tbody>
     </table>
-  </section>
 
-  <section id="cartpole">
-    <Copy en="CartPole" zh="CartPole" as="h2" />
-    <p><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></p>
-    <Copy
-      en="The CartPole-v1 distribution is the current reference Benchmark. It exercises the complete public authoring SPI and Evaluation lifecycle without being part of the base wheel."
-      zh="CartPole-v1 distribution 是当前参考 Benchmark。它验证完整的公共 authoring SPI 与 Evaluation 生命周期，但不属于基础 wheel。"
-      as="p"
-    />
-    <dl class="reference-definition">
-      <dt><Copy en="Package" zh="Package" /></dt>
-      <dd><code>evopolicygym-benchmark-cartpole==0.1.0</code></dd>
-      <dt><Copy en="Import" zh="Import" /></dt>
-      <dd><code>evopolicygym_cartpole</code></dd>
-      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
-      <dd><code>gymnasium/CartPole-v1/mean-return-v1</code></dd>
-      <dt><Copy en="Score" zh="评分" /></dt>
-      <dd><Copy en="Mean Episode return; maximum 500" zh="Episode 平均回报；最高 500" /></dd>
-      <dt><Copy en="Splits" zh="Splits" /></dt>
-      <dd><code>train</code>, <code>validation</code>, <code>test</code></dd>
-    </dl>
-    <Copy en="Install and evaluate the packaged baseline:" zh="安装并评估 package 中的 baseline：" as="p" />
-    <pre><code>uv sync --project environments/cartpole --extra dev
-
-uv run --project environments/cartpole \
-  evopolicygym-cartpole evaluate \
-  --episodes 5 \
-  --allow-unsafe-process</code></pre>
-  </section>
-
-  <section id="balatro">
-    <Copy en="Balatro" zh="Balatro" as="h2" />
-    <p><span class="reference-status is-active"><Copy en="Implemented" zh="已实现" /></span></p>
-    <Copy
-      en="The independently installable Balatro distribution evaluates a Policy over a complete Red Deck, White Stake run. Decisions span hands, discards, shops, Jokers, consumables, and antes."
-      zh="可独立安装的 Balatro distribution 在完整的红色牌组、白注 run 上评估 Policy。决策覆盖手牌、弃牌、商店、Joker、消耗品与 Ante。"
-      as="p"
-    />
-    <Copy
-      en="It uses a pinned Jackdaw headless rules engine, deterministic split-scoped hidden seeds, strict tagged Actions, and bounded semantic replay artifacts. No official Balatro assets are included."
-      zh="它使用锁定版本的 Jackdaw 无头规则引擎、按 split 隔离的确定性隐藏 seed、严格的 tagged Action，以及有界语义回放文件；不包含任何 Balatro 官方素材。"
-      as="p"
-    />
-    <Copy
-      en="The v2 active-content profile filters three Tags and five Vouchers whose effects are inactive in the pinned engine before RNG-backed pool selection; Illusion remains with only its implemented behavior."
-      zh="v2 active-content profile 会在 RNG 池抽取前过滤锁定引擎中效果尚未生效的 3 个 Tag 与 5 个 Voucher；Illusion 保留，但只声明已经实现的行为。"
-      as="p"
-    />
-    <dl class="reference-definition">
-      <dt><Copy en="Package" zh="Package" /></dt>
-      <dd><code>evopolicygym-benchmark-balatro==0.2.0</code></dd>
-      <dt><Copy en="Import" zh="Import" /></dt>
-      <dd><code>balatro</code></dd>
-      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
-      <dd><code>jackdaw/Balatro/red-deck-white-stake/run-score-v2</code></dd>
-      <dt><Copy en="Score" zh="评分" /></dt>
-      <dd><Copy en="1000 win bonus plus one point per Blind cleared" zh="胜利奖励 1000 分，另加每个已通过 Blind 1 分" /></dd>
-      <dt><Copy en="Replay" zh="回放" /></dt>
-      <dd><code>replay.jsonl</code></dd>
-    </dl>
-    <p>
-      <a href={withBase("environments/balatro/replay/")}>
-        <Copy en="Open the baseline game replay →" zh="打开 Baseline 游戏回放 →" />
+    <p class="reference-actions">
+      <a href={withBase("environments/gymnasium/classic-control/cartpole/")}>
+        <Copy en="Read the CartPole contract →" zh="阅读 CartPole 契约 →" />
+      </a>
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/classic_control" target="_blank" rel="noreferrer">
+        <Copy en="Browse the suite source ↗" zh="浏览 suite 源码 ↗" />
       </a>
     </p>
   </section>
 
-  <section id="core16">
-    <Copy en="Core16 archive" zh="Core16 档案" as="h2" />
-    <p><span class="reference-status is-historical"><Copy en="Historical research" zh="历史研究" /></span></p>
+  <section id="jackdaw">
+    <Copy en="Jackdaw / Balatro" zh="Jackdaw / Balatro" as="h2" />
     <Copy
-      en="Core16 contains the sixteen control, navigation, driving, and robotics tasks used in the paper experiment. Their score matrices and sixty-four final-Policy reruns are retained as research evidence."
-      zh="Core16 包含论文实验使用的 16 个控制、导航、驾驶与机器人任务。对应分数矩阵与 64 段最终 Policy 重跑作为研究证据保留。"
+      en="The Jackdaw collection covers game environments simulated by the pinned, vendored Jackdaw rules engine. The engine is a dependency of the Balatro distribution, not of the portable Kernel."
+      zh="Jackdaw collection 包含由锁定并 vendored 的 Jackdaw 规则引擎模拟的游戏环境。该引擎属于 Balatro distribution 的依赖，不属于可移植 Kernel。"
       as="p"
     />
+
+    <table class="reference-table environment-comparison">
+      <thead>
+        <tr>
+          <th><Copy en="Environment" zh="环境" /></th>
+          <th><Copy en="Policy observation" zh="Policy observation" /></th>
+          <th><Copy en="Action" zh="Action" /></th>
+          <th><Copy en="Horizon" zh="时域" /></th>
+          <th><Copy en="Primary score" zh="主要评分" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="balatro">
+          <td>
+            <strong>Red Deck · White Stake</strong>
+            <small>Balatro standard run</small>
+          </td>
+          <td><Copy en="Named semantic dictionary of visible game state" zh="包含可见游戏状态的具名语义字典" /></td>
+          <td><Copy en="Strict tagged dictionary with 21 Action kinds" zh="包含 21 种 Action kind 的严格 tagged 字典" /></td>
+          <td><Copy en="At most 2048 decisions" zh="最多 2048 次决策" /></td>
+          <td><Copy en="Mean run score; win bonus 1000" zh="平均 run score；通关奖励 1000" /></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <dl class="reference-definition">
+      <dt><Copy en="Package" zh="Package" /></dt>
+      <dd><code>evopolicygym-benchmark-balatro==0.2.0</code></dd>
+      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
+      <dd><code>jackdaw/Balatro/red-deck-white-stake/run-score-v2</code></dd>
+      <dt><Copy en="Repository path" zh="仓库路径" /></dt>
+      <dd><code>environments/jackdaw/balatro/</code></dd>
+    </dl>
+
+    <p class="reference-actions">
+      <a href={withBase("environments/balatro/replay/")}>
+        <Copy en="Open the baseline replay →" zh="打开 baseline 回放 →" />
+      </a>
+      <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro" target="_blank" rel="noreferrer">
+        <Copy en="Browse the distribution source ↗" zh="浏览 distribution 源码 ↗" />
+      </a>
+    </p>
+  </section>
+
+  <section id="archive">
+    <Copy en="Research archive" zh="研究档案" as="h2" />
     <Copy
-      en="These pages do not imply that the current v0.3 Kernel ships active Core16 adapters."
-      zh="这些页面并不表示当前 v0.3 Kernel 提供可用的 Core16 adapters。"
+      en="Core16 names the task set used by the original paper experiment. Its score matrices and final-Policy reruns remain available as versioned evidence, but the archive does not imply that those adapters are shipped by the current Kernel."
+      zh="Core16 是原始论文实验使用的任务集合。其分数矩阵与最终 Policy 重跑仍作为带版本的证据保留，但这些档案并不表示当前 Kernel 会分发对应 adapters。"
       as="p"
     />
-    <p><a href={withBase("results/")}><Copy en="Open the historical results →" zh="查看历史结果 →" /></a></p>
+    <p><a href={withBase("results/")}><Copy en="Read the historical results →" zh="阅读历史结果 →" /></a></p>
   </section>
 
   <section id="authoring">
-    <Copy en="Authoring an Environment" zh="编写 Environment" as="h2" />
+    <Copy en="Authoring an environment" zh="编写环境" as="h2" />
     <Copy
-      en="An external distribution implements the structural Benchmark and Environment protocols through evopolicygym.authoring. The distribution must define deterministic Episode planning, strict Action validation, scoring, sanitized public Feedback, cleanup behavior, and conformance tests."
-      zh="外部分发包通过 evopolicygym.authoring 实现结构化 Benchmark 与 Environment protocols。该 distribution 必须定义确定性 Episode 规划、严格 Action 校验、评分、经过净化的公开 Feedback、清理行为与 conformance tests。"
+      en="External distributions implement the structural Benchmark and Environment protocols through evopolicygym.authoring. Conformance covers deterministic Episode planning, strict Action validation, sanitized Feedback, failure semantics, and cleanup."
+      zh="外部 distribution 通过 evopolicygym.authoring 实现结构化 Benchmark 与 Environment protocols。Conformance 范围包括确定性 Episode 规划、严格 Action 校验、经过净化的 Feedback、失败语义与资源清理。"
       as="p"
     />
-    <p><a href={withBase("docs/")}><Copy en="Read the API documentation →" zh="阅读 API 文档 →" /></a></p>
+    <p><a href={withBase("docs/authoring/")}><Copy en="Read the authoring guide →" zh="阅读环境编写指南 →" /></a></p>
   </section>
 </ReferenceLayout>

@@ -44,27 +44,23 @@ distributions.
 
 ## Install a Benchmark
 
-CartPole is the compact reference distribution, Acrobot adds sparse-reward
-swing-up control, the two Mountain Car distributions contrast discrete and
-continuous control, Pendulum completes the Classic Control set, and Balatro is
-the long-horizon game distribution:
+The collection contains 23 Gymnasium task distributions plus Balatro. Select
+one leaf project for the task you need. These examples span the five major
+Policy-interface shapes:
 
 ```console
 uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv sync --project environments/gymnasium/classic_control/acrobot --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car_continuous --extra dev
-uv sync --project environments/gymnasium/classic_control/pendulum --extra dev
+uv sync --project environments/gymnasium/toy_text/frozen_lake --extra dev
+uv sync --project environments/gymnasium/box2d/lunar_lander --extra dev
+uv sync --project environments/gymnasium/mujoco/ant --extra dev
 uv sync --project environments/jackdaw/balatro --extra dev
 ```
 
-They install as `evopolicygym-benchmark-cartpole`,
-`evopolicygym-benchmark-acrobot`, `evopolicygym-benchmark-mountain-car`,
-`evopolicygym-benchmark-mountain-car-continuous`,
-`evopolicygym-benchmark-pendulum`, and
-`evopolicygym-benchmark-balatro`. Their public import packages are `cartpole`,
-`acrobot`, `mountain_car`, `mountain_car_continuous`, `pendulum`, and
-`balatro`, respectively.
+Every leaf owns its distribution name, public import package, lockfile,
+baseline Program, and tests. Use the
+[Environment collection](../../environments/) to compare Policy observations,
+Actions, Episode limits, scores, and typed Environment parameters before
+selecting a package.
 
 ## Evaluate the baseline
 

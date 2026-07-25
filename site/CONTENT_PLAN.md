@@ -21,7 +21,7 @@ published product documentation.
 | --- | --- | --- | --- |
 | Home | Explain the research thesis and route readers. | Thesis, current status, lifecycle, quick start, project portals. | Short curated Astro page. |
 | Docs | Explain the currently implemented system. | Getting started, lifecycle and architecture, Policy ABI, runtime and safety. | Version-aware bilingual Markdown. |
-| Environments | Explain how an adapter will be integrated and admitted. | Ownership, adapter path, contracts, lifecycle, conformance, release readiness. | Planning outline first; implementation-backed guide later. |
+| Environments | Compare current Benchmark distributions and explain how an external Environment is authored. | Four Gymnasium suites, Balatro, Policy interfaces, parameters, scoring, conformance. | Implementation-backed catalog plus normative authoring guide. |
 | Results | Preserve and inspect benchmark evidence. | Methodology, score matrix, qualitative reruns, per-environment records. | Immutable experiment data with custom views. |
 | Research | Hold rationale and forward-looking work. | Paper, protocol rationale, architecture notes, roadmap. | Essays and design notes; clearly marked draft or historical. |
 
@@ -72,14 +72,10 @@ For each future release:
 5. Validate all bilingual routes, internal links, and canonical URLs.
 6. Never rewrite historical score or rerun meaning to match a newer runtime.
 
-## Environment section completion order
+## Environment section status
 
-1. Stabilize ownership terminology and the public boundary.
-2. Stabilize the minimum adapter entry points.
-3. Add lifecycle and conformance semantics from representative tests.
-4. Add one maintained reference adapter walkthrough.
-5. Define release identity, readiness, and third-party admission.
-6. Only then introduce a live Environment catalog.
-
-Until a step is backed by code and tests, the public page should preserve its
-heading and status but avoid detailed API examples.
+The public boundary, structural entry points, lifecycle, conformance semantics,
+and CartPole reference contract are implementation-backed. The live catalog now
+covers all 23 current tasks in Gymnasium's four documented built-in suites plus
+Balatro. Future dedicated Environment pages should use the CartPole contract
+shape and must remain grounded in the corresponding distribution and tests.

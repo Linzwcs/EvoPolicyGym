@@ -32,8 +32,8 @@ const toc = [
   <div class="reference-note">
     <strong><Copy en="Version 0.3" zh="版本 0.3" /></strong>
     <Copy
-      en="The current release is an active alpha. All five Gymnasium Classic Control tasks and Balatro are implemented as independent Benchmark distributions; Core16 is retained as historical research evidence."
-      zh="当前版本为活跃 Alpha。Gymnasium 的 5 个 Classic Control 任务与 Balatro 均已作为独立 Benchmark distribution 实现；Core16 作为历史研究证据保留。"
+      en="The current release is an active alpha. All 23 tasks in Gymnasium's four documented built-in suites and Balatro are independent Benchmark distributions; Core16 is retained as historical research evidence."
+      zh="当前版本为活跃 Alpha。Gymnasium 四个内置标准套件的全部 23 个任务与 Balatro 均已作为独立 Benchmark distribution 实现；Core16 作为历史研究证据保留。"
       as="p"
     />
   </div>
@@ -72,15 +72,14 @@ uv sync
 uv run evopolicygym --version</code></pre>
 
     <Copy
-      en="Benchmark distributions are installed independently. Synchronize the compact control Benchmark you need, or the long-horizon Balatro game Benchmark:"
-      zh="Benchmark distribution 独立安装。可按需同步轻量控制环境，或长时程 Balatro 游戏环境："
+      en="Benchmark distributions are installed independently. Select one leaf package from the collection; these examples span compact control, discrete planning, physics, MuJoCo, and a long-horizon game:"
+      zh="Benchmark distribution 独立安装。请从环境目录选择一个叶子 package；下面的示例覆盖紧凑控制、离散规划、物理控制、MuJoCo 与长时程游戏："
       as="p"
     />
     <pre><code>uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv sync --project environments/gymnasium/classic_control/acrobot --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car_continuous --extra dev
-uv sync --project environments/gymnasium/classic_control/pendulum --extra dev
+uv sync --project environments/gymnasium/toy_text/frozen_lake --extra dev
+uv sync --project environments/gymnasium/box2d/lunar_lander --extra dev
+uv sync --project environments/gymnasium/mujoco/ant --extra dev
 uv sync --project environments/jackdaw/balatro --extra dev</code></pre>
   </section>
 
@@ -124,8 +123,8 @@ def make_policy(context: PolicyContext) -> Policy:
       as="p"
     />
     <Copy
-      en="CartPole is the shortest path for checking the SDK lifecycle. The two Mountain Car distributions contrast discrete and continuous Actions, while Pendulum adds fixed-horizon torque optimization without success termination. Balatro exercises complete-run planning across hands, shops, Jokers, and antes."
-      zh="CartPole 是检查 SDK 生命周期的最短路径。两个 Mountain Car distribution 对比离散与连续 Action；Pendulum 增加没有成功 termination 的固定时域扭矩优化。Balatro 则覆盖手牌、商店、Joker 与 Ante 的完整 run 决策。"
+      en="CartPole is the shortest path for checking the SDK lifecycle. Toy Text adds discrete planning, Box2D adds richer physics and pixels, and MuJoCo scales continuous control from two-joint arms to contact-rich humanoids. Balatro exercises complete-run planning across hands, shops, Jokers, and antes."
+      zh="CartPole 是检查 SDK 生命周期的最短路径。Toy Text 增加离散规划，Box2D 增加更丰富的物理与像素输入，MuJoCo 将连续控制从双关节机械臂扩展到接触丰富的人形机器人。Balatro 则覆盖手牌、商店、Joker 与 Ante 的完整 run 决策。"
       as="p"
     />
     <p>
@@ -165,7 +164,22 @@ def make_policy(context: PolicyContext) -> Policy:
         <tr>
           <td><a href={withBase("environments/#gymnasium-classic-control")}>Gymnasium / Classic Control</a></td>
           <td><Copy en="Five independent control distributions" zh="5 个独立控制 distribution" /></td>
-          <td><Copy en="Discrete and continuous control" zh="离散与连续控制" /></td>
+          <td><Copy en="Compact discrete and continuous control" zh="紧凑的离散与连续控制" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("environments/#gymnasium-toy-text")}>Gymnasium / Toy Text</a></td>
+          <td><Copy en="Four independent planning distributions" zh="4 个独立规划 distribution" /></td>
+          <td><Copy en="Rules, stochastic transitions, legal Actions" zh="规则、随机转移与合法 Actions" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("environments/#gymnasium-box2d")}>Gymnasium / Box2D</a></td>
+          <td><Copy en="Three independent physics distributions" zh="3 个独立物理 distribution" /></td>
+          <td><Copy en="Landing, locomotion, and pixel control" zh="着陆、运动与像素控制" /></td>
+        </tr>
+        <tr>
+          <td><a href={withBase("environments/#gymnasium-mujoco")}>Gymnasium / MuJoCo</a></td>
+          <td><Copy en="Eleven independent v5 distributions" zh="11 个独立 v5 distribution" /></td>
+          <td><Copy en="Parameterized continuous-control dynamics" zh="参数化连续控制动力学" /></td>
         </tr>
         <tr>
           <td><a href={withBase("environments/#jackdaw")}>Jackdaw / Balatro</a></td>
@@ -173,7 +187,7 @@ def make_policy(context: PolicyContext) -> Policy:
           <td><Copy en="Long-horizon game Benchmark" zh="长时程游戏 Benchmark" /></td>
         </tr>
         <tr>
-          <td><a href={withBase("environments/#core16")}>Core16</a></td>
+          <td><a href={withBase("environments/#archive")}>Core16</a></td>
           <td><span class="reference-status is-historical"><Copy en="Historical" zh="历史结果" /></span></td>
           <td><Copy en="Paper experiment archive" zh="论文实验档案" /></td>
         </tr>

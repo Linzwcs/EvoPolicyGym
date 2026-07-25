@@ -485,25 +485,25 @@ html[lang="zh-CN"] .reference-article h3 {
   border-bottom: 1px solid var(--rule);
 }
 
-.reference-tree strong,
-.reference-tree span,
-.reference-tree small {
+.reference-tree > div > strong,
+.reference-tree > div > span,
+.reference-tree > div > small {
   display: block;
 }
 
-.reference-tree strong {
+.reference-tree > div > strong {
   color: var(--ink);
   font-family: var(--mono);
   font-size: 9px;
 }
 
-.reference-tree span {
+.reference-tree > div > span {
   color: var(--label);
   font-size: 13px;
   font-weight: 600;
 }
 
-.reference-tree small {
+.reference-tree > div > small {
   color: var(--faint);
   font-size: 11px;
   line-height: 1.5;
@@ -525,6 +525,15 @@ html[lang="zh-CN"] .reference-article h3 {
   font-family: var(--mono);
   font-size: 8px;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.environment-comparison {
+  font-size: 12px;
+}
+
+.environment-comparison td {
+  line-height: 1.5;
 }
 
 .results-reference .score-matrix-wrap {
@@ -671,6 +680,11 @@ html[lang="zh-CN"] .reference-article h3 {
     white-space: nowrap;
   }
 
+  .environment-comparison {
+    min-width: 980px;
+    white-space: normal;
+  }
+
   .docs-markdown table {
     display: block;
     overflow-x: auto;
@@ -689,7 +703,7 @@ html[lang="zh-CN"] .reference-article h3 {
     gap: 6px 14px;
   }
 
-  .reference-tree small {
+  .reference-tree > div > small {
     grid-column: 2;
   }
 }

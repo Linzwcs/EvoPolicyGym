@@ -42,26 +42,21 @@ evopolicygym 0.3.0
 
 ## 安装 Benchmark
 
-CartPole 是轻量参考 distribution，Acrobot 增加稀疏奖励摆起控制，两个 Mountain
-Car distribution 对比离散与连续控制，Pendulum 补全 Classic Control 集合，
-Balatro 则是长时程游戏 distribution：
+环境目录包含 23 个 Gymnasium 任务 distribution 与 Balatro。请按任务选择一个
+叶子 project。下面的示例覆盖 5 种主要 Policy 接口形态：
 
 ```console
 uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv sync --project environments/gymnasium/classic_control/acrobot --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car --extra dev
-uv sync --project environments/gymnasium/classic_control/mountain_car_continuous --extra dev
-uv sync --project environments/gymnasium/classic_control/pendulum --extra dev
+uv sync --project environments/gymnasium/toy_text/frozen_lake --extra dev
+uv sync --project environments/gymnasium/box2d/lunar_lander --extra dev
+uv sync --project environments/gymnasium/mujoco/ant --extra dev
 uv sync --project environments/jackdaw/balatro --extra dev
 ```
 
-它们分别安装为 `evopolicygym-benchmark-cartpole`、
-`evopolicygym-benchmark-acrobot`、`evopolicygym-benchmark-mountain-car`、
-`evopolicygym-benchmark-mountain-car-continuous`、
-`evopolicygym-benchmark-pendulum` 与
-`evopolicygym-benchmark-balatro`，公开 import package 分别为 `cartpole`、
-`acrobot`、`mountain_car`、`mountain_car_continuous`、`pendulum` 与
-`balatro`。
+每个叶子 project 自行拥有 distribution 名称、公开 import package、lockfile、
+baseline Program 与测试。选择 package 前，可在
+[环境目录](../../environments/)中比较 Policy Observation、Action、Episode
+上限、评分方式与类型化 Environment 参数。
 
 ## 评估 baseline
 

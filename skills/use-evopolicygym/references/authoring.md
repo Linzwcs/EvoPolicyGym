@@ -2,7 +2,8 @@
 
 Build each Benchmark as an independent Python distribution that depends only
 on the public EvoPolicyGym SDK and its own Environment dependencies. Use
-`environments/cartpole/` as the minimal live reference.
+`environments/gymnasium/classic_control/cartpole/` as the minimal live
+reference.
 
 ## Package boundary
 

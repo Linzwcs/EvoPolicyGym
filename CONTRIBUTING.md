@@ -11,7 +11,8 @@ uv run python -m unittest discover -s tests
 
 The supported package lives under `src/evopolicygym/`. External Benchmark
 distributions integrate only through `evopolicygym.authoring`; the active
-CartPole example lives under `environments/cartpole/`.
+CartPole example lives under
+`environments/gymnasium/classic_control/cartpole/`.
 
 Follow the ownership and import rules in `ARCHITECTURE.md`. Keep concrete I/O
 out of pure Evaluation and Program-Evolution rule modules, keep `_protocol`

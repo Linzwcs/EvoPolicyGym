@@ -20,7 +20,7 @@ updates:
           - "*"
 
   - package-ecosystem: "uv"
-    directory: "/environments/cartpole"
+    directory: "/environments/gymnasium/classic_control/cartpole"
     schedule:
       interval: "weekly"
     groups:

@@ -32,8 +32,9 @@ The accepted package ownership and import graph are defined by
 `_evaluation`, `_evolution`, `_execution`, `_composition`, `_local`, `_engine`,
 `_adapters`, `_wire`, `_wiring`, or `settings` namespaces.
 
-Independently installable Benchmark distributions live under `environments/`.
-The active CartPole Benchmark is at `environments/cartpole/`. Its
+Independently installable Benchmark distributions live under `environments/`,
+grouped first by upstream ecosystem and then by suite. The active CartPole
+Benchmark is at `environments/gymnasium/classic_control/cartpole/`. Its
 `evopolicygym-benchmark-cartpole==0.1.0` distribution imports as
 `cartpole`, requires the base `evopolicygym==0.3.*`, and is
 not present in the base wheel. The removed
@@ -58,7 +59,7 @@ version-suffixed Python namespaces to recover removed behavior.
 - `uv run mypy`: run strict type checks.
 - `uv run evopolicygym --version`: print the package and protocol versions.
 - `uv lock`: refresh the Kernel lock after dependency changes.
-- `uv build environments/cartpole`: build the independent
+- `uv build environments/gymnasium/classic_control/cartpole`: build the independent
   CartPole Benchmark.
 
 `ProcessExecution` is explicitly unsafe for hostile code. The acknowledgement

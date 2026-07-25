@@ -1,4 +1,0 @@
-interface:
-  display_name: "Optimize Balatro Policy"
-  short_description: "Plan, evaluate, and harden Balatro policies"
-  default_prompt: "Use $optimize-balatro-policy to improve and validate the current Balatro Policy Program."

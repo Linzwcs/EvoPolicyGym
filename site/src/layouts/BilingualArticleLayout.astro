@@ -18,6 +18,11 @@ interface Props {
   leadZh: string;
   current: string;
   toc: TocItem[];
+  noteTitleEn?: string;
+  noteTitleZh?: string;
+  noteBodyEn?: string;
+  noteBodyZh?: string;
+  noteTone?: "info" | "warning";
 }
 
 const {
@@ -29,13 +34,32 @@ const {
   leadZh,
   current,
   toc,
+  noteTitleEn,
+  noteTitleZh,
+  noteBodyEn,
+  noteBodyZh,
+  noteTone = "info",
 } = Astro.props;
+
+const hasNote =
+  noteTitleEn &&
+  noteTitleZh &&
+  noteBodyEn &&
+  noteBodyZh;
 ---
 
-<ReferenceLayout {title} {description} {current} {toc}>
+<ReferenceLayout {title} {description} area="docs" {current} {toc}>
   <header>
     <Copy en={pageTitleEn} zh={pageTitleZh} as="h1" />
     <Copy class="reference-lead" en={leadEn} zh={leadZh} as="p" />
   </header>
+
+  {hasNote && (
+    <div class:list={["reference-note", { "is-warning": noteTone === "warning" }]}>
+      <strong><Copy en={noteTitleEn} zh={noteTitleZh} /></strong>
+      <Copy en={noteBodyEn} zh={noteBodyZh} as="p" />
+    </div>
+  )}
+
   <slot />
 </ReferenceLayout>

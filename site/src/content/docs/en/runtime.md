@@ -91,4 +91,4 @@ Use local process execution only when:
 
 - [Evaluation and Runs →](../evaluation/)
 - [Benchmark authoring →](../authoring/)
-- [Architecture notes →](../../research/)
+- [Core concepts →](../concepts/)

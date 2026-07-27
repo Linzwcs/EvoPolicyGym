@@ -87,4 +87,4 @@ execution profile。
 
 - [Evaluation 与 Runs →](../evaluation/)
 - [Benchmark 编写 →](../authoring/)
-- [架构说明 →](../../research/)
+- [核心概念 →](../concepts/)

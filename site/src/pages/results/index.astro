@@ -2,6 +2,7 @@
 import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
 import Copy from "../../components/Copy.astro";
 import ScoreMatrix from "../../components/ScoreMatrix.astro";
+import { paperMeta } from "../../data/project";
 import {
   clipsForEnvironment,
   environments,
@@ -39,6 +40,7 @@ const featuredClips = featuredIds.map((envId) => {
 <ReferenceLayout
   title="Core16 experiment results — EvoPolicyGym Documentation"
   description="The Core16 paper-companion score matrix, methodology, and final policy reruns."
+  area="results"
   current="historical"
   {toc}
 >
@@ -84,10 +86,9 @@ const featuredClips = featuredIds.map((envId) => {
         <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0" target="_blank" rel="noreferrer">
           <Copy en="Tagged experiment source ↗" zh="已标记的实验源码 ↗" />
         </a>
-        <a href="http://arxiv.org/abs/2607.02440" target="_blank" rel="noreferrer">
+        <a href={paperMeta.url} target="_blank" rel="noreferrer">
           <Copy en="Paper ↗" zh="论文 ↗" />
         </a>
-        <a href={withBase("research/")}><Copy en="Research context →" zh="研究背景 →" /></a>
       </p>
     </section>
 
@@ -212,13 +213,9 @@ const featuredClips = featuredIds.map((envId) => {
           <strong><Copy en="Rerun archive" zh="重跑档案" /></strong>
           <small><Copy en="All 64 model–environment records." zh="全部 64 条模型–环境记录。" /></small>
         </a>
-        <a href={withBase("research/")}>
-          <strong><Copy en="Research" zh="研究" /></strong>
-          <small><Copy en="Claims, evidence, and current questions." zh="研究主张、证据与当前问题。" /></small>
-        </a>
-        <a href={withBase("research/protocol-design/")}>
-          <strong><Copy en="Protocol design" zh="协议设计" /></strong>
-          <small><Copy en="Budgets, lifecycle, and evidence boundaries." zh="预算、生命周期与证据边界。" /></small>
+        <a href={withBase("docs/evaluation/")}>
+          <strong><Copy en="Evaluation and Runs" zh="Evaluation 与 Runs" /></strong>
+          <small><Copy en="Current evaluation lifecycle and reporting semantics." zh="当前评估生命周期与报告语义。" /></small>
         </a>
       </div>
     </section>

@@ -2,11 +2,12 @@
 interface Props {
   en: string;
   zh: string;
-  as?: "span" | "p" | "strong" | "em" | "small" | "h1" | "h2" | "h3";
+  as?: "span" | "p" | "strong" | "em" | "small" | "h1" | "h2" | "h3" | "blockquote";
   class?: string;
+  id?: string;
 }
 
-const { en, zh, as: Tag = "span", class: className } = Astro.props;
+const { en, zh, as: Tag = "span", class: className, id } = Astro.props;
 ---
 
-<Tag class={className} data-copy data-en={en} data-zh={zh}>{en}</Tag>
+<Tag {id} class={className} data-copy data-en={en} data-zh={zh}>{en}</Tag>

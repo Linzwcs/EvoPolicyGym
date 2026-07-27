@@ -31,4 +31,23 @@ const docs = defineCollection({
   }),
 });
 
-export const collections = { docs };
+const blog = defineCollection({
+  loader: glob({
+    base: "./src/content/blog",
+    pattern: "**/*.md",
+  }),
+  schema: z.object({
+    locale: z.enum(["en", "zh"]),
+    page: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    title: z.string(),
+    description: z.string(),
+    lead: z.string(),
+    publishedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    updatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    author: z.string(),
+    tags: z.array(z.string()).default([]),
+    status: z.enum(["draft", "published"]).default("draft"),
+  }),
+});
+
+export const collections = { blog, docs };

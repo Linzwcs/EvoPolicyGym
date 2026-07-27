@@ -1,6 +1,8 @@
 ---
+import { getCollection } from "astro:content";
 import BaseLayout from "./BaseLayout.astro";
 import Copy from "../components/Copy.astro";
+import { environmentCollections } from "../data/environmentCatalog";
 import { projectMeta } from "../data/project";
 import { withBase } from "../lib/paths";
 import "../styles/reference.css";
@@ -13,79 +15,320 @@ interface TocItem {
   zh: string;
 }
 
+type ReferenceArea =
+  | "blog"
+  | "docs"
+  | "environments"
+  | "results"
+  | "runs";
+
 interface Props {
   title: string;
   description: string;
+  area: ReferenceArea;
   current: string;
   toc: TocItem[];
 }
 
-const { title, description, current, toc } = Astro.props;
+interface NavLink {
+  key: string;
+  path: string;
+  en: string;
+  zh: string;
+}
 
-const groups = [
-  {
-    en: "Start here",
-    zh: "开始",
-    links: [
-      { key: "intro", path: "", en: "EvoPolicyGym", zh: "EvoPolicyGym" },
-      { key: "docs", path: "docs/", en: "Documentation", zh: "文档总览" },
-      { key: "getting-started", path: "docs/getting-started/", en: "Getting started", zh: "快速开始" },
-      { key: "concepts", path: "docs/concepts/", en: "Core concepts", zh: "核心概念" },
+interface NavGroup {
+  en: string;
+  zh: string;
+  meta?: string;
+  collapsible?: boolean;
+  open?: boolean;
+  links: NavLink[];
+}
+
+interface AreaNavigation {
+  en: string;
+  zh: string;
+  meta: string;
+  groups: NavGroup[];
+}
+
+const { title, description, area, current, toc } = Astro.props;
+
+const docsEntries = await getCollection("docs");
+const blogEntries = await getCollection("blog");
+
+function localizedLinks(
+  entries: typeof docsEntries,
+  section?: "start" | "core" | "extend",
+) {
+  return entries
+    .filter(
+      (entry) =>
+        entry.data.locale === "en" &&
+        (!section ||
+          ("section" in entry.data && entry.data.section === section)),
+    )
+    .sort((a, b) => a.data.order - b.data.order)
+    .map((entry) => {
+      const zh = entries.find(
+        (candidate) =>
+          candidate.data.locale === "zh" &&
+          candidate.data.page === entry.data.page,
+      );
+
+      if (!zh) {
+        throw new Error(`Missing Chinese navigation entry for ${entry.data.page}`);
+      }
+
+      return {
+        key: entry.data.page,
+        path: `docs/${entry.data.page}/`,
+        en: entry.data.navTitle,
+        zh: zh.data.navTitle,
+      };
+    });
+}
+
+const startDocs = localizedLinks(docsEntries, "start");
+const coreDocs = localizedLinks(docsEntries, "core");
+const extensionDocs = localizedLinks(docsEntries, "extend");
+const blogArticles = blogEntries
+  .filter(
+    (entry) =>
+      entry.data.locale === "en" && entry.data.status === "published",
+  )
+  .sort((a, b) => b.data.publishedAt.localeCompare(a.data.publishedAt))
+  .map((entry) => {
+    const zh = blogEntries.find(
+      (candidate) =>
+        candidate.data.locale === "zh" &&
+        candidate.data.page === entry.data.page,
+    );
+
+    if (!zh) {
+      throw new Error(`Missing Chinese blog entry for ${entry.data.page}`);
+    }
+
+    return {
+      key: entry.data.page,
+      path: `blog/${entry.data.page}/`,
+      en: entry.data.title,
+      zh: zh.data.title,
+    };
+  });
+
+const environmentLinks = (ecosystems: string[], mixed = false): NavLink[] =>
+  environmentCollections
+    .filter((collection) => ecosystems.includes(collection.ecosystem))
+    .map((collection) => ({
+      key: collection.id,
+      path: `environments/#${collection.id}`,
+      en: mixed
+        ? `${collection.ecosystem} / ${collection.suite}`
+        : collection.suite,
+      zh: mixed
+        ? `${collection.ecosystem} / ${collection.suite}`
+        : collection.suite,
+    }));
+
+const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
+  blog: {
+    en: "Blog",
+    zh: "博客",
+    meta: "Journal",
+    groups: [
+      {
+        en: "Archive",
+        zh: "归档",
+        links: [
+          { key: "blog", path: "blog/", en: "All posts", zh: "全部文章" },
+          ...blogArticles,
+        ],
+      },
     ],
   },
-  {
-    en: "Policy and evaluation",
-    zh: "Policy 与评估",
-    links: [
-      { key: "policy", path: "docs/policy/", en: "Policy ABI", zh: "Policy ABI" },
-      { key: "evaluation", path: "docs/evaluation/", en: "Evaluation and Runs", zh: "Evaluation 与 Runs" },
-      { key: "runtime", path: "docs/runtime/", en: "Execution and safety", zh: "执行与安全" },
+  docs: {
+    en: "Documentation",
+    zh: "文档",
+    meta: projectMeta.versionLabel,
+    groups: [
+      {
+        en: "Start",
+        zh: "开始",
+        links: [
+          { key: "docs", path: "docs/", en: "Overview", zh: "总览" },
+          ...startDocs,
+        ],
+      },
+      {
+        en: "Core reference",
+        zh: "核心参考",
+        links: coreDocs,
+      },
+      {
+        en: "Extensions",
+        zh: "扩展",
+        links: extensionDocs,
+      },
     ],
   },
-  {
-    en: "Benchmarks",
-    zh: "Benchmarks",
-    links: [
-      { key: "environments", path: "environments/", en: "Environment collection", zh: "环境目录" },
-      { key: "authoring", path: "docs/authoring/", en: "Benchmark authoring", zh: "Benchmark 编写" },
-      { key: "runs", path: "runs/", en: "Run records", zh: "Run 记录" },
+  environments: {
+    en: "Environments",
+    zh: "环境",
+    meta: "Catalog",
+    groups: [
+      {
+        en: "Overview",
+        zh: "总览",
+        links: [
+          {
+            key: "environments",
+            path: "environments/",
+            en: "Coverage and catalog",
+            zh: "覆盖与目录",
+          },
+          {
+            key: "using-environments",
+            path: "environments/#using",
+            en: "Using a distribution",
+            zh: "使用 distribution",
+          },
+          {
+            key: "authoring-environments",
+            path: "environments/#authoring",
+            en: "Authoring",
+            zh: "编写环境",
+          },
+        ],
+      },
+      {
+        en: "Gymnasium",
+        zh: "Gymnasium",
+        meta: "23",
+        collapsible: true,
+        open: current === "cartpole",
+        links: [
+          ...environmentLinks(["Gymnasium"]),
+          {
+            key: "cartpole",
+            path: "environments/gymnasium/classic-control/cartpole/",
+            en: "CartPole · contract",
+            zh: "CartPole · 契约",
+          },
+        ],
+      },
+      {
+        en: "MiniGrid",
+        zh: "MiniGrid",
+        meta: "23",
+        collapsible: true,
+        links: environmentLinks(["MiniGrid"]),
+      },
+      {
+        en: "Robotics",
+        zh: "机器人",
+        meta: "2",
+        collapsible: true,
+        links: environmentLinks(["Gymnasium-Robotics", "MetaWorld"], true),
+      },
+      {
+        en: "Simulation and games",
+        zh: "模拟与游戏",
+        meta: "5",
+        collapsible: true,
+        links: environmentLinks(
+          ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
+          true,
+        ),
+      },
     ],
   },
-  {
-    en: "Project",
-    zh: "项目",
-    links: [
-      { key: "research", path: "research/", en: "Research", zh: "研究" },
-      { key: "protocol-design", path: "research/protocol-design/", en: "Protocol design", zh: "协议设计" },
-      { key: "historical", path: "results/", en: "Historical results", zh: "历史结果" },
+  results: {
+    en: "Results",
+    zh: "结果",
+    meta: "v0.1.0",
+    groups: [
+      {
+        en: "Core16 record",
+        zh: "Core16 记录",
+        links: [
+          {
+            key: "historical",
+            path: "results/",
+            en: "Experiment overview",
+            zh: "实验总览",
+          },
+          {
+            key: "core16",
+            path: "results/core16/",
+            en: "Rollout gallery",
+            zh: "重跑画廊",
+          },
+        ],
+      },
     ],
   },
-];
+  runs: {
+    en: "Runs",
+    zh: "Runs",
+    meta: projectMeta.versionLabel,
+    groups: [],
+  },
+};
+
+const navigation = navigationByArea[area];
+const hasSidebar = navigation.groups.some((group) => group.links.length > 0);
 ---
 
 <BaseLayout title={title} description={description} bodyClass="reference-page">
-  <div class="reference-layout page-wide">
-    <aside class="reference-sidebar" aria-label="Documentation sections">
-      <div class="reference-sidebar-head">
-        <strong>Documentation</strong>
-        <span>{projectMeta.versionLabel}</span>
-      </div>
-      {groups.map((group) => (
-        <section>
-          <Copy en={group.en} zh={group.zh} as="strong" />
-          <nav>
-            {group.links.map((link) => (
-              <a
-                href={withBase(link.path)}
-                aria-current={current === link.key ? "page" : undefined}
-              >
-                <Copy en={link.en} zh={link.zh} />
-              </a>
-            ))}
-          </nav>
-        </section>
-      ))}
-    </aside>
+  <div class:list={["reference-layout", "page-wide", { "without-sidebar": !hasSidebar }]}>
+    {hasSidebar && (
+      <aside class="reference-sidebar" aria-label={`${navigation.en} navigation`}>
+        <div class="reference-sidebar-head">
+          <Copy en={navigation.en} zh={navigation.zh} as="strong" />
+          <span>{navigation.meta}</span>
+        </div>
+        {navigation.groups.map((group) => (
+          group.links.length > 0 && (
+            <section>
+              {group.collapsible ? (
+                <details open={group.open}>
+                  <summary>
+                    <Copy en={group.en} zh={group.zh} />
+                    {group.meta && <span>{group.meta}</span>}
+                  </summary>
+                  <nav>
+                    {group.links.map((link) => (
+                      <a
+                        href={withBase(link.path)}
+                        aria-current={current === link.key ? "page" : undefined}
+                      >
+                        <Copy en={link.en} zh={link.zh} />
+                      </a>
+                    ))}
+                  </nav>
+                </details>
+              ) : (
+                <>
+                  <Copy en={group.en} zh={group.zh} as="strong" />
+                  <nav>
+                    {group.links.map((link) => (
+                      <a
+                        href={withBase(link.path)}
+                        aria-current={current === link.key ? "page" : undefined}
+                      >
+                        <Copy en={link.en} zh={link.zh} />
+                      </a>
+                    ))}
+                  </nav>
+                </>
+              )}
+            </section>
+          )
+        ))}
+      </aside>
+    )}
 
     <article class="reference-article">
       <slot />

@@ -4,8 +4,8 @@ page: getting-started
 section: start
 title: "快速开始"
 navTitle: "快速开始"
-description: "安装 EvoPolicyGym 0.3，并运行一个当前控制或游戏 Benchmark。"
-lead: "安装可移植 Kernel，选择一个独立分发的 Benchmark，并检查已经提交的 Feedback 或语义回放。"
+description: "安装 EvoPolicyGym 0.3，并完成第一次 Evaluation 或 Program-evolution Run。"
+lead: "安装 Kernel，评估一个示例 Program，并启动一次有界的 Coding Agent Run。"
 index: D1
 order: 1
 docsVersion: v0.3
@@ -17,10 +17,9 @@ status: draft
 - Python `>=3.12,<3.13`
 - [`uv`](https://docs.astral.sh/uv/) `0.11.16`
 - 本地仓库 checkout
-- 只使用可信的 Policy 与 Agent 代码
+- 可信的 Policy 与 Agent 代码
 
-> **安全边界。** 当前 `ProcessExecution` setting 会以操作系统用户的权限启动
-> 本地子进程。它不是沙箱。
+> `ProcessExecution` 以当前操作系统用户的权限启动 Policy 与 Agent 子进程。
 
 ## 安装 Kernel
 
@@ -37,30 +36,21 @@ uv run evopolicygym --version
 evopolicygym 0.3.0
 ```
 
-基础 package 包含可移植的 Evaluation 与 Program-evolution Kernel。
-具体 Environment 由可独立安装的 Benchmark distribution 提供。
+Kernel 提供 Evaluation 与 Program-evolution 生命周期。Benchmark distribution
+提供 Environment、Policy 契约与评分。
 
-## 安装 Benchmark
+## 选择 Benchmark
 
-环境目录包含 23 个 Gymnasium 任务 distribution 与 Balatro。请按任务选择一个
-叶子 project。下面的示例覆盖 5 种主要 Policy 接口形态：
+从[环境目录](../../environments/)选择 distribution。下面的命令使用体积较小的
+CartPole distribution：
 
 ```console
 uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv sync --project environments/gymnasium/toy_text/frozen_lake --extra dev
-uv sync --project environments/gymnasium/box2d/lunar_lander --extra dev
-uv sync --project environments/gymnasium/mujoco/ant --extra dev
-uv sync --project environments/jackdaw/balatro --extra dev
 ```
 
-每个叶子 project 自行拥有 distribution 名称、公开 import package、lockfile、
-baseline Program 与测试。选择 package 前，可在
-[环境目录](../../environments/)中比较 Policy Observation、Action、Episode
-上限、评分方式与类型化 Environment 参数。
+## 完成一次 Evaluation
 
-## 评估 baseline
-
-在 5 个确定性的 validation Episodes 上评估 package 中的 baseline：
+在 5 个确定性的 validation Episodes 上评估示例 distribution 提供的 Program：
 
 ```console
 uv run --project environments/gymnasium/classic_control/cartpole \
@@ -69,63 +59,30 @@ uv run --project environments/gymnasium/classic_control/cartpole \
   --allow-unsafe-process
 ```
 
-命令输出一个 JSON object，其中包含 Benchmark ID、不可变 Program digest、
-标量分数与 Benchmark 定义的 Feedback content。
+命令输出一个 JSON object，其中包含 Benchmark identity、不可变 Program digest、
+标量分数与公开 Feedback。Feedback 内容遵循所选 Benchmark 契约。
 
-本地执行没有隔离，因此必须提供确认参数。这个参数不会增加 containment，
-也不会改变 execution profile。
+`--allow-unsafe-process` 用于确认以当前本地用户权限执行。
 
-Acrobot 与 Mountain Car 同样使用 Episode 平均回报，但正常 reward 为非正数。
-因此 Policy failure 计入任务的完整 Episode 下限，而不是零分：Acrobot 为 `-500`，
-Mountain Car 为 `-200`。两个 distribution 都在 Observation 跨越 Policy 边界前，
-把 Gymnasium 数组转换为具名语义字典。
+## 运行 Coding Agent（可选）
 
-Continuous Mountain Car 使用 `-1.0` 至 `1.0` 的有限浮点 Action。它的零力
-baseline 没有成功且回报为 `0`，速度方向策略则约为 `89`。Policy failure 计为
-`-100`，低于完整 Episode 的理论最小回报。
-
-Pendulum 固定运行 200 步，没有成功 termination。它的 reward 是角度、角速度与
-扭矩代价的负值，最高为零。Policy failure 计为 `-3300`，低于完整 Episode 的
-理论最小回报。
-
-## 查看 Balatro
-
-Balatro Benchmark 的每个 Episode 都是一局完整的红色牌组、白注 run。评分为
-胜利奖励 1000 分，再加每个已通过 Blind 1 分。Policy 需要处理出牌、弃牌、
-Blind 选择、商店、Joker、消耗品、补充包与 Ante。
-
-公开的 `replay.jsonl` artifact 保留每个已收录 step 中 Policy 实际收到的完整
-语义 Observation。站点播放器只渲染其中适合阅读的部分，不会缩减底层 artifact。
-
-- [阅读 Balatro Benchmark 契约 →](../../environments/#balatro)
-- [打开 Baseline 游戏回放 →](../../environments/balatro/replay/)
-
-## 运行 Coding Agent
-
-完成 Codex CLI 认证后，可以启动一个小规模开发 Run：
+完成 Codex CLI 认证后，让 Agent 在较小的开发预算内修改示例 Program：
 
 ```console
 uv run --project environments/gymnasium/classic_control/cartpole \
   evopolicygym-cartpole run \
   --model gpt-5.5 \
-  --record-to runs/cartpole-001 \
+  --record-to runs/quickstart-001 \
   --max-submissions 3 \
   --episode-budget 30 \
   --allow-unsafe-process
 ```
 
-默认由 Agent 决定每次 Submission 的 Episode 数量。只有需要额外限制时才添加
-`--max-episodes-per-submission N`。
+Agent 自行决定每次 Submission 使用的 Episode 数量。Program workspace 位于
+`runs/quickstart-001/workspace/program/`，已提交 Feedback 位于
+`workspace/feedback/`，Host 记录保存在 Run 目录中。
 
-Balatro 还发布了可选的 Policy 优化 skill。它默认关闭；如果希望 Run 将其以只读
-形式提供到 `workspace/skill/SKILL.md`，可在调用
-`scripts/run_balatro_codex.py` 时传入 `--benchmark-skill`。
-
-Agent 只能编辑 `runs/cartpole-001/workspace/program/`。已经提交的公开
-Feedback 会写入相邻的 `workspace/feedback/`。Host 侧 Programs、artifacts、
-events 与 Agent logs 分开保留。
-
-## 刚才发生了什么
+## Run 执行的流程
 
 1. 初始 Policy 目录成为不可变、内容寻址的 `Program`。
 2. Coding Agent 获得固定 workspace、Benchmark specification 与有限提交权限。
@@ -139,4 +96,4 @@ events 与 Agent logs 分开保留。
 - [阅读核心概念 →](../concepts/)
 - [阅读 Policy ABI →](../policy/)
 - [理解 Evaluation 与 Runs →](../evaluation/)
-- [查看环境目录 →](../../environments/)
+- [选择并配置 Environment →](../../environments/)

@@ -20,6 +20,9 @@ const {
 } = Astro.props;
 const active = sectionFromPath(Astro.url.pathname);
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : Astro.url;
+const socialImage = Astro.site
+  ? new URL(withBase("og.png"), Astro.site)
+  : undefined;
 ---
 
 <!doctype html>
@@ -37,6 +40,13 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : Astro.u
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    {socialImage && <meta property="og:image" content={socialImage} />}
+    {socialImage && <meta property="og:image:width" content="1200" />}
+    {socialImage && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {socialImage && <meta name="twitter:image" content={socialImage} />}
     <title>{title}</title>
   </head>
   <body class={bodyClass}>

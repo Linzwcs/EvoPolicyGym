@@ -17,7 +17,7 @@ from typing import Any
 _REPOSITORY = Path(__file__).resolve().parents[1]
 _SINGLE_RUNNER = _REPOSITORY / "scripts" / "run_balatro_codex.py"
 _BALATRO_SKILL = _REPOSITORY / "skills" / "optimize-balatro-policy"
-_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v2"
+_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v3"
 
 
 class ExperimentError(RuntimeError):
@@ -70,6 +70,7 @@ def main(arguments: list[str] | None = None) -> int:
         "schema": _RESULT_SCHEMA,
         "record_root": str(record_root),
         "model": namespace.model,
+        "reasoning_effort": namespace.reasoning_effort,
         "seed": namespace.seed,
         "order": namespace.order,
         "config": {
@@ -147,6 +148,8 @@ def _run_arm(
         "--progress",
         namespace.progress,
         "--allow-unsafe-process",
+        "--reasoning-effort",
+        namespace.reasoning_effort,
     ]
     if use_skill:
         command.extend(("--skill", str(_BALATRO_SKILL)))
@@ -302,6 +305,13 @@ def _parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--reasoning-effort",
+        required=True,
+        help=(
+            "use the same Codex reasoning effort for both experiment arms"
+        ),
+    )
     parser.add_argument("--codex-executable", default="codex")
     parser.add_argument(
         "--record-root",

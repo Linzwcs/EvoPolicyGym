@@ -162,7 +162,10 @@ from evopolicygym.skills import AgentSkill
 result = run(
     baseline_program(),
     CartPoleBenchmark(),
-    agent=Codex(model="gpt-5.6-luna"),
+    agent=Codex(
+        model="gpt-5.6-luna",
+        reasoning_effort="high",
+    ),
     execution=ProcessExecution.unsafe(),
     record_to="runs/cartpole-001",
     skills=(
@@ -185,6 +188,11 @@ result = run(
     observer=ConsoleProgress(),
 )
 ```
+
+`Codex.reasoning_effort` is a required provider-specific experiment input.
+The provider passes it to the Codex CLI as `model_reasoning_effort` and
+retains it in the Run's Agent identity. Supported values are model-dependent
+and are validated authoritatively by the installed Codex CLI.
 
 An `AgentSkill` is a pathless, content-addressed snapshot containing
 `SKILL.md` and any referenced files, scripts, or assets. A Run accepts up to

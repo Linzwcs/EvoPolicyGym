@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from evopolicygym.agents import Codex, CodingAgent, resolve_executable
+from evopolicygym.agents import (
+    Codex,
+    CodingAgent,
+    resolve_executable,
+)
 from evopolicygym.authoring import BenchmarkSpec
 from evopolicygym.run import AssessmentConfig, RunConfig, ValidationConfig
 from evopolicygym.run._task import build_agent_task
@@ -49,19 +53,30 @@ class CodexIntegrationTests(unittest.TestCase):
             )
             invocation = Codex(
                 model="fixture-model",
+                reasoning_effort="xhigh",
                 executable=str(executable),
             ).build_invocation(task)
 
         self.assertIsInstance(
-            Codex(model="fixture-model"),
+            Codex(
+                model="fixture-model",
+                reasoning_effort="medium",
+            ),
             CodingAgent,
         )
         self.assertEqual(invocation.instructions, task.instructions)
         self.assertEqual(invocation.identity["provider"], "codex")
         self.assertEqual(invocation.identity["model"], "fixture-model")
+        self.assertEqual(invocation.identity["reasoning_effort"], "xhigh")
         self.assertEqual(invocation.stdout_media_type, "application/x-ndjson")
         self.assertIn("--ephemeral", invocation.command)
         self.assertIn("--ignore-user-config", invocation.command)
+        self.assertEqual(
+            invocation.command[
+                invocation.command.index("--config") + 1
+            ],
+            'model_reasoning_effort="xhigh"',
+        )
         self.assertEqual(
             invocation.command[
                 invocation.command.index("--sandbox") + 1
@@ -86,6 +101,18 @@ class CodexIntegrationTests(unittest.TestCase):
             invocation.recorded_command[-1],
             "@agent/instructions.md",
         )
+
+    def test_codex_rejects_invalid_reasoning_effort_identifiers(self) -> None:
+        for invalid in ("", "extra high", "high\n", "x" * 65):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "reasoning_effort",
+                ):
+                    Codex(
+                        model="fixture-model",
+                        reasoning_effort=invalid,
+                    )
 
     def test_agent_skills_are_explicitly_selected_per_run(self) -> None:
         spec = BenchmarkSpec(

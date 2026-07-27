@@ -54,7 +54,10 @@ from evopolicygym.skills import AgentSkill
 result = run(
     baseline_program(),
     ExampleBenchmark(),
-    agent=Codex(model="MODEL_ID"),
+    agent=Codex(
+        model="MODEL_ID",
+        reasoning_effort="high",
+    ),
     execution=ProcessExecution.unsafe(),
     record_to="runs/example-001",
     skills=(

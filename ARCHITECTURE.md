@@ -197,6 +197,9 @@ The rules are:
   Skill to direct Evaluation or the Policy boundary;
 - provider packages translate the task into their own invocation but do not
   author the task or start and supervise the process themselves;
+- provider-specific experiment inputs such as the Codex model and reasoning
+  effort belong to the provider selection and retained Agent identity, not
+  `RunConfig` or `BenchmarkSpec`;
 - a small provider integration remains one cohesive module until its own
   responsibilities justify a package;
 - `_protocol` is pure bytes/value transformation and performs no I/O;

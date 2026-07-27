@@ -225,11 +225,10 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 38px;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .brand {
@@ -285,7 +284,10 @@ pre {
   padding: 3px 6px;
   border: 1px solid var(--rule);
   color: var(--faint);
+  font-family: var(--mono);
   font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .site-nav {
@@ -3317,48 +3319,12 @@ html[lang="zh-CN"] .home-lead {
 
 .site-footer {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr) auto;
-  gap: 40px;
-  padding: 42px max(32px, calc((100% - var(--wide)) / 2));
+  grid-template-columns: 1fr;
+  padding: 20px max(32px, calc((100% - var(--wide)) / 2));
   border-top: 1px solid var(--rule);
   color: var(--faint);
   font-family: var(--sans);
   font-size: 11px;
-}
-
-.footer-brand strong,
-.footer-brand span {
-  display: block;
-}
-
-.footer-brand strong {
-  margin-bottom: 5px;
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.footer-note p {
-  max-width: 590px;
-  margin-bottom: 0;
-}
-
-.footer-links {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.footer-links a {
-  color: var(--label);
-  font-family: var(--mono);
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-underline-offset: 4px;
 }
 
 .footer-bottom {
@@ -3366,8 +3332,6 @@ html[lang="zh-CN"] .home-lead {
   grid-column: 1 / -1;
   justify-content: space-between;
   gap: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--rule);
   font-family: var(--mono);
   font-size: 7px;
   font-weight: 700;
@@ -3609,13 +3573,6 @@ html[lang="zh-CN"] .home-lead {
     margin-bottom: 12px;
   }
 
-  .site-footer {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .footer-links {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 680px) {
@@ -4057,12 +4014,7 @@ html[lang="zh-CN"] .home-lead {
 
   .site-footer {
     grid-template-columns: 1fr;
-    padding: 34px 18px;
-  }
-
-  .footer-links {
-    grid-column: 1;
-    flex-wrap: wrap;
+    padding: 20px 18px;
   }
 
   .footer-bottom {

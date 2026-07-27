@@ -1,358 +1,93 @@
 ---
 import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
 import Copy from "../../components/Copy.astro";
+import {
+  environmentCollections,
+  environmentDistributionCount,
+  environmentDomains,
+  environmentEcosystemCount,
+  type EnvironmentCollection,
+} from "../../data/environmentCatalog";
 import { withBase } from "../../lib/paths";
 
-type LocalizedText = {
-  en: string;
-  zh: string;
-};
-
-type EnvironmentEntry = {
-  name: string;
-  benchmark: string;
-  packageName: string;
-  sourcePath: string;
-  contractPath?: string;
-  observation: LocalizedText;
-  action: LocalizedText;
-  horizon: string;
-  score: LocalizedText;
-  configuration: LocalizedText;
-};
-
-type EnvironmentSuite = {
+interface CatalogSection {
   id: string;
-  name: string;
-  directory: string;
-  summary: LocalizedText;
-  environments: EnvironmentEntry[];
-};
+  title: { en: string; zh: string };
+  lead: { en: string; zh: string };
+  ecosystems: string[];
+}
 
-const fixedTask: LocalizedText = {
-  en: "Fixed standard task",
-  zh: "固定标准任务",
-};
-
-const suites: EnvironmentSuite[] = [
+const catalogSections: CatalogSection[] = [
   {
-    id: "gymnasium-classic-control",
-    name: "Classic Control",
-    directory: "classic_control",
-    summary: {
-      en: "Five compact control tasks for checking Policy lifecycle, state handling, and discrete or scalar continuous Actions.",
-      zh: "5 个紧凑控制任务，用于检查 Policy 生命周期、状态处理以及离散或标量连续 Action。",
+    id: "gymnasium",
+    title: { en: "Gymnasium", zh: "Gymnasium" },
+    lead: {
+      en: "Twenty-three distributions across the four standard built-in suites.",
+      zh: "覆盖四个标准内置 suite 的 23 个 distributions。",
     },
-    environments: [
-      {
-        name: "CartPole",
-        benchmark: "CartPole-v1",
-        packageName: "evopolicygym-benchmark-cartpole",
-        sourcePath: "classic_control/cartpole",
-        contractPath: "environments/gymnasium/classic-control/cartpole/",
-        observation: { en: "4-value state vector", zh: "4 维状态向量" },
-        action: { en: "Discrete integer 0 or 1", zh: "离散整数 0 或 1" },
-        horizon: "500",
-        score: { en: "Mean return; maximum 500", zh: "平均回报；最高 500" },
-        configuration: fixedTask,
-      },
-      {
-        name: "Acrobot",
-        benchmark: "Acrobot-v1",
-        packageName: "evopolicygym-benchmark-acrobot",
-        sourcePath: "classic_control/acrobot",
-        observation: { en: "6 named state values", zh: "6 个具名状态值" },
-        action: { en: "Discrete integer 0–2", zh: "离散整数 0–2" },
-        horizon: "500",
-        score: { en: "Mean return; faster success is higher", zh: "平均回报；越快成功越高" },
-        configuration: fixedTask,
-      },
-      {
-        name: "Mountain Car",
-        benchmark: "MountainCar-v0",
-        packageName: "evopolicygym-benchmark-mountain-car",
-        sourcePath: "classic_control/mountain_car",
-        observation: { en: "2 named state values", zh: "2 个具名状态值" },
-        action: { en: "Discrete integer 0–2", zh: "离散整数 0–2" },
-        horizon: "200",
-        score: { en: "Mean return; faster success is higher", zh: "平均回报；越快成功越高" },
-        configuration: fixedTask,
-      },
-      {
-        name: "Continuous Mountain Car",
-        benchmark: "MountainCarContinuous-v0",
-        packageName: "evopolicygym-benchmark-mountain-car-continuous",
-        sourcePath: "classic_control/mountain_car_continuous",
-        observation: { en: "2 named state values", zh: "2 个具名状态值" },
-        action: { en: "1 float in [-1, 1]", zh: "1 个 [-1, 1] 浮点数" },
-        horizon: "999",
-        score: { en: "Goal reward minus control cost", zh: "目标奖励减控制代价" },
-        configuration: fixedTask,
-      },
-      {
-        name: "Pendulum",
-        benchmark: "Pendulum-v1",
-        packageName: "evopolicygym-benchmark-pendulum",
-        sourcePath: "classic_control/pendulum",
-        observation: { en: "3 named state values", zh: "3 个具名状态值" },
-        action: { en: "1 float in [-2, 2]", zh: "1 个 [-2, 2] 浮点数" },
-        horizon: "200",
-        score: { en: "Mean return; maximum 0", zh: "平均回报；最高 0" },
-        configuration: fixedTask,
-      },
-    ],
+    ecosystems: ["Gymnasium"],
   },
   {
-    id: "gymnasium-toy-text",
-    name: "Toy Text",
-    directory: "toy_text",
-    summary: {
-      en: "Four discrete planning tasks with semantic observations and explicit rule or transition parameters.",
-      zh: "4 个离散规划任务，提供语义 Observation，以及明确的规则或转移参数。",
+    id: "minigrid",
+    title: { en: "MiniGrid", zh: "MiniGrid" },
+    lead: {
+      en: "Twenty-three distributions for grid navigation, memory, procedural generation, and language-conditioned missions.",
+      zh: "面向网格导航、记忆、程序化生成与语言条件任务的 23 个 distributions。",
     },
-    environments: [
-      {
-        name: "Blackjack",
-        benchmark: "Blackjack-v1",
-        packageName: "evopolicygym-benchmark-blackjack",
-        sourcePath: "toy_text/blackjack",
-        observation: { en: "Player sum, dealer card, usable Ace", zh: "玩家点数、庄家明牌、可用 Ace" },
-        action: { en: "Stick or hit: integer 0 or 1", zh: "停牌或要牌：整数 0 或 1" },
-        horizon: "32",
-        score: { en: "Mean terminal reward", zh: "平均终局奖励" },
-        configuration: { en: "Natural bonus and Sutton–Barto rules", zh: "Natural 奖励与 Sutton–Barto 规则" },
-      },
-      {
-        name: "CliffWalking",
-        benchmark: "CliffWalking-v1",
-        packageName: "evopolicygym-benchmark-cliff-walking",
-        sourcePath: "toy_text/cliff_walking",
-        observation: { en: "State, coordinates, and terrain tile", zh: "状态、坐标与地形格" },
-        action: { en: "4 movement integers", zh: "4 个移动整数" },
-        horizon: "200",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Deterministic or slippery movement", zh: "确定性或滑动移动" },
-      },
-      {
-        name: "FrozenLake",
-        benchmark: "FrozenLake-v1",
-        packageName: "evopolicygym-benchmark-frozen-lake",
-        sourcePath: "toy_text/frozen_lake",
-        observation: { en: "State, coordinates, and map tile", zh: "状态、坐标与地图格" },
-        action: { en: "4 movement integers", zh: "4 个移动整数" },
-        horizon: "100 / 200",
-        score: { en: "Goal success rate", zh: "到达目标成功率" },
-        configuration: { en: "4×4 or 8×8 map and slip dynamics", zh: "4×4 或 8×8 地图与滑动动力学" },
-      },
-      {
-        name: "Taxi",
-        benchmark: "Taxi-v4",
-        packageName: "evopolicygym-benchmark-taxi",
-        sourcePath: "toy_text/taxi",
-        observation: { en: "Taxi, passenger, destination, legal Actions", zh: "出租车、乘客、目的地与合法 Actions" },
-        action: { en: "6 movement and service integers", zh: "6 个移动与服务整数" },
-        horizon: "200",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Rain and fickle-passenger dynamics", zh: "降雨与乘客变更动力学" },
-      },
-    ],
+    ecosystems: ["MiniGrid"],
   },
   {
-    id: "gymnasium-box2d",
-    name: "Box2D",
-    directory: "box2d",
-    summary: {
-      en: "Three medium-weight physics tasks spanning landing, locomotion, and control from pixels.",
-      zh: "3 个中等规模物理任务，覆盖着陆、运动控制与像素输入驾驶。",
+    id: "robotics",
+    title: { en: "Robotics collections", zh: "机器人集合" },
+    lead: {
+      en: "Goal-conditioned and multi-task manipulation from Gymnasium-Robotics and MetaWorld.",
+      zh: "来自 Gymnasium-Robotics 与 MetaWorld 的目标条件和多任务操作环境。",
     },
-    environments: [
-      {
-        name: "LunarLander",
-        benchmark: "LunarLander-v3",
-        packageName: "evopolicygym-benchmark-lunar-lander",
-        sourcePath: "box2d/lunar_lander",
-        observation: { en: "8 named physical state values", zh: "8 个具名物理状态值" },
-        action: { en: "4 discrete engines or 2 continuous controls", zh: "4 个离散引擎或 2 个连续控制量" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Action mode, gravity, wind, turbulence", zh: "Action 模式、重力、风与湍流" },
-      },
-      {
-        name: "BipedalWalker",
-        benchmark: "BipedalWalker-v3",
-        packageName: "evopolicygym-benchmark-bipedal-walker",
-        sourcePath: "box2d/bipedal_walker",
-        observation: { en: "Named body, joint, contact, and lidar state", zh: "具名身体、关节、接触与激光状态" },
-        action: { en: "4 continuous motor controls", zh: "4 个连续电机控制量" },
-        horizon: "1,600",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Normal or hardcore terrain", zh: "普通或 Hardcore 地形" },
-      },
-      {
-        name: "CarRacing",
-        benchmark: "CarRacing-v3",
-        packageName: "evopolicygym-benchmark-car-racing",
-        sourcePath: "box2d/car_racing",
-        observation: { en: "Exact uint8[96,96,3] RGB tensor", zh: "精确 uint8[96,96,3] RGB Tensor" },
-        action: { en: "3 continuous controls or 5 discrete Actions", zh: "3 个连续控制量或 5 个离散 Actions" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Action mode, lap target, domain randomization", zh: "Action 模式、圈速目标与域随机化" },
-      },
-    ],
+    ecosystems: ["Gymnasium-Robotics", "MetaWorld"],
   },
   {
-    id: "gymnasium-mujoco",
-    name: "MuJoCo",
-    directory: "mujoco",
-    summary: {
-      en: "Eleven current v5 continuous-control tasks, from small arms and pendulums to contact-rich humanoids.",
-      zh: "11 个当前 v5 连续控制任务，从小型机械臂与倒立摆延伸到接触丰富的人形机器人。",
+    id: "simulation-games",
+    title: {
+      en: "Interactive simulation and games",
+      zh: "交互模拟与游戏",
     },
-    environments: [
-      {
-        name: "Reacher",
-        benchmark: "Reacher-v5",
-        packageName: "evopolicygym-benchmark-reacher",
-        sourcePath: "mujoco/reacher",
-        observation: { en: "10 named arm and target values", zh: "10 个具名机械臂与目标值" },
-        action: { en: "2 joint torques", zh: "2 个关节力矩" },
-        horizon: "50",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Frame skip and reward weights", zh: "Frame skip 与奖励权重" },
-      },
-      {
-        name: "Pusher",
-        benchmark: "Pusher-v5",
-        packageName: "evopolicygym-benchmark-pusher",
-        sourcePath: "mujoco/pusher",
-        observation: { en: "23 named arm, object, and goal values", zh: "23 个具名机械臂、物体与目标值" },
-        action: { en: "7 joint torques", zh: "7 个关节力矩" },
-        horizon: "100",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Frame skip and reward weights", zh: "Frame skip 与奖励权重" },
-      },
-      {
-        name: "InvertedPendulum",
-        benchmark: "InvertedPendulum-v5",
-        packageName: "evopolicygym-benchmark-inverted-pendulum",
-        sourcePath: "mujoco/inverted_pendulum",
-        observation: { en: "4 named cart and pole values", zh: "4 个具名小车与摆杆值" },
-        action: { en: "1 cart force", zh: "1 个小车推力" },
-        horizon: "1,000",
-        score: { en: "Mean return; maximum 1,000", zh: "平均回报；最高 1,000" },
-        configuration: { en: "Frame skip and reset noise", zh: "Frame skip 与重置噪声" },
-      },
-      {
-        name: "InvertedDoublePendulum",
-        benchmark: "InvertedDoublePendulum-v5",
-        packageName: "evopolicygym-benchmark-inverted-double-pendulum",
-        sourcePath: "mujoco/inverted_double_pendulum",
-        observation: { en: "9 named cart and two-pole values", zh: "9 个具名小车与双摆杆值" },
-        action: { en: "1 cart force", zh: "1 个小车推力" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Frame skip, healthy reward, reset noise", zh: "Frame skip、健康奖励与重置噪声" },
-      },
-      {
-        name: "Swimmer",
-        benchmark: "Swimmer-v5",
-        packageName: "evopolicygym-benchmark-swimmer",
-        sourcePath: "mujoco/swimmer",
-        observation: { en: "8 or 10 named body values", zh: "8 或 10 个具名身体状态值" },
-        action: { en: "2 joint torques", zh: "2 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, reward weights, observation mode", zh: "动力学、奖励权重与 Observation 模式" },
-      },
-      {
-        name: "Hopper",
-        benchmark: "Hopper-v5",
-        packageName: "evopolicygym-benchmark-hopper",
-        sourcePath: "mujoco/hopper",
-        observation: { en: "11 or 12 named body values", zh: "11 或 12 个具名身体状态值" },
-        action: { en: "3 joint torques", zh: "3 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, health bounds, reward weights", zh: "动力学、健康范围与奖励权重" },
-      },
-      {
-        name: "Walker2d",
-        benchmark: "Walker2d-v5",
-        packageName: "evopolicygym-benchmark-walker2d",
-        sourcePath: "mujoco/walker2d",
-        observation: { en: "17 or 18 named body values", zh: "17 或 18 个具名身体状态值" },
-        action: { en: "6 joint torques", zh: "6 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, health bounds, reward weights", zh: "动力学、健康范围与奖励权重" },
-      },
-      {
-        name: "HalfCheetah",
-        benchmark: "HalfCheetah-v5",
-        packageName: "evopolicygym-benchmark-half-cheetah",
-        sourcePath: "mujoco/half_cheetah",
-        observation: { en: "17 or 18 named body values", zh: "17 或 18 个具名身体状态值" },
-        action: { en: "6 joint torques", zh: "6 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, reward weights, observation mode", zh: "动力学、奖励权重与 Observation 模式" },
-      },
-      {
-        name: "Ant",
-        benchmark: "Ant-v5",
-        packageName: "evopolicygym-benchmark-ant",
-        sourcePath: "mujoco/ant",
-        observation: { en: "27/29 state values plus optional 78 contacts", zh: "27/29 个状态值与可选的 78 个接触值" },
-        action: { en: "8 joint torques", zh: "8 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, health, contact, observation mode", zh: "动力学、健康、接触与 Observation 模式" },
-      },
-      {
-        name: "Humanoid",
-        benchmark: "Humanoid-v5",
-        packageName: "evopolicygym-benchmark-humanoid",
-        sourcePath: "mujoco/humanoid",
-        observation: { en: "45/47 state values plus optional nested dynamics", zh: "45/47 个状态值与可选嵌套动力学" },
-        action: { en: "17 joint torques", zh: "17 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, health, costs, observation groups", zh: "动力学、健康、代价与 Observation 分组" },
-      },
-      {
-        name: "HumanoidStandup",
-        benchmark: "HumanoidStandup-v5",
-        packageName: "evopolicygym-benchmark-humanoid-standup",
-        sourcePath: "mujoco/humanoid_standup",
-        observation: { en: "45/47 state values plus optional nested dynamics", zh: "45/47 个状态值与可选嵌套动力学" },
-        action: { en: "17 joint torques", zh: "17 个关节力矩" },
-        horizon: "1,000",
-        score: { en: "Mean return", zh: "平均回报" },
-        configuration: { en: "Dynamics, impact costs, observation groups", zh: "动力学、冲击代价与 Observation 分组" },
-      },
-    ],
+    lead: {
+      en: "Driving, first-person control, arcade play, and long-horizon strategy across five upstream ecosystems.",
+      zh: "覆盖五个上游生态的驾驶、第一人称控制、街机玩法与长时程策略。",
+    },
+    ecosystems: ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
   },
 ];
+
+const collectionsFor = (section: CatalogSection) =>
+  environmentCollections.filter((collection) =>
+    section.ecosystems.includes(collection.ecosystem)
+  );
+
+const domainCount = (domain: (typeof environmentDomains)[number]["id"]) =>
+  environmentCollections
+    .filter((collection) => collection.domain === domain)
+    .reduce((total, collection) => total + collection.distributions, 0);
+
+const sourceUrl = (collection: EnvironmentCollection) =>
+  `https://github.com/Linzwcs/EvoPolicyGym/tree/main/${collection.sourcePath}`;
 
 const toc = [
-  { id: "organization", en: "Organization", zh: "组织方式" },
-  ...suites.map((suite) => ({ id: suite.id, en: suite.name, zh: suite.name })),
-  { id: "jackdaw", en: "Jackdaw / Balatro", zh: "Jackdaw / Balatro" },
-  { id: "archive", en: "Research archive", zh: "研究档案" },
+  { id: "coverage", en: "Coverage", zh: "覆盖范围" },
+  ...catalogSections.map((section) => ({
+    id: section.id,
+    en: section.title.en,
+    zh: section.title.zh,
+  })),
+  { id: "using", en: "Using a distribution", zh: "使用 distribution" },
   { id: "authoring", en: "Authoring", zh: "编写环境" },
 ];
-
-const suiteSource = (suite: EnvironmentSuite) =>
-  `https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/${suite.directory}`;
-
-const environmentSource = (environment: EnvironmentEntry) =>
-  `https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/gymnasium/${environment.sourcePath}`;
 ---
 
 <ReferenceLayout
   title="Environment Collection — EvoPolicyGym Documentation"
-  description="The 23 current Gymnasium tasks, Balatro game Benchmark, and historical research environments available in EvoPolicyGym."
+  description="Fifty-three EvoPolicyGym Benchmark distributions across Gymnasium, MiniGrid, robotics, driving, and interactive game ecosystems."
+  area="environments"
   current="environments"
   {toc}
 >
@@ -360,165 +95,154 @@ const environmentSource = (environment: EnvironmentEntry) =>
     <Copy en="Environment collection" zh="环境目录" as="h1" />
     <Copy
       class="reference-lead"
-      en="Twenty-three current Gymnasium tasks and one long-horizon game Benchmark, organized by upstream ecosystem and suite."
-      zh="23 个当前 Gymnasium 任务与 1 个长时程游戏 Benchmark，按照上游生态与任务套件组织。"
+      en={`${environmentDistributionCount} Benchmark distributions across ${environmentEcosystemCount} upstream ecosystems, spanning control, robotics, navigation, planning, driving, and games.`}
+      zh={`${environmentDistributionCount} 个 Benchmark distributions，覆盖 ${environmentEcosystemCount} 个上游生态，包括控制、机器人、导航、规划、驾驶与游戏。`}
       as="p"
     />
   </header>
 
-  <section id="organization">
-    <Copy en="Organization" zh="组织方式" as="h2" />
-    <Copy
-      en="The portable Kernel contains no simulator. Every environment is an independently installable Benchmark distribution that owns its Policy interface, typed Environment parameters, deterministic Episode planning, scoring, public Feedback, baseline Program, dependency lock, and tests."
-      zh="可移植 Kernel 不包含 simulator。每个环境都是可独立安装的 Benchmark distribution，自行拥有 Policy 接口、类型化 Environment 参数、确定性 Episode 规划、评分、公开 Feedback、baseline Program、依赖锁与测试。"
-      as="p"
-    />
+  <section id="coverage">
+    <Copy en="Coverage" zh="覆盖范围" as="h2" />
 
-    <div class="reference-tree" aria-label="Environment collection hierarchy">
-      {suites.map((suite) => (
-        <div>
-          <strong>Gymnasium</strong>
-          <span>{suite.name}</span>
-          <Copy
-            as="small"
-            en={`${suite.environments.length} independent distributions`}
-            zh={`${suite.environments.length} 个独立 distributions`}
-          />
-        </div>
-      ))}
+    <dl class="environment-metrics">
       <div>
-        <strong>Jackdaw</strong>
-        <span>Balatro</span>
-        <Copy as="small" en="Red Deck · White Stake run" zh="Red Deck · White Stake run" />
+        <dt><Copy en="Distributions" zh="Distributions" /></dt>
+        <dd>{environmentDistributionCount}</dd>
       </div>
-    </div>
-
-    <div class="reference-note">
-      <strong><Copy en="One task family, one distribution" zh="一个任务族，一个 distribution" /></strong>
-      <Copy
-        en="Registered variants such as FrozenLake8x8, CliffWalkingSlippery, LunarLanderContinuous, and BipedalWalkerHardcore are selected through typed configuration rather than duplicated as packages. Deprecated Gymnasium versions and experimental phys2d or tabular implementations are not separate Benchmarks."
-        zh="FrozenLake8x8、CliffWalkingSlippery、LunarLanderContinuous 与 BipedalWalkerHardcore 等注册变体通过类型化配置选择，而不会复制成多个 package。已弃用的 Gymnasium 版本以及实验性的 phys2d、tabular 实现不单独作为 Benchmark。"
-        as="p"
-      />
-    </div>
-  </section>
-
-  {suites.map((suite) => (
-    <section id={suite.id}>
-      <Copy en={`Gymnasium / ${suite.name}`} zh={`Gymnasium / ${suite.name}`} as="h2" />
-      <Copy en={suite.summary.en} zh={suite.summary.zh} as="p" />
-
-      <table class="reference-table environment-comparison">
-        <thead>
-          <tr>
-            <th><Copy en="Environment" zh="环境" /></th>
-            <th><Copy en="Policy observation" zh="Policy observation" /></th>
-            <th><Copy en="Action" zh="Action" /></th>
-            <th><Copy en="Episode limit" zh="Episode 上限" /></th>
-            <th><Copy en="Primary score" zh="主要评分" /></th>
-            <th><Copy en="Configuration" zh="环境参数" /></th>
-          </tr>
-        </thead>
-        <tbody>
-          {suite.environments.map((environment) => (
-            <tr>
-              <td>
-                {environment.contractPath ? (
-                  <a href={withBase(environment.contractPath)}><strong>{environment.name}</strong></a>
-                ) : (
-                  <strong>{environment.name}</strong>
-                )}
-                <small>{environment.benchmark}</small>
-                <small><a href={environmentSource(environment)} target="_blank" rel="noreferrer">{environment.packageName} ↗</a></small>
-              </td>
-              <td><Copy en={environment.observation.en} zh={environment.observation.zh} /></td>
-              <td><Copy en={environment.action.en} zh={environment.action.zh} /></td>
-              <td>{environment.horizon}</td>
-              <td><Copy en={environment.score.en} zh={environment.score.zh} /></td>
-              <td><Copy en={environment.configuration.en} zh={environment.configuration.zh} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p class="reference-actions">
-        <a href={suiteSource(suite)} target="_blank" rel="noreferrer">
-          <Copy en={`Browse ${suite.name} source ↗`} zh={`浏览 ${suite.name} 源码 ↗`} />
-        </a>
-      </p>
-    </section>
-  ))}
-
-  <section id="jackdaw">
-    <Copy en="Jackdaw / Balatro" zh="Jackdaw / Balatro" as="h2" />
-    <Copy
-      en="Balatro is kept separate from Gymnasium because it is a long-horizon game run powered by the pinned, vendored Jackdaw rules engine. The engine belongs to the Benchmark distribution, never to the portable Kernel."
-      zh="Balatro 与 Gymnasium 分开组织：它是一局由锁定并 vendored 的 Jackdaw 规则引擎驱动的长时程游戏。该引擎属于 Benchmark distribution，而不属于可移植 Kernel。"
-      as="p"
-    />
-
-    <table class="reference-table environment-comparison">
-      <thead>
-        <tr>
-          <th><Copy en="Environment" zh="环境" /></th>
-          <th><Copy en="Policy observation" zh="Policy observation" /></th>
-          <th><Copy en="Action" zh="Action" /></th>
-          <th><Copy en="Episode limit" zh="Episode 上限" /></th>
-          <th><Copy en="Primary score" zh="主要评分" /></th>
-          <th><Copy en="Configuration" zh="环境参数" /></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr id="balatro">
-          <td>
-            <strong>Red Deck · White Stake</strong>
-            <small>Balatro standard run</small>
-          </td>
-          <td><Copy en="Named semantic dictionary of visible game state" zh="可见游戏状态的具名语义字典" /></td>
-          <td><Copy en="Strict tagged dictionary with 21 Action kinds" zh="包含 21 种 Action kind 的严格 tagged 字典" /></td>
-          <td><Copy en="2,048 decisions" zh="2,048 次决策" /></td>
-          <td><Copy en="Mean run score; win bonus 1,000" zh="平均 run score；通关奖励 1,000" /></td>
-          <td><Copy en="Deck, stake, content profile, optional Agent skill" zh="牌组、Stake、内容配置与可选 Agent skill" /></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <dl class="reference-definition">
-      <dt><Copy en="Package" zh="Package" /></dt>
-      <dd><code>evopolicygym-benchmark-balatro==0.2.0</code></dd>
-      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
-      <dd><code>jackdaw/Balatro/red-deck-white-stake/run-score-v2</code></dd>
-      <dt><Copy en="Repository path" zh="仓库路径" /></dt>
-      <dd><code>environments/jackdaw/balatro/</code></dd>
+      <div>
+        <dt><Copy en="Ecosystems" zh="上游生态" /></dt>
+        <dd>{environmentEcosystemCount}</dd>
+      </div>
+      <div>
+        <dt><Copy en="Collections" zh="任务集合" /></dt>
+        <dd>{environmentCollections.length}</dd>
+      </div>
     </dl>
 
-    <p class="reference-actions">
-      <a href={withBase("environments/balatro/replay/")}>
-        <Copy en="Open the baseline replay →" zh="打开 baseline 回放 →" />
-      </a>
-      <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro" target="_blank" rel="noreferrer">
-        <Copy en="Browse the distribution source ↗" zh="浏览 distribution 源码 ↗" />
-      </a>
-    </p>
+    <div class="environment-domain-grid">
+      {environmentDomains.map((domain) => (
+        <article>
+          <span>{String(domainCount(domain.id)).padStart(2, "0")}</span>
+          <Copy en={domain.title.en} zh={domain.title.zh} as="h3" />
+          <Copy en={domain.summary.en} zh={domain.summary.zh} as="p" />
+        </article>
+      ))}
+    </div>
   </section>
 
-  <section id="archive">
-    <Copy en="Research archive" zh="研究档案" as="h2" />
+  {catalogSections.map((section) => {
+    const collections = collectionsFor(section);
+    const distributions = collections.reduce(
+      (total, collection) => total + collection.distributions,
+      0,
+    );
+
+    return (
+      <section id={section.id}>
+        <div class="environment-section-heading">
+          <div>
+            <Copy en={section.title.en} zh={section.title.zh} as="h2" />
+            <Copy en={section.lead.en} zh={section.lead.zh} as="p" />
+          </div>
+          <span>
+            {distributions} <Copy en="distributions" zh="个 distributions" />
+          </span>
+        </div>
+
+        <table class="reference-table environment-comparison environment-catalog-table">
+          <thead>
+            <tr>
+              <th><Copy en="Collection" zh="任务集合" /></th>
+              <th><Copy en="Coverage" zh="覆盖" /></th>
+              <th><Copy en="Policy interface" zh="Policy 接口" /></th>
+              <th><Copy en="Primary measure" zh="主要指标" /></th>
+              <th><Copy en="Environments and profiles" zh="环境与 profiles" /></th>
+            </tr>
+          </thead>
+          <tbody>
+            {collections.map((collection) => (
+              <tr id={collection.id}>
+                <td>
+                  <strong>{collection.suite}</strong>
+                  <small>{collection.ecosystem}</small>
+                  <small>
+                    <Copy en={collection.summary.en} zh={collection.summary.zh} />
+                  </small>
+                  <small>
+                    <a
+                      href={sourceUrl(collection)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Copy en="Source ↗" zh="源码 ↗" />
+                    </a>
+                  </small>
+                </td>
+                <td>
+                  <Copy en={collection.coverage.en} zh={collection.coverage.zh} />
+                </td>
+                <td>
+                  <Copy
+                    en={collection.policyInterface.en}
+                    zh={collection.policyInterface.zh}
+                  />
+                </td>
+                <td>
+                  <Copy en={collection.score.en} zh={collection.score.zh} />
+                </td>
+                <td>
+                  <div class="environment-table-items">
+                    {collection.items.map((item) => (
+                      item.path ? (
+                        <a href={withBase(item.path)}>{item.name}</a>
+                      ) : (
+                        <span>{item.name}</span>
+                      )
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    );
+  })}
+
+  <section id="using">
+    <Copy en="Using a distribution" zh="使用 distribution" as="h2" />
     <Copy
-      en="Core16 is the task set used by the original paper experiment. Its score matrices and final-Policy reruns remain available as versioned evidence, but the archive does not imply that those historical adapters are shipped by the current Kernel."
-      zh="Core16 是原始论文实验使用的任务集合。其分数矩阵与最终 Policy 重跑仍作为带版本的证据保留，但这些档案并不表示当前 Kernel 会分发对应的历史 adapters。"
+      en="Each leaf project owns its dependencies, Benchmark configuration, baseline Program, and tests. Select and build one project from the repository root:"
+      zh="每个叶子 project 自行拥有依赖、Benchmark 配置、baseline Program 与测试。在仓库根目录选择并构建一个 project："
       as="p"
     />
-    <p><a href={withBase("results/")}><Copy en="Read the historical results →" zh="阅读历史结果 →" /></a></p>
+    <pre><code>uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
+uv build environments/gymnasium/classic_control/cartpole</code></pre>
+    <p class="reference-actions">
+      <a
+        href="https://github.com/Linzwcs/EvoPolicyGym/blob/main/environments/STATUS.md"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Copy en="Integration ledger ↗" zh="集成记录 ↗" />
+      </a>
+      <a href={withBase("docs/getting-started/")}>
+        <Copy en="Getting started →" zh="快速开始 →" />
+      </a>
+    </p>
   </section>
 
   <section id="authoring">
     <Copy en="Authoring an environment" zh="编写环境" as="h2" />
     <Copy
-      en="External distributions implement the structural Benchmark and Environment protocols through evopolicygym.authoring. Conformance covers parameter binding, deterministic Episode planning, strict Action validation, sanitized Feedback, failure semantics, and cleanup."
-      zh="外部 distribution 通过 evopolicygym.authoring 实现结构化 Benchmark 与 Environment protocols。Conformance 覆盖参数绑定、确定性 Episode 规划、严格 Action 校验、经过净化的 Feedback、失败语义与资源清理。"
+      en="External distributions implement the Benchmark and Environment protocols through evopolicygym.authoring. The conformance suite covers configuration, Episode planning, Action validation, Feedback, failure semantics, and cleanup."
+      zh="外部 distribution 通过 evopolicygym.authoring 实现 Benchmark 与 Environment protocols。Conformance suite 覆盖配置、Episode 规划、Action 校验、Feedback、失败语义与资源清理。"
       as="p"
     />
-    <p><a href={withBase("docs/authoring/")}><Copy en="Read the authoring guide →" zh="阅读环境编写指南 →" /></a></p>
+    <p>
+      <a href={withBase("docs/authoring/")}>
+        <Copy en="Read the authoring guide →" zh="阅读环境编写指南 →" />
+      </a>
+    </p>
   </section>
 </ReferenceLayout>

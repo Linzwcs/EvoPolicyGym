@@ -5,7 +5,6 @@ export function withBase(path = ""): string {
 }
 
 export function sectionFromPath(pathname: string): string {
-  if (pathname.includes("/results")) return "research";
-  const sections = ["docs", "environments", "runs", "research"];
+  const sections = ["docs", "environments", "results", "blog"];
   return sections.find((section) => pathname.includes(`/${section}`)) ?? "home";
 }

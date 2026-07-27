@@ -19,11 +19,34 @@ published product documentation.
 
 | Area | Purpose | Initial blocks | Content mode |
 | --- | --- | --- | --- |
-| Home | Explain the research thesis and route readers. | Thesis, current status, lifecycle, quick start, project portals. | Short curated Astro page. |
+| Home | Explain the research thesis and route readers. | Thesis, current status, lifecycle, quick start, project portals. | Short curated Astro page; intentionally direct-written. |
 | Docs | Explain the currently implemented system. | Getting started, lifecycle and architecture, Policy ABI, runtime and safety. | Version-aware bilingual Markdown. |
-| Environments | Compare current Benchmark distributions and explain how an external Environment is authored. | Four Gymnasium suites, Balatro, Policy interfaces, parameters, scoring, conformance. | Implementation-backed catalog plus normative authoring guide. |
+| Environments | Compare current Benchmark distributions and explain how an external Environment is authored. | Task-domain overview, upstream ecosystems, suites, profiles, Policy interfaces, scoring, conformance. | Implementation-backed catalog plus normative authoring guide. |
 | Results | Preserve and inspect benchmark evidence. | Methodology, score matrix, qualitative reruns, per-environment records. | Immutable experiment data with custom views. |
-| Research | Hold rationale and forward-looking work. | Paper, protocol rationale, architecture notes, roadmap. | Essays and design notes; clearly marked draft or historical. |
+| Blog | Record when and why the project changes. | Releases, engineering decisions, Benchmark integrations, experiment retrospectives. | Date-ordered bilingual Markdown posts. |
+
+## Theme and content boundary
+
+The site does not force every surface into Markdown. Choose the source by the
+kind of change:
+
+- write a curated landing page directly in `src/pages/` when its structure and
+  visual composition are edited together;
+- write explanatory Docs and Blog prose in `src/content/`;
+- keep release identity and other shared facts in `src/data/`;
+- keep large catalogs, score matrices, reruns, and other generated evidence in
+  typed datasets with purpose-built views;
+- keep typography, spacing, navigation shell, article rendering, and responsive
+  behavior in `src/layouts/`, `src/components/`, and `src/styles/`.
+
+Content files must not carry theme classes. Theme code must not contain
+paragraph-length editorial copy. Collection metadata drives titles,
+descriptions, navigation, ordering, status, and bilingual pairing.
+
+Blog content is organized by publication date and may describe releases,
+implementation decisions, and experiment retrospectives. Blog posts link to
+Docs, Results, and Environments as their factual sources; they do not redefine
+those surfaces.
 
 Project governance links such as README, CONTRIBUTING, CHANGELOG, license, and
 repository source remain in the footer or GitHub until they justify a dedicated
@@ -75,7 +98,9 @@ For each future release:
 ## Environment section status
 
 The public boundary, structural entry points, lifecycle, conformance semantics,
-and CartPole reference contract are implementation-backed. The live catalog now
-covers all 23 current tasks in Gymnasium's four documented built-in suites plus
-Balatro. Future dedicated Environment pages should use the CartPole contract
-shape and must remain grounded in the corresponding distribution and tests.
+and CartPole reference contract are implementation-backed. The live catalog
+covers 53 independently installable Benchmark distributions across nine
+upstream ecosystems. Catalog content lives in a typed data module and is grouped
+first by research task domain, then by ecosystem and suite. Future dedicated
+Environment pages should use the CartPole contract shape and remain grounded in
+the corresponding distribution and tests.

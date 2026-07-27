@@ -1,6 +1,10 @@
 ---
 import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
 import Copy from "../../components/Copy.astro";
+import {
+  environmentDistributionCount,
+  environmentEcosystemCount,
+} from "../../data/environmentCatalog";
 import { withBase } from "../../lib/paths";
 
 const toc = [
@@ -13,6 +17,7 @@ const toc = [
 <ReferenceLayout
   title="Documentation — EvoPolicyGym"
   description="Documentation for the EvoPolicyGym v0.3 public SDK, Policy ABI, evaluation lifecycle, and Benchmark authoring SPI."
+  area="docs"
   current="docs"
   {toc}
 >
@@ -76,13 +81,16 @@ const toc = [
   <section id="recommended-path">
     <Copy en="Recommended path" zh="推荐阅读路径" as="h2" />
     <ol>
-      <li><Copy en="Run the CartPole baseline in Getting started." zh="按照快速开始运行 CartPole baseline。" /></li>
-      <li><Copy en="Compare all 23 Gymnasium tasks in the Environment collection, including observations, Actions, limits, scores, and parameters." zh="在环境目录中比较全部 23 个 Gymnasium 任务的 Observation、Action、上限、评分与参数。" /></li>
-      <li><Copy en="Move from Toy Text to Box2D and MuJoCo as you need richer planning, physics, or continuous control." zh="需要更丰富的规划、物理或连续控制时，从 Toy Text 逐步转向 Box2D 与 MuJoCo。" /></li>
-      <li><Copy en="Inspect Balatro when you need a long-horizon game, rich observations, and complete semantic replay." zh="需要长时程游戏、丰富 Observation 与完整语义回放时，查看 Balatro。" /></li>
-      <li><Copy en="Read Core concepts to learn the vocabulary and ownership boundaries." zh="阅读核心概念，理解领域词汇与所有权边界。" /></li>
+      <li><Copy en="Complete the first Evaluation in Getting started." zh="按照快速开始完成第一次 Evaluation。" /></li>
+      <li>
+        <Copy
+          en={`Browse ${environmentDistributionCount} distributions across ${environmentEcosystemCount} ecosystems in the Environment collection.`}
+          zh={`在环境目录中浏览覆盖 ${environmentEcosystemCount} 个生态的 ${environmentDistributionCount} 个 distributions。`}
+        />
+      </li>
+      <li><Copy en="Read Core concepts for the domain model and lifecycle." zh="阅读核心概念，理解领域模型与生命周期。" /></li>
       <li><Copy en="Use Policy ABI when writing submitted code." zh="编写提交代码时参考 Policy ABI。" /></li>
-      <li><Copy en="Use Evaluation and Runs when integrating a caller or coding agent." zh="接入 caller 或 Coding Agent 时参考 Evaluation 与 Runs。" /></li>
+      <li><Copy en="Use Evaluation and Runs when integrating a caller or Coding Agent." zh="接入 caller 或 Coding Agent 时参考 Evaluation 与 Runs。" /></li>
       <li><Copy en="Use Benchmark authoring when publishing a new Environment distribution." zh="发布新的 Environment distribution 时参考 Benchmark 编写。" /></li>
     </ol>
   </section>

@@ -53,42 +53,71 @@ uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
 在 5 个确定性的 validation Episodes 上评估示例 distribution 提供的 Program：
 
 ```console
-uv run --project environments/gymnasium/classic_control/cartpole \
-  evopolicygym-cartpole evaluate \
-  --episodes 5 \
-  --allow-unsafe-process
+uv run --project environments/gymnasium/classic_control/cartpole python - <<'PY'
+from cartpole import CartPoleBenchmark, baseline_program
+from evopolicygym import EvaluationConfig, evaluate
+from evopolicygym.execution import ProcessExecution
+
+result = evaluate(
+    baseline_program(),
+    CartPoleBenchmark(),
+    execution=ProcessExecution.unsafe(),
+    config=EvaluationConfig(split="validation", episodes=5, seed=42),
+)
+print(result.feedback.score)
+print(result.feedback.content)
+PY
 ```
 
-命令输出一个 JSON object，其中包含 Benchmark identity、不可变 Program digest、
-标量分数与公开 Feedback。Feedback 内容遵循所选 Benchmark 契约。
+示例输出标量分数与 Benchmark 定义的公开 Feedback。`EvaluationResult` 还保留
+Benchmark identity、不可变 Program digest 与经过净化的 Episode summaries。
 
-`--allow-unsafe-process` 用于确认以当前本地用户权限执行。
+`ProcessExecution.unsafe()` 明确确认以当前本地用户权限执行。
 
 ## 运行 Coding Agent（可选）
 
 完成 Codex CLI 认证后，让 Agent 在较小的开发预算内修改示例 Program：
 
 ```console
+mkdir -p runs
 uv run --project environments/gymnasium/classic_control/cartpole \
-  evopolicygym-cartpole run \
-  --model gpt-5.5 \
+  python scripts/run_cartpole_codex.py \
+  --model gpt-5.6-luna \
+  --reasoning-effort high \
   --record-to runs/quickstart-001 \
   --max-submissions 3 \
   --episode-budget 30 \
+  --episode-pool-size 60 \
+  --max-episodes-per-submission 10 \
   --allow-unsafe-process
 ```
 
-Agent 自行决定每次 Submission 使用的 Episode 数量。Program workspace 位于
+Host 会在 Agent 启动前构建 60 个固定的 Run-local 训练 Episode identity。Agent
+为每次 Submission 选择非空编号集合，同时遵守总计 30 个 Episode 单位、单次至多
+10 个的预算。Program workspace 位于
 `runs/quickstart-001/workspace/program/`，已提交 Feedback 位于
 `workspace/feedback/`，Host 记录保存在 Run 目录中。
+
+在有效的 Agent Session 内，Submission 使用单点编号与半开区间：
+
+```console
+evopolicygym submit program --episodes "0:2,4:8"
+```
+
+上述 selector 会评估编号 `0, 1, 4, 5, 6, 7`。在后续 Submission 中复用编号可以
+得到相同的 Episode specification 与 Policy seed，用于配对比较；但每次使用仍会
+创建全新的 Environment 与 Policy runtime，并再次扣除预算。真实 seed 始终隐藏。
 
 ## Run 执行的流程
 
 1. 初始 Policy 目录成为不可变、内容寻址的 `Program`。
-2. Coding Agent 获得固定 workspace、Benchmark specification 与有限提交权限。
-3. 每次 Evaluation 都会规划确定性的 Episodes。
-4. 每个 Episode 都创建全新的 Environment 与 Policy 进程。
-5. 完成的 Submission 原子发布 Program、Feedback、Episode summaries 与可选 artifacts。
+2. Agent 执行前，Host 根据 Run seed 构建一个确定性的编号训练池。
+3. Coding Agent 获得固定 workspace、Benchmark specification、可选池边界，以及
+   有限的 Submission 与 Episode 权限。
+4. 每次 Submission 显式选择池编号；每个所选编号都创建全新的 Environment 与
+   Policy 进程。
+5. 完成的 Submission 原子发布 Program、所选编号、Feedback、Episode summaries
+   与可选 artifacts。
 6. Agent 从完全发布的 Submissions 中选择最终 Program。
 
 ## 下一步

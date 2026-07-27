@@ -21,7 +21,7 @@ status: draft
 | `Evaluation` | One Program evaluated over a finite deterministic Episode plan. |
 | `Feedback` | A Benchmark-defined public projection with one scalar score, bounded content, and optional artifacts. |
 | `Submission` | One Program and the committed Feedback produced when a Coding Agent requests Evaluation. |
-| `ProgramEvolutionRun` | One bounded outer loop in which a Coding Agent edits Programs, submits candidates, reads Feedback, and selects a final Submission. |
+| `ProgramEvolutionRun` | One bounded outer loop in which a Coding Agent edits Programs, submits candidates, reads Feedback, and hands published candidates to Host-side selection. |
 | `Experiment` | Reserved for a future collection of comparable Runs. |
 
 The public SDK uses `Program`, not `ProgramVersion`. A Program retains no Host
@@ -53,22 +53,32 @@ outer Coding Agent authors a new Program.
 ```text
 initial Program
   ↓
+Host fixes indexed training Episode pool
+  ↓
 Coding Agent edits workspace/program/
   ↓
-Submission → Evaluation → committed Feedback
+Submission(selector) → fresh runtimes → committed Feedback
   ↓
-Coding Agent reads workspace/feedback/
+Coding Agent reads indexed outcomes in workspace/feedback/
   ↓
-next Program or finish(selected submission)
+next Program or finish(candidate IDs)
+  ↓
+Host-side final selection
 ```
 
 A `RunConfig` fixes the split, maximum submissions, total Episode budget,
 fixed training Episode-pool size, optional per-Submission Episode cap, seed,
-and timeouts. The pool size defaults to the total budget. The Agent selects
-public Run-local indices from that pool; the same index preserves its hidden
-Episode specification and Policy seed across Submissions, while each use
-creates fresh runtime state and consumes budget again. The optional
-per-Submission cap defaults to `None`.
+and timeouts before the Agent starts. Pool size and budget are different
+limits: the pool controls how many Episode identities are available, while the
+budget controls the total number of selected indices across all Submissions.
+The pool size defaults to the total budget.
+
+The Agent selects public Run-local indices from that pool. The same index
+preserves its hidden Episode specification and Policy seed across Submissions,
+which supports matched Program comparisons. Every use still creates fresh
+runtime state and consumes budget again. Pool indices are experimental handles,
+not Environment seeds, and neither the Agent nor the Policy receives the
+underlying seed. The optional per-Submission cap defaults to `None`.
 
 ## Trust boundary
 

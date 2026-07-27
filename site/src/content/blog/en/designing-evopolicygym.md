@@ -91,7 +91,7 @@ This choice makes a Run understandable as a sequence of authored artifacts:
 | Object | Responsibility |
 | --- | --- |
 | `Program` | The executable Policy source being evaluated |
-| `Submission` | One immutable Program paired with committed Feedback |
+| `Submission` | One immutable Program, an explicit training-index selector, and committed Feedback |
 | `Run` | A bounded sequence of submissions and a final handoff |
 | `Validation` | Host-side selection among finished candidates |
 | `Assessment` | Held-out measurement of the selected Program |
@@ -120,14 +120,24 @@ Kernel remains stable and domain-independent.
 
 ## Treat evidence access as part of the experiment
 
-A Run's submission and Episode limits define its experimental condition.
-Sixteen submissions and forty-eight Episodes grant a specific amount of
-evidence from which the agent can improve.
+A Run's submission limit, total Episode budget, fixed training-pool size, and
+optional per-Submission cap define its experimental condition. For example,
+sixteen submissions, forty-eight Episode units, and a pool of ninety-six
+Episode identities grant forty-eight total observations selected from a wider
+set; the larger pool does not increase the interaction budget.
 
-These limits are fixed before the agent starts. Once an Evaluation begins, its
-Episode allocation is consumed. Policy failures and invalid Actions are
-reported as observed behavior, preserving the exact semantics of the submitted
-Program.
+The Host constructs this indexed pool before the agent starts. Each Submission
+names a non-empty set of public Run-local indices. Reusing an index keeps its
+hidden Episode specification and Policy seed fixed, so two immutable Programs
+can be compared on matched evidence. Every use still creates a fresh
+Environment and Policy runtime and consumes budget again. Actual seeds,
+scenarios, and pool construction remain Host-owned.
+
+Once an Evaluation begins, its reserved Episode allocation is consumed. Policy
+failures and invalid Actions are reported as observed behavior, preserving the
+exact semantics of the submitted Program. Feedback maps every sanitized
+Episode outcome back to its public index, while comparisons over different
+selectors remain unmatched evidence.
 
 The agent uses public search Feedback to decide what to try next. When it
 finishes, authority returns to the Host. Private Validation selects among the

@@ -69,7 +69,7 @@ result = run(
     Program.from_directory("policy/"),
     CartPoleBenchmark(),
     agent=Codex(
-        model="gpt-5.5",
+        model="gpt-5.6-luna",
         reasoning_effort="high",
     ),
     execution=ProcessExecution.unsafe(),
@@ -96,9 +96,19 @@ evopolicygym submit program --episodes "0:2,4:8"
 
 该选择器展开为编号 `0, 1, 4, 5, 6, 7`。同一编号在不同 Submission 中保持隐藏
 Episode specification 与 Policy seed 不变，但每次使用仍会创建全新的 Environment
-与 Policy runtime，并再次消耗预算。`episode_pool_size` 默认等于
-`episode_budget`。只有 Host 需要额外限制时才设置
-`max_episodes_per_submission`。
+与 Policy runtime，并再次消耗预算。Selector 必须非空且严格递增。重复、重叠、
+格式非法、超出池范围或超过预算的选择，会在捕获 Program 之前被拒绝。
+
+| Run 限制 | 含义 |
+| --- | --- |
+| `episode_pool_size` | Agent 可选择的不同 Run-local Episode identity 数量；默认等于 `episode_budget`。 |
+| `episode_budget` | 所有被接受 Submission 累计扣除的所选编号数量；重复编号也会再次计费。 |
+| `max_episodes_per_submission` | 对单个 selector 的可选额外上限；默认不增加限制。 |
+
+每个已发布的 `feedback.json` 都包含精确的 `episode_indices`，并通过公开
+`episode_index` 将每个经过净化的 Episode summary 映射回所选编号。因此，在相同
+selector 上比较两个 Program revision 可以得到配对证据。来自不同 selector 的结果
+不会因为它们在各自数组中的位置相同而自动配对。
 
 Agent Skill 是独立的 Run 输入，而不是 Benchmark 属性。调用者使用
 `AgentSkill.from_directory("skills/<name>")` 冻结明确选择的目录，并通过
@@ -122,11 +132,18 @@ Policy process。仓库中的 Balatro Skill 是用于证据分配、策略开发
 Policy failure 是已提交的计分结果；可信 Evaluation fault 会以
 `evaluation_failed` 关闭 Run。
 
-## 选择最终 Program
+## 交接候选
 
-Agent 通过选择一个完全发布的 Submission 完成 Run。返回的
-`RunResult.final_program` 是该 Submission 保留的脱离路径 Program，而不是 Agent
-workspace 中可能继续变化的内容。
+未配置 `ValidationConfig` 时，Agent 必须以一个完全发布的 Submission 结束，
+Host 会在 Agent 清理完成后选择这个唯一候选。配置 Validation 后，`finish` 接受
+由一至 `validation.max_candidates` 个已发布 Submission ID 组成的有序列表。
+成功请求会关闭 Agent 权限；随后 Host 在完全相同的私有 Validation Episodes 上
+评估所有交接 Program，并按 primary score、Policy failure 数量和参数顺序选择。
+Validation 证据绝不会返回 Agent workspace。
+
+当 `RunResult.final_program` 可用时，它是 Host 所选 Submission 保留的脱离路径
+Program，而不是 Agent workspace 中可能继续变化的内容。可选 Assessment 只测量
+这个已选 Program，绝不会改变选择。
 
 可能的 terminal reason 包括：
 
@@ -135,6 +152,8 @@ workspace 中可能继续变化的内容。
 - `budget_exhausted`
 - `agent_failed`
 - `evaluation_failed`
+- `validation_failed`
+- `assessment_failed`
 
 ## Run records
 

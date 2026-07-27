@@ -1,4 +1,4 @@
 interface:
-  display_name: "Engineer Balatro Policy"
-  short_description: "Build and validate robust Balatro policy systems"
-  default_prompt: "Use $optimize-balatro-policy to engineer, test, and select a robust Balatro Policy system."
+  display_name: "Optimize Balatro Policy"
+  short_description: "Run indexed Balatro policy experiments"
+  default_prompt: "Use $optimize-balatro-policy to partition the train Episode pool and budget, run matched Policy experiments, and hand frozen candidates to Host Validation."

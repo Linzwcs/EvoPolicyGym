@@ -103,15 +103,26 @@ const environmentFamilies = [
         <p class="academic-label">01 · <Copy en="Start here" zh="从这里开始" /></p>
         <Copy en="Quick start" zh="快速开始" as="h2" id="quickstart-heading" />
         <Copy
-          en="Install the repository and evaluate the packaged CartPole baseline over five Episodes."
-          zh="安装仓库，并在 5 个 Episodes 上评估 package 内置的 CartPole baseline。"
+          en="Install the CartPole Benchmark and directly evaluate its packaged baseline over five Episodes."
+          zh="安装 CartPole Benchmark，并在 5 个 Episodes 上直接评估 package 内置的 baseline。"
           as="p"
         />
         <pre><code>git clone https://github.com/Linzwcs/EvoPolicyGym
 cd EvoPolicyGym
 uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv run --project environments/gymnasium/classic_control/cartpole \
-  evopolicygym-cartpole evaluate --episodes 5 --allow-unsafe-process</code></pre>
+uv run --project environments/gymnasium/classic_control/cartpole python - &lt;&lt;'PY'
+from cartpole import CartPoleBenchmark, baseline_program
+from evopolicygym import EvaluationConfig, evaluate
+from evopolicygym.execution import ProcessExecution
+
+result = evaluate(
+    baseline_program(),
+    CartPoleBenchmark(),
+    execution=ProcessExecution.unsafe(),
+    config=EvaluationConfig(split="validation", episodes=5, seed=42),
+)
+print(result.feedback.score)
+PY</code></pre>
         <a class="text-link" href={withBase("docs/getting-started/")}>
           <Copy en="Full installation and usage guide" zh="完整安装与使用指南" /> →
         </a>

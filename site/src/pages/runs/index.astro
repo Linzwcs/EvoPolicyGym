@@ -22,8 +22,8 @@ const toc = [
     <Copy en="Run records" zh="Run 记录" as="h1" />
     <Copy
       class="reference-lead"
-      en="A Program-Evolution Run is a bounded sequence of immutable Program submissions and committed Feedback."
-      zh="一次 Program-Evolution Run 是由不可变 Program 提交与已提交 Feedback 构成的有界序列。"
+      en="A Program-Evolution Run is a bounded sequence of immutable Programs evaluated on Agent-selected indices from one fixed training Episode pool."
+      zh="一次 Program-Evolution Run 是一个有界序列：Agent 从固定训练 Episode 池中选择编号，并评估不可变 Programs。"
       as="p"
     />
   </header>
@@ -31,23 +31,29 @@ const toc = [
   <section id="run-model">
     <Copy en="Run model" zh="Run 模型" as="h2" />
     <Copy
-      en="The Kernel gives a Coding Agent a fixed workspace, submission authority, Episode budget, and Benchmark specification. The Agent edits only the Program workspace, submits candidates, reads committed public feedback, and selects one published Submission as final."
-      zh="Kernel 向 Coding Agent 提供固定 workspace、提交权限、Episode 预算与 Benchmark specification。Agent 只编辑 Program workspace，提交候选、读取已提交的公开反馈，并从已发布的 Submissions 中选择最终结果。"
+      en="Before Agent execution, the Kernel derives one fixed indexed training pool from the Run seed. The Coding Agent receives a workspace, the public pool bounds, submission authority, an Episode budget, and the Benchmark specification. It edits only the Program workspace, submits explicit index selectors, reads committed public Feedback, and hands one or more published candidates back to the Host."
+      zh="Agent 执行前，Kernel 根据 Run seed 派生一个固定的编号训练池。Coding Agent 获得 workspace、公开池边界、提交权限、Episode 预算与 Benchmark specification；它只编辑 Program workspace，提交显式编号 selector，读取已提交的公开 Feedback，并把一个或多个已发布候选交还 Host。"
+      as="p"
+    />
+    <Copy
+      en="Reusing the same index across Submissions keeps the hidden Episode specification and Policy seed fixed for matched comparisons. Every use still creates a fresh Environment and Policy runtime and consumes one budget unit. The index is public; the underlying seeds and scenarios are not."
+      zh="在不同 Submission 中复用同一编号，会为配对比较保持隐藏 Episode specification 与 Policy seed 不变；但每次使用仍创建全新的 Environment 与 Policy runtime，并扣除一个预算单位。编号公开，底层 seeds 与 scenarios 不公开。"
       as="p"
     />
     <div class="reference-flow">
       <div><span>01</span><strong>Program</strong><small>immutable source</small></div>
-      <div><span>02</span><strong>Evaluation</strong><small>bounded Episodes</small></div>
-      <div><span>03</span><strong>Feedback</strong><small>public evidence</small></div>
-      <div><span>04</span><strong>Revision</strong><small>next Program</small></div>
+      <div><span>02</span><strong>Selector</strong><small>Run-local indices</small></div>
+      <div><span>03</span><strong>Evaluation</strong><small>fresh runtimes</small></div>
+      <div><span>04</span><strong>Feedback</strong><small>indexed evidence</small></div>
+      <div><span>05</span><strong>Revision</strong><small>next Program</small></div>
     </div>
   </section>
 
   <section id="record-layout">
     <Copy en="Record layout" zh="记录结构" as="h2" />
     <Copy
-      en="A completed local Run retains the initial Program, every submitted Program, Feedback and artifacts, the Agent invocation, separate logs, workspace state, and a terminal run manifest."
-      zh="完成的本地 Run 会保留初始 Program、每个已提交 Program、Feedback 与 artifacts、Agent invocation、独立日志、workspace 状态以及终态 run manifest。"
+      en="A completed local Run retains the fixed pool configuration and derivation identifiers, every selected index set, the initial and submitted Programs, Feedback and artifacts, the Agent invocation and logs, workspace state, and a terminal manifest."
+      zh="完成的本地 Run 会保留固定池配置与派生协议标识、每组所选编号、初始与已提交 Programs、Feedback 与 artifacts、Agent invocation 与日志、workspace 状态以及终态 manifest。"
       as="p"
     />
     <pre><code>run/
@@ -59,9 +65,24 @@ const toc = [
 │   ├── feedback.json
 │   └── artifacts/
 ├── agent/
+│   ├── invocation.json
+│   ├── stdout.log
+│   └── stderr.log
+├── validation/report.json      # optional, Host-only
+├── assessment/report.json      # optional, Host-only
 └── workspace/
     ├── program/
-    └── feedback/</code></pre>
+    ├── skills/                  # optional, read-only
+    └── feedback/
+        ├── latest.json
+        └── submissions/&lt;id&gt;/
+            ├── feedback.json
+            └── artifacts/</code></pre>
+    <Copy
+      en="Each Feedback document records the selector as episode_indices and labels every sanitized outcome with its matching episode_index. Host-only Validation and Assessment reports, when configured, are created only after the Agent Session closes and are never projected into workspace Feedback."
+      zh="每份 Feedback document 都以 episode_indices 记录 selector，并用对应的 episode_index 标记每个经过净化的结果。配置 Host-only Validation 与 Assessment 时，相关报告只会在 Agent Session 关闭后生成，绝不会投影到 workspace Feedback。"
+      as="p"
+    />
   </section>
 
   <section id="current-records">

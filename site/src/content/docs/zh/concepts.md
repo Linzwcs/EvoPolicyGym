@@ -21,7 +21,7 @@ status: draft
 | `Evaluation` | 在有限、确定性 Episode plan 上评估一个 Program。 |
 | `Feedback` | 由 Benchmark 定义的公开投影，包含一个标量分数、有界 content 与可选 artifacts。 |
 | `Submission` | Coding Agent 请求 Evaluation 后得到的一组 Program 与已提交 Feedback。 |
-| `ProgramEvolutionRun` | Coding Agent 编辑 Programs、提交候选、读取 Feedback，并选择最终 Submission 的一次有界外层循环。 |
+| `ProgramEvolutionRun` | Coding Agent 编辑 Programs、提交候选、读取 Feedback，并把已发布候选交给 Host 侧选择的一次有界外层循环。 |
 | `Experiment` | 保留给未来由多个可比较 Runs 组成的集合。 |
 
 公共 SDK 使用 `Program`，而不是 `ProgramVersion`。Program 不保留 Host
@@ -51,20 +51,28 @@ Episode。跨 Episode 的改进只能通过外层 Coding Agent 编写新 Program
 ```text
 initial Program
   ↓
+Host fixes indexed training Episode pool
+  ↓
 Coding Agent edits workspace/program/
   ↓
-Submission → Evaluation → committed Feedback
+Submission(selector) → fresh runtimes → committed Feedback
   ↓
-Coding Agent reads workspace/feedback/
+Coding Agent reads indexed outcomes in workspace/feedback/
   ↓
-next Program or finish(selected submission)
+next Program or finish(candidate IDs)
+  ↓
+Host-side final selection
 ```
 
 `RunConfig` 固定 split、最大 submissions、总 Episode 预算、训练 Episode 池大小、
-可选的单次 Submission Episode 上限、seed 与 timeouts。池大小默认等于总预算。
-Agent 从池中选择公开的 Run-local 编号；同一编号在不同 Submission 中保持隐藏
-Episode specification 与 Policy seed 不变，但每次使用仍创建全新的 runtime 状态并
-再次扣除预算。单次上限默认为 `None`。
+可选的单次 Submission Episode 上限、seed 与 timeouts，并且都在 Agent 启动前
+确定。池大小与预算是两个不同的限制：池大小控制可用的 Episode identity 数量，
+预算控制所有 Submissions 累计选择的编号数量。池大小默认等于总预算。
+
+Agent 从池中选择公开的 Run-local 编号。同一编号在不同 Submission 中保持隐藏
+Episode specification 与 Policy seed 不变，从而支持配对比较；但每次使用仍创建
+全新的 runtime 状态并再次扣除预算。池编号是实验句柄，不是 Environment seed；
+Agent 与 Policy 都无法看到底层 seed。单次上限默认为 `None`。
 
 ## 信任边界
 

@@ -56,17 +56,28 @@ Evaluate the example distribution's packaged Program over five deterministic
 validation Episodes:
 
 ```console
-uv run --project environments/gymnasium/classic_control/cartpole \
-  evopolicygym-cartpole evaluate \
-  --episodes 5 \
-  --allow-unsafe-process
+uv run --project environments/gymnasium/classic_control/cartpole python - <<'PY'
+from cartpole import CartPoleBenchmark, baseline_program
+from evopolicygym import EvaluationConfig, evaluate
+from evopolicygym.execution import ProcessExecution
+
+result = evaluate(
+    baseline_program(),
+    CartPoleBenchmark(),
+    execution=ProcessExecution.unsafe(),
+    config=EvaluationConfig(split="validation", episodes=5, seed=42),
+)
+print(result.feedback.score)
+print(result.feedback.content)
+PY
 ```
 
-The command prints one JSON object containing the Benchmark identity,
-immutable Program digest, scalar score, and public Feedback. Feedback content
-follows the selected Benchmark contract.
+The example prints the scalar score and Benchmark-defined public Feedback.
+`EvaluationResult` also retains the Benchmark identity, immutable Program
+digest, and sanitized Episode summaries.
 
-`--allow-unsafe-process` acknowledges execution under the current local user.
+`ProcessExecution.unsafe()` explicitly acknowledges execution under the
+current local user.
 
 ## Run a Coding Agent (optional)
 
@@ -74,29 +85,50 @@ After authenticating the Codex CLI, let the Agent revise the example Program
 within a small development budget:
 
 ```console
+mkdir -p runs
 uv run --project environments/gymnasium/classic_control/cartpole \
-  evopolicygym-cartpole run \
-  --model gpt-5.5 \
+  python scripts/run_cartpole_codex.py \
+  --model gpt-5.6-luna \
+  --reasoning-effort high \
   --record-to runs/quickstart-001 \
   --max-submissions 3 \
   --episode-budget 30 \
+  --episode-pool-size 60 \
+  --max-episodes-per-submission 10 \
   --allow-unsafe-process
 ```
 
-The Agent chooses the Episode count for each Submission. Its Program workspace
-is `runs/quickstart-001/workspace/program/`, committed Feedback appears under
-`workspace/feedback/`, and Host records remain in the Run directory.
+The Host constructs 60 fixed Run-local training Episode identities before the
+Agent starts. The Agent chooses a non-empty index selector for each Submission
+while spending at most 30 Episode units in total and 10 per Submission. Its
+Program workspace is `runs/quickstart-001/workspace/program/`, committed
+Feedback appears under `workspace/feedback/`, and Host records remain in the
+Run directory.
+
+Inside the active Agent Session, a Submission uses singleton indices and
+half-open ranges:
+
+```console
+evopolicygym submit program --episodes "0:2,4:8"
+```
+
+The selector above evaluates indices `0, 1, 4, 5, 6, 7`. Reusing an index in a
+later Submission provides a matched Episode specification and Policy seed, but
+still creates a fresh Environment and Policy runtime and spends budget again.
+The actual seeds remain hidden.
 
 ## What the Run does
 
 1. The initial Policy directory became an immutable, content-addressed
    `Program`.
-2. The Coding Agent received a fixed workspace, Benchmark specification, and
-   finite submission authority.
-3. Every requested Evaluation planned deterministic Episodes.
-4. Every Episode created a fresh Environment and fresh Policy process.
-5. A completed Submission atomically published its Program, Feedback, Episode
-   summaries, and optional artifacts.
+2. Before Agent execution, the Host built one deterministic indexed training
+   pool from the Run seed.
+3. The Coding Agent received a fixed workspace, Benchmark specification,
+   selectable pool bounds, and finite submission and Episode authority.
+4. Every Submission selected explicit pool indices; every selected index
+   created a fresh Environment and fresh Policy process.
+5. A completed Submission atomically published its Program, selected indices,
+   Feedback, Episode summaries, and optional artifacts.
 6. The Agent selected one fully published Submission as the final Program.
 
 ## Next steps

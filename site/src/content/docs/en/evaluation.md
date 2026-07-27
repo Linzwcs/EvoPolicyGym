@@ -71,7 +71,7 @@ result = run(
     Program.from_directory("policy/"),
     CartPoleBenchmark(),
     agent=Codex(
-        model="gpt-5.5",
+        model="gpt-5.6-luna",
         reasoning_effort="high",
     ),
     execution=ProcessExecution.unsafe(),
@@ -100,8 +100,21 @@ evopolicygym submit program --episodes "0:2,4:8"
 That selector expands to indices `0, 1, 4, 5, 6, 7`. The same index preserves
 its hidden Episode specification and Policy seed across Submissions, but every
 use creates a fresh Environment and Policy runtime and consumes budget again.
-`episode_pool_size` defaults to `episode_budget`. Set
-`max_episodes_per_submission` only when the Host needs an additional cap.
+Selectors must be non-empty and strictly increasing. Duplicate, overlapping,
+malformed, out-of-pool, and over-budget selections are rejected before Program
+capture.
+
+| Run limit | Meaning |
+| --- | --- |
+| `episode_pool_size` | Number of distinct Run-local Episode identities the Agent may select. Defaults to `episode_budget`. |
+| `episode_budget` | Total selected indices charged across every accepted Submission, including repeated indices. |
+| `max_episodes_per_submission` | Optional additional cap on one selector; defaults to no extra cap. |
+
+Each published `feedback.json` contains the exact `episode_indices` and maps
+every sanitized Episode summary back to its public `episode_index`. Comparing
+two Program revisions on the same selector therefore provides matched
+evidence. Results produced by different selectors are not paired merely
+because they have the same position in their respective arrays.
 
 Agent Skills are independent Run inputs rather than Benchmark properties.
 Freeze each selected directory with
@@ -129,11 +142,21 @@ Invalid Program capture does not consume Episode budget. Once Evaluation
 starts, reserved budget is not refunded. A Policy failure is a committed scored
 result; a trusted Evaluation fault closes the Run as `evaluation_failed`.
 
-## Selecting the final Program
+## Handing off candidates
 
-The Agent finishes by selecting one fully published Submission. The returned
-`RunResult.final_program` is the detached Program retained for that
-Submission—not the possibly modified contents left in the Agent workspace.
+Without `ValidationConfig`, the Agent finishes with exactly one fully published
+Submission and the Host selects that sole candidate after Agent cleanup. With
+Validation configured, `finish` accepts an ordered list of one to
+`validation.max_candidates` published Submission IDs. The successful request
+closes Agent authority; the Host then evaluates every handed-off Program on
+identical private Validation Episodes and selects by primary score, Policy
+failures, and argument order. Validation evidence is never returned to the
+Agent workspace.
+
+The returned `RunResult.final_program`, when available, is the detached Program
+retained for the Host-selected Submission—not the possibly modified contents
+left in the Agent workspace. Optional Assessment measures only that selected
+Program and never changes selection.
 
 Possible terminal reasons are:
 
@@ -142,6 +165,8 @@ Possible terminal reasons are:
 - `budget_exhausted`
 - `agent_failed`
 - `evaluation_failed`
+- `validation_failed`
+- `assessment_failed`
 
 ## Run records
 

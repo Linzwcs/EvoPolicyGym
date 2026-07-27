@@ -81,7 +81,7 @@ Workspace 支持持续编写。每个被接受的 Submission 都会把当前源�
 | 对象 | 职责 |
 | --- | --- |
 | `Program` | 被评估的可执行 Policy 源码 |
-| `Submission` | 一个不可变 Program 及其已提交 Feedback |
+| `Submission` | 一个不可变 Program、显式训练编号 selector 及其已提交 Feedback |
 | `Run` | 有界的提交序列与最终交接 |
 | `Validation` | Host 在候选之间进行选择 |
 | `Assessment` | 在 held-out 数据上测量所选 Program |
@@ -106,12 +106,20 @@ domain-independent。
 
 ## 将证据访问视为实验条件
 
-Run 的 Submission 与 Episode 上限定义实验条件。16 次提交和 48 个 Episodes
-代表 Agent 可以用于改进的特定证据预算。
+Run 的 Submission 上限、总 Episode 预算、固定训练池大小与可选单次上限共同定义
+实验条件。例如，16 次提交、48 个 Episode 单位与 96 个 Episode identity 的池，
+表示 Agent 可以从更宽的集合中选择并观察总计 48 次；更大的池不会增加交互预算。
 
-这些限制会在 Agent 启动前固定。一旦 Evaluation 开始，对应 Episode 配额就会被
-消耗。Policy failure 与无效 Action 会作为观察到的行为被报告，从而保持提交
-Program 的精确语义。
+Host 会在 Agent 启动前构建这个编号池。每次 Submission 都指定一组非空、公开的
+Run-local 编号。复用编号会保持其隐藏 Episode specification 与 Policy seed 不变，
+因此两个不可变 Program 可以在配对证据上比较；但每次使用仍创建全新的
+Environment 与 Policy runtime，并再次扣除预算。真实 seeds、scenarios 与池构建
+过程仍由 Host 持有。
+
+Evaluation 一旦开始，预留的 Episode 配额就会被消耗。Policy failure 与无效
+Action 会作为观察到的行为被报告，从而保持提交 Program 的精确语义。Feedback
+会把每个经过净化的 Episode 结果映射回公开编号，而不同 selector 之间的比较仍是
+未配对证据。
 
 Agent 利用公开的搜索 Feedback 决定下一次尝试什么。Agent 结束后，控制权回到
 Host：私有 Validation 在交接的候选之间进行选择，held-out Assessment 测量最终

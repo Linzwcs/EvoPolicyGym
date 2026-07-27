@@ -13,7 +13,7 @@ from ..artifacts import Artifact
 from ..results import EpisodeSummary, SubmissionResult
 from ._json import encode_public_json_value
 
-_FEEDBACK_SCHEMA = "evopolicygym/feedback/v1"
+_FEEDBACK_SCHEMA = "evopolicygym/feedback/v2"
 
 
 class FilesystemSubmissionPublisher:
@@ -138,11 +138,19 @@ def _materialize_feedback(
         "schema": _FEEDBACK_SCHEMA,
         "submission_id": result.submission_id,
         "program_digest": result.program_digest,
+        "episode_indices": list(result.episode_indices),
         "episodes_used": result.episodes_used,
         "episodes_remaining": result.episodes_remaining,
         "score": result.feedback.score,
         "content": encode_public_json_value(result.feedback.content),
-        "episodes": [_episode_document(item) for item in result.episodes],
+        "episodes": [
+            _episode_document(index, item)
+            for index, item in zip(
+                result.episode_indices,
+                result.episodes,
+                strict=True,
+            )
+        ],
         "artifacts": artifacts,
     }
     _write_json(submission_root / "feedback.json", feedback_document)
@@ -174,8 +182,12 @@ def _materialize_artifacts(
     return documents
 
 
-def _episode_document(episode: EpisodeSummary) -> dict[str, object]:
+def _episode_document(
+    episode_index: int,
+    episode: EpisodeSummary,
+) -> dict[str, object]:
     return {
+        "episode_index": episode_index,
         "status": episode.status,
         "reward": episode.reward,
         "steps": episode.steps,

@@ -60,16 +60,18 @@ Coding Agent reads workspace/feedback/
 next Program or finish(selected submission)
 ```
 
-`RunConfig` 固定 split、最大 submissions、总 Episode 预算、可选的单次
-Submission Episode 上限、seeds 与 timeouts。该上限默认为 `None`，因此 Agent
-通常自行分配预算，但不能扩展总权限。
+`RunConfig` 固定 split、最大 submissions、总 Episode 预算、训练 Episode 池大小、
+可选的单次 Submission Episode 上限、seed 与 timeouts。池大小默认等于总预算。
+Agent 从池中选择公开的 Run-local 编号；同一编号在不同 Submission 中保持隐藏
+Episode specification 与 Policy seed 不变，但每次使用仍创建全新的 runtime 状态并
+再次扣除预算。单次上限默认为 `None`。
 
 ## 信任边界
 
 | 可信 Host 与 Benchmark 持有 | Policy 可以观察 |
 | --- | --- |
 | Environment 参数选择 | Evaluation 前固定的公开 `environment_parameters` |
-| Episode scenario 与 Environment seed | 不含 Case identity 的 `PolicyContext` |
+| Episode scenario、Environment seed 与池映射 | 不含池编号或 Case identity 的 `PolicyContext` |
 | Environment 状态与 transitions | 公开 Observations |
 | Action 校验 | 自己的 Episode 内状态 |
 | Rewards、评分与私有 metrics | 仅已提交的公开 Feedback |

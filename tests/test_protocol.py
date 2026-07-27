@@ -10,6 +10,7 @@ from evopolicygym._protocol.policy import (
 )
 from evopolicygym._protocol.session import (
     SESSION_FRAMES,
+    SESSION_MAX_EPISODE_INDICES,
     SESSION_MAX_FRAME_BYTES,
     SESSION_PROTOCOL,
 )
@@ -48,6 +49,19 @@ class PolicyProtocolTests(unittest.TestCase):
 
 
 class AgentSessionProtocolTests(unittest.TestCase):
+    def test_v3_submit_carries_explicit_episode_indices(self) -> None:
+        self.assertEqual(SESSION_PROTOCOL, "agent-session/v3")
+        message: dict[str, object] = {
+            "protocol": SESSION_PROTOCOL,
+            "method": "submit",
+            "episode_indices": [0, 1, 4, 5, 6, 7],
+        }
+        self.assertEqual(
+            SESSION_FRAMES.decode(SESSION_FRAMES.encode(message)),
+            message,
+        )
+        self.assertEqual(SESSION_MAX_EPISODE_INDICES, 2_048)
+
     def test_session_frame_round_trip_and_boundaries(self) -> None:
         message: dict[str, object] = {
             "protocol": SESSION_PROTOCOL,

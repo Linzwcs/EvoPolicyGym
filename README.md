@@ -174,6 +174,7 @@ result = run(
     config=RunConfig(
         max_submissions=16,
         episode_budget=48,
+        episode_pool_size=96,
         max_episodes_per_submission=3,
         validation=ValidationConfig(
             split="validation",
@@ -205,9 +206,26 @@ During the Run, the agent evaluates immutable submissions and hands candidates
 to the Host with:
 
 ```console
-evopolicygym submit program --episodes 3
+evopolicygym submit program --episodes "0:2,4:8"
 evopolicygym finish submission-000002 submission-000007
 ```
+
+`RunConfig.seed` deterministically creates one fixed Host-owned training
+Episode pool before the Agent starts. `episode_pool_size` defaults to the total
+Episode budget. The Agent selects public Run-local indices from
+`0..episode_pool_size-1`; ranges are half-open and comma-separated items form a
+union. The example selects indices `0, 1, 4, 5, 6, 7`. A selection must be
+non-empty, strictly increasing, and contain no duplicate or overlapping
+indices.
+
+The same index always binds the same trusted `EpisodeSpec` and Policy seed
+within one Run, so the Agent can compare Program revisions on matched
+conditions. Every evaluation still creates a fresh Environment, Policy
+process, Policy instance, and scratch directory. Reusing an index in a later
+Submission is allowed and consumes another Episode budget unit. Actual
+Environment seeds and scenarios are not published to the Agent; Validation
+and Assessment use separate Host-only Episode plans that cannot be selected
+through `submit`.
 
 `finish` atomically hands an ordered candidate set to the Host and closes Agent
 authority. With `ValidationConfig`, the Host waits for the Agent process to be
@@ -228,7 +246,8 @@ separate Agent logs, and—when configured—aggregate
 `validation/report.json` and `assessment/report.json` records. Benchmark
 authors control the public Feedback content and may publish bounded traces,
 replays, diagnostics, images, or reports without exposing private seeds,
-paths, or execution evidence.
+paths, or execution evidence. Submission Feedback includes the selected
+Run-local Episode index beside each public Episode summary.
 
 `ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
 with the authority of the current operating-system user. Use it only with

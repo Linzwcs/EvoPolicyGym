@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import stat
 import tempfile
@@ -29,6 +30,7 @@ def make_submission(root: Path) -> SubmissionResult:
     return SubmissionResult(
         submission_id="submission-000001",
         program=Program.from_directory(source),
+        episode_indices=(0,),
         episodes_used=1,
         episodes_remaining=0,
         feedback=Feedback(score=1.0, content="fixture"),
@@ -75,6 +77,18 @@ class FilesystemSubmissionPublisherTests(unittest.TestCase):
                     (destination / "feedback.json").stat().st_mode
                 ),
                 0o444,
+            )
+            feedback = json.loads(
+                (destination / "feedback.json").read_text()
+            )
+            self.assertEqual(
+                feedback["schema"],
+                "evopolicygym/feedback/v2",
+            )
+            self.assertEqual(feedback["episode_indices"], [0])
+            self.assertEqual(
+                feedback["episodes"][0]["episode_index"],
+                0,
             )
 
     def test_freeze_failure_removes_published_and_temporary_trees(self) -> None:

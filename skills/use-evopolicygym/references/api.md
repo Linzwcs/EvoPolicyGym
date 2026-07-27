@@ -67,6 +67,7 @@ result = run(
         split="train",
         max_submissions=16,
         episode_budget=48,
+        episode_pool_size=96,
         max_episodes_per_submission=4,
         validation=ValidationConfig(
             split="validation",
@@ -104,9 +105,17 @@ repository discovery or attach a Skill to `BenchmarkSpec`.
 During search, the Agent uses:
 
 ```console
-evopolicygym submit program --episodes 4
+evopolicygym submit program --episodes "0:2,4:6"
 evopolicygym finish submission-000003 submission-000011
 ```
+
+The submit selector addresses the fixed Run-local training Episode pool.
+Singletons and half-open ranges may be joined by commas, must expand to a
+strictly increasing duplicate-free index list, and consume one budget unit per
+selected index. Reusing an index in a later Submission preserves the hidden
+Episode specification and Policy seed while still creating fresh runtime
+state and consuming budget again. `episode_pool_size` defaults to
+`episode_budget`.
 
 `finish` atomically accepts an ordered candidate list. With
 `ValidationConfig`, the Host closes Agent authority, reaps the Agent, evaluates

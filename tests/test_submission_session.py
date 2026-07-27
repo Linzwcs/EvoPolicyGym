@@ -13,7 +13,7 @@ from evopolicygym.authoring import (
     EpisodeSpec,
 )
 from evopolicygym.errors import EvaluationError, ProgramSourceError
-from evopolicygym.evaluation import EvaluationConfig
+from evopolicygym.evaluation._plan import PlannedEpisode
 from evopolicygym.program import Program
 from evopolicygym.results import (
     EpisodeSummary,
@@ -88,28 +88,30 @@ class FakeEvaluator:
     ) -> None:
         self.fail = fail
         self.mismatch_environment = mismatch_environment
-        self.configs: list[EvaluationConfig] = []
+        self.plans: list[tuple[PlannedEpisode, ...]] = []
 
-    def evaluate(
+    def evaluate_episodes(
         self,
         program: Program,
         benchmark: Benchmark,
-        config: EvaluationConfig,
+        episodes: tuple[PlannedEpisode, ...],
         *,
+        episode_timeout_seconds: float,
         episode_completed: (
             Callable[[int, int, EpisodeSummary], None] | None
         ) = None,
     ) -> EvaluationResult:
-        self.configs.append(config)
+        del episode_timeout_seconds
+        self.plans.append(episodes)
         if self.fail:
             raise EvaluationError("trusted fixture failure")
-        episodes = tuple(
+        summaries = tuple(
             EpisodeSummary(status="completed", reward=1.0, steps=1)
-            for _ in range(config.episodes)
+            for _ in episodes
         )
         if episode_completed is not None:
-            for index, episode in enumerate(episodes, start=1):
-                episode_completed(index, len(episodes), episode)
+            for index, summary in enumerate(summaries, start=1):
+                episode_completed(index, len(summaries), summary)
         return EvaluationResult(
             benchmark_id="example/session-v1",
             environment_digest=(
@@ -119,10 +121,10 @@ class FakeEvaluator:
             ),
             program_digest=program.digest,
             feedback=Feedback(
-                score=float(config.episodes),
+                score=float(len(episodes)),
                 content="fixture",
             ),
-            episodes=episodes,
+            episodes=summaries,
         )
 
 
@@ -175,13 +177,14 @@ class SubmissionSessionTests(unittest.TestCase):
                 episode_budget=7,
             )
 
-            submitted = session.submit(7)
+            submitted = session.submit(list(range(7)))
 
         self.assertIsInstance(submitted, SubmissionReceipt)
         assert isinstance(submitted, SubmissionReceipt)
         self.assertEqual(submitted.episodes_used, 7)
+        self.assertEqual(submitted.episode_indices, tuple(range(7)))
         self.assertEqual(submitted.episodes_remaining, 0)
-        self.assertEqual(evaluator.configs[0].episodes, 7)
+        self.assertEqual(len(evaluator.plans[0]), 7)
 
     def test_optional_submission_cap_rejects_only_oversized_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -194,8 +197,8 @@ class SubmissionSessionTests(unittest.TestCase):
                 max_episodes_per_submission=3,
             )
 
-            rejected = session.submit(4)
-            accepted = session.submit(3)
+            rejected = session.submit(list(range(4)))
+            accepted = session.submit(list(range(3)))
 
         self.assertIsInstance(rejected, SessionError)
         assert isinstance(rejected, SessionError)
@@ -215,8 +218,8 @@ class SubmissionSessionTests(unittest.TestCase):
                 episode_budget=3,
             )
 
-            rejected = session.submit(3)
-            accepted = session.submit(3)
+            rejected = session.submit(list(range(3)))
+            accepted = session.submit(list(range(3)))
 
         self.assertIsInstance(rejected, SessionError)
         assert isinstance(rejected, SessionError)
@@ -237,8 +240,8 @@ class SubmissionSessionTests(unittest.TestCase):
                 episode_budget=5,
             )
 
-            failed = session.submit(3)
-            closed = session.submit(1)
+            failed = session.submit(list(range(3)))
+            closed = session.submit([0])
 
         self.assertIsInstance(failed, SessionError)
         assert isinstance(failed, SessionError)
@@ -265,7 +268,7 @@ class SubmissionSessionTests(unittest.TestCase):
                 episode_budget=5,
             )
 
-            submitted = session.submit(2)
+            submitted = session.submit([0, 1])
             assert isinstance(submitted, SubmissionReceipt)
             finished = session.finish([submitted.submission_id])
 
@@ -294,12 +297,14 @@ class SubmissionSessionTests(unittest.TestCase):
                     "submission_id": "submission-000001",
                     "completed": 1,
                     "total": 2,
+                    "episode_index": 0,
                     "status": "completed",
                 },
                 {
                     "submission_id": "submission-000001",
                     "completed": 2,
                     "total": 2,
+                    "episode_index": 1,
                     "status": "completed",
                 },
             ],
@@ -315,7 +320,7 @@ class SubmissionSessionTests(unittest.TestCase):
                 publisher,
             )
 
-            outcome = session.submit(1)
+            outcome = session.submit([0])
 
         self.assertIsInstance(outcome, SessionError)
         assert isinstance(outcome, SessionError)
@@ -333,7 +338,7 @@ class SubmissionSessionTests(unittest.TestCase):
                 FakePublisher(fail=True),
             )
 
-            outcome = session.submit(1)
+            outcome = session.submit([0])
 
         self.assertIsInstance(outcome, SessionError)
         assert isinstance(outcome, SessionError)
@@ -375,8 +380,8 @@ class SubmissionSessionTests(unittest.TestCase):
                     max_candidates=2,
                 ),
             )
-            first = session.submit(1)
-            second = session.submit(1)
+            first = session.submit([0])
+            second = session.submit([0])
             assert isinstance(first, SubmissionReceipt)
             assert isinstance(second, SubmissionReceipt)
 
@@ -397,7 +402,7 @@ class SubmissionSessionTests(unittest.TestCase):
             accepted = session.finish(
                 [second.submission_id, first.submission_id]
             )
-            closed = session.submit(1)
+            closed = session.submit([0])
 
         for outcome, code in (
             (malformed, "invalid_request"),
@@ -429,8 +434,8 @@ class SubmissionSessionTests(unittest.TestCase):
                 FakeEvaluator(),
                 FakePublisher(),
             )
-            first = session.submit(1)
-            second = session.submit(1)
+            first = session.submit([0])
+            second = session.submit([0])
             assert isinstance(first, SubmissionReceipt)
             assert isinstance(second, SubmissionReceipt)
 
@@ -442,6 +447,59 @@ class SubmissionSessionTests(unittest.TestCase):
         assert isinstance(outcome, SessionError)
         self.assertEqual(outcome.code, "candidate_limit")
         self.assertFalse(session.agent_authority_closed)
+
+    def test_arbitrary_indices_select_the_exact_fixed_pool_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            evaluator = FakeEvaluator()
+            session = self._session(
+                FakeProgramSource(program),
+                evaluator,
+                FakePublisher(),
+                episode_budget=12,
+            )
+
+            first = session.submit([0, 1, 4, 5, 6, 7])
+            second = session.submit([1, 4])
+
+        self.assertIsInstance(first, SubmissionReceipt)
+        self.assertIsInstance(second, SubmissionReceipt)
+        self.assertEqual(
+            tuple(item.episode.environment_seed for item in evaluator.plans[0]),
+            (0, 1, 4, 5, 6, 7),
+        )
+        self.assertEqual(evaluator.plans[0][1], evaluator.plans[1][0])
+        self.assertEqual(evaluator.plans[0][2], evaluator.plans[1][1])
+
+    def test_invalid_index_sets_do_not_capture_or_consume_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            source = FakeProgramSource(program)
+            evaluator = FakeEvaluator()
+            session = self._session(
+                source,
+                evaluator,
+                FakePublisher(),
+                episode_budget=5,
+            )
+
+            outcomes = (
+                session.submit([]),
+                session.submit([0, 0]),
+                session.submit([2, 1]),
+                session.submit([5]),
+                session.submit([True]),
+            )
+            accepted = session.submit([0, 2, 4])
+
+        for outcome in outcomes:
+            self.assertIsInstance(outcome, SessionError)
+            assert isinstance(outcome, SessionError)
+            self.assertEqual(outcome.code, "invalid_request")
+        self.assertIsInstance(accepted, SubmissionReceipt)
+        assert isinstance(accepted, SubmissionReceipt)
+        self.assertEqual(accepted.episodes_remaining, 2)
+        self.assertEqual(len(evaluator.plans), 1)
 
     def _session(
         self,
@@ -455,18 +513,29 @@ class SubmissionSessionTests(unittest.TestCase):
         validation: ValidationConfig | None = None,
     ) -> SubmissionSession:
         benchmark = StubBenchmark()
+        config = RunConfig(
+            episode_budget=episode_budget,
+            max_episodes_per_submission=max_episodes_per_submission,
+            validation=validation,
+        )
+        pool_size = config.episode_pool_size
+        assert pool_size is not None
+        episode_pool = tuple(
+            PlannedEpisode(
+                EpisodeSpec(environment_seed=index),
+                policy_seed=10_000 + index,
+            )
+            for index in range(pool_size)
+        )
         return SubmissionSession(
             programs=source,
             evaluator=evaluator,
             publisher=publisher,
             benchmark=benchmark,
             spec=benchmark.spec,
-            config=RunConfig(
-                episode_budget=episode_budget,
-                max_episodes_per_submission=max_episodes_per_submission,
-                validation=validation,
-            ),
+            config=config,
             recorder=FakeRecorder() if recorder is None else recorder,
+            episode_pool=episode_pool,
         )
 
 

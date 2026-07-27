@@ -80,6 +80,7 @@ result = run(
         split="train",
         max_submissions=20,
         episode_budget=1_000,
+        episode_pool_size=2_000,
         seed=42,
     ),
 )
@@ -88,9 +89,19 @@ result = run(
 The Host owns the Agent task, workspace rules, budget, submit and finish
 commands, process supervision, and publication. A provider translates the
 Host task into a validated invocation; it does not redefine Run semantics.
-The Agent chooses how many of the remaining Episode units to spend on each
-submission by default. Set `max_episodes_per_submission` to a positive integer
-only when the Host needs an additional cap; its default is `None`.
+Before Agent execution, the Host deterministically builds one fixed training
+Episode pool from `RunConfig.seed`. The Agent submits public Run-local
+singleton and half-open range unions such as:
+
+```console
+evopolicygym submit program --episodes "0:2,4:8"
+```
+
+That selector expands to indices `0, 1, 4, 5, 6, 7`. The same index preserves
+its hidden Episode specification and Policy seed across Submissions, but every
+use creates a fresh Environment and Policy runtime and consumes budget again.
+`episode_pool_size` defaults to `episode_budget`. Set
+`max_episodes_per_submission` only when the Host needs an additional cap.
 
 Agent Skills are independent Run inputs rather than Benchmark properties.
 Freeze each selected directory with
@@ -106,9 +117,11 @@ strategy development, and Policy hardening.
 One accepted submission:
 
 1. freezes the current `workspace/program/` tree into a `Program`;
-2. reserves and deducts the requested Episode budget;
+2. validates the selected training indices, then reserves and deducts one
+   Episode budget unit per index;
 3. evaluates that immutable snapshot;
-4. atomically retains Program, Feedback, Episode summaries, and artifacts;
+4. atomically retains Program, selected indices, Feedback, Episode summaries,
+   and artifacts;
 5. publishes an independent Agent-visible copy under `workspace/feedback/`;
 6. admits the Submission ID as a possible final selection.
 

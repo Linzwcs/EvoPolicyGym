@@ -260,6 +260,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
             submission = SubmissionResult(
                 submission_id="submission-000001",
                 program=program,
+                episode_indices=(0,),
                 episodes_used=1,
                 episodes_remaining=0,
                 feedback=Feedback(score=1.0),
@@ -327,6 +328,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
             submission = SubmissionResult(
                 submission_id="submission-000001",
                 program=program,
+                episode_indices=(0,),
                 episodes_used=1,
                 episodes_remaining=0,
                 feedback=Feedback(score=1.0),
@@ -375,6 +377,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
             submission = SubmissionResult(
                 submission_id="submission-000001",
                 program=program,
+                episode_indices=(0,),
                 episodes_used=1,
                 episodes_remaining=0,
                 feedback=Feedback(score=1.0),

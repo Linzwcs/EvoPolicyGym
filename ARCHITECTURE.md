@@ -13,6 +13,9 @@ not design inputs for this version.
   configured Benchmark before Evaluation. Their canonical digest distinguishes
   otherwise identical Benchmark IDs with different task configurations.
 - An `Evaluation` runs one Program through a bounded set of Episodes.
+- A training Episode pool is one immutable Run-local tuple of trusted
+  `EpisodeSpec` and Policy-seed pairs, addressed publicly only by integer
+  indices.
 - A `Submission` commits one Program and its public Feedback.
 - A finished candidate set is an ordered, bounded tuple of published
   Submissions handed from the Agent to the Host in one atomic request.
@@ -52,12 +55,14 @@ evopolicygym/
 │
 ├── evaluation/                 complete direct-Evaluation use case
 │   ├── __init__.py             EvaluationConfig and evaluate()
+│   ├── _plan.py                exact trusted Episode and Policy-seed inputs
 │   └── _service.py             Episode rules and narrow runtime contracts
 │
 ├── run/                        complete Program-Evolution use case
 │   ├── __init__.py             Run/Validation/Assessment configs and run()
 │   ├── progress.py             public Run events, observer, and console reporter
 │   ├── _service.py             Run coordination and process-setting assembly
+│   ├── _episode_pool.py        fixed training pool and seed derivation
 │   ├── _session.py             Submission budget and atomic finish admission
 │   ├── _validation.py          post-Agent candidate evaluation and selection
 │   ├── _assessment.py          held-out final-Program measurement
@@ -170,8 +175,9 @@ The rules are:
 - `evaluation/_service.py` declares the Policy-runtime capabilities it
   consumes and never selects an execution setting or Agent provider;
 - `run/_session.py` owns budgets, admission, publication ordering, and the
-  atomic transfer of an ordered candidate set without depending on an
-  execution setting or provider;
+  mapping from submitted public Episode indices to the fixed training pool,
+  plus the atomic transfer of an ordered candidate set, without depending on
+  an execution setting or provider;
 - `run/_validation.py` owns deterministic final selection. It starts only
   after the Agent runner has reaped the process tree and the Session gateway
   has closed;
@@ -213,7 +219,7 @@ root.
 
 ```text
 Agent search
-  submit → public Feedback → edit → ... → finish(candidate IDs)
+  submit(Episode indices) → public Feedback → edit → ... → finish(candidate IDs)
                                              │
                                              ▼
                               close Session and reap Agent
@@ -231,7 +237,23 @@ Agent search
                                         Run commit
 ```
 
-`finish` uses `agent-session/v2` and accepts a non-empty
+Before Agent execution, the Host derives one training-pool seed from
+`RunConfig.seed` under `evopolicygym/training-pool/v1`, asks the Benchmark for
+exactly `episode_pool_size` `EpisodeSpec` values once, and derives one stable
+Policy seed per index under `evopolicygym/training-policy/v1`. The default pool
+size equals `episode_budget`, but callers may configure a larger selectable
+pool without increasing total authority.
+
+`submit` uses `agent-session/v3` and carries an explicit, non-empty,
+strictly-increasing `episode_indices` list. The CLI expands singleton and
+half-open range unions such as `"0:2,4:8"` to
+`[0, 1, 4, 5, 6, 7]`. Duplicate, overlapping, malformed, out-of-pool, and
+over-budget selections are rejected before Program capture. Reusing an index
+across Submissions is valid and consumes budget again. The mapping is fixed
+for the Run, while Evaluation still creates a fresh Environment, Policy
+process, Policy instance, and scratch directory for every selected index.
+
+`finish` also uses `agent-session/v3` and accepts a non-empty
 `submission_ids` list. The Host rejects malformed, duplicate, unknown, or
 over-limit candidates before changing Session state. A successful request
 closes Agent authority; it does not select a final Program inside the Session.
@@ -253,10 +275,13 @@ The Agent-visible `workspace/` contains only editable `program/`, public
 under `skills/`. `validation/` and `assessment/` are not created until after
 Agent cleanup. Successful phases retain only aggregate scores and
 Policy-failure counts in their reports; private Episodes, seeds, cases, traces,
-and execution evidence do not cross into Feedback. `run.json` uses
-`evopolicygym/run-record/v5`, retains the public Environment parameters and
-canonical digest beside the Benchmark ID, records selected Skill names,
-digests, and snapshot paths, and references the available aggregate reports.
+and execution evidence do not cross into Feedback. Submission Feedback uses
+`evopolicygym/feedback/v2` and maps every public Episode summary to its
+Run-local training index. `run.json` uses
+`evopolicygym/run-record/v6`, retains the pool size and derivation protocol,
+the public Environment parameters and canonical digest beside the Benchmark
+ID, selected index sets, selected Skill names, digests, and snapshot paths,
+and references the available aggregate reports.
 
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires

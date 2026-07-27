@@ -154,6 +154,7 @@ def make_submission(
     return SubmissionResult(
         submission_id=f"submission-{ordinal:06d}",
         program=Program.from_directory(source),
+        episode_indices=(0,),
         episodes_used=1,
         episodes_remaining=10 - ordinal,
         feedback=Feedback(score=float(ordinal)),

@@ -17,7 +17,7 @@ from typing import Any
 _REPOSITORY = Path(__file__).resolve().parents[1]
 _SINGLE_RUNNER = _REPOSITORY / "scripts" / "run_balatro_codex.py"
 _BALATRO_SKILL = _REPOSITORY / "skills" / "optimize-balatro-policy"
-_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v3"
+_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v4"
 
 
 class ExperimentError(RuntimeError):
@@ -76,6 +76,7 @@ def main(arguments: list[str] | None = None) -> int:
         "config": {
             "max_submissions": namespace.max_submissions,
             "episode_budget": namespace.episode_budget,
+            "episode_pool_size": namespace.episode_pool_size,
             "max_episodes_per_submission": (
                 namespace.max_episodes_per_submission
             ),
@@ -129,8 +130,6 @@ def _run_arm(
         str(namespace.max_submissions),
         "--episode-budget",
         str(namespace.episode_budget),
-        "--max-episodes-per-submission",
-        str(namespace.max_episodes_per_submission),
         "--validation-episodes-per-candidate",
         str(namespace.validation_episodes_per_candidate),
         "--validation-split",
@@ -151,6 +150,19 @@ def _run_arm(
         "--reasoning-effort",
         namespace.reasoning_effort,
     ]
+    if namespace.episode_pool_size is not None:
+        command.extend(
+            (
+                "--episode-pool-size",
+                str(namespace.episode_pool_size),
+            )
+        )
+    command.extend(
+        (
+            "--max-episodes-per-submission",
+            str(namespace.max_episodes_per_submission),
+        )
+    )
     if use_skill:
         command.extend(("--skill", str(_BALATRO_SKILL)))
 
@@ -338,6 +350,11 @@ def _parser() -> argparse.ArgumentParser:
         "--episode-budget",
         type=_positive_int,
         default=48,
+    )
+    parser.add_argument(
+        "--episode-pool-size",
+        type=_positive_int,
+        help="fixed selectable pool size; defaults to the Episode budget",
     )
     parser.add_argument(
         "--max-episodes-per-submission",

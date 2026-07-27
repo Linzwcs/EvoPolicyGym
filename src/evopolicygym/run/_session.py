@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from .._protocol.session import SESSION_MAX_EPISODE_INDICES
 from ..benchmark import Benchmark, BenchmarkSpec
 from ..errors import EvaluationError, ProgramError
-from ..evaluation import EvaluationConfig
+from ..evaluation._plan import PlannedEpisode
 from ..program import Program
 from ..results import (
     EpisodeSummary,
@@ -18,8 +18,6 @@ from ..results import (
     SubmissionResult,
 )
 from . import RunConfig
-
-_SUBMISSION_SEED_DOMAIN = b"evopolicygym/submission-seed/v1\0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +41,7 @@ class SubmissionReceipt:
     submission_id: str
     program_digest: str
     score: float
+    episode_indices: tuple[int, ...]
     episodes_used: int
     episodes_remaining: int
 
@@ -64,12 +63,13 @@ class ProgramSource(Protocol):
 
 
 class ProgramEvaluator(Protocol):
-    def evaluate(
+    def evaluate_episodes(
         self,
         program: Program,
         benchmark: Benchmark,
-        config: EvaluationConfig,
+        episodes: tuple[PlannedEpisode, ...],
         *,
+        episode_timeout_seconds: float,
         episode_completed: (
             Callable[[int, int, EpisodeSummary], None] | None
         ) = None,
@@ -104,9 +104,25 @@ class SubmissionSession:
         spec: BenchmarkSpec,
         config: RunConfig,
         recorder: EventRecorder,
+        episode_pool: tuple[PlannedEpisode, ...],
     ) -> None:
         if type(spec) is not BenchmarkSpec:
             raise TypeError("spec must be BenchmarkSpec")
+        if (
+            type(episode_pool) is not tuple
+            or not episode_pool
+            or any(
+                type(episode) is not PlannedEpisode
+                for episode in episode_pool
+            )
+        ):
+            raise TypeError(
+                "episode_pool must be a non-empty tuple of PlannedEpisode values"
+            )
+        if len(episode_pool) != config.episode_pool_size:
+            raise ValueError(
+                "episode_pool must match config.episode_pool_size"
+            )
         self._programs = programs
         self._evaluator = evaluator
         self._publisher = publisher
@@ -114,6 +130,7 @@ class SubmissionSession:
         self._spec = spec
         self._config = config
         self._recorder = recorder
+        self._episode_pool = episode_pool
         self._episodes_remaining = config.episode_budget
         self._submissions: list[SubmissionResult] = []
         self._candidate_submission_ids: tuple[str, ...] | None = None
@@ -145,11 +162,42 @@ class SubmissionSession:
             or len(self._submissions) >= self._config.max_submissions
         )
 
-    def submit(self, episodes: object) -> SubmissionOutcome:
+    def submit(self, episode_indices: object) -> SubmissionOutcome:
         if self.agent_authority_closed:
             return _error("session_closed", "the Agent Session is already closed")
-        if type(episodes) is not int or episodes <= 0:
-            return _error("invalid_request", "episodes must be a positive integer")
+        if type(episode_indices) is not list or not episode_indices:
+            return _error(
+                "invalid_request",
+                "episode_indices must be a non-empty list",
+            )
+        if any(
+            type(index) is not int
+            or not 0 <= index < len(self._episode_pool)
+            for index in episode_indices
+        ):
+            return _error(
+                "invalid_request",
+                "episode_indices contains an invalid pool index",
+            )
+        selected_indices = tuple(episode_indices)
+        if any(
+            previous >= current
+            for previous, current in zip(
+                selected_indices,
+                selected_indices[1:],
+                strict=False,
+            )
+        ):
+            return _error(
+                "invalid_request",
+                "episode_indices must be strictly increasing",
+            )
+        episodes = len(selected_indices)
+        if episodes > SESSION_MAX_EPISODE_INDICES:
+            return _error(
+                "episode_limit",
+                "episode_indices exceeds the Session protocol limit",
+            )
         if len(self._submissions) >= self._config.max_submissions:
             return _error("submission_limit", "the submission limit is exhausted")
         submission_limit = self._config.max_episodes_per_submission
@@ -182,6 +230,7 @@ class SubmissionSession:
                 "submission_id": submission_id,
                 "program_digest": program.digest,
                 "episodes": episodes,
+                "episode_indices": _render_indices(selected_indices),
                 "episodes_remaining": self._episodes_remaining,
             },
         )
@@ -197,19 +246,19 @@ class SubmissionSession:
                         "submission_id": submission_id,
                         "completed": completed,
                         "total": total,
+                        "episode_index": selected_indices[completed - 1],
                         "status": summary.status,
                     },
                 )
 
-            evaluation = self._evaluator.evaluate(
+            evaluation = self._evaluator.evaluate_episodes(
                 program,
                 self._benchmark,
-                EvaluationConfig(
-                    split=self._config.split,
-                    episodes=episodes,
-                    seed=_submission_seed(self._config.seed, ordinal),
-                    episode_timeout_seconds=self._config.episode_timeout_seconds,
+                tuple(
+                    self._episode_pool[index]
+                    for index in selected_indices
                 ),
+                episode_timeout_seconds=self._config.episode_timeout_seconds,
                 episode_completed=episode_completed,
             )
             if (
@@ -240,6 +289,7 @@ class SubmissionSession:
         result = SubmissionResult(
             submission_id=submission_id,
             program=program,
+            episode_indices=selected_indices,
             episodes_used=episodes,
             episodes_remaining=self._episodes_remaining,
             feedback=evaluation.feedback,
@@ -275,6 +325,7 @@ class SubmissionSession:
             submission_id=submission_id,
             program_digest=program.digest,
             score=result.feedback.score,
+            episode_indices=selected_indices,
             episodes_used=episodes,
             episodes_remaining=self._episodes_remaining,
         )
@@ -352,12 +403,8 @@ class SubmissionSession:
         return _error(code, message)
 
 
-def _submission_seed(run_seed: int, ordinal: int) -> int:
-    digest = hashlib.sha256()
-    digest.update(_SUBMISSION_SEED_DOMAIN)
-    digest.update(run_seed.to_bytes(8, "big"))
-    digest.update(ordinal.to_bytes(8, "big"))
-    return int.from_bytes(digest.digest()[:8], "big")
+def _render_indices(indices: tuple[int, ...]) -> str:
+    return ",".join(str(index) for index in indices)
 
 
 def _error(code: str, message: str) -> SessionError:

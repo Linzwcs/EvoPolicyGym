@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added a deterministic, Host-owned indexed training Episode pool. Agents now
+  select arbitrary singleton and half-open range unions through
+  `agent-session/v3`; repeated indices preserve Episode and Policy seeds across
+  Submissions while every use still creates fresh runtimes and consumes
+  budget.
+- Added `RunConfig.episode_pool_size`, indexed `SubmissionResult` and Feedback
+  records, `evopolicygym/feedback/v2`, and `evopolicygym/run-record/v6`.
 - Added first-class public Environment parameters to `BenchmarkSpec`, the
   `policy/v2` `PolicyContext`, Coding Agent tasks, Evaluation identity, and
   `run-record/v4`.

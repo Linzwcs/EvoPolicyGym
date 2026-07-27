@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from .._protocol.session import SESSION_MAX_EPISODE_INDICES
 from ..agents import AgentTask
 from ..benchmark import BenchmarkSpec
 from ..skills import AgentSkill
@@ -19,17 +20,31 @@ def build_agent_task(
     """Build the provider-independent instructions for one development Run."""
 
     submission_limit = config.max_episodes_per_submission
+    pool_size = config.episode_pool_size
+    assert pool_size is not None
+    effective_submission_limit = min(
+        SESSION_MAX_EPISODE_INDICES,
+        pool_size,
+        (
+            SESSION_MAX_EPISODE_INDICES
+            if submission_limit is None
+            else submission_limit
+        ),
+    )
     if submission_limit is None:
         episode_guidance = (
-            "Choose any positive N no greater than the remaining Episode budget. "
-            "You decide how to allocate it. The whole Run has "
+            "Choose any non-empty, strictly increasing set of indices with no "
+            f"more than {effective_submission_limit} entries and no more than "
+            "the remaining Episode budget. You decide how to allocate it. "
+            "The whole Run has "
             f"{config.episode_budget} Episode units and at most "
             f"{config.max_submissions} submissions."
         )
     else:
         episode_guidance = (
-            f"Choose a positive N no greater than {submission_limit} and no greater "
-            "than the remaining Episode budget. You decide how to allocate it. "
+            "Choose any non-empty, strictly increasing set of indices with no "
+            f"more than {effective_submission_limit} entries and no more than "
+            "the remaining Episode budget. You decide how to allocate it. "
             f"The whole Run has {config.episode_budget} Episode units and at most "
             f"{config.max_submissions} submissions."
         )
@@ -109,11 +124,20 @@ The Host publishes authorized evaluation data under:
 
 Do not modify feedback/. Evaluate the current Program with:
 
-    evopolicygym submit program --episodes N
+    evopolicygym submit program --episodes "{_selector_example(pool_size)}"
 
-{episode_guidance} Small submissions support fast iteration; larger submissions
+The available Run-local training Episode indices are 0 through
+{pool_size - 1}. A singleton like "7" selects one index; START:END is a
+half-open range, and comma-separated items form a union. Repeated or overlapping
+indices in one submission are rejected. You may deliberately reuse an index in
+a later submission; that index has the same hidden Episode specification and
+Policy seed, while the Host still creates a fresh Environment and fresh Policy
+runtime. Every selected index consumes one Episode budget unit on every use.
+
+{episode_guidance} Small selections support fast iteration; larger selections
 provide more evidence. Read feedback/latest.json and the referenced Feedback
-and Artifact files after every successful submission. The Feedback document's
+and Artifact files after every successful submission. The Feedback document
+maps each public Episode result back to its selected Run-local index. Its
 content field and all Artifact contents are defined by the Benchmark. Inspect
 their structure, names, media types, and contents to understand the available
 development evidence.
@@ -156,6 +180,18 @@ Benchmark specification, current observations, and legal Actions as
 authoritative.
 
 """
+
+
+def _selector_example(pool_size: int) -> str:
+    if pool_size >= 8:
+        return "0:2,4:8"
+    if pool_size >= 5:
+        return f"0:2,4:{pool_size}"
+    if pool_size >= 3:
+        return f"0:2,{pool_size - 1}"
+    if pool_size == 2:
+        return "0:2"
+    return "0"
 
 
 __all__: list[str] = []

@@ -82,6 +82,9 @@ authority.
   cleanup before spending a Coding Agent budget.
 - Set explicit finite budgets. For trace-heavy Benchmarks, prefer an explicit
   `max_episodes_per_submission` documented as safe by that Benchmark.
+- Choose an `episode_pool_size` for the fixed selectable training pool. It
+  defaults to `episode_budget`; increasing it expands the matched conditions
+  available to the Agent without increasing total spend.
 - Use a new `record_to` path whose parent already exists. Never reuse or
   pre-create the Run directory.
 - Capture each desired task-specific Skill explicitly with
@@ -91,9 +94,13 @@ authority.
   Policy.
 - Add `ConsoleProgress()` when interactive progress is useful.
 - Require the Agent to publish candidates through
-  `evopolicygym submit program --episodes N` and finish by handing the Host
-  one or more published IDs with
+  `evopolicygym submit program --episodes "0:2,4:8"` and finish by handing the
+  Host one or more published IDs with
   `evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]`.
+- Treat submit selectors as public Run-local Episode indices: comma joins
+  singleton or half-open range items, each request is strictly increasing and
+  duplicate-free, and reusing an index in a later Submission consumes budget
+  again while preserving its Episode specification and Policy seed.
 - Use `ValidationConfig` when the Host should compare multiple candidates.
   Give every candidate the same split, derived seed, Episode count, and Policy
   seeds. Its Episode allocation is separate from the Agent search budget.
@@ -112,6 +119,8 @@ authority.
 - Assume only that Feedback has a finite scalar score, Benchmark-defined
   public content, and zero or more bounded public Artifacts.
 - Read `feedback/latest.json`, then follow its relative Artifact paths.
+- Use each Feedback Episode's `episode_index` to compare Program revisions on
+  matched training conditions.
 - Let the Benchmark define trace, diagnostics, replay, image, or report
   formats. Do not impose a Kernel-wide trace schema.
 - Keep scoring based on every evaluated Episode even when a Benchmark retains

@@ -26,6 +26,7 @@ from ..results import (
     PolicyFailureCode,
 )
 from . import EvaluationConfig
+from ._plan import PlannedEpisode
 
 _POLICY_SEED_DOMAIN = b"evopolicygym/policy-seed/v1\0"
 
@@ -96,21 +97,89 @@ class EvaluationService:
             )
         except Exception:
             raise EvaluationError("Benchmark could not plan Episodes") from None
+        if type(spec) is not BenchmarkSpec:
+            raise EvaluationError(
+                "Benchmark returned an invalid specification"
+            )
         if len(planned) != config.episodes:
             raise EvaluationError("Benchmark returned the wrong Episode count")
         if any(type(episode) is not EpisodeSpec for episode in planned):
             raise EvaluationError("Benchmark returned an invalid Episode plan")
 
+        exact_plan = tuple(
+            PlannedEpisode(
+                episode=episode,
+                policy_seed=_derive_policy_seed(config.seed, index),
+            )
+            for index, episode in enumerate(planned)
+        )
+        return self._evaluate_planned(
+            program,
+            benchmark,
+            exact_plan,
+            spec=spec,
+            episode_timeout_seconds=config.episode_timeout_seconds,
+            episode_completed=episode_completed,
+        )
+
+    def evaluate_episodes(
+        self,
+        program: Program,
+        benchmark: Benchmark,
+        episodes: tuple[PlannedEpisode, ...],
+        *,
+        episode_timeout_seconds: float,
+        episode_completed: (
+            Callable[[int, int, EpisodeSummary], None] | None
+        ) = None,
+    ) -> EvaluationResult:
+        """Evaluate an exact Host-owned Episode plan."""
+
+        if type(episodes) is not tuple or not episodes or any(
+            type(episode) is not PlannedEpisode for episode in episodes
+        ):
+            raise EvaluationError("Exact Episode plan is invalid")
+        try:
+            spec = benchmark.spec
+        except Exception:
+            raise EvaluationError(
+                "Benchmark specification is unavailable"
+            ) from None
+        if type(spec) is not BenchmarkSpec:
+            raise EvaluationError(
+                "Benchmark returned an invalid specification"
+            )
+        return self._evaluate_planned(
+            program,
+            benchmark,
+            episodes,
+            spec=spec,
+            episode_timeout_seconds=episode_timeout_seconds,
+            episode_completed=episode_completed,
+        )
+
+    def _evaluate_planned(
+        self,
+        program: Program,
+        benchmark: Benchmark,
+        planned: tuple[PlannedEpisode, ...],
+        *,
+        spec: BenchmarkSpec,
+        episode_timeout_seconds: float,
+        episode_completed: (
+            Callable[[int, int, EpisodeSummary], None] | None
+        ),
+    ) -> EvaluationResult:
         records: list[EpisodeRecord] = []
-        for index, episode in enumerate(planned):
+        for index, planned_episode in enumerate(planned):
             record = self._evaluate_episode(
                 program,
                 benchmark,
-                episode,
+                planned_episode.episode,
                 spec=spec,
-                policy_seed=_derive_policy_seed(config.seed, index),
+                policy_seed=planned_episode.policy_seed,
                 max_steps=spec.max_episode_steps,
-                timeout_seconds=config.episode_timeout_seconds,
+                timeout_seconds=episode_timeout_seconds,
             )
             records.append(record)
             if episode_completed is not None:

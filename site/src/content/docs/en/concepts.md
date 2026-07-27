@@ -63,16 +63,19 @@ next Program or finish(selected submission)
 ```
 
 A `RunConfig` fixes the split, maximum submissions, total Episode budget,
-optional per-Submission Episode cap, seeds, and timeouts. The optional cap
-defaults to `None`, so the Agent normally chooses its own allocation without
-extending the total authority.
+fixed training Episode-pool size, optional per-Submission Episode cap, seed,
+and timeouts. The pool size defaults to the total budget. The Agent selects
+public Run-local indices from that pool; the same index preserves its hidden
+Episode specification and Policy seed across Submissions, while each use
+creates fresh runtime state and consumes budget again. The optional
+per-Submission cap defaults to `None`.
 
 ## Trust boundary
 
 | Trusted Host and Benchmark own | Policy can observe |
 | --- | --- |
 | Environment parameter selection | Public `environment_parameters` fixed before Evaluation |
-| Episode scenario and Environment seed | `PolicyContext` without Case identity |
+| Episode scenario, Environment seed, and pool mapping | `PolicyContext` without a pool index or Case identity |
 | Environment state and transitions | Public observations |
 | Action validation | Its own Episode-local state |
 | Rewards, scoring, and private metrics | Committed public Feedback only |

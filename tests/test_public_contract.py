@@ -442,9 +442,11 @@ description: Improve counter policies.
         self.assertEqual(evaluation.episodes, 2)
         self.assertEqual(run.max_submissions, 4)
         self.assertEqual(run.episode_budget, 20)
+        self.assertEqual(run.episode_pool_size, 20)
         self.assertIsNone(run.max_episodes_per_submission)
         capped = RunConfig(
             episode_budget=20,
+            episode_pool_size=12,
             max_episodes_per_submission=5,
             validation=ValidationConfig(
                 episodes_per_candidate=7,
@@ -455,6 +457,7 @@ description: Improve counter policies.
             ),
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
+        self.assertEqual(capped.episode_pool_size, 12)
         self.assertEqual(
             capped.validation,
             ValidationConfig(
@@ -472,6 +475,14 @@ description: Improve counter policies.
         with self.assertRaises(ValueError):
             RunConfig(
                 episode_budget=2,
+                max_episodes_per_submission=3,
+            )
+        with self.assertRaises(ValueError):
+            RunConfig(episode_pool_size=0)
+        with self.assertRaises(ValueError):
+            RunConfig(
+                episode_budget=10,
+                episode_pool_size=2,
                 max_episodes_per_submission=3,
             )
         with self.assertRaises(ValueError):
@@ -509,6 +520,7 @@ description: Improve counter policies.
         submission = SubmissionResult(
             submission_id="submission-1",
             program=program,
+            episode_indices=(0,),
             episodes_used=1,
             episodes_remaining=2,
             feedback=feedback,
@@ -543,6 +555,7 @@ class ProgramTests(unittest.TestCase):
             submission = SubmissionResult(
                 submission_id="submission-1",
                 program=first,
+                episode_indices=(0,),
                 episodes_used=1,
                 episodes_remaining=0,
                 feedback=Feedback(score=1.0, content="complete"),
@@ -584,6 +597,7 @@ class ProgramTests(unittest.TestCase):
             submission = SubmissionResult(
                 submission_id="submission-000001",
                 program=program,
+                episode_indices=(0,),
                 episodes_used=1,
                 episodes_remaining=0,
                 feedback=Feedback(
@@ -1034,13 +1048,17 @@ def call(*arguments):
     return json.loads(completed.stdout)
 
 
-first = call("submit", "program", "--episodes", "1")
+first = call("submit", "program", "--episodes", "0")
 latest = json.loads((workspace / "feedback" / "latest.json").read_text())
 feedback = json.loads(
     (workspace / "feedback" / latest["feedback"]).read_text()
 )
 assert first["result"]["submission_id"] == "submission-000001"
+assert first["result"]["episode_indices"] == [0]
 assert first["result"]["episodes_remaining"] == 1
+assert feedback["schema"] == "evopolicygym/feedback/v2"
+assert feedback["episode_indices"] == [0]
+assert feedback["episodes"][0]["episode_index"] == 0
 assert feedback["episodes"][0]["failure"] == "invalid_action"
 assert feedback["content"] == {{"status": "complete", "completed": 0}}
 assert not (workspace / "events.jsonl").exists()
@@ -1050,7 +1068,7 @@ assert not (workspace / "agent").exists()
     {improved_source!r},
     encoding="utf-8",
 )
-second = call("submit", "program", "--episodes", "1")
+second = call("submit", "program", "--episodes", "0")
 latest = json.loads((workspace / "feedback" / "latest.json").read_text())
 feedback = json.loads(
     (workspace / "feedback" / latest["feedback"]).read_text()
@@ -1059,6 +1077,9 @@ artifact = workspace / "feedback" / "submissions" / (
     second["result"]["submission_id"]
 ) / feedback["artifacts"][0]["path"]
 assert feedback["score"] == 1.0
+assert second["result"]["episode_indices"] == [0]
+assert feedback["episode_indices"] == [0]
+assert feedback["episodes"][0]["episode_index"] == 0
 assert feedback["content"] == {{"status": "complete", "completed": 1}}
 assert artifact.read_text() == "completed=1\\n"
 (workspace / "program" / "policy.py").write_text(
@@ -1201,7 +1222,25 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v5")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v6")
+        self.assertEqual(manifest["config"]["episode_pool_size"], 2)
+        self.assertEqual(
+            manifest["training_episode_pool"],
+            {
+                "size": 2,
+                "episode_derivation": "evopolicygym/training-pool/v1",
+                "policy_seed_derivation": (
+                    "evopolicygym/training-policy/v1"
+                ),
+            },
+        )
+        self.assertEqual(
+            [
+                submission["episode_indices"]
+                for submission in manifest["submissions"]
+            ],
+            [[0], [0]],
+        )
         self.assertEqual(manifest["skills"], [])
         self.assertEqual(
             manifest["benchmark"],
@@ -1309,7 +1348,7 @@ subprocess.run(
         "submit",
         "program",
         "--episodes",
-        "2",
+        "0:2",
     ],
     check=False,
 )
@@ -1451,7 +1490,7 @@ prompt = arguments[-1]
 assert "program/" in prompt
 assert "feedback/" in prompt
 assert "skills/improve-counter/SKILL.md" in prompt
-assert "evopolicygym submit program --episodes N" in prompt
+assert 'evopolicygym submit program --episodes "0"' in prompt
 assert "evopolicygym finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
 assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ
@@ -1474,7 +1513,7 @@ def call(*arguments):
     return json.loads(completed.stdout)
 
 
-submission = call("submit", "program", "--episodes", "1")
+submission = call("submit", "program", "--episodes", "0")
 latest = json.loads((workspace / "feedback" / "latest.json").read_text())
 feedback = json.loads(
     (workspace / "feedback" / latest["feedback"]).read_text()

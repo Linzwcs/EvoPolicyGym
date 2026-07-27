@@ -59,6 +59,7 @@ class RunConfig:
     split: str = "train"
     max_submissions: int = 20
     episode_budget: int = 1_000
+    episode_pool_size: int | None = None
     max_episodes_per_submission: int | None = None
     validation: ValidationConfig | None = None
     assessment: AssessmentConfig | None = None
@@ -76,6 +77,14 @@ class RunConfig:
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
+        pool_size = self.episode_pool_size
+        if pool_size is None:
+            pool_size = self.episode_budget
+            object.__setattr__(self, "episode_pool_size", pool_size)
+        elif type(pool_size) is not int or pool_size <= 0:
+            raise ValueError(
+                "episode_pool_size must be a positive integer or None"
+            )
         submission_limit = self.max_episodes_per_submission
         if submission_limit is not None:
             if type(submission_limit) is not int or submission_limit <= 0:
@@ -85,6 +94,11 @@ class RunConfig:
             if submission_limit > self.episode_budget:
                 raise ValueError(
                     "max_episodes_per_submission cannot exceed episode_budget"
+                )
+            if submission_limit > pool_size:
+                raise ValueError(
+                    "max_episodes_per_submission cannot exceed "
+                    "episode_pool_size"
                 )
         if self.validation is not None:
             if type(self.validation) is not ValidationConfig:

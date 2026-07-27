@@ -331,6 +331,7 @@ def run_process_agent(
         remove_control_directory,
         retain_agent_invocation,
     )
+    from ._episode_pool import build_training_episode_pool
     from ._feedback import FilesystemSubmissionPublisher
     from ._session import SubmissionSession
     from ._socket import UnixSessionGateway
@@ -351,6 +352,7 @@ def run_process_agent(
     selected_spec = _benchmark_spec(benchmark) if spec is None else spec
     if type(selected_spec) is not BenchmarkSpec:
         raise TypeError("spec must be BenchmarkSpec or None")
+    episode_pool = build_training_episode_pool(benchmark, config)
 
     paths = prepare_run_directory(
         run_directory,
@@ -383,6 +385,7 @@ def run_process_agent(
                 spec=selected_spec,
                 config=config,
                 recorder=recorder,
+                episode_pool=episode_pool,
             )
             gateway = UnixSessionGateway(paths.socket, session)
             runner = ProcessAgentRunner(

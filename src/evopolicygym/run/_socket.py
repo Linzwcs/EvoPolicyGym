@@ -118,9 +118,9 @@ def _handle_request(
         return _error("protocol_mismatch", "unsupported Agent Session protocol")
     method = request.get("method")
     if method == "submit":
-        if set(request) != {"protocol", "method", "episodes"}:
+        if set(request) != {"protocol", "method", "episode_indices"}:
             return _error("invalid_request", "submit request fields are invalid")
-        submit_outcome = session.submit(request["episodes"])
+        submit_outcome = session.submit(request["episode_indices"])
         if isinstance(submit_outcome, SessionError):
             return _error(submit_outcome.code, submit_outcome.message)
         assert isinstance(submit_outcome, SubmissionReceipt)
@@ -131,6 +131,9 @@ def _handle_request(
                 "submission_id": submit_outcome.submission_id,
                 "program_digest": submit_outcome.program_digest,
                 "score": submit_outcome.score,
+                "episode_indices": list(
+                    submit_outcome.episode_indices
+                ),
                 "episodes_used": submit_outcome.episodes_used,
                 "episodes_remaining": submit_outcome.episodes_remaining,
                 "feedback": (

@@ -57,6 +57,7 @@ def main(arguments: list[str] | None = None) -> int:
             split=namespace.split,
             max_submissions=namespace.max_submissions,
             episode_budget=namespace.episode_budget,
+            episode_pool_size=namespace.episode_pool_size,
             max_episodes_per_submission=(
                 namespace.max_episodes_per_submission
             ),
@@ -132,6 +133,9 @@ def main(arguments: list[str] | None = None) -> int:
                     {
                         "submission_id": submission.submission_id,
                         "score": submission.feedback.score,
+                        "episode_indices": list(
+                            submission.episode_indices
+                        ),
                         "episodes_used": submission.episodes_used,
                     }
                     for submission in result.submissions
@@ -167,6 +171,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-submissions", type=int, default=16)
     parser.add_argument("--episode-budget", type=int, default=48)
+    parser.add_argument(
+        "--episode-pool-size",
+        type=int,
+        help="fixed selectable training Episode pool size; defaults to budget",
+    )
     parser.add_argument("--max-episodes-per-submission", type=int)
     parser.add_argument(
         "--validation-episodes-per-candidate",

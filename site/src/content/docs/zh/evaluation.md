@@ -78,6 +78,7 @@ result = run(
         split="train",
         max_submissions=20,
         episode_budget=1_000,
+        episode_pool_size=2_000,
         seed=42,
     ),
 )
@@ -86,9 +87,18 @@ result = run(
 Host 拥有 Agent task、workspace rules、预算、submit/finish commands、进程监督
 与 publication。Provider 只把 Host task 转换为经过验证的 invocation，不重新定义
 Run 语义。
-默认由 Agent 自主决定每次 Submission 使用多少剩余 Episode 预算。
-`max_episodes_per_submission` 默认为 `None`；只有 Host 需要额外限制时才设置
-正整数上限。
+Agent 执行前，Host 根据 `RunConfig.seed` 确定性地构建一个固定训练 Episode 池。
+Agent 使用公开的 Run-local 单点与半开区间并集提交，例如：
+
+```console
+evopolicygym submit program --episodes "0:2,4:8"
+```
+
+该选择器展开为编号 `0, 1, 4, 5, 6, 7`。同一编号在不同 Submission 中保持隐藏
+Episode specification 与 Policy seed 不变，但每次使用仍会创建全新的 Environment
+与 Policy runtime，并再次消耗预算。`episode_pool_size` 默认等于
+`episode_budget`。只有 Host 需要额外限制时才设置
+`max_episodes_per_submission`。
 
 Agent Skill 是独立的 Run 输入，而不是 Benchmark 属性。调用者使用
 `AgentSkill.from_directory("skills/<name>")` 冻结明确选择的目录，并通过
@@ -102,9 +112,9 @@ Policy process。仓库中的 Balatro Skill 是用于证据分配、策略开发
 一次被接受的 Submission：
 
 1. 将当前 `workspace/program/` tree 冻结为 `Program`；
-2. 预留并扣除请求的 Episode 预算；
+2. 校验所选训练编号，并为每个编号预留、扣除一个 Episode 预算单位；
 3. 评估该不可变快照；
-4. 原子保留 Program、Feedback、Episode summaries 与 artifacts；
+4. 原子保留 Program、所选编号、Feedback、Episode summaries 与 artifacts；
 5. 在 `workspace/feedback/` 发布独立的 Agent-visible copy；
 6. 将 Submission ID 加入可选最终结果集合。
 

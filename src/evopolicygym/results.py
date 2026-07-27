@@ -130,6 +130,7 @@ class SubmissionResult:
 
     submission_id: str
     program: Program
+    episode_indices: tuple[int, ...]
     episodes_used: int
     episodes_remaining: int
     feedback: Feedback
@@ -139,12 +140,33 @@ class SubmissionResult:
         _non_empty_text(self.submission_id, "submission_id")
         if type(self.program) is not Program:
             raise TypeError("program must be Program")
+        episode_indices = tuple(self.episode_indices)
+        if any(
+            type(index) is not int or not 0 <= index <= 2**64 - 1
+            for index in episode_indices
+        ):
+            raise ValueError(
+                "episode_indices must contain unsigned 64-bit integers"
+            )
+        if any(
+            previous >= current
+            for previous, current in zip(
+                episode_indices,
+                episode_indices[1:],
+                strict=False,
+            )
+        ):
+            raise ValueError("episode_indices must be strictly increasing")
         for name in ("episodes_used", "episodes_remaining"):
             value = getattr(self, name)
             if type(value) is not int or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
         if self.episodes_used == 0:
             raise ValueError("episodes_used must be positive")
+        if len(episode_indices) != self.episodes_used:
+            raise ValueError(
+                "episode_indices must match episodes_used"
+            )
         if type(self.feedback) is not Feedback:
             raise TypeError("feedback must be Feedback")
         episodes = tuple(self.episodes)
@@ -152,6 +174,7 @@ class SubmissionResult:
             raise ValueError("episodes must match episodes_used")
         if any(type(episode) is not EpisodeSummary for episode in episodes):
             raise TypeError("episodes must contain EpisodeSummary values")
+        object.__setattr__(self, "episode_indices", episode_indices)
         object.__setattr__(self, "episodes", episodes)
 
     @property

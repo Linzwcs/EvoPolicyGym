@@ -143,6 +143,7 @@ def make_submission(root: Path) -> SubmissionResult:
     return SubmissionResult(
         submission_id="submission-000001",
         program=Program.from_directory(source),
+        episode_indices=(0,),
         episodes_used=1,
         episodes_remaining=0,
         feedback=Feedback(score=1.0),

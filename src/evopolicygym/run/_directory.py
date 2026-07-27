@@ -21,10 +21,14 @@ from ..program import Program
 from ..results import RunResult
 from ..skills import AgentSkill
 from . import RunConfig
+from ._episode_pool import (
+    TRAINING_POLICY_DERIVATION,
+    TRAINING_POOL_DERIVATION,
+)
 from ._json import encode_public_json_value
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v5"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v6"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
 _VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
@@ -308,6 +312,7 @@ def _write_run_manifest(
         {
             "submission_id": item.submission_id,
             "program_digest": item.program_digest,
+            "episode_indices": list(item.episode_indices),
             "episodes_used": item.episodes_used,
             "episodes_remaining": item.episodes_remaining,
             "score": item.feedback.score,
@@ -357,6 +362,7 @@ def _write_run_manifest(
                 "seed": config.seed,
                 "max_submissions": config.max_submissions,
                 "episode_budget": config.episode_budget,
+                "episode_pool_size": config.episode_pool_size,
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
                 ),
@@ -383,6 +389,11 @@ def _write_run_manifest(
                         "episodes": config.assessment.episodes,
                     }
                 ),
+            },
+            "training_episode_pool": {
+                "size": config.episode_pool_size,
+                "episode_derivation": TRAINING_POOL_DERIVATION,
+                "policy_seed_derivation": TRAINING_POLICY_DERIVATION,
             },
             "agent": {
                 **agent_identity,

@@ -434,7 +434,10 @@ description: Improve counter policies.
             max_submissions=4,
             episode_budget=20,
         )
-        agent = Codex(model="gpt-5")
+        agent = Codex(
+            model="gpt-5",
+            reasoning_effort="medium",
+        )
 
         self.assertEqual(evaluation.episodes, 2)
         self.assertEqual(run.max_submissions, 4)
@@ -1426,7 +1429,13 @@ assert os.environ["EVOPOLICYGYM_SESSION_SOCKET"] == os.path.join(
     "..", "control", "session.sock"
 )
 assert shutil.which("evopolicygym") is not None
-assert arguments[:3] == ["--ask-for-approval", "never", "exec"]
+assert arguments[:5] == [
+    "--ask-for-approval",
+    "never",
+    "--config",
+    'model_reasoning_effort="high"',
+    "exec",
+]
 for flag in (
     "--ephemeral",
     "--json",
@@ -1506,6 +1515,7 @@ print(json.dumps({{"type": "turn.completed"}}))
                     RecordingBenchmark(),
                     agent=Codex(
                         model="fake-model",
+                        reasoning_effort="high",
                         executable=str(fake_codex),
                     ),
                     execution=ProcessExecution.unsafe(),
@@ -1564,7 +1574,11 @@ print(json.dumps({{"type": "turn.completed"}}))
         )
         self.assertEqual(
             invocation["agent"],
-            {"provider": "codex", "model": "fake-model"},
+            {
+                "provider": "codex",
+                "model": "fake-model",
+                "reasoning_effort": "high",
+            },
         )
         self.assertEqual(invocation["cwd"], "workspace")
         self.assertEqual(invocation["command"][-1], "@agent/instructions.md")
@@ -1580,6 +1594,7 @@ print(json.dumps({{"type": "turn.completed"}}))
         )
         self.assertEqual(manifest["agent"]["provider"], "codex")
         self.assertEqual(manifest["agent"]["model"], "fake-model")
+        self.assertEqual(manifest["agent"]["reasoning_effort"], "high")
         self.assertEqual(
             manifest["workspace"]["program"],
             "workspace/program",

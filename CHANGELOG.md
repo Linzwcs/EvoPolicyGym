@@ -24,6 +24,8 @@
   snapshots. Runs may compose multiple Skills under read-only
   `workspace/skills/`, and `run-record/v5` retains their names and digests
   without coupling them to `BenchmarkSpec` or Policy processes.
+- Added required Codex `reasoning_effort` selection, deterministic CLI
+  translation, and retention in the Agent identity.
 
 ## 0.3.0
 

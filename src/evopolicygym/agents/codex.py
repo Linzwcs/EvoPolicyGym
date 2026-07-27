@@ -27,9 +27,10 @@ _CODEX_ENVIRONMENT_ALLOWLIST = (
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Codex:
-    """Select the Codex model and CLI executable used by a Run."""
+    """Select the Codex model, reasoning effort, and CLI used by a Run."""
 
     model: str
+    reasoning_effort: str
     executable: str = "codex"
 
     def __post_init__(self) -> None:
@@ -41,6 +42,25 @@ class Codex:
             or "\0" in self.model
         ):
             raise ValueError("model must be a non-empty bounded identifier")
+        if (
+            type(self.reasoning_effort) is not str
+            or not self.reasoning_effort
+            or len(
+                self.reasoning_effort.encode("utf-8", errors="strict")
+            )
+            > 64
+            or any(
+                not character.isascii()
+                or not (
+                    character.isalnum()
+                    or character in {"-", "_"}
+                )
+                for character in self.reasoning_effort
+            )
+        ):
+            raise ValueError(
+                "reasoning_effort must be a non-empty bounded identifier"
+            )
         if (
             type(self.executable) is not str
             or not self.executable
@@ -61,6 +81,8 @@ class Codex:
             resolved_executable,
             "--ask-for-approval",
             "never",
+            "--config",
+            f'model_reasoning_effort="{self.reasoning_effort}"',
             "exec",
             "--ephemeral",
             "--json",
@@ -74,13 +96,15 @@ class Codex:
             "--color",
             "never",
         )
+        identity = {
+            "provider": "codex",
+            "model": self.model,
+            "reasoning_effort": self.reasoning_effort,
+        }
         return AgentInvocation(
             command=(*command_prefix, task.instructions),
             recorded_command=(*command_prefix, "@agent/instructions.md"),
-            identity={
-                "provider": "codex",
-                "model": self.model,
-            },
+            identity=identity,
             instructions=task.instructions,
             inherited_environment=_CODEX_ENVIRONMENT_ALLOWLIST,
             stdout_media_type="application/x-ndjson",

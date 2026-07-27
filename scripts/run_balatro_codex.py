@@ -47,6 +47,7 @@ def main(arguments: list[str] | None = None) -> int:
         BalatroBenchmark(),
         agent=Codex(
             model=namespace.model,
+            reasoning_effort=namespace.reasoning_effort,
             executable=namespace.codex_executable,
         ),
         execution=ProcessExecution.unsafe(),
@@ -148,6 +149,14 @@ def _parser() -> argparse.ArgumentParser:
         description="Run a real Codex Agent against the Balatro Benchmark.",
     )
     parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--reasoning-effort",
+        required=True,
+        help=(
+            "set the selected Codex model's reasoning effort "
+            "(for example: high or xhigh)"
+        ),
+    )
     parser.add_argument("--codex-executable", default="codex")
     parser.add_argument("--record-to", type=Path, required=True)
     parser.add_argument(

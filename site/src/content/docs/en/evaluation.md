@@ -70,7 +70,10 @@ from cartpole import CartPoleBenchmark
 result = run(
     Program.from_directory("policy/"),
     CartPoleBenchmark(),
-    agent=Codex(model="gpt-5.5"),
+    agent=Codex(
+        model="gpt-5.5",
+        reasoning_effort="high",
+    ),
     execution=ProcessExecution.unsafe(),
     record_to="runs/cartpole-001",
     config=RunConfig(

@@ -29,12 +29,17 @@ class EvaluationError(EvoPolicyGymError):
     """Evaluation could not produce a valid public result."""
 
 
+class AgentSkillError(EvoPolicyGymError, ValueError):
+    """A Coding Agent Skill directory cannot be captured."""
+
+
 class AgentRunError(EvoPolicyGymError):
     """A Coding Agent run could not produce a valid terminal result."""
 
 
 __all__ = [
     "AgentRunError",
+    "AgentSkillError",
     "BenchmarkError",
     "EvaluationError",
     "EvoPolicyGymError",

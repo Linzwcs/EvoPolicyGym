@@ -15,8 +15,10 @@ from evopolicygym import (
     run,
 )
 from evopolicygym.agents import Codex
+from evopolicygym.errors import AgentSkillError
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
+from evopolicygym.skills import AgentSkill
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -33,6 +35,12 @@ def main(arguments: list[str] | None = None) -> int:
         parser.error("--record-to must not already exist")
     if not record_to.parent.is_dir():
         parser.error("--record-to parent directory must exist")
+    try:
+        skills = tuple(
+            AgentSkill.from_directory(path) for path in namespace.skill
+        )
+    except AgentSkillError as error:
+        parser.error(str(error))
 
     result = run(
         baseline_program(),
@@ -43,6 +51,7 @@ def main(arguments: list[str] | None = None) -> int:
         ),
         execution=ProcessExecution.unsafe(),
         record_to=record_to,
+        skills=skills,
         config=RunConfig(
             split=namespace.split,
             max_submissions=namespace.max_submissions,
@@ -50,7 +59,6 @@ def main(arguments: list[str] | None = None) -> int:
             max_episodes_per_submission=(
                 namespace.max_episodes_per_submission
             ),
-            use_benchmark_skill=namespace.benchmark_skill,
             validation=(
                 None
                 if namespace.validation_episodes_per_candidate is None
@@ -177,11 +185,12 @@ def _parser() -> argparse.ArgumentParser:
         default="test",
     )
     parser.add_argument(
-        "--benchmark-skill",
-        action="store_true",
-        help=(
-            "publish the Balatro optimization skill in the Agent workspace"
-        ),
+        "--skill",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="DIRECTORY",
+        help="publish one explicit read-only Agent Skill; repeatable",
     )
     parser.add_argument("--episode-timeout-seconds", type=float, default=60)
     parser.add_argument("--agent-timeout-seconds", type=float, default=3_600)

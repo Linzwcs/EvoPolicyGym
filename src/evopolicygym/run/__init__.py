@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,7 +13,12 @@ from ..benchmark import Benchmark
 from ..execution import ProcessExecution
 from ..program import Program
 from ..results import RunResult
+from ..skills import AgentSkill
 from .progress import ConsoleProgress, RunEvent, RunObserver
+
+_MAX_AGENT_SKILLS = 16
+_MAX_AGENT_SKILL_FILES = 2_048
+_MAX_AGENT_SKILL_BYTES = 64 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -54,7 +60,6 @@ class RunConfig:
     max_submissions: int = 20
     episode_budget: int = 1_000
     max_episodes_per_submission: int | None = None
-    use_benchmark_skill: bool = False
     validation: ValidationConfig | None = None
     assessment: AssessmentConfig | None = None
     seed: int = 0
@@ -81,8 +86,6 @@ class RunConfig:
                 raise ValueError(
                     "max_episodes_per_submission cannot exceed episode_budget"
                 )
-        if type(self.use_benchmark_skill) is not bool:
-            raise TypeError("use_benchmark_skill must be bool")
         if self.validation is not None:
             if type(self.validation) is not ValidationConfig:
                 raise TypeError("validation must be ValidationConfig or None")
@@ -117,6 +120,7 @@ def run(
     execution: ProcessExecution,
     record_to: str | os.PathLike[str],
     config: RunConfig | None = None,
+    skills: Sequence[AgentSkill] = (),
     observer: RunObserver | None = None,
 ) -> RunResult:
     """Let one Coding Agent improve a Program through a bounded local Session.
@@ -136,6 +140,7 @@ def run(
     selected_config = RunConfig() if config is None else config
     if type(selected_config) is not RunConfig:
         raise TypeError("config must be RunConfig or None")
+    selected_skills = _select_skills(skills)
     if observer is not None and not isinstance(observer, RunObserver):
         raise TypeError("observer must implement RunObserver or be None")
     try:
@@ -151,8 +156,31 @@ def run(
         agent=agent,
         run_directory=run_directory,
         config=selected_config,
+        skills=selected_skills,
         observer=observer,
     )
+
+
+def _select_skills(
+    skills: Sequence[AgentSkill],
+) -> tuple[AgentSkill, ...]:
+    if isinstance(skills, (str, bytes)) or not isinstance(skills, Sequence):
+        raise TypeError("skills must be a sequence of AgentSkill values")
+    selected = tuple(skills)
+    if len(selected) > _MAX_AGENT_SKILLS:
+        raise ValueError(
+            f"a Run can include at most {_MAX_AGENT_SKILLS} Agent Skills"
+        )
+    if any(type(skill) is not AgentSkill for skill in selected):
+        raise TypeError("skills must contain only AgentSkill values")
+    names = tuple(skill.name for skill in selected)
+    if len(set(names)) != len(names):
+        raise ValueError("skills must have unique names")
+    if sum(skill.file_count for skill in selected) > _MAX_AGENT_SKILL_FILES:
+        raise ValueError("Agent Skills contain too many files for one Run")
+    if sum(skill.total_bytes for skill in selected) > _MAX_AGENT_SKILL_BYTES:
+        raise ValueError("Agent Skills exceed the total Run byte limit")
+    return selected
 
 
 __all__ = [

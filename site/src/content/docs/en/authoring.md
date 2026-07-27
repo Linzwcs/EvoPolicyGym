@@ -35,7 +35,6 @@ A distribution owns:
 - one fresh Environment per Episode;
 - Action validation and trusted Steps;
 - scoring and public Feedback;
-- an optional public Coding-Agent authoring skill;
 - baseline Programs and tests;
 - local conformance fixtures.
 
@@ -97,15 +96,14 @@ conformance is structural.
 | `max_episode_steps` | Positive hard Episode horizon. |
 | `primary_metric` | Name of the score represented by `Feedback.score`. |
 | `score_direction` | Exactly `maximize` or `minimize`. |
-| `agent_skill` | Optional bounded Markdown copied into opted-in Agent workspaces; default `None`. |
 
 Do not put private scenarios, Environment seeds, paths, credentials, or
 scorer objects in the specification.
 
-`agent_skill` may explain strategy-development methods using only public
-Benchmark information. It is never visible to Policy code. A Run must set
-`use_benchmark_skill=True` before the Host publishes the text read-only as
-`workspace/skill/SKILL.md`.
+Coding Agent Skills are orthogonal to Benchmark authoring. A distribution may
+document a compatible Skill, but must not load or reference it from
+`BenchmarkSpec`. The Run caller explicitly captures selected Skill
+directories and the Host publishes them read-only under `workspace/skills/`.
 
 The distribution owns its typed constructor. For example,
 `FrozenLakeBenchmark(map_name="8x8", is_slippery=True)` validates and retains

@@ -84,9 +84,11 @@ authority.
   `max_episodes_per_submission` documented as safe by that Benchmark.
 - Use a new `record_to` path whose parent already exists. Never reuse or
   pre-create the Run directory.
-- Enable `use_benchmark_skill=True` only when the Benchmark supplies useful
-  task-specific guidance. That read-only skill complements this project skill;
-  it does not replace the Host task or expose data to the Policy.
+- Capture each desired task-specific Skill explicitly with
+  `AgentSkill.from_directory()` and pass it through `run(..., skills=...)`.
+  Skills are independent Run inputs, not Benchmark properties. The Host
+  retains their complete directories read-only without exposing them to the
+  Policy.
 - Add `ConsoleProgress()` when interactive progress is useful.
 - Require the Agent to publish candidates through
   `evopolicygym submit program --episodes N` and finish by handing the Host

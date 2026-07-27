@@ -18,7 +18,8 @@ from ..results import (
     RunTerminalReason,
     SubmissionResult,
 )
-from . import RunConfig
+from ..skills import AgentSkill
+from . import RunConfig, _select_skills
 from ._validation import CandidateSelection
 from .progress import RunObserver
 
@@ -273,12 +274,14 @@ def run_agent_with_processes(
     agent: CodingAgent,
     run_directory: Path,
     config: RunConfig,
+    skills: tuple[AgentSkill, ...] = (),
     observer: RunObserver | None = None,
 ) -> RunResult:
     from ._task import build_agent_task
 
     spec = _benchmark_spec(benchmark)
-    task = build_agent_task(spec, config)
+    selected_skills = _select_skills(skills)
+    task = build_agent_task(spec, config, selected_skills)
     try:
         invocation = agent.build_invocation(task)
     except AgentRunError:
@@ -296,6 +299,7 @@ def run_agent_with_processes(
         invocation=invocation,
         run_directory=run_directory,
         config=config,
+        skills=selected_skills,
         observer=observer,
     )
 
@@ -308,6 +312,7 @@ def run_process_agent(
     run_directory: Path,
     config: RunConfig,
     spec: BenchmarkSpec | None = None,
+    skills: tuple[AgentSkill, ...] = (),
     observer: RunObserver | None = None,
 ) -> RunResult:
     """Execute the process-Agent graph used by the public Run and tests."""
@@ -339,6 +344,7 @@ def run_process_agent(
         raise TypeError("invocation must be AgentInvocation")
     if type(config) is not RunConfig:
         raise TypeError("config must be RunConfig")
+    selected_skills = _select_skills(skills)
     if observer is not None and not isinstance(observer, RunObserver):
         raise TypeError("observer must implement RunObserver or be None")
 
@@ -349,11 +355,7 @@ def run_process_agent(
     paths = prepare_run_directory(
         run_directory,
         initial_program,
-        agent_skill=(
-            selected_spec.agent_skill
-            if config.use_benchmark_skill
-            else None
-        ),
+        skills=selected_skills,
     )
     try:
         retain_agent_invocation(paths, invocation)
@@ -363,6 +365,7 @@ def run_process_agent(
             initial_program=initial_program,
             config=config,
             agent_identity=invocation.identity,
+            skills=selected_skills,
             observer=observer,
         ) as recorder:
             evaluator = EvaluationService(

@@ -137,18 +137,6 @@ class BalatroBenchmarkTests(unittest.TestCase):
             benchmark.spec.id,
             "jackdaw/Balatro/red-deck-white-stake/run-score-v2",
         )
-        skill = benchmark.spec.agent_skill
-        assert isinstance(skill, str)
-        self.assertIn("name: optimize-balatro-policy", skill)
-        self.assertIn("expected Episode score", skill)
-        self.assertIn("required system checkpoint", skill)
-        self.assertIn("EpisodePlan", skill)
-        self.assertIn("one legal-action gateway", skill)
-        self.assertIn("Checking only that the `kind` exists is insufficient", skill)
-        self.assertIn("Pool repeated evidence by digest", skill)
-        self.assertIn("episodes_remaining` reaches zero", skill)
-        self.assertIn("Do not call `finish` while any Episode budget remains", skill)
-        self.assertIn("Host task's current `finish` syntax", skill)
         excluded = benchmark.spec.metadata["excluded_content"]
         assert isinstance(excluded, dict)
         self.assertEqual(excluded["tags"], list(EXCLUDED_TAG_KEYS))

@@ -13,7 +13,10 @@ run-root/
 ├── workspace/
 │   ├── program/
 │   ├── feedback/
-│   └── skill/SKILL.md          optional
+│   └── skills/                 optional explicit Run inputs
+│       └── <name>/
+│           ├── SKILL.md
+│           └── ...             bundled references, scripts, or assets
 ├── submissions/
 │   └── submission-NNNNNN/
 │       ├── program/
@@ -36,9 +39,9 @@ only after its Program and public Feedback commit successfully.
 
 ## Diagnose in order
 
-1. Read `run.json`: benchmark ID, config, terminal reason, final submission,
-   ordered candidates, published submissions, optional Validation and
-   Assessment reports, and Agent exit.
+1. Read `run.json`: benchmark ID, selected Skill names and digests, config,
+   terminal reason, final submission, ordered candidates, published
+   submissions, optional Validation and Assessment reports, and Agent exit.
 2. Read the final events in `events.jsonl`: determine whether failure occurred
    before an Episode, during an Episode, after all Episodes, or during
    publication.

@@ -6,11 +6,16 @@ import json
 
 from ..agents import AgentTask
 from ..benchmark import BenchmarkSpec
+from ..skills import AgentSkill
 from . import RunConfig
 from ._json import encode_public_json_value
 
 
-def build_agent_task(spec: BenchmarkSpec, config: RunConfig) -> AgentTask:
+def build_agent_task(
+    spec: BenchmarkSpec,
+    config: RunConfig,
+    skills: tuple[AgentSkill, ...] = (),
+) -> AgentTask:
     """Build the provider-independent instructions for one development Run."""
 
     submission_limit = config.max_episodes_per_submission
@@ -83,19 +88,7 @@ and its results are not returned to this Agent Session.
         indent=2,
         sort_keys=True,
     )
-    skill_guidance = ""
-    if config.use_benchmark_skill and spec.agent_skill is not None:
-        skill_guidance = """\
-The Benchmark provides a task-specific optimization skill at:
-
-    skill/SKILL.md
-
-Read that file completely before inspecting the Program or submitting a
-candidate. Follow its development workflow while treating this instruction,
-the Benchmark specification, current observations, and legal Actions as
-authoritative.
-
-"""
+    skill_guidance = _skill_guidance(skills)
     return AgentTask(
         instructions=f"""\
 You are improving one Policy Program for an EvoPolicyGym Benchmark.
@@ -143,6 +136,26 @@ Benchmark public specification:
 {rendered_spec}
 """
     )
+
+
+def _skill_guidance(skills: tuple[AgentSkill, ...]) -> str:
+    if not skills:
+        return ""
+    paths = "\n".join(
+        f"    skills/{skill.name}/SKILL.md" for skill in skills
+    )
+    return f"""\
+This Run explicitly provides the following read-only Agent Skills:
+
+{paths}
+
+Read every listed SKILL.md completely before inspecting the Program or
+submitting a candidate. A Skill may reference additional files inside its own
+directory. Follow the selected workflows while treating this Host task, the
+Benchmark specification, current observations, and legal Actions as
+authoritative.
+
+"""
 
 
 __all__: list[str] = []

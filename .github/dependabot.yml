@@ -11,16 +11,18 @@ updates:
           - "*"
 
   - package-ecosystem: "uv"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    groups:
-      python:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "uv"
-    directory: "/environments/gymnasium/classic_control/cartpole"
+    directories:
+      - "/"
+      - "/environments/ale/*"
+      - "/environments/gymnasium/*/*"
+      - "/environments/gymnasium_robotics/*"
+      - "/environments/highway_env/*"
+      - "/environments/jackdaw/*"
+      - "/environments/metaworld/*"
+      - "/environments/minigrid/babyai"
+      - "/environments/minigrid/minigrid/*"
+      - "/environments/stable_retro/*"
+      - "/environments/vizdoom/*"
     schedule:
       interval: "weekly"
     groups:

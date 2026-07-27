@@ -38,9 +38,12 @@ with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
 ## Environments
 
 Environment distributions are independent packages that depend only on the
-public EvoPolicyGym SDK. The Gymnasium collection covers all 23 current tasks
-in its four documented built-in suites; registered parameter variants are
-selected through each Benchmark's typed environment configuration.
+public EvoPolicyGym SDK. The catalog now spans Gymnasium, MiniGrid and BabyAI,
+HighwayEnv, Gymnasium-Robotics, MetaWorld, ALE, ViZDoom, Stable-Retro, and
+Balatro. Registered task, size, and difficulty variants are selected through
+each Benchmark's typed environment configuration. See the
+[complete integration ledger](environments/STATUS.md) for exact coverage and
+the environments intentionally deferred by ABI, runtime, or asset boundaries.
 
 | Collection | Contents | Description |
 | --- | --- | --- |
@@ -48,6 +51,13 @@ selected through each Benchmark's typed environment configuration.
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
 | [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks | Parameterized continuous-control physics using official packaged models and semantic nested observations |
 | [Gymnasium Toy Text](environments/gymnasium/toy_text/) | Blackjack, CliffWalking, FrozenLake, and Taxi | All four standard Toy Text tasks with typed rule and dynamics parameters |
+| [MiniGrid](environments/minigrid/) | 21 standard families, all 22 WFC presets, and 40 requested BabyAI tasks | Partially observable language-conditioned navigation, procedural layouts, compositional instructions, and Episode-local memory |
+| [HighwayEnv](environments/highway_env/) | All ten canonical single-agent tasks | Discrete and continuous autonomous-driving profiles |
+| [Gymnasium-Robotics](environments/gymnasium_robotics/) | 21 Fetch, Maze, Adroit, Shadow Hand, and FrankaKitchen profiles | Goal-conditioned manipulation, navigation, touch sensing, and long-horizon robotics |
+| [MetaWorld](environments/metaworld/) | All 50 MT1 tasks, MT10, MT50, and custom collections | Host-selected single-task and multi-task manipulation |
+| [ALE](environments/ale/) | Redistributable Tetris profile | Atari RGB control without an external ROM dependency |
+| [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios | First-person RGB, game-variable, audio, and hybrid-action control |
+| [Stable-Retro](environments/stable_retro/) | Redistributable Airstriker Level 1 profile | Console RGB control without an external ROM dependency |
 | [Jackdaw](environments/jackdaw/) | Balatro | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
 | [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | [`v0.1.0` paper archive](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | The 16 control, navigation, driving, and robotics tasks used in the paper |
 

@@ -7,6 +7,8 @@ not design inputs for this version.
 ## Domain language
 
 - A `Program` is one immutable, content-addressed Policy source snapshot.
+- An `AgentSkill` is one immutable, content-addressed, pathless directory
+  snapshot explicitly selected as a Coding Agent input to a Run.
 - Environment parameters are the public, Case-independent values bound to one
   configured Benchmark before Evaluation. Their canonical digest distinguishes
   otherwise identical Benchmark IDs with different task configurations.
@@ -40,6 +42,7 @@ evopolicygym/
 ├── benchmark.py                caller-facing Benchmark identity
 ├── results.py                  detached Feedback and result values
 ├── artifacts.py                bounded public Artifact values
+├── skills.py                   immutable explicit Agent Skill snapshots
 ├── errors.py                   sanitized public failures
 ├── authoring/                  external Benchmark authoring and conformance SPI
 │
@@ -98,6 +101,11 @@ An Environment distribution depends only on the supported public SDK and
 does not import it, and sibling distributions do not import one another.
 `environments/gymnasium/classic_control/cartpole/`, for example, builds
 `evopolicygym-benchmark-cartpole` and imports as `cartpole`.
+
+First-party reusable Coding Agent workflows live independently under the
+repository's top-level `skills/` directory. A Benchmark distribution may
+document a compatible Skill, but does not package, load, or reference it from
+`BenchmarkSpec`.
 
 ## Environment configuration boundary
 
@@ -183,9 +191,10 @@ The rules are:
   `AgentInvocation`;
 - `run/_task.py` owns workspace, submit, finish, budget, and Benchmark
   instructions, so provider implementations do not duplicate Kernel semantics;
-- a Benchmark may publish one bounded `agent_skill` in its `BenchmarkSpec`;
-  an opted-in Run retains it read-only at `workspace/skill/SKILL.md`, while
-  default Runs, direct Evaluation, and the Policy boundary never receive it;
+- callers explicitly compose zero or more immutable `AgentSkill` snapshots
+  into a Run; the Run retains each complete directory read-only at
+  `workspace/skills/<name>/`, records its content digest, and never exposes a
+  Skill to direct Evaluation or the Policy boundary;
 - provider packages translate the task into their own invocation but do not
   author the task or start and supervise the process themselves;
 - a small provider integration remains one cohesive module until its own
@@ -237,13 +246,14 @@ retaining that final Program; it never falls back to another candidate and
 does not create a partial report.
 
 The Agent-visible `workspace/` contains only editable `program/`, public
-`feedback/`, and an optional Benchmark skill. `validation/` and `assessment/`
-are not created until after Agent cleanup. Successful phases retain only
-aggregate scores and Policy-failure counts in their reports; private Episodes,
-seeds, cases, traces, and execution evidence do not cross into Feedback.
-`run.json` uses `evopolicygym/run-record/v4`, retains the public Environment
-parameters and canonical digest beside the Benchmark ID, and references the
-available aggregate reports.
+`feedback/`, and zero or more explicitly selected read-only Skill directories
+under `skills/`. `validation/` and `assessment/` are not created until after
+Agent cleanup. Successful phases retain only aggregate scores and
+Policy-failure counts in their reports; private Episodes, seeds, cases, traces,
+and execution evidence do not cross into Feedback. `run.json` uses
+`evopolicygym/run-record/v5`, retains the public Environment parameters and
+canonical digest beside the Benchmark ID, records selected Skill names,
+digests, and snapshot paths, and references the available aggregate reports.
 
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires

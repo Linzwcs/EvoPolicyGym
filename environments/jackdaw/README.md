@@ -9,4 +9,5 @@ the Jackdaw headless rules engine.
 
 The collection itself is not installable. Balatro owns its `pyproject.toml`,
 lockfile, vendored engine revision, semantic observation adapter, replay,
-baseline Program, optional authoring skill, and tests.
+baseline Program, and tests. Compatible Coding Agent Skills are independent
+Run inputs maintained under the repository's top-level `skills/` directory.

@@ -34,6 +34,9 @@ For AI-assisted setup, Benchmark integration, runs, and diagnostics, this
 repository ships the reusable
 [`use-evopolicygym` Agent Skill](skills/use-evopolicygym/). Install that folder
 with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
+Task-specific workflows, such as
+[`optimize-balatro-policy`](skills/optimize-balatro-policy/), live beside it
+and are selected explicitly per Run rather than embedded in a Benchmark.
 
 ## Environments
 
@@ -137,9 +140,10 @@ and included in the Evaluation and retained Run identity. Per-Episode
 ## Coding-agent runs
 
 `run()` gives a coding agent a fixed `workspace/` containing an editable
-`program/` and Benchmark-authorized `feedback/`. A Benchmark may also provide
-one authoring skill. Runs opt into its read-only `skill/SKILL.md` projection
-with `use_benchmark_skill=True`; the skill is never passed to the Policy:
+`program/` and Benchmark-authorized `feedback/`. Agent Skills are independent
+experiment inputs selected explicitly by the caller. Complete Skill directory
+snapshots appear read-only under `workspace/skills/` and never enter the
+Policy process:
 
 ```python
 from cartpole import CartPoleBenchmark, baseline_program
@@ -153,6 +157,7 @@ from evopolicygym import (
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
+from evopolicygym.skills import AgentSkill
 
 result = run(
     baseline_program(),
@@ -160,11 +165,13 @@ result = run(
     agent=Codex(model="gpt-5.6-luna"),
     execution=ProcessExecution.unsafe(),
     record_to="runs/cartpole-001",
+    skills=(
+        AgentSkill.from_directory("path/to/task-skill"),
+    ),
     config=RunConfig(
         max_submissions=16,
         episode_budget=48,
         max_episodes_per_submission=3,
-        use_benchmark_skill=True,
         validation=ValidationConfig(
             split="validation",
             episodes_per_candidate=10,
@@ -178,6 +185,13 @@ result = run(
     observer=ConsoleProgress(),
 )
 ```
+
+An `AgentSkill` is a pathless, content-addressed snapshot containing
+`SKILL.md` and any referenced files, scripts, or assets. A Run accepts up to
+16 uniquely named Skills. Their names, digests, and retained workspace paths
+are recorded in `run.json`, making with-Skill and without-Skill comparisons
+explicit and reproducible. The combined snapshot is also bounded to 2,048
+files and 64 MiB. Benchmarks never select or load Skills themselves.
 
 During the Run, the agent evaluates immutable submissions and hands candidates
 to the Host with:
@@ -201,11 +215,12 @@ selection and is never returned to the Agent. Its aggregate score and Policy
 failure count are the Run's final benchmark evidence.
 
 The Host retains submitted Programs, public Feedback and Artifacts,
-`events.jsonl`, the final `run.json`, separate Agent logs, and—when
-configured—aggregate `validation/report.json` and
-`assessment/report.json` records. Benchmark authors control the public
-Feedback content and may publish bounded traces, replays, diagnostics, images,
-or reports without exposing private seeds, paths, or execution evidence.
+content-addressed Agent Skill snapshots, `events.jsonl`, the final `run.json`,
+separate Agent logs, and—when configured—aggregate
+`validation/report.json` and `assessment/report.json` records. Benchmark
+authors control the public Feedback content and may publish bounded traces,
+replays, diagnostics, images, or reports without exposing private seeds,
+paths, or execution evidence.
 
 `ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
 with the authority of the current operating-system user. Use it only with

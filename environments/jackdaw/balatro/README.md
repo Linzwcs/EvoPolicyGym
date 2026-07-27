@@ -69,13 +69,16 @@ phase transitions, exact Action shapes, observation semantics, scoring,
 economy, card modifiers, and win/loss conditions. Coding Agents receive this
 guide in their Run instruction without receiving an unseen card catalog.
 
-The package also provides the `optimize-balatro-policy` authoring skill.
-Program-Evolution Runs may opt in with
-`RunConfig(use_benchmark_skill=True)` or the Balatro script's
-`--benchmark-skill` flag. Enabled Runs expose it read-only as
-`workspace/skill/SKILL.md`. It guides Policy-system architecture, replay
-regression, evidence allocation, strategy development, and final candidate
-handoff without adding hidden game state or entering the Policy process.
+The source repository separately provides the
+[`optimize-balatro-policy`](../../../skills/optimize-balatro-policy/) Agent
+Skill. It is not part of this Benchmark distribution or `BenchmarkSpec`.
+Select it explicitly with the Balatro script's repeatable
+`--skill skills/optimize-balatro-policy` option. The Run freezes the complete
+directory and exposes it read-only at
+`workspace/skills/optimize-balatro-policy/`. It guides Policy-system
+architecture, replay regression, evidence allocation, strategy development,
+and final candidate handoff without adding hidden game state or entering the
+Policy process.
 
 Every currently visible Joker, Enhancement, Tarot, Planet, Spectral card,
 Voucher, Booster, Blind, and skip Tag carries a version-pinned `rule` object

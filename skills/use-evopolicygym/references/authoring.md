@@ -74,8 +74,10 @@ Benchmark. One Artifact is limited to 16 MiB; one Feedback contains at most 64
 Artifacts and 64 MiB total. Bound traces independently of requested Episode
 count while keeping aggregate scoring based on every record.
 
-If supplying `BenchmarkSpec.agent_skill`, keep it task-specific, bounded, and
-free of private state. It is projected read-only only when a Run opts in.
+Keep Coding Agent Skills outside the Benchmark distribution contract.
+Benchmark authors may document compatible Skills, but `BenchmarkSpec` does not
+publish or select them. A caller freezes the desired directories with
+`AgentSkill.from_directory()` and passes them explicitly to `run()`.
 
 The same `episodes()`, `make_environment()`, and `feedback()` methods may be
 used for server-side candidate Validation and final Assessment. Keep training,

@@ -87,10 +87,12 @@ Run 语义。
 `max_episodes_per_submission` 默认为 `None`；只有 Host 需要额外限制时才设置
 正整数上限。
 
-部分 Benchmark 会发布可选的 authoring skill。它不会进入 Policy process，并且
-默认关闭。设置 `RunConfig(use_benchmark_skill=True)` 后，Run 会将其以只读形式
-提供到 `workspace/skill/SKILL.md`，并在 `run.json` 中记录该设置。Balatro
-distribution 提供了用于证据分配、策略开发与 Policy 加固的 skill。
+Agent Skill 是独立的 Run 输入，而不是 Benchmark 属性。调用者使用
+`AgentSkill.from_directory("skills/<name>")` 冻结明确选择的目录，并通过
+`run(..., skills=(skill,))` 传入。Host 将完整 Skill 目录以只读形式提供到
+`workspace/skills/`，在 `run.json` 中记录名称与内容摘要，并且绝不将它们传入
+Policy process。仓库中的 Balatro Skill 是用于证据分配、策略开发与 Policy
+加固的一种可选实验条件。
 
 ## Submission 记账
 

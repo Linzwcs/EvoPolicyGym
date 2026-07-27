@@ -98,6 +98,7 @@ from evopolicygym.run import (
     RunObserver,
     ValidationConfig,
 )
+from evopolicygym.skills import AgentSkill
 
 assert EvaluationConfig.__module__ == "evopolicygym.evaluation"
 assert AssessmentConfig.__module__ == "evopolicygym.run"
@@ -107,6 +108,7 @@ assert ConsoleProgress.__module__ == "evopolicygym.run.progress"
 assert RunEvent.__module__ == "evopolicygym.run.progress"
 assert RunObserver.__module__ == "evopolicygym.run.progress"
 assert Codex.__module__ == "evopolicygym.agents.codex"
+assert AgentSkill.__module__ == "evopolicygym.skills"
 assert ProcessExecution.__module__ == "evopolicygym.execution"
 
 forbidden = (

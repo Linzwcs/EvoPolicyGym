@@ -19,11 +19,12 @@ from ..errors import AgentRunError
 from ..execution.process.agent.runner import AgentExit
 from ..program import Program
 from ..results import RunResult
+from ..skills import AgentSkill
 from . import RunConfig
 from ._json import encode_public_json_value
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v4"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v5"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
 _VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
@@ -36,7 +37,7 @@ _WORKSPACE_VARIABLE = "EVOPOLICYGYM_WORKSPACE"
 class RunDirectoryPaths:
     root: Path
     workspace: Path
-    skill: Path
+    skills: Path
     program: Path
     feedback: Path
     initial: Path
@@ -55,7 +56,7 @@ class RunDirectoryPaths:
         return cls(
             root=root,
             workspace=workspace,
-            skill=workspace / "skill",
+            skills=workspace / "skills",
             program=workspace / "program",
             feedback=workspace / "feedback",
             initial=root / "initial",
@@ -92,6 +93,7 @@ class RunDirectoryRecorder:
         initial_program: Program,
         config: RunConfig,
         agent_identity: Mapping[str, str],
+        skills: tuple[AgentSkill, ...] = (),
         observer: RunObserver | None = None,
     ) -> None:
         if type(benchmark_spec) is not BenchmarkSpec:
@@ -101,6 +103,7 @@ class RunDirectoryRecorder:
         self._initial_program = initial_program
         self._config = config
         self._agent_identity = dict(agent_identity)
+        self._skills = skills
         self._observer = observer
         self._events: TextIO | None = None
         self._event_lock = Lock()
@@ -155,6 +158,7 @@ class RunDirectoryRecorder:
             benchmark_spec=self._benchmark_spec,
             initial_program=self._initial_program,
             config=self._config,
+            skills=self._skills,
             agent_exit=agent_exit,
             agent_identity=self._agent_identity,
         )
@@ -164,7 +168,7 @@ def prepare_run_directory(
     root: Path,
     initial_program: Program,
     *,
-    agent_skill: str | None = None,
+    skills: tuple[AgentSkill, ...] = (),
 ) -> RunDirectoryPaths:
     if not isinstance(root, Path):
         raise TypeError("run directory must be Path")
@@ -185,14 +189,15 @@ def prepare_run_directory(
         directory.mkdir(mode=0o700)
     initial_program.write_to(paths.initial / "program")
     initial_program.write_to(paths.program)
-    if agent_skill is not None:
-        paths.skill.mkdir(mode=0o700)
-        _write_read_only_text_file(
-            paths.skill / "SKILL.md",
-            agent_skill,
-            error_message="Benchmark Agent skill could not be retained",
-        )
-        os.chmod(paths.skill, 0o500)
+    if skills:
+        paths.skills.mkdir(mode=0o700)
+        for skill in skills:
+            skill.write_to(paths.skills / skill.name)
+            _make_tree_read_only(
+                paths.skills / skill.name,
+                preserve_executable=True,
+            )
+        os.chmod(paths.skills, 0o500)
     _make_tree_read_only(paths.initial / "program")
     return paths
 
@@ -295,6 +300,7 @@ def _write_run_manifest(
     benchmark_spec: BenchmarkSpec,
     initial_program: Program,
     config: RunConfig,
+    skills: tuple[AgentSkill, ...],
     agent_exit: AgentExit,
     agent_identity: dict[str, str],
 ) -> None:
@@ -332,11 +338,19 @@ def _write_run_manifest(
                 "program": "workspace/program",
                 "feedback": "workspace/feedback",
                 **(
-                    {"skill": "workspace/skill/SKILL.md"}
-                    if (path.parent / "workspace" / "skill" / "SKILL.md").is_file()
+                    {"skills": "workspace/skills"}
+                    if skills
                     else {}
                 ),
             },
+            "skills": [
+                {
+                    "name": skill.name,
+                    "digest": skill.digest,
+                    "record": f"workspace/skills/{skill.name}",
+                }
+                for skill in skills
+            ],
             "events": "events.jsonl",
             "config": {
                 "split": config.split,
@@ -346,7 +360,6 @@ def _write_run_manifest(
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
                 ),
-                "use_benchmark_skill": config.use_benchmark_skill,
                 "episode_timeout_seconds": config.episode_timeout_seconds,
                 "agent_timeout_seconds": config.agent_timeout_seconds,
                 "validation": (
@@ -530,11 +543,22 @@ def _write_read_only_text_file(
         raise AgentRunError(error_message) from error
 
 
-def _make_tree_read_only(root: Path) -> None:
+def _make_tree_read_only(
+    root: Path,
+    *,
+    preserve_executable: bool = False,
+) -> None:
     for directory, _, files in os.walk(root, topdown=False):
         path = Path(directory)
         for name in files:
-            os.chmod(path / name, 0o400)
+            file_path = path / name
+            mode = (
+                0o500
+                if preserve_executable
+                and file_path.stat().st_mode & 0o111
+                else 0o400
+            )
+            os.chmod(file_path, mode)
         os.chmod(path, 0o500)
 
 

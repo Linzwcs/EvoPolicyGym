@@ -49,6 +49,7 @@ from evopolicygym import (
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import ConsoleProgress
+from evopolicygym.skills import AgentSkill
 
 result = run(
     baseline_program(),
@@ -56,12 +57,14 @@ result = run(
     agent=Codex(model="MODEL_ID"),
     execution=ProcessExecution.unsafe(),
     record_to="runs/example-001",
+    skills=(
+        AgentSkill.from_directory("skills/example-policy"),
+    ),
     config=RunConfig(
         split="train",
         max_submissions=16,
         episode_budget=48,
         max_episodes_per_submission=4,
-        use_benchmark_skill=True,
         validation=ValidationConfig(
             split="validation",
             episodes_per_candidate=10,
@@ -89,6 +92,11 @@ Use a unique `record_to`. Its parent must already exist and the Run directory
 must not. Omit `max_episodes_per_submission` only when the selected Benchmark's
 Feedback remains bounded for any allowed batch size and Agent-controlled
 allocation is intentional.
+
+Each selected `AgentSkill` is a complete, pathless directory snapshot with a
+required `SKILL.md`. The Run projects it read-only at
+`workspace/skills/<name>/` and records its digest. Do not rely on implicit
+repository discovery or attach a Skill to `BenchmarkSpec`.
 
 During search, the Agent uses:
 

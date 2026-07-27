@@ -20,9 +20,10 @@
   and a standard-library `ConsoleProgress` reporter.
 - Made the per-Submission Episode cap optional; it now defaults to `None` so
   the Coding Agent can allocate the finite Run budget itself.
-- Allowed a Benchmark to publish one bounded Coding Agent skill that
-  Program-Evolution Runs may explicitly project read-only into the workspace
-  without exposing it to Policy processes.
+- Added explicit, immutable, content-addressed `AgentSkill` directory
+  snapshots. Runs may compose multiple Skills under read-only
+  `workspace/skills/`, and `run-record/v5` retains their names and digests
+  without coupling them to `BenchmarkSpec` or Policy processes.
 
 ## 0.3.0
 

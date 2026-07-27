@@ -6,8 +6,6 @@ import hashlib
 import json
 import statistics
 from collections.abc import Sequence
-from importlib.resources import files
-from pathlib import Path
 
 from evopolicygym.authoring import (
     Artifact,
@@ -43,24 +41,6 @@ _EPISODE_SEED_DOMAIN = b"evopolicygym-balatro/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_TRANSITIONS = 256
 _MAX_REPLAY_BYTES = 15 * 1024 * 1024
-_AGENT_SKILL_NAME = "optimize-balatro-policy"
-
-
-def _agent_skill() -> str:
-    packaged = files("balatro").joinpath(
-        "skills",
-        _AGENT_SKILL_NAME,
-        "SKILL.md",
-    )
-    if packaged.is_file():
-        return packaged.read_text(encoding="utf-8")
-    source = (
-        Path(__file__).parents[2]
-        / "skills"
-        / _AGENT_SKILL_NAME
-        / "SKILL.md"
-    )
-    return source.read_text(encoding="utf-8")
 
 
 def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
@@ -187,7 +167,6 @@ def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
             "stake": config.stake,
             "content_profile": CONTENT_PROFILE,
         },
-        agent_skill=_agent_skill(),
     )
 
 

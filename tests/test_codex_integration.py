@@ -8,6 +8,7 @@ from evopolicygym.agents import Codex, CodingAgent, resolve_executable
 from evopolicygym.authoring import BenchmarkSpec
 from evopolicygym.run import AssessmentConfig, RunConfig, ValidationConfig
 from evopolicygym.run._task import build_agent_task
+from evopolicygym.skills import AgentSkill
 
 
 class CodexIntegrationTests(unittest.TestCase):
@@ -86,7 +87,7 @@ class CodexIntegrationTests(unittest.TestCase):
             "@agent/instructions.md",
         )
 
-    def test_benchmark_skill_is_explicitly_enabled_per_run(self) -> None:
+    def test_agent_skills_are_explicitly_selected_per_run(self) -> None:
         spec = BenchmarkSpec(
             id="example/skill-v1",
             description="Skill selection fixture.",
@@ -96,17 +97,35 @@ class CodexIntegrationTests(unittest.TestCase):
             max_episode_steps=1,
             primary_metric="reward",
             score_direction="maximize",
-            agent_skill="# Improve\n",
         )
+        with tempfile.TemporaryDirectory() as temporary:
+            skill_directory = Path(temporary) / "improve-example"
+            skill_directory.mkdir()
+            (skill_directory / "SKILL.md").write_text(
+                """\
+---
+name: improve-example
+description: Improve the example Policy.
+---
 
-        without_skill = build_agent_task(spec, RunConfig())
-        with_skill = build_agent_task(
-            spec,
-            RunConfig(use_benchmark_skill=True),
+# Improve Example
+""",
+                encoding="utf-8",
+            )
+            skill = AgentSkill.from_directory(skill_directory)
+
+            without_skill = build_agent_task(spec, RunConfig())
+            with_skill = build_agent_task(
+                spec,
+                RunConfig(),
+                (skill,),
+            )
+
+        self.assertNotIn("skills/", without_skill.instructions)
+        self.assertIn(
+            "skills/improve-example/SKILL.md",
+            with_skill.instructions,
         )
-
-        self.assertNotIn("skill/SKILL.md", without_skill.instructions)
-        self.assertIn("skill/SKILL.md", with_skill.instructions)
 
     def test_validation_handoff_rules_are_owned_by_the_host_task(self) -> None:
         spec = BenchmarkSpec(

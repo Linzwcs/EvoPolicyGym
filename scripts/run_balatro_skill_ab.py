@@ -16,7 +16,8 @@ from typing import Any
 
 _REPOSITORY = Path(__file__).resolve().parents[1]
 _SINGLE_RUNNER = _REPOSITORY / "scripts" / "run_balatro_codex.py"
-_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v1"
+_BALATRO_SKILL = _REPOSITORY / "skills" / "optimize-balatro-policy"
+_RESULT_SCHEMA = "evopolicygym/balatro-skill-ab/v2"
 
 
 class ExperimentError(RuntimeError):
@@ -148,7 +149,7 @@ def _run_arm(
         "--allow-unsafe-process",
     ]
     if use_skill:
-        command.append("--benchmark-skill")
+        command.extend(("--skill", str(_BALATRO_SKILL)))
 
     print(
         f"\n=== Balatro skill A/B: {arm_name} ===\n"
@@ -204,7 +205,11 @@ def _run_arm(
         )
 
     return {
-        "benchmark_skill": use_skill,
+        "skills": (
+            [str(_BALATRO_SKILL.relative_to(_REPOSITORY))]
+            if use_skill
+            else []
+        ),
         "terminal_reason": run_result.get("terminal_reason"),
         "record": str(record_to),
         "final_submission_id": run_result.get("final_submission_id"),
@@ -292,7 +297,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Run matched Balatro Codex experiments with and without the "
-            "Benchmark skill, then compare held-out Assessment scores."
+            "selected Balatro Agent Skill, then compare held-out Assessment "
+            "scores."
         )
     )
     parser.add_argument("--model", required=True)

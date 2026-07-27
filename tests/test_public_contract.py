@@ -39,7 +39,7 @@ from evopolicygym.authoring import (
     Transition,
     check_benchmark,
 )
-from evopolicygym.errors import EvaluationError
+from evopolicygym.errors import AgentSkillError, EvaluationError
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.execution.process.agent.runner import (
     build_agent_environment,
@@ -58,6 +58,7 @@ from evopolicygym.results import (
 from evopolicygym.run import RunEvent
 from evopolicygym.run._feedback import record_submission
 from evopolicygym.run._service import run_process_agent
+from evopolicygym.skills import AgentSkill, AgentSkillLimits
 
 
 class RecordingRunObserver:
@@ -187,30 +188,63 @@ class PublicContractTests(unittest.TestCase):
         self.assertIsInstance(benchmark, Benchmark)
         self.assertIsInstance(benchmark.make_environment(episode), Environment)
 
-    def test_benchmark_agent_skill_is_optional_bounded_text(self) -> None:
-        def spec(agent_skill: str | None = None) -> BenchmarkSpec:
-            return BenchmarkSpec(
-                id="example/skill-v1",
-                description="Agent skill fixture.",
-                observation_space=None,
-                action_space=None,
-                metadata={},
-                max_episode_steps=1,
-                primary_metric="reward",
-                score_direction="maximize",
-                agent_skill=agent_skill,
+    def test_agent_skill_is_a_pathless_content_addressed_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "improve-counter"
+            references = source / "references"
+            references.mkdir(parents=True)
+            instructions = """\
+---
+name: improve-counter
+description: Improve counter policies.
+---
+
+# Improve Counter
+"""
+            (source / "SKILL.md").write_text(
+                instructions,
+                encoding="utf-8",
+            )
+            (references / "model.md").write_text(
+                "Count calls before acting.\n",
+                encoding="utf-8",
             )
 
-        self.assertIsNone(spec().agent_skill)
-        self.assertEqual(
-            spec("# Improve\n").agent_skill,
-            "# Improve\n",
-        )
-        for invalid in ("", "x" * (64 * 1024 + 1), "bad\0skill"):
-            with self.subTest(invalid=invalid[:20]), self.assertRaises(ValueError):
-                spec(invalid)
+            skill = AgentSkill.from_directory(source)
+            original_digest = skill.digest
+            (source / "SKILL.md").write_text(
+                instructions + "\nChanged after capture.\n",
+                encoding="utf-8",
+            )
+            materialized = root / "materialized"
+            skill.write_to(materialized)
+
+            self.assertEqual(skill.name, "improve-counter")
+            self.assertEqual(
+                skill.files,
+                ("SKILL.md", "references/model.md"),
+            )
+            self.assertEqual(
+                skill.read_bytes("SKILL.md"),
+                instructions.encode(),
+            )
+            self.assertEqual(skill.digest, original_digest)
+            self.assertEqual(
+                (materialized / "SKILL.md").read_text(),
+                instructions,
+            )
+            self.assertNotIn(str(source), repr(skill))
+
         with self.assertRaises(TypeError):
-            spec(1)  # type: ignore[arg-type]
+            AgentSkill()
+        with self.assertRaises(ValueError):
+            AgentSkillLimits(max_file_bytes=2, max_instructions_bytes=3)
+        with tempfile.TemporaryDirectory() as temporary:
+            missing = Path(temporary) / "missing-entrypoint"
+            missing.mkdir()
+            with self.assertRaises(AgentSkillError):
+                AgentSkill.from_directory(missing)
 
     def test_environment_parameters_are_detached_and_content_addressed(
         self,
@@ -406,11 +440,9 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(run.max_submissions, 4)
         self.assertEqual(run.episode_budget, 20)
         self.assertIsNone(run.max_episodes_per_submission)
-        self.assertFalse(run.use_benchmark_skill)
         capped = RunConfig(
             episode_budget=20,
             max_episodes_per_submission=5,
-            use_benchmark_skill=True,
             validation=ValidationConfig(
                 episodes_per_candidate=7,
                 max_candidates=2,
@@ -420,7 +452,6 @@ class PublicContractTests(unittest.TestCase):
             ),
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
-        self.assertTrue(capped.use_benchmark_skill)
         self.assertEqual(
             capped.validation,
             ValidationConfig(
@@ -440,8 +471,6 @@ class PublicContractTests(unittest.TestCase):
                 episode_budget=2,
                 max_episodes_per_submission=3,
             )
-        with self.assertRaises(TypeError):
-            RunConfig(use_benchmark_skill=1)  # type: ignore[arg-type]
         with self.assertRaises(ValueError):
             RunConfig(
                 max_submissions=1,
@@ -646,11 +675,9 @@ class RecordingBenchmark:
         self,
         *,
         environment_failure: bool = False,
-        agent_skill: str | None = None,
     ) -> None:
         self.environments: list[RecordingEnvironment] = []
         self.environment_failure = environment_failure
-        self.agent_skill = agent_skill
 
     @property
     def spec(self) -> BenchmarkSpec:
@@ -664,7 +691,6 @@ class RecordingBenchmark:
             primary_metric="completed",
             score_direction="maximize",
             environment_parameters={"required_actions": [1, 2]},
-            agent_skill=self.agent_skill,
         )
 
     def episodes(
@@ -1172,7 +1198,8 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v4")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v5")
+        self.assertEqual(manifest["skills"], [])
         self.assertEqual(
             manifest["benchmark"],
             {
@@ -1352,7 +1379,7 @@ class AgentEnvironmentTests(unittest.TestCase):
 
 class CodexRunTests(unittest.TestCase):
     def test_codex_runs_from_workspace_and_commits_program(self) -> None:
-        agent_skill = """\
+        skill_instructions = """\
 ---
 name: improve-counter
 description: Improve the counter fixture.
@@ -1414,7 +1441,7 @@ assert arguments[arguments.index("--color") + 1] == "never"
 prompt = arguments[-1]
 assert "program/" in prompt
 assert "feedback/" in prompt
-assert "skill/SKILL.md" in prompt
+assert "skills/improve-counter/SKILL.md" in prompt
 assert "evopolicygym submit program --episodes N" in prompt
 assert "evopolicygym finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
@@ -1422,7 +1449,9 @@ assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ
 
 program = workspace / "program"
 assert (program / "policy.py").is_file()
-assert (workspace / "skill" / "SKILL.md").read_text() == {agent_skill!r}
+skill = workspace / "skills" / "improve-counter"
+assert (skill / "SKILL.md").read_text() == {skill_instructions!r}
+assert (skill / "references" / "model.md").read_text() == "Count calls.\\n"
 (program / "policy.py").write_text({improved_source!r}, encoding="utf-8")
 
 
@@ -1452,6 +1481,17 @@ print(json.dumps({{"type": "turn.completed"}}))
             fake_codex = root / "fake-codex"
             fake_codex.write_text(fake_codex_source, encoding="utf-8")
             fake_codex.chmod(0o700)
+            skill_source = root / "improve-counter"
+            (skill_source / "references").mkdir(parents=True)
+            (skill_source / "SKILL.md").write_text(
+                skill_instructions,
+                encoding="utf-8",
+            )
+            (skill_source / "references" / "model.md").write_text(
+                "Count calls.\n",
+                encoding="utf-8",
+            )
+            agent_skill = AgentSkill.from_directory(skill_source)
             run_directory = root / "run-record"
 
             with patch.dict(
@@ -1463,17 +1503,17 @@ print(json.dumps({{"type": "turn.completed"}}))
             ):
                 result = run(
                     program,
-                    RecordingBenchmark(agent_skill=agent_skill),
+                    RecordingBenchmark(),
                     agent=Codex(
                         model="fake-model",
                         executable=str(fake_codex),
                     ),
                     execution=ProcessExecution.unsafe(),
                     record_to=run_directory,
+                    skills=(agent_skill,),
                     config=RunConfig(
                         max_submissions=1,
                         episode_budget=1,
-                        use_benchmark_skill=True,
                         agent_timeout_seconds=10,
                     ),
                 )
@@ -1499,7 +1539,17 @@ print(json.dumps({{"type": "turn.completed"}}))
                     run_directory / "agent" / "instructions.md",
                     run_directory / "agent" / "stdout.log",
                     run_directory / "agent" / "stderr.log",
-                    run_directory / "workspace" / "skill" / "SKILL.md",
+                    run_directory
+                    / "workspace"
+                    / "skills"
+                    / "improve-counter"
+                    / "SKILL.md",
+                    run_directory
+                    / "workspace"
+                    / "skills"
+                    / "improve-counter"
+                    / "references"
+                    / "model.md",
                     run_directory / "run.json",
                 )
             )
@@ -1539,11 +1589,21 @@ print(json.dumps({{"type": "turn.completed"}}))
             "workspace/feedback",
         )
         self.assertEqual(
-            manifest["workspace"]["skill"],
-            "workspace/skill/SKILL.md",
+            manifest["workspace"]["skills"],
+            "workspace/skills",
         )
-        self.assertTrue(manifest["config"]["use_benchmark_skill"])
+        self.assertEqual(
+            manifest["skills"],
+            [
+                {
+                    "name": "improve-counter",
+                    "digest": agent_skill.digest,
+                    "record": "workspace/skills/improve-counter",
+                }
+            ],
+        )
         self.assertIn(b"name: improve-counter", retained_documents)
+        self.assertIn(b"Count calls.", retained_documents)
         self.assertIn("program/", instructions)
         self.assertEqual(
             [line["type"] for line in stdout_lines],

@@ -65,7 +65,6 @@ class BenchmarkSpec:
     environment_parameters: Mapping[str, PolicyValue] = field(
         default_factory=dict,
     )
-    agent_skill: str | None = None
     _environment_digest: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -76,16 +75,6 @@ class BenchmarkSpec:
             raise ValueError("max_episode_steps must be a positive integer")
         if self.score_direction not in {"maximize", "minimize"}:
             raise ValueError("score_direction must be 'maximize' or 'minimize'")
-        if self.agent_skill is not None:
-            if type(self.agent_skill) is not str:
-                raise TypeError("agent_skill must be text or None")
-            if (
-                not self.agent_skill
-                or len(self.agent_skill.encode("utf-8", errors="strict"))
-                > 64 * 1024
-                or "\0" in self.agent_skill
-            ):
-                raise ValueError("agent_skill must be non-empty bounded text")
         if not isinstance(self.metadata, Mapping):
             raise TypeError("metadata must be a mapping")
         if not isinstance(self.environment_parameters, Mapping):

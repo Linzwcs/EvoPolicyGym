@@ -89,12 +89,14 @@ The Agent chooses how many of the remaining Episode units to spend on each
 submission by default. Set `max_episodes_per_submission` to a positive integer
 only when the Host needs an additional cap; its default is `None`.
 
-Some Benchmarks publish an optional authoring skill. It never enters the Policy
-process and is disabled by default. Set
-`RunConfig(use_benchmark_skill=True)` to expose it read-only at
-`workspace/skill/SKILL.md`; the setting is recorded in `run.json`. The Balatro
-distribution provides such a skill for evidence allocation, strategy
-development, and Policy hardening.
+Agent Skills are independent Run inputs rather than Benchmark properties.
+Freeze each selected directory with
+`AgentSkill.from_directory("skills/<name>")` and pass the snapshots through
+`run(..., skills=(skill,))`. The Host exposes complete Skill directories
+read-only under `workspace/skills/`, records their names and content digests in
+`run.json`, and never passes them into a Policy process. The repository's
+Balatro Skill is one optional experimental condition for evidence allocation,
+strategy development, and Policy hardening.
 
 ## Submission accounting
 

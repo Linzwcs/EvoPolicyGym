@@ -32,7 +32,6 @@ value，确保 Policy 输入与诊断证据一致。
 - 每个 Episode 一个全新 Environment；
 - Action 校验与可信 Steps；
 - 评分与公开 Feedback；
-- 可选的公开 Coding-Agent authoring skill；
 - baseline Programs 与测试；
 - 本地 conformance fixtures。
 
@@ -93,14 +92,13 @@ class ExampleBenchmark:
 | `max_episode_steps` | 正整数 Episode hard horizon。 |
 | `primary_metric` | `Feedback.score` 表示的 metric 名称。 |
 | `score_direction` | 必须是 `maximize` 或 `minimize`。 |
-| `agent_skill` | 可选的有界 Markdown；仅复制到显式启用的 Agent workspace，默认为 `None`。 |
 
 不要在 specification 中放入私有 scenario、Environment seed、path、credential
 或 scorer object。
 
-`agent_skill` 可以使用公开 Benchmark 信息说明策略开发方法，但永远不会对
-Policy code 可见。只有 Run 设置 `use_benchmark_skill=True` 后，Host 才会将该
-文本以只读形式发布到 `workspace/skill/SKILL.md`。
+Coding Agent Skill 与 Benchmark authoring 正交。Distribution 可以说明兼容的
+Skill，但不能从 `BenchmarkSpec` 加载或引用它。Run 调用者显式捕获所选 Skill
+目录，Host 再将其以只读形式发布到 `workspace/skills/`。
 
 Distribution 拥有类型化 constructor。例如
 `FrozenLakeBenchmark(map_name="8x8", is_slippery=True)` 校验并保留这些参数，

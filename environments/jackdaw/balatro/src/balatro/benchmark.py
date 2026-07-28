@@ -35,8 +35,11 @@ JACKDAW_PATCHES = (
     "8dd66169014b58b7a077760ff1090efe1d4a022c",
     "a785574bc6deea1c71cd53fec5b102bb82d52e8f",
 )
-JACKDAW_LOCAL_PATCHES = ("content-exclusion-pool-plumbing-v1",)
-JACKDAW_REVISION = "c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg1"
+JACKDAW_LOCAL_PATCHES = (
+    "content-exclusion-pool-plumbing-v1",
+    "ceremonial-dagger-destroy-joker-v1",
+)
+JACKDAW_REVISION = "c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg2"
 _EPISODE_SEED_DOMAIN = b"evopolicygym-balatro/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_TRANSITIONS = 256
@@ -166,6 +169,7 @@ def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
             "deck": config.deck,
             "stake": config.stake,
             "content_profile": CONTENT_PROFILE,
+            "engine_revision": JACKDAW_REVISION,
         },
     )
 

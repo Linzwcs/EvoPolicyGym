@@ -130,8 +130,8 @@ def _handle_select_blind(gs: dict[str, Any]) -> dict[str, Any]:
     ``set_blind`` → ``state_events.lua`` ``new_round``:
 
     1. Create Blind from blind_choices
-    2. Fire joker ``setting_blind`` context (Chicot, Madness, Burglar,
-       Marble Joker, Riff-raff, Cartomancer)
+    2. Fire joker ``setting_blind`` context (Chicot, Madness, Ceremonial
+       Dagger, Burglar, Marble Joker, Riff-raff, Cartomancer)
     3. Process setting_blind side-effects
     4. Apply boss blind set-time effects (Water, Needle, Manacle,
        Amber Acorn) + debuff playing cards
@@ -1729,6 +1729,14 @@ def _apply_setting_blind_mutations(
                     seed_val = rng.seed("madness")
                     target, _ = rng.element(candidates, seed_val)
                     jokers.remove(target)
+
+        # Ceremonial Dagger: destroy the exact right-hand neighbor it selected
+        target = mut.get("destroy_joker")
+        if target is not None:
+            for index, joker in enumerate(jokers):
+                if joker is target:
+                    jokers.pop(index)
+                    break
 
         # Burglar: set hands / remove discards
         if "set_hands" in mut:

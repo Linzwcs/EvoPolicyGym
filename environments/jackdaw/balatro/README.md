@@ -25,7 +25,7 @@ benchmark = BalatroBenchmark(
 ```
 
 The current distribution accepts only this tested profile. Its deck, stake,
-and content profile are published through
+content profile, and engine revision are published through
 `BenchmarkSpec.environment_parameters`, contribute to `environment_digest`,
 and are delivered to every Policy in
 `PolicyContext.environment_parameters`. They are no longer duplicated in

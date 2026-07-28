@@ -43,13 +43,16 @@ and are selected explicitly per Run rather than embedded in a Benchmark.
 Environment distributions are independent packages that depend only on the
 public EvoPolicyGym SDK. The catalog now spans Gymnasium, MiniGrid and BabyAI,
 HighwayEnv, Gymnasium-Robotics, MetaWorld, ALE, ViZDoom, Stable-Retro, and
-Balatro. Registered task, size, and difficulty variants are selected through
-each Benchmark's typed environment configuration. See the
+Balatro, together with independently implemented AtCoder and CodeChef tasks.
+Registered task, size, and difficulty variants are selected through each
+Benchmark's typed environment configuration. See the
 [complete integration ledger](environments/STATUS.md) for exact coverage and
 the environments intentionally deferred by ABI, runtime, or asset boundaries.
 
 | Collection | Contents | Description |
 | --- | --- | --- |
+| [AtCoder AHC](environments/atcoder/) | AHC054 Treant's Forest, AHC057 Molecules, and AHC058 Apple Incremental Game | Long-horizon constraint placement, moving-component scheduling, hierarchical investment, and horizon-aware planning |
+| [CodeChef Challenges](environments/codechef/) | WAREHOUS Warehouseman | Full-range constructive routing, storage, retrieval, and instruction-cost optimization |
 | [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing | Parameterized landing, locomotion, and pixel-based driving |
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
 | [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks | Parameterized continuous-control physics using official packaged models and semantic nested observations |

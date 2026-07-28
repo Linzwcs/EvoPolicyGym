@@ -59,6 +59,94 @@ export const environmentDomains: EnvironmentDomainGroup[] = [
 
 export const environmentCollections: EnvironmentCollection[] = [
   {
+    id: "atcoder-ahc054",
+    domain: "planning",
+    ecosystem: "AtCoder",
+    suite: "AHC054 · Treant's Forest",
+    distributions: 1,
+    coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
+    summary: {
+      en: "Long-horizon constraint placement against a deterministic explorer with private targets.",
+      zh: "面对具有私有目标的确定性探索者，进行长时程约束放置。",
+    },
+    policyInterface: {
+      en: "Revealed cells and atomic Treant placements",
+      zh: "已确认格与原子化 Treant 放置",
+    },
+    score: {
+      en: "Capped mean adventurer turns",
+      zh: "有上限的冒险者平均回合数",
+    },
+    sourcePath: "environments/atcoder/ahc054/treants_forest",
+    items: [{ name: "Treant's Forest" }],
+  },
+  {
+    id: "atcoder-ahc057",
+    domain: "planning",
+    ecosystem: "AtCoder",
+    suite: "AHC057 · Molecules",
+    distributions: 1,
+    coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
+    summary: {
+      en: "Schedule low-cost bonds among moving components on a toroidal plane.",
+      zh: "在环面上为运动分量安排低成本连接。",
+    },
+    policyInterface: {
+      en: "Moving point state and atomic bond sets",
+      zh: "运动点状态与原子化连接集合",
+    },
+    score: {
+      en: "Mean logarithmic bond-cost score",
+      zh: "平均对数连接成本得分",
+    },
+    sourcePath: "environments/atcoder/ahc057/molecules",
+    items: [{ name: "Molecules" }],
+  },
+  {
+    id: "atcoder-ahc058",
+    domain: "planning",
+    ecosystem: "AtCoder",
+    suite: "AHC058 · Apple Incremental Game",
+    distributions: 1,
+    coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
+    summary: {
+      en: "Five hundred turns of hierarchical machine investment and compounding production.",
+      zh: "围绕分层机器投资与复合生产的 500 回合规划。",
+    },
+    policyInterface: {
+      en: "Production state and one machine upgrade per turn",
+      zh: "生产状态与每回合一次机器强化",
+    },
+    score: {
+      en: "Mean final log2 apple score",
+      zh: "最终苹果数的平均 log2 得分",
+    },
+    sourcePath: "environments/atcoder/ahc058/apple_incremental_game",
+    items: [{ name: "Apple Incremental Game" }],
+  },
+  {
+    id: "codechef-warehous",
+    domain: "planning",
+    ecosystem: "CodeChef",
+    suite: "WAREHOUS · Warehouseman",
+    distributions: 1,
+    coverage: { en: "1 constructive challenge", zh: "1 个构造式挑战" },
+    summary: {
+      en: "Full-range warehouse storage and retrieval through a compact forklift instruction language.",
+      zh: "在完整尺寸范围内，通过紧凑叉车指令语言完成仓储与取货。",
+    },
+    policyInterface: {
+      en: "Public arrivals and one atomic instruction Program",
+      zh: "公开到货顺序与单次原子化指令 Program",
+    },
+    score: {
+      en: "Mean normalized instruction cost",
+      zh: "平均归一化指令成本",
+    },
+    sourcePath: "environments/codechef/june18/warehouseman",
+    items: [{ name: "Warehouseman" }],
+  },
+  {
     id: "gymnasium-classic-control",
     domain: "control",
     ecosystem: "Gymnasium",

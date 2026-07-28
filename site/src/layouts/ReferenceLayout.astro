@@ -132,6 +132,12 @@ const environmentLinks = (ecosystems: string[], mixed = false): NavLink[] =>
         : collection.suite,
     }));
 
+const environmentDistributionCount = (ecosystems: string[]) =>
+  environmentCollections
+    .filter((collection) => ecosystems.includes(collection.ecosystem))
+    .reduce((total, collection) => total + collection.distributions, 0)
+    .toString();
+
 const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
   blog: {
     en: "Blog",
@@ -205,7 +211,7 @@ const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
       {
         en: "Gymnasium",
         zh: "Gymnasium",
-        meta: "23",
+        meta: environmentDistributionCount(["Gymnasium"]),
         collapsible: true,
         open: current === "cartpole",
         links: [
@@ -221,21 +227,32 @@ const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
       {
         en: "MiniGrid",
         zh: "MiniGrid",
-        meta: "23",
+        meta: environmentDistributionCount(["MiniGrid"]),
         collapsible: true,
         links: environmentLinks(["MiniGrid"]),
       },
       {
+        en: "Planning challenges",
+        zh: "规划挑战",
+        meta: environmentDistributionCount(["AtCoder", "CodeChef"]),
+        collapsible: true,
+        links: environmentLinks(["AtCoder", "CodeChef"]),
+      },
+      {
         en: "Robotics",
         zh: "机器人",
-        meta: "2",
+        meta: environmentDistributionCount(
+          ["Gymnasium-Robotics", "MetaWorld"],
+        ),
         collapsible: true,
         links: environmentLinks(["Gymnasium-Robotics", "MetaWorld"], true),
       },
       {
         en: "Simulation and games",
         zh: "模拟与游戏",
-        meta: "5",
+        meta: environmentDistributionCount(
+          ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
+        ),
         collapsible: true,
         links: environmentLinks(
           ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],

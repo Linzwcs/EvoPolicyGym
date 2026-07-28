@@ -14,6 +14,8 @@ updates:
     directories:
       - "/"
       - "/environments/ale/*"
+      - "/environments/atcoder/*/*"
+      - "/environments/codechef/*/*"
       - "/environments/gymnasium/*/*"
       - "/environments/gymnasium_robotics/*"
       - "/environments/highway_env/*"

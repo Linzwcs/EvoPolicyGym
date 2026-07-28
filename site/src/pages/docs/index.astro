@@ -4,6 +4,7 @@ import Copy from "../../components/Copy.astro";
 import {
   environmentDistributionCount,
   environmentEcosystemCount,
+  environmentTaskProfileCount,
 } from "../../data/environmentCatalog";
 import { withBase } from "../../lib/paths";
 
@@ -84,8 +85,8 @@ const toc = [
       <li><Copy en="Complete the first Evaluation in Getting started." zh="按照快速开始完成第一次 Evaluation。" /></li>
       <li>
         <Copy
-          en={`Browse ${environmentDistributionCount} distributions across ${environmentEcosystemCount} ecosystems in the Environment collection.`}
-          zh={`在环境目录中浏览覆盖 ${environmentEcosystemCount} 个生态的 ${environmentDistributionCount} 个 distributions。`}
+          en={`Browse at least ${environmentTaskProfileCount} named tasks and profiles from ${environmentDistributionCount} distributions across ${environmentEcosystemCount} ecosystems.`}
+          zh={`在环境目录中浏览 ${environmentDistributionCount} 个 distributions 提供的至少 ${environmentTaskProfileCount} 个具名任务与 profiles，覆盖 ${environmentEcosystemCount} 个生态。`}
         />
       </li>
       <li><Copy en="Read Core concepts for the domain model and lifecycle." zh="阅读核心概念，理解领域模型与生命周期。" /></li>

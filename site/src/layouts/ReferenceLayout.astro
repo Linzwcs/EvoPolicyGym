@@ -123,7 +123,7 @@ const environmentLinks = (ecosystems: string[], mixed = false): NavLink[] =>
     .filter((collection) => ecosystems.includes(collection.ecosystem))
     .map((collection) => ({
       key: collection.id,
-      path: `environments/#${collection.id}`,
+      path: collection.referencePath ?? `environments/#${collection.id}`,
       en: mixed
         ? `${collection.ecosystem} / ${collection.suite}`
         : collection.suite,
@@ -132,11 +132,17 @@ const environmentLinks = (ecosystems: string[], mixed = false): NavLink[] =>
         : collection.suite,
     }));
 
-const environmentDistributionCount = (ecosystems: string[]) =>
+const environmentTaskProfileCount = (ecosystems: string[]) =>
   environmentCollections
     .filter((collection) => ecosystems.includes(collection.ecosystem))
-    .reduce((total, collection) => total + collection.distributions, 0)
+    .reduce((total, collection) => total + collection.taskProfiles, 0)
     .toString();
+
+const environmentGroupIsCurrent = (ecosystems: string[]) =>
+  environmentCollections.some(
+    (collection) =>
+      ecosystems.includes(collection.ecosystem) && collection.id === current,
+  );
 
 const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
   blog: {
@@ -211,9 +217,11 @@ const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
       {
         en: "Gymnasium",
         zh: "Gymnasium",
-        meta: environmentDistributionCount(["Gymnasium"]),
+        meta: environmentTaskProfileCount(["Gymnasium"]),
         collapsible: true,
-        open: current === "cartpole",
+        open:
+          current === "cartpole" ||
+          environmentGroupIsCurrent(["Gymnasium"]),
         links: [
           ...environmentLinks(["Gymnasium"]),
           {
@@ -227,33 +235,39 @@ const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
       {
         en: "MiniGrid",
         zh: "MiniGrid",
-        meta: environmentDistributionCount(["MiniGrid"]),
+        meta: environmentTaskProfileCount(["MiniGrid"]),
         collapsible: true,
+        open: environmentGroupIsCurrent(["MiniGrid"]),
         links: environmentLinks(["MiniGrid"]),
       },
       {
         en: "Planning challenges",
         zh: "规划挑战",
-        meta: environmentDistributionCount(["AtCoder", "CodeChef"]),
+        meta: environmentTaskProfileCount(["AtCoder", "CodeChef"]),
         collapsible: true,
+        open: environmentGroupIsCurrent(["AtCoder", "CodeChef"]),
         links: environmentLinks(["AtCoder", "CodeChef"]),
       },
       {
         en: "Robotics",
         zh: "机器人",
-        meta: environmentDistributionCount(
+        meta: environmentTaskProfileCount(
           ["Gymnasium-Robotics", "MetaWorld"],
         ),
         collapsible: true,
+        open: environmentGroupIsCurrent(["Gymnasium-Robotics", "MetaWorld"]),
         links: environmentLinks(["Gymnasium-Robotics", "MetaWorld"], true),
       },
       {
         en: "Simulation and games",
         zh: "模拟与游戏",
-        meta: environmentDistributionCount(
+        meta: environmentTaskProfileCount(
           ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
         ),
         collapsible: true,
+        open: environmentGroupIsCurrent(
+          ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
+        ),
         links: environmentLinks(
           ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
           true,

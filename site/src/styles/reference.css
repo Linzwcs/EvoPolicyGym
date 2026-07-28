@@ -625,7 +625,7 @@ html[lang="zh-CN"] .reference-article h3 {
 
 .environment-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 22px 0 28px;
   border-top: 1px solid var(--rule);
   border-left: 1px solid var(--rule);
@@ -656,6 +656,13 @@ html[lang="zh-CN"] .reference-article h3 {
   font-size: 1.55rem;
   font-weight: 600;
   line-height: 1;
+}
+
+.reference-article .environment-count-note {
+  margin: -10px 0 28px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.55;
 }
 
 .environment-domain-grid {
@@ -969,6 +976,10 @@ html[lang="zh-CN"] .reference-article h3 {
 
   .environment-domain-grid {
     grid-template-columns: 1fr;
+  }
+
+  .environment-metrics {
+    grid-template-columns: 1fr 1fr;
   }
 
   .environment-section-heading {

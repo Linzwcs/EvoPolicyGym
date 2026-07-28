@@ -1,0 +1,248 @@
+---
+import Copy from "../../components/Copy.astro";
+import ReferenceLayout from "../../layouts/ReferenceLayout.astro";
+import {
+  environmentReferences,
+  type EnvironmentReference,
+} from "../../data/environmentReferences";
+import { withBase } from "../../lib/paths";
+
+export function getStaticPaths() {
+  return environmentReferences.map((reference) => ({
+    params: { slug: reference.slug },
+    props: { reference },
+  }));
+}
+
+interface Props {
+  reference: EnvironmentReference;
+}
+
+const { reference } = Astro.props;
+const sourceUrl =
+  `https://github.com/Linzwcs/EvoPolicyGym/tree/main/${reference.sourcePath}`;
+const installCommand =
+  `uv sync --project ${reference.sourcePath} --extra dev\n` +
+  `uv build ${reference.sourcePath}`;
+const importExample =
+  `from ${reference.importName} import ${reference.benchmarkClass}, baseline_program\n\n` +
+  `benchmark = ${reference.benchmarkClass}()\n` +
+  `program = baseline_program()`;
+
+const toc = [
+  { id: "overview", en: "Overview", zh: "概述" },
+  { id: "task", en: "Task", zh: "任务" },
+  { id: "policy-interface", en: "Policy interface", zh: "Policy 接口" },
+  { id: "evaluation", en: "Evaluation", zh: "评估" },
+  { id: "feedback", en: "Feedback", zh: "Feedback" },
+  { id: "using", en: "Using the distribution", zh: "使用 distribution" },
+  { id: "provenance", en: "Provenance", zh: "来源" },
+];
+---
+
+<ReferenceLayout
+  title={`${reference.title} Benchmark — EvoPolicyGym Documentation`}
+  description={reference.lead.en}
+  area="environments"
+  current={reference.collectionId}
+  {toc}
+>
+  <nav class="reference-breadcrumbs" aria-label="Breadcrumb">
+    <a href={withBase("environments/")}>
+      <Copy en="Environment collection" zh="环境目录" />
+    </a>
+    <span aria-hidden="true">/</span>
+    <span>{reference.ecosystem}</span>
+    <span aria-hidden="true">/</span>
+    <span>{reference.suite}</span>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{reference.title}</span>
+  </nav>
+
+  <header>
+    <p class="reference-kicker">
+      <Copy en="Environment reference" zh="环境参考" />
+    </p>
+    <h1>{reference.title}</h1>
+    <Copy
+      class="reference-lead"
+      en={reference.lead.en}
+      zh={reference.lead.zh}
+      as="p"
+    />
+  </header>
+
+  <section id="overview">
+    <Copy en="Overview" zh="概述" as="h2" />
+    <dl class="reference-definition">
+      <dt><Copy en="Package" zh="Package" /></dt>
+      <dd><code>{reference.packageName}</code></dd>
+      <dt><Copy en="Import" zh="Import" /></dt>
+      <dd><code>{reference.importName}</code></dd>
+      <dt><Copy en="Benchmark ID" zh="Benchmark ID" /></dt>
+      <dd><code>{reference.benchmarkId}</code></dd>
+      <dt><Copy en="Provider" zh="Provider" /></dt>
+      <dd>{reference.provider}</dd>
+      <dt><Copy en="Horizon" zh="时域" /></dt>
+      <dd><Copy en={reference.horizon.en} zh={reference.horizon.zh} /></dd>
+      <dt><Copy en="Direction" zh="优化方向" /></dt>
+      <dd><Copy en={reference.direction.en} zh={reference.direction.zh} /></dd>
+    </dl>
+  </section>
+
+  <section id="task">
+    <Copy en="Task" zh="任务" as="h2" />
+    {reference.task.map((paragraph) => (
+      <Copy en={paragraph.en} zh={paragraph.zh} as="p" />
+    ))}
+  </section>
+
+  <section id="policy-interface">
+    <Copy en="Policy interface" zh="Policy 接口" as="h2" />
+    <Copy
+      en={reference.observation.en}
+      zh={reference.observation.zh}
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Observation field" zh="Observation 字段" /></th>
+          <th><Copy en="Meaning" zh="含义" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        {reference.observationFields.map((field) => (
+          <tr>
+            <td><code>{field.name}</code></td>
+            <td>
+              <Copy
+                en={field.description.en}
+                zh={field.description.zh}
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <Copy en={reference.action.en} zh={reference.action.zh} as="p" />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Action" zh="Action" /></th>
+          <th><Copy en="Meaning" zh="含义" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        {reference.actions.map((action) => (
+          <tr>
+            <td><code>{action.value}</code></td>
+            <td>
+              <Copy
+                en={action.description.en}
+                zh={action.description.zh}
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="evaluation">
+    <Copy en="Evaluation" zh="评估" as="h2" />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Quantity" zh="量" /></th>
+          <th><Copy en="Definition" zh="定义" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        {reference.measures.map((measure) => (
+          <tr>
+            <td><Copy en={measure.label.en} zh={measure.label.zh} /></td>
+            <td><Copy en={measure.value.en} zh={measure.value.zh} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="feedback">
+    <Copy en="Feedback" zh="Feedback" as="h2" />
+    <Copy en={reference.feedback.en} zh={reference.feedback.zh} as="p" />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Field" zh="字段" /></th>
+          <th><Copy en="Meaning" zh="含义" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        {reference.feedbackFields.map((field) => (
+          <tr>
+            <td><code>{field.name}</code></td>
+            <td>
+              <Copy
+                en={field.description.en}
+                zh={field.description.zh}
+              />
+            </td>
+          </tr>
+        ))}
+        <tr>
+          <td><code>{reference.artifact.name}</code></td>
+          <td>
+            <Copy
+              en={reference.artifact.description.en}
+              zh={reference.artifact.description.zh}
+            />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="using">
+    <Copy en="Using the distribution" zh="使用 distribution" as="h2" />
+    <Copy
+      en="Prepare or build this independently installable leaf project from the repository root:"
+      zh="从仓库根目录准备或构建这个可独立安装的叶子 project："
+      as="p"
+    />
+    <pre><code>{installCommand}</code></pre>
+    <Copy
+      en="The package exports its Benchmark selection and packaged baseline:"
+      zh="该 package 导出 Benchmark selection 与内置 baseline："
+      as="p"
+    />
+    <pre><code>{importExample}</code></pre>
+    <p>
+      <a href={withBase("docs/getting-started/")}>
+        <Copy en="Continue to the Run guide →" zh="继续阅读 Run 指南 →" />
+      </a>
+    </p>
+  </section>
+
+  <section id="provenance">
+    <Copy en="Provenance" zh="来源" as="h2" />
+    <Copy
+      en="The Benchmark simulator, deterministic generator, baseline, and tests are maintained in EvoPolicyGym. Task semantics and scoring follow the linked public upstream specification."
+      zh="Benchmark simulator、确定性生成器、baseline 与测试由 EvoPolicyGym 维护；任务语义和评分遵循所链接的公开上游规范。"
+      as="p"
+    />
+    <p class="reference-actions">
+      <a href={sourceUrl} target="_blank" rel="noreferrer">
+        <Copy en="Benchmark source ↗" zh="Benchmark 源码 ↗" />
+      </a>
+      <a href={reference.upstreamUrl} target="_blank" rel="noreferrer">
+        <Copy en="Upstream task ↗" zh="上游任务 ↗" />
+      </a>
+      <a href={withBase("docs/authoring/")}>
+        <Copy en="Authoring guide →" zh="环境编写指南 →" />
+      </a>
+    </p>
+  </section>
+</ReferenceLayout>

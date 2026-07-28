@@ -39,16 +39,16 @@ is auditable. Those changes are not implementation inputs for EvoPolicyGym.
 | Upstream candidate | Authoritative upstream | EdgeBench-derived task and alteration | EvoPolicyGym decision |
 | --- | --- | --- | --- |
 | BipedalWalker | [Gymnasium `BipedalWalker-v3`](https://gymnasium.farama.org/environments/box2d/bipedal_walker/) | `bipedalwalker_locomotion_rl`: trains a checkpoint and scores only the submitted artifact | Keep the existing direct Gymnasium integration |
-| Treant's Forest | [AtCoder AHC054](https://atcoder.jp/contests/ahc054/tasks/ahc054_a) | `treant_forest`: adds a Python baseline, local tooling, fixed Judge cases, and score normalization | Implement the official interactive rules independently; do not use the EdgeBench workspace |
-| Warehouse Manager | [CodeChef `WAREHOUS`](https://www.codechef.com/problems/WAREHOUS) | `warehouse_forklift_routing`: adds a Python workspace, baseline, local generator/tester, hidden evaluation, and rescaling | Recreate a stepwise simulator only from the official problem contract, after license review |
-| Apple Incremental Game | [AtCoder AHC058](https://atcoder.jp/contests/ahc058/tasks/ahc058_a) | `apple_incremental_game`: packages the contest task with a baseline, local tooling, fixed Judge cases, and rescaling | Implement the public turn dynamics and our own split-scoped Episode generator |
-| NetHack | [NetHack](https://github.com/NetHack/NetHack) and [NLE](https://github.com/facebookresearch/nle) | `nethack_dungeon_agent`: fixes an observation/policy scaffold and scores multiple generated runs | Integrate NLE directly and define EvoPolicyGym-owned observations, Actions, horizons, and scoring |
-| VRPTW | [Solomon VRPTW benchmark](https://www.sintef.no/projectweb/top/vrptw/solomon-benchmark/) | `vehicle_routing_time_windows`: turns solver output into hidden-instance and best-known-solution scoring | Use independently obtained benchmark instances; admit only a genuine constructive interaction design |
-| Molecules | [AtCoder AHC057](https://atcoder.jp/contests/ahc057/tasks/ahc057_a) | `molecular_self_assembly`: adds a Python baseline, local tooling, fixed Judge cases, and rescaling | Implement the public motion and bonding rules with independent Episode generation |
-| Battle for Wesnoth | [Wesnoth Lua AI API](https://wiki.wesnoth.org/LuaAPI/ai) | `wesnoth_tactical_ai`: selects tactical maps, objectives, an opponent, and a scoring Judge | Integrate the official engine/API directly and author independent scenarios |
+| Treant's Forest | [AtCoder AHC054](https://atcoder.jp/contests/ahc054/tasks/ahc054_a) | `treant_forest`: adds a Python baseline, local tooling, fixed Judge cases, and score normalization | Keep the independent direct integration; no EdgeBench or AtCoder tool content is packaged |
+| Warehouse Manager | [CodeChef `WAREHOUS`](https://www.codechef.com/problems/WAREHOUS) | `warehouse_forklift_routing`: adds a Python workspace, baseline, local generator/tester, hidden evaluation, and rescaling | Keep the independent direct integration; one atomic Action preserves the official complete-output contract, and no CodeChef content is packaged |
+| Apple Incremental Game | [AtCoder AHC058](https://atcoder.jp/contests/ahc058/tasks/ahc058_a) | `apple_incremental_game`: packages the contest task with a baseline, local tooling, fixed Judge cases, and rescaling | Keep the independent direct integration with one official turn per Action and no AtCoder tool content |
+| NetHack | [NetHack](https://github.com/NetHack/NetHack) and maintained [NLE](https://github.com/NetHack-LE/nle) | `nethack_dungeon_agent`: fixes an observation/policy scaffold and scores multiple generated runs | Defer to a pinned engine execution profile: NLE 1.3.0 supports Python 3.12 and Linux wheels, but native macOS installation requires a CMake 3.28+ source toolchain not owned by the current distribution model |
+| VRPTW | [Solomon VRPTW benchmark](https://www.sintef.no/projectweb/top/vrptw/solomon-benchmark/) | `vehicle_routing_time_windows`: turns solver output into hidden-instance and best-known-solution scoring | Defer until the instance files have explicit redistribution terms and a constructive interaction contract is accepted; do not repackage EdgeBench's hidden instances or score anchors |
+| Molecules | [AtCoder AHC057](https://atcoder.jp/contests/ahc057/tasks/ahc057_a) | `molecular_self_assembly`: adds a Python baseline, local tooling, fixed Judge cases, and rescaling | Keep the independent direct integration with atomic bond sets, public motion rules, and no AtCoder tool content |
+| Battle for Wesnoth | [Wesnoth Lua AI API](https://wiki.wesnoth.org/LuaAPI/ai) | `wesnoth_tactical_ai`: selects tactical maps, objectives, an opponent, and a scoring Judge | Defer to an engine execution profile that owns a pinned headless Wesnoth process, Lua bridge, scenario data, timeouts, and cleanup |
 | OpenRCT2 | [OpenRCT2](https://github.com/OpenRCT2/OpenRCT2) | `openrct2_theme_park_ai`: defines a JavaScript automation plugin task and hidden scenarios | Defer: the engine is open source but normal play requires separately licensed RCT2 files |
-| OpenTTD | [OpenTTD NoAI API](https://docs.openttd.org/ai-scripting/ai-api/) | `openttd_transport_ai`: defines an AI-script objective, generated maps, and company-value scoring | Integrate the official engine and NoAI API directly with independently defined profiles |
-| Dungeon Crawl Stone Soup | [DCSS](https://github.com/crawl/crawl) | `dcss_dungeon_ai`: fixes a Lua bot interface, character build, time budget, repeated runs, and mean score | Integrate the official game and supported control surface directly |
+| OpenTTD | [OpenTTD NoAI API](https://docs.openttd.org/ai-scripting/ai-api/) | `openttd_transport_ai`: defines an AI-script objective, generated maps, and company-value scoring | Defer to an engine execution profile that pins the OpenTTD binary, base graphics, NoAI bridge, generated maps, and long-running process lifecycle |
+| Dungeon Crawl Stone Soup | [DCSS](https://github.com/crawl/crawl) | `dcss_dungeon_ai`: fixes a Lua bot interface, character build, time budget, repeated runs, and mean score | Defer to an engine execution profile that pins a headless DCSS build and validates a supported machine-control surface |
 
 The public [EdgeBench task metadata](https://huggingface.co/datasets/ByteDance-Seed/EdgeBench)
 and [paper](https://edge-bench.org/paper.pdf) are retained only as evidence of
@@ -59,21 +59,23 @@ the derived task designs.
 | Priority | Upstream candidate | Policy-system value | Main concern |
 | --- | --- | --- | --- |
 | 0 | Gymnasium BipedalWalker | Fast continuous-control calibration; already integrated | Useful as a baseline, not a flagship systems task |
-| 1 | AtCoder AHC054 Treant's Forest | Native turn-by-turn interaction, state tracking, constraint handling, and replanning | Requires an independent tester and a redistribution review |
-| 2 | CodeChef WAREHOUS Warehouse Manager | Long-horizon routing, memory, storage strategy, and recovery | The upstream task emits a complete command string; the Policy form must be stepwise |
-| 3 | AtCoder AHC058 Apple Incremental Game | Investment timing, horizon estimation, and phase-dependent decisions | Must expose one official turn per Policy Action |
-| 4 | NLE NetHack | Partial observability, map memory, exploration, inventory, combat, and risk | Linux-oriented runtime and expensive sparse-reward Episodes |
-| 5 | Solomon VRPTW | Constructive search, feasibility management, and route repair | Risks becoming a one-shot solver benchmark |
-| 6 | AtCoder AHC057 Molecules | Temporal scheduling and constrained constructive planning | Needs useful intermediate observations and bounded diagnostics |
-| Later | Battle for Wesnoth | Tactical planning, centralized multi-unit control, and opponent response | Large state/action surface and engine bridge |
-| Later | OpenTTD | Network design, capital allocation, expansion, and recovery | Very long simulations and substantial engine integration |
-| Later | DCSS | Exploration, combat, inventory, and survival strategy | Long wall-clock Episodes and control-surface validation |
+| 1 | AtCoder AHC054 Treant's Forest | Native turn-by-turn interaction, state tracking, constraint handling, and replanning | Integrated independently with a bounded turn horizon |
+| 2 | CodeChef WAREHOUS Warehouse Manager | Constructive routing, storage strategy, sliding-state planning, and cost optimization | Integrated independently over the full official size range with an atomic complete-solution Action |
+| 3 | AtCoder AHC058 Apple Incremental Game | Investment timing, horizon estimation, and phase-dependent decisions | Integrated independently with one official turn per Action over the complete 500-turn horizon |
+| 4 | NLE NetHack | Partial observability, map memory, exploration, inventory, combat, and risk | Deferred until a pinned NLE engine profile is portable across the supported execution matrix |
+| 5 | Solomon VRPTW | Constructive search, feasibility management, and route repair | Deferred pending explicit instance redistribution terms and a genuine constructive interaction contract |
+| 6 | AtCoder AHC057 Molecules | Temporal scheduling and constrained constructive planning | Integrated independently across all 300 points and 1,000 official turns with bounded bond-event diagnostics |
+| Later | Battle for Wesnoth | Tactical planning, centralized multi-unit control, and opponent response | Deferred to a pinned headless engine/Lua execution profile |
+| Later | OpenTTD | Network design, capital allocation, expansion, and recovery | Deferred to a pinned NoAI engine profile with long-Run lifecycle ownership |
+| Later | DCSS | Exploration, combat, inventory, and survival strategy | Deferred to a pinned headless engine profile and validated control surface |
 | Deferred | OpenRCT2 | Hierarchical resource allocation and long-term management | Original RCT2 data files are a separate asset dependency |
 
-Treant's Forest is the strongest first new investigation because its
-authoritative upstream is already an interactive protocol. Warehouse Manager
-remains attractive, but requires more semantic re-authoring from batch command
-output into a Policy loop. NetHack is the strongest flagship candidate once the
+Treant's Forest, Warehouse Manager, Molecules, and Apple Incremental Game are
+completed independent integrations. They deliberately retain their different
+task semantics through two accepted Policy interaction shapes: the three AHC
+integrations expose one meaningful simulated turn per Action, while Warehouse
+Manager preserves its complete-output contract and validates one instruction
+Program atomically. NetHack is the strongest flagship candidate once the
 runtime and long-horizon evaluation workflow are ready.
 
 ## Suggested capability gradient
@@ -86,10 +88,10 @@ native online interaction
 └── AtCoder AHC054 Treant's Forest
 
 fast long-horizon decisions
-├── AtCoder AHC058 Apple Incremental Game
-└── CodeChef WAREHOUS Warehouse Manager
+└── AtCoder AHC058 Apple Incremental Game
 
 constructive planning
+├── CodeChef WAREHOUS Warehouse Manager
 ├── Solomon VRPTW
 └── AtCoder AHC057 Molecules
 
@@ -104,7 +106,10 @@ hierarchical strategy
 
 This gradient supports experiments on how Coding Agents progress from tuning
 reactive controllers to authoring Policies with explicit memory, search,
-subsystems, and hierarchical planning.
+subsystems, and hierarchical planning. The first four runnable steps are
+represented by existing Gymnasium distributions plus the three AtCoder and one
+CodeChef distributions above. Engine-backed steps remain roadmap entries, not
+runnable claims.
 
 ## Conditional and rejected leads
 
@@ -114,7 +119,8 @@ upstreams for EdgeBench's `grid_turing_robot` and
 `triangulation_coloring_optimization`. They remain conditional because their
 official form grades a completed design. They qualify only if individual
 Actions expose meaningful construction state rather than an artificial
-one-step Episode.
+one-step Episode. The current roadmap does not admit them; one-shot support by
+itself is not sufficient evidence of useful Policy interaction.
 
 The EdgeBench-only leads `vibrating_path_graph_coloring`,
 `order_addition_permutation_optimization`, and its particular `smt_solver`

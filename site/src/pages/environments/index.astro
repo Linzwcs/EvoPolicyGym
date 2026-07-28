@@ -37,6 +37,15 @@ const catalogSections: CatalogSection[] = [
     ecosystems: ["MiniGrid"],
   },
   {
+    id: "interactive-planning",
+    title: { en: "Planning challenges", zh: "规划挑战" },
+    lead: {
+      en: "Long-horizon state tracking, constraint management, constructive routing, and replanning from authoritative challenge tasks.",
+      zh: "来自权威挑战任务的长时程状态跟踪、约束管理、构造式路径规划与重规划。",
+    },
+    ecosystems: ["AtCoder", "CodeChef"],
+  },
+  {
     id: "robotics",
     title: { en: "Robotics collections", zh: "机器人集合" },
     lead: {
@@ -86,7 +95,7 @@ const toc = [
 
 <ReferenceLayout
   title="Environment Collection — EvoPolicyGym Documentation"
-  description="Fifty-three EvoPolicyGym Benchmark distributions across Gymnasium, MiniGrid, robotics, driving, and interactive game ecosystems."
+  description="EvoPolicyGym Benchmark distributions across control, planning, robotics, driving, and interactive game ecosystems."
   area="environments"
   current="environments"
   {toc}

@@ -8,6 +8,16 @@ upstream suite:
 environments/
 ├── ale/
 │   └── atari/
+├── atcoder/
+│   ├── ahc054/
+│   │   └── treants_forest/
+│   ├── ahc057/
+│   │   └── molecules/
+│   └── ahc058/
+│       └── apple_incremental_game/
+├── codechef/
+│   └── june18/
+│       └── warehouseman/
 ├── gymnasium/
 │   ├── box2d/
 │   ├── classic_control/
@@ -50,6 +60,10 @@ still absent.
 
 | Collection | Distribution | Import | Benchmark ID |
 | --- | --- | --- | --- |
+| [AtCoder / AHC054](atcoder/ahc054/) | `evopolicygym-benchmark-treants-forest` | `treants_forest` | `atcoder/AHC054/TreantsForest/capped-mean-turns-v1` |
+| [AtCoder / AHC057](atcoder/ahc057/) | `evopolicygym-benchmark-molecules` | `molecules` | `atcoder/AHC057/Molecules/mean-log-cost-score-v1` |
+| [AtCoder / AHC058](atcoder/ahc058/) | `evopolicygym-benchmark-apple-incremental-game` | `apple_incremental_game` | `atcoder/AHC058/AppleIncrementalGame/mean-log2-score-v1` |
+| [CodeChef / June 2018](codechef/june18/) | `evopolicygym-benchmark-warehouseman` | `warehouseman` | `codechef/WAREHOUS/Warehouseman/mean-normalized-cost-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-bipedal-walker` | `bipedal_walker` | `gymnasium/BipedalWalker-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-car-racing` | `car_racing` | `gymnasium/CarRacing-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-lunar-lander` | `lunar_lander` | `gymnasium/LunarLander-v3/mean-return-v1` |

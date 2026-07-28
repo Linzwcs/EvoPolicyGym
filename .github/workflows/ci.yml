@@ -155,6 +155,10 @@ jobs:
       matrix:
         project:
           - environments/ale/atari
+          - environments/atcoder/ahc054/treants_forest
+          - environments/atcoder/ahc057/molecules
+          - environments/atcoder/ahc058/apple_incremental_game
+          - environments/codechef/june18/warehouseman
           - environments/gymnasium_robotics/robotics
           - environments/highway_env/highway_env
           - environments/metaworld/metaworld

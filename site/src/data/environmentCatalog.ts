@@ -16,11 +16,13 @@ export interface EnvironmentCollection {
   ecosystem: string;
   suite: string;
   distributions: number;
+  taskProfiles: number;
   coverage: LocalizedText;
   summary: LocalizedText;
   policyInterface: LocalizedText;
   score: LocalizedText;
   sourcePath: string;
+  referencePath?: string;
   items: EnvironmentItem[];
 }
 
@@ -64,6 +66,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "AtCoder",
     suite: "AHC054 · Treant's Forest",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
     summary: {
       en: "Long-horizon constraint placement against a deterministic explorer with private targets.",
@@ -78,7 +81,13 @@ export const environmentCollections: EnvironmentCollection[] = [
       zh: "有上限的冒险者平均回合数",
     },
     sourcePath: "environments/atcoder/ahc054/treants_forest",
-    items: [{ name: "Treant's Forest" }],
+    referencePath: "environments/atcoder/ahc054/treants-forest/",
+    items: [
+      {
+        name: "Treant's Forest",
+        path: "environments/atcoder/ahc054/treants-forest/",
+      },
+    ],
   },
   {
     id: "atcoder-ahc057",
@@ -86,6 +95,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "AtCoder",
     suite: "AHC057 · Molecules",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
     summary: {
       en: "Schedule low-cost bonds among moving components on a toroidal plane.",
@@ -100,7 +110,13 @@ export const environmentCollections: EnvironmentCollection[] = [
       zh: "平均对数连接成本得分",
     },
     sourcePath: "environments/atcoder/ahc057/molecules",
-    items: [{ name: "Molecules" }],
+    referencePath: "environments/atcoder/ahc057/molecules/",
+    items: [
+      {
+        name: "Molecules",
+        path: "environments/atcoder/ahc057/molecules/",
+      },
+    ],
   },
   {
     id: "atcoder-ahc058",
@@ -108,6 +124,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "AtCoder",
     suite: "AHC058 · Apple Incremental Game",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "1 interactive task", zh: "1 个交互式任务" },
     summary: {
       en: "Five hundred turns of hierarchical machine investment and compounding production.",
@@ -122,7 +139,13 @@ export const environmentCollections: EnvironmentCollection[] = [
       zh: "最终苹果数的平均 log2 得分",
     },
     sourcePath: "environments/atcoder/ahc058/apple_incremental_game",
-    items: [{ name: "Apple Incremental Game" }],
+    referencePath: "environments/atcoder/ahc058/apple-incremental-game/",
+    items: [
+      {
+        name: "Apple Incremental Game",
+        path: "environments/atcoder/ahc058/apple-incremental-game/",
+      },
+    ],
   },
   {
     id: "codechef-warehous",
@@ -130,6 +153,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "CodeChef",
     suite: "WAREHOUS · Warehouseman",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "1 constructive challenge", zh: "1 个构造式挑战" },
     summary: {
       en: "Full-range warehouse storage and retrieval through a compact forklift instruction language.",
@@ -144,7 +168,13 @@ export const environmentCollections: EnvironmentCollection[] = [
       zh: "平均归一化指令成本",
     },
     sourcePath: "environments/codechef/june18/warehouseman",
-    items: [{ name: "Warehouseman" }],
+    referencePath: "environments/codechef/june18/warehouseman/",
+    items: [
+      {
+        name: "Warehouseman",
+        path: "environments/codechef/june18/warehouseman/",
+      },
+    ],
   },
   {
     id: "gymnasium-classic-control",
@@ -152,6 +182,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Gymnasium",
     suite: "Classic Control",
     distributions: 5,
+    taskProfiles: 5,
     coverage: { en: "5 task distributions", zh: "5 个任务 distributions" },
     summary: {
       en: "Small state-space control tasks with discrete or scalar continuous Actions.",
@@ -180,6 +211,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Gymnasium",
     suite: "Toy Text",
     distributions: 4,
+    taskProfiles: 4,
     coverage: { en: "4 task distributions", zh: "4 个任务 distributions" },
     summary: {
       en: "Rule-based discrete tasks for planning, stochastic transitions, and delayed reward.",
@@ -207,6 +239,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Gymnasium",
     suite: "Box2D",
     distributions: 3,
+    taskProfiles: 3,
     coverage: { en: "3 task distributions", zh: "3 个任务 distributions" },
     summary: {
       en: "Landing, locomotion, and visual driving in medium-weight physics environments.",
@@ -230,6 +263,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Gymnasium",
     suite: "MuJoCo",
     distributions: 11,
+    taskProfiles: 11,
     coverage: { en: "11 v5 task distributions", zh: "11 个 v5 任务 distributions" },
     summary: {
       en: "Continuous control from small arms and pendulums to contact-rich locomotion.",
@@ -261,6 +295,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "MiniGrid",
     suite: "MiniGrid",
     distributions: 21,
+    taskProfiles: 21,
     coverage: {
       en: "21 task-family distributions",
       zh: "21 个任务族 distributions",
@@ -308,6 +343,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "MiniGrid",
     suite: "WFC",
     distributions: 1,
+    taskProfiles: 22,
     coverage: { en: "22 procedural presets", zh: "22 个程序化 presets" },
     summary: {
       en: "Wave Function Collapse layouts spanning mazes, rooms, dungeons, obstacles, and caves.",
@@ -334,6 +370,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "MiniGrid",
     suite: "BabyAI",
     distributions: 1,
+    taskProfiles: 40,
     coverage: { en: "40 tasks · 5 families", zh: "40 个任务 · 5 个任务族" },
     summary: {
       en: "Language-conditioned instruction following from atomic navigation to composite missions.",
@@ -360,6 +397,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Gymnasium-Robotics",
     suite: "Robotics",
     distributions: 1,
+    taskProfiles: 21,
     coverage: { en: "21 task profiles", zh: "21 个任务 profiles" },
     summary: {
       en: "Goal-conditioned reaching, manipulation, maze, dexterous hand, and kitchen tasks.",
@@ -385,6 +423,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "MetaWorld",
     suite: "MT",
     distributions: 1,
+    taskProfiles: 52,
     coverage: {
       en: "50 MT1 tasks · MT10 · MT50 · custom",
       zh: "50 个 MT1 任务 · MT10 · MT50 · custom",
@@ -412,6 +451,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "HighwayEnv",
     suite: "Driving",
     distributions: 1,
+    taskProfiles: 10,
     coverage: { en: "10 driving profiles", zh: "10 个驾驶 profiles" },
     summary: {
       en: "Traffic negotiation, parking, racing, and lane keeping.",
@@ -442,6 +482,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "ALE",
     suite: "Atari",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "Tetris", zh: "Tetris" },
     summary: {
       en: "Arcade control using the redistributable Tetris ROM.",
@@ -461,6 +502,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "ViZDoom",
     suite: "Standard scenarios",
     distributions: 1,
+    taskProfiles: 12,
     coverage: { en: "12 scenarios", zh: "12 个 scenarios" },
     summary: {
       en: "First-person navigation and combat across the standard packaged scenarios.",
@@ -488,6 +530,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Stable-Retro",
     suite: "Airstriker",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "Airstriker Level 1", zh: "Airstriker Level 1" },
     summary: {
       en: "Genesis arcade control from the packaged Level 1 state.",
@@ -507,6 +550,7 @@ export const environmentCollections: EnvironmentCollection[] = [
     ecosystem: "Jackdaw",
     suite: "Balatro",
     distributions: 1,
+    taskProfiles: 1,
     coverage: { en: "Red Deck · White Stake", zh: "红色牌组 · 白注" },
     summary: {
       en: "Long-horizon deckbuilding with hands, shops, Jokers, consumables, packs, and antes.",
@@ -524,6 +568,11 @@ export const environmentCollections: EnvironmentCollection[] = [
 
 export const environmentDistributionCount = environmentCollections.reduce(
   (total, collection) => total + collection.distributions,
+  0,
+);
+
+export const environmentTaskProfileCount = environmentCollections.reduce(
+  (total, collection) => total + collection.taskProfiles,
   0,
 );
 

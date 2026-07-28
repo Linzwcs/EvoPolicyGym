@@ -98,9 +98,11 @@ For each future release:
 ## Environment section status
 
 The public boundary, structural entry points, lifecycle, conformance semantics,
-and CartPole reference contract are implementation-backed. The live catalog
-covers 53 independently installable Benchmark distributions across nine
-upstream ecosystems. Catalog content lives in a typed data module and is grouped
-first by research task domain, then by ecosystem and suite. Future dedicated
-Environment pages should use the CartPole contract shape and remain grounded in
-the corresponding distribution and tests.
+and Environment reference contracts are implementation-backed. The live catalog
+covers 57 independently installable Benchmark distributions and at least 208
+named tasks or profiles across 11 upstream ecosystems. Parameterized custom
+collections and size variants extend the concrete configuration surface beyond
+that named count. Catalog and reference-page content live in typed data modules
+and are grouped first by research task domain, then by ecosystem and suite.
+Dedicated Environment pages remain grounded in the corresponding distribution
+and tests.

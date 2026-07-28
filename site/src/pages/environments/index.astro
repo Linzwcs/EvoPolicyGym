@@ -6,6 +6,7 @@ import {
   environmentDistributionCount,
   environmentDomains,
   environmentEcosystemCount,
+  environmentTaskProfileCount,
   type EnvironmentCollection,
 } from "../../data/environmentCatalog";
 import { withBase } from "../../lib/paths";
@@ -22,8 +23,8 @@ const catalogSections: CatalogSection[] = [
     id: "gymnasium",
     title: { en: "Gymnasium", zh: "Gymnasium" },
     lead: {
-      en: "Twenty-three distributions across the four standard built-in suites.",
-      zh: "覆盖四个标准内置 suite 的 23 个 distributions。",
+      en: "The four standard built-in suites, from compact discrete tasks to continuous physics and locomotion.",
+      zh: "覆盖四个标准内置 suite，从紧凑离散任务延伸到连续物理与运动控制。",
     },
     ecosystems: ["Gymnasium"],
   },
@@ -31,8 +32,8 @@ const catalogSections: CatalogSection[] = [
     id: "minigrid",
     title: { en: "MiniGrid", zh: "MiniGrid" },
     lead: {
-      en: "Twenty-three distributions for grid navigation, memory, procedural generation, and language-conditioned missions.",
-      zh: "面向网格导航、记忆、程序化生成与语言条件任务的 23 个 distributions。",
+      en: "Grid navigation, memory, procedural generation, and language-conditioned missions.",
+      zh: "覆盖网格导航、记忆、程序化生成与语言条件任务。",
     },
     ecosystems: ["MiniGrid"],
   },
@@ -73,10 +74,12 @@ const collectionsFor = (section: CatalogSection) =>
     section.ecosystems.includes(collection.ecosystem)
   );
 
-const domainCount = (domain: (typeof environmentDomains)[number]["id"]) =>
+const domainTaskProfileCount = (
+  domain: (typeof environmentDomains)[number]["id"],
+) =>
   environmentCollections
     .filter((collection) => collection.domain === domain)
-    .reduce((total, collection) => total + collection.distributions, 0);
+    .reduce((total, collection) => total + collection.taskProfiles, 0);
 
 const sourceUrl = (collection: EnvironmentCollection) =>
   `https://github.com/Linzwcs/EvoPolicyGym/tree/main/${collection.sourcePath}`;
@@ -104,8 +107,8 @@ const toc = [
     <Copy en="Environment collection" zh="环境目录" as="h1" />
     <Copy
       class="reference-lead"
-      en={`${environmentDistributionCount} Benchmark distributions across ${environmentEcosystemCount} upstream ecosystems, spanning control, robotics, navigation, planning, driving, and games.`}
-      zh={`${environmentDistributionCount} 个 Benchmark distributions，覆盖 ${environmentEcosystemCount} 个上游生态，包括控制、机器人、导航、规划、驾驶与游戏。`}
+      en={`${environmentDistributionCount} independently installable Benchmark distributions expose at least ${environmentTaskProfileCount} named tasks and profiles across ${environmentEcosystemCount} upstream ecosystems.`}
+      zh={`${environmentDistributionCount} 个可独立安装的 Benchmark distributions，在 ${environmentEcosystemCount} 个上游生态中提供至少 ${environmentTaskProfileCount} 个具名任务与 profiles。`}
       as="p"
     />
   </header>
@@ -114,6 +117,10 @@ const toc = [
     <Copy en="Coverage" zh="覆盖范围" as="h2" />
 
     <dl class="environment-metrics">
+      <div>
+        <dt><Copy en="Named tasks / profiles" zh="具名任务 / profiles" /></dt>
+        <dd>{environmentTaskProfileCount}+</dd>
+      </div>
       <div>
         <dt><Copy en="Distributions" zh="Distributions" /></dt>
         <dd>{environmentDistributionCount}</dd>
@@ -127,11 +134,20 @@ const toc = [
         <dd>{environmentCollections.length}</dd>
       </div>
     </dl>
+    <Copy
+      class="environment-count-note"
+      en="The count includes 50 canonical MetaWorld MT1 tasks plus MT10 and MT50. Parameterized custom MetaWorld collections and WFC size variants extend the concrete configuration surface beyond this fixed named count."
+      zh="该数量包含 50 个标准 MetaWorld MT1 任务以及 MT10、MT50。参数化 MetaWorld custom 集合和 WFC 尺寸变体会使实际可配置空间超过这个固定具名数量。"
+      as="p"
+    />
 
     <div class="environment-domain-grid">
       {environmentDomains.map((domain) => (
         <article>
-          <span>{String(domainCount(domain.id)).padStart(2, "0")}</span>
+          <span>
+            {String(domainTaskProfileCount(domain.id)).padStart(2, "0")}{" "}
+            <Copy en="tasks / profiles" zh="任务 / profiles" />
+          </span>
           <Copy en={domain.title.en} zh={domain.title.zh} as="h3" />
           <Copy en={domain.summary.en} zh={domain.summary.zh} as="p" />
         </article>
@@ -145,6 +161,10 @@ const toc = [
       (total, collection) => total + collection.distributions,
       0,
     );
+    const taskProfiles = collections.reduce(
+      (total, collection) => total + collection.taskProfiles,
+      0,
+    );
 
     return (
       <section id={section.id}>
@@ -154,6 +174,8 @@ const toc = [
             <Copy en={section.lead.en} zh={section.lead.zh} as="p" />
           </div>
           <span>
+            {taskProfiles} <Copy en="tasks / profiles" zh="个任务 / profiles" />
+            {" · "}
             {distributions} <Copy en="distributions" zh="个 distributions" />
           </span>
         </div>

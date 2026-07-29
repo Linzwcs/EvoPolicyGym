@@ -91,7 +91,7 @@ Agent 执行前，Host 根据 `RunConfig.seed` 确定性地构建一个固定训
 Agent 使用公开的 Run-local 单点与半开区间并集提交，例如：
 
 ```console
-evopolicygym submit program --episodes "0:2,4:8"
+evopolicygym-session submit program --episodes "0:2,4:8"
 ```
 
 该选择器展开为编号 `0, 1, 4, 5, 6, 7`。同一编号在不同 Submission 中保持隐藏

@@ -178,7 +178,8 @@ description: Improve the example Policy.
         )
 
         self.assertIn(
-            "evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]",
+            "evopolicygym-session finish "
+            "SUBMISSION_ID [SUBMISSION_ID ...]",
             task.instructions,
         )
         self.assertIn(

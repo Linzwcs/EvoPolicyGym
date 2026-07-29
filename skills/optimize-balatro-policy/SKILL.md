@@ -259,8 +259,8 @@ Before every submission:
 Test shop, pack, consumable, full-slot, zero-money, no-discard, face-down,
 debuffed, ordering, and Boss paths. Do not submit a known failing path merely
 because its mean score is promising. If any gate fails, stop before
-`evopolicygym submit`; shell command sequencing must not continue after the
-failure.
+`evopolicygym-session submit`; shell command sequencing must not continue
+after the failure.
 
 ## Iterate by capability
 

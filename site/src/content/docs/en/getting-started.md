@@ -109,7 +109,7 @@ Inside the active Agent Session, a Submission uses singleton indices and
 half-open ranges:
 
 ```console
-evopolicygym submit program --episodes "0:2,4:8"
+evopolicygym-session submit program --episodes "0:2,4:8"
 ```
 
 The selector above evaluates indices `0, 1, 4, 5, 6, 7`. Reusing an index in a

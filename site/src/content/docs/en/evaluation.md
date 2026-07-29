@@ -94,7 +94,7 @@ Episode pool from `RunConfig.seed`. The Agent submits public Run-local
 singleton and half-open range unions such as:
 
 ```console
-evopolicygym submit program --episodes "0:2,4:8"
+evopolicygym-session submit program --episodes "0:2,4:8"
 ```
 
 That selector expands to indices `0, 1, 4, 5, 6, 7`. The same index preserves

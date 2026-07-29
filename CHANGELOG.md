@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Expanded CI to test and build all 57 first-party Benchmark distributions,
+  including the Gymnasium Classic Control, Toy Text, Box2D, and MuJoCo suites
+  plus Balatro, and added a repository test that rejects unlisted Environment
+  projects.
+- Split the Host/operator `evopolicygym` executable from the Agent-facing
+  `evopolicygym-session submit|finish` client without changing the
+  `agent-session/v3` wire protocol.
 - Added a deterministic, Host-owned indexed training Episode pool. Agents now
   select arbitrary singleton and half-open range unions through
   `agent-session/v3`; repeated indices preserve Episode and Policy seeds across

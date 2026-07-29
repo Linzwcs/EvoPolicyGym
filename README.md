@@ -209,9 +209,13 @@ During the Run, the agent evaluates immutable submissions and hands candidates
 to the Host with:
 
 ```console
-evopolicygym submit program --episodes "0:2,4:8"
-evopolicygym finish submission-000002 submission-000007
+evopolicygym-session submit program --episodes "0:2,4:8"
+evopolicygym-session finish submission-000002 submission-000007
 ```
+
+`evopolicygym-session` is the Agent-facing client for one active Run. The
+separate `evopolicygym` command is reserved for Host/operator workflows over
+the public SDK; it never submits to an Agent Session.
 
 `RunConfig.seed` deterministically creates one fixed Host-owned training
 Episode pool before the Agent starts. `episode_pool_size` defaults to the total

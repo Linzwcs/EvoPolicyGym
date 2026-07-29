@@ -1040,7 +1040,12 @@ workspace = Path(os.environ["EVOPOLICYGYM_WORKSPACE"])
 
 def call(*arguments):
     completed = subprocess.run(
-        [sys.executable, "-m", "evopolicygym.cli", *arguments],
+        [
+            sys.executable,
+            "-m",
+            "evopolicygym.run._session_cli",
+            *arguments,
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -1344,7 +1349,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "evopolicygym.cli",
+        "evopolicygym.run._session_cli",
         "submit",
         "program",
         "--episodes",
@@ -1467,7 +1472,7 @@ assert Path.cwd() == workspace
 assert os.environ["EVOPOLICYGYM_SESSION_SOCKET"] == os.path.join(
     "..", "control", "session.sock"
 )
-assert shutil.which("evopolicygym") is not None
+assert shutil.which("evopolicygym-session") is not None
 assert arguments[:5] == [
     "--ask-for-approval",
     "never",
@@ -1490,8 +1495,8 @@ prompt = arguments[-1]
 assert "program/" in prompt
 assert "feedback/" in prompt
 assert "skills/improve-counter/SKILL.md" in prompt
-assert 'evopolicygym submit program --episodes "0"' in prompt
-assert "evopolicygym finish SUBMISSION_ID" in prompt
+assert 'evopolicygym-session submit program --episodes "0"' in prompt
+assert "evopolicygym-session finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
 assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ
 
@@ -1505,7 +1510,7 @@ assert (skill / "references" / "model.md").read_text() == "Count calls.\\n"
 
 def call(*arguments):
     completed = subprocess.run(
-        ["evopolicygym", *arguments],
+        ["evopolicygym-session", *arguments],
         check=True,
         capture_output=True,
         text=True,

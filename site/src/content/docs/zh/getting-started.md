@@ -101,7 +101,7 @@ Host 会在 Agent 启动前构建 60 个固定的 Run-local 训练 Episode ident
 在有效的 Agent Session 内，Submission 使用单点编号与半开区间：
 
 ```console
-evopolicygym submit program --episodes "0:2,4:8"
+evopolicygym-session submit program --episodes "0:2,4:8"
 ```
 
 上述 selector 会评估编号 `0, 1, 4, 5, 6, 7`。在后续 Submission 中复用编号可以

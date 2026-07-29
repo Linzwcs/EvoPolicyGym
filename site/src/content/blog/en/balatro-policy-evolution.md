@@ -11,7 +11,7 @@ tags:
   - Balatro
   - Experiment
   - Policy Evolution
-status: draft
+status: published
 ---
 
 ## What is Balatro?
@@ -224,6 +224,7 @@ build effective decision systems.
 
 - [EvoPolicyGym Balatro Benchmark](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro)
 - [EvoPolicyGym](https://github.com/Linzwcs/EvoPolicyGym)
+- [Balatro experiment data](https://huggingface.co/datasets/linzw/EvoPolicyGym-Exp-data/tree/main/v0.3.0/balatro)
 
 This Benchmark is unaffiliated with LocalThunk, Playstack, or the official
 Balatro project and contains no official card faces, artwork, music, fonts, or

@@ -11,7 +11,7 @@ tags:
   - Balatro
   - Experiment
   - Policy Evolution
-status: draft
+status: published
 ---
 
 ## 《小丑牌》是什么
@@ -187,6 +187,7 @@ Agent 使用环境优化策略的能力，对构建环境本身还缺少系统�
 
 - [EvoPolicyGym Balatro Benchmark](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/jackdaw/balatro)
 - [EvoPolicyGym](https://github.com/Linzwcs/EvoPolicyGym)
+- [Balatro 实验数据](https://huggingface.co/datasets/linzw/EvoPolicyGym-Exp-data/tree/main/v0.3.0/balatro)
 
 本 Benchmark 与 LocalThunk、Playstack 及 Balatro 官方项目无关联，也不包含官方
 卡面、美术、音乐、字体或其他游戏资源。

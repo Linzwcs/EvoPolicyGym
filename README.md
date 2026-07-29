@@ -5,303 +5,199 @@
 <h1 align="center">EvoPolicyGym</h1>
 
 <p align="center">
-  A benchmark kernel for evaluating how coding agents improve executable
-  policies through bounded interaction and feedback.
+  Evaluation and rollout infrastructure for coding agents that evolve
+  executable policies.
 </p>
 
 <p align="center">
   <a href="https://github.com/Linzwcs/EvoPolicyGym/actions/workflows/ci.yml"><img src="https://github.com/Linzwcs/EvoPolicyGym/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://linzwcs.github.io/EvoPolicyGym/docs/"><img src="https://img.shields.io/badge/Documentation-online-0f766e.svg" alt="Documentation"></a>
   <a href="https://www.python.org/downloads/release/python-3120/"><img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python 3.12"></a>
   <a href="https://arxiv.org/abs/2607.02440"><img src="https://img.shields.io/badge/arXiv-2607.02440-b31b1b.svg" alt="arXiv:2607.02440"></a>
   <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0"><img src="https://img.shields.io/badge/Paper_code-v0.1.0-6f42c1.svg" alt="Paper code: v0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
 </p>
 
-EvoPolicyGym studies **Autonomous Policy Evolution**: a coding agent edits a
-Python Policy Program, submits immutable versions for evaluation, reads
-Benchmark-defined feedback, and iterates under a fixed submission and Episode
-budget. The coding agent improves the Program between evaluations; the Policy
-does not learn inside an Episode.
+EvoPolicyGym is infrastructure for evaluating coding agents and generating
+training experience through **Autonomous Policy Evolution**. It brings
+heterogeneous interactive environments under a common Benchmark contract,
+compares Agents under fixed Episode budgets, and records reproducible Runs of
+Programs, Submissions, Feedback, and outcomes.
 
-Read the [documentation](https://linzwcs.github.io/EvoPolicyGym/), the
-[architecture](ARCHITECTURE.md), or the
-[paper](https://arxiv.org/abs/2607.02440). The paper's implementation,
-experiment configuration, and Core16 results are preserved at
+These Runs support both fair evaluation and the construction of rollout
+datasets for downstream RL and other post-training methods. Policies act
+within Episodes; Agents improve them between Evaluations by designing
+experiments, allocating resources, and editing code.
+
+The paper implementation and Core16 results are preserved at
 [`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0); they are
 historical research artifacts, not outputs of the current 0.3 Kernel.
 
-For AI-assisted Host/operator setup, public SDK workflows, provider
-integration, Benchmark authoring, and Run diagnostics, this repository ships
-the reusable
-[`evopolicygym` Agent Skill](skills/evopolicygym/). Install that folder with a
-compatible Agent skill manager and invoke it as `$evopolicygym`.
-Task-specific workflows, such as
-[`optimize-balatro-policy`](skills/optimize-balatro-policy/), are separate
-explicit Run inputs rather than part of the general Skill or a Benchmark
-contract.
+## How it works
 
-## Environments
+```mermaid
+flowchart LR
+    Agent(["Agent"])
+    Workspace[("Workspace")]
+    Server(["Server"])
 
-Environment distributions are independent packages that depend only on the
-public EvoPolicyGym SDK. The catalog now spans Gymnasium, MiniGrid and BabyAI,
-HighwayEnv, Gymnasium-Robotics, MetaWorld, ALE, ViZDoom, Stable-Retro, and
-Balatro, together with independently implemented AtCoder and CodeChef tasks.
-Registered task, size, and difficulty variants are selected through each
-Benchmark's typed environment configuration. See the
-[complete integration ledger](environments/STATUS.md) for exact coverage and
-the environments intentionally deferred by ABI, runtime, or asset boundaries.
+    Agent -- "① edit program/" --> Workspace
+    Agent -- "② POST /submit n eps" --> Server
+    Server -- "③ exec + write feedback<br/>budget -= n" --> Workspace
+    Workspace -- "④ analyze feedback" --> Agent
+```
 
-| Collection | Contents | Description |
-| --- | --- | --- |
-| [AtCoder AHC](environments/atcoder/) | AHC054 Treant's Forest, AHC057 Molecules, and AHC058 Apple Incremental Game | Long-horizon constraint placement, moving-component scheduling, hierarchical investment, and horizon-aware planning |
-| [CodeChef Challenges](environments/codechef/) | WAREHOUS Warehouseman | Full-range constructive routing, storage, retrieval, and instruction-cost optimization |
-| [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing | Parameterized landing, locomotion, and pixel-based driving |
-| [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, both Mountain Car variants, and Pendulum | Five independently installable control Benchmarks with semantic observations and public traces |
-| [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks | Parameterized continuous-control physics using official packaged models and semantic nested observations |
-| [Gymnasium Toy Text](environments/gymnasium/toy_text/) | Blackjack, CliffWalking, FrozenLake, and Taxi | All four standard Toy Text tasks with typed rule and dynamics parameters |
-| [MiniGrid](environments/minigrid/) | 21 standard families, all 22 WFC presets, and 40 requested BabyAI tasks | Partially observable language-conditioned navigation, procedural layouts, compositional instructions, and Episode-local memory |
-| [HighwayEnv](environments/highway_env/) | All ten canonical single-agent tasks | Discrete and continuous autonomous-driving profiles |
-| [Gymnasium-Robotics](environments/gymnasium_robotics/) | 21 Fetch, Maze, Adroit, Shadow Hand, and FrankaKitchen profiles | Goal-conditioned manipulation, navigation, touch sensing, and long-horizon robotics |
-| [MetaWorld](environments/metaworld/) | All 50 MT1 tasks, MT10, MT50, and custom collections | Host-selected single-task and multi-task manipulation |
-| [ALE](environments/ale/) | Redistributable Tetris profile | Atari RGB control without an external ROM dependency |
-| [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios | First-person RGB, game-variable, audio, and hybrid-action control |
-| [Stable-Retro](environments/stable_retro/) | Redistributable Airstriker Level 1 profile | Console RGB control without an external ROM dependency |
-| [Jackdaw](environments/jackdaw/) | Balatro | Unofficial long-horizon Red Deck, White Stake Benchmark powered by a pinned Jackdaw engine |
-| [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | [`v0.1.0` paper archive](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | The 16 control, navigation, driving, and robotics tasks used in the paper |
+The Agent can edit the Program, inspect public Feedback, and submit or finish
+through its scoped Session client. The Host owns the Episode pool, budget,
+Evaluation lifecycle, private final selection, and retained evidence.
 
-Balatro includes no official game assets and is not affiliated with LocalThunk
-or Playstack.
+### Active experimentation under a budget
 
-## Installation
+Every Run gives the Agent a fixed Episode budget and a deterministic pool of
+selectable Episode identities. The Agent actively allocates this budget
+between exploration, comparison, and confirmation. Reusing an Episode index
+enables a matched comparison between Programs, but every use creates a fresh
+Environment and Policy runtime and consumes another budget unit. The
+underlying scenarios and seeds remain Host-owned. Validation and Assessment
+use separate private allocations after the Agent has finished.
 
-EvoPolicyGym requires Python 3.12 and uses
-[uv](https://docs.astral.sh/uv/):
+Episode budget makes interaction efficiency comparable within one Benchmark;
+it is not a cross-Benchmark measure of compute cost.
+
+## Quickstart
+
+EvoPolicyGym requires Python 3.12 and
+[`uv`](https://docs.astral.sh/uv/) 0.11.16. Clone the repository and install the
+independent CartPole Benchmark:
 
 ```console
 git clone https://github.com/Linzwcs/EvoPolicyGym
 cd EvoPolicyGym
-uv sync --extra dev
+uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
 ```
 
-Install an Environment in its own project:
+Run one deterministic Evaluation of its packaged baseline:
 
 ```console
-cd environments/gymnasium/classic_control/cartpole
-uv sync --extra dev
-```
-
-## API
-
-A Policy Program is a directory containing `policy.py` with a fixed
-`make_policy` entry point:
-
-```python
-from evopolicygym.policy import PolicyContext, PolicyValue
-
-
-class Policy:
-    def act(self, observation: PolicyValue) -> PolicyValue:
-        return 0
-
-
-def make_policy(context: PolicyContext) -> Policy:
-    print(context.environment_parameters)
-    return Policy()
-```
-
-Capture the directory as an immutable Program and evaluate it:
-
-```python
-from cartpole import CartPoleBenchmark
-
-from evopolicygym import EvaluationConfig, Program, evaluate
+uv run --project environments/gymnasium/classic_control/cartpole python - <<'PY'
+from cartpole import CartPoleBenchmark, baseline_program
+from evopolicygym import EvaluationConfig, evaluate
 from evopolicygym.execution import ProcessExecution
 
 result = evaluate(
-    Program.from_directory("policy"),
-    CartPoleBenchmark(),
-    execution=ProcessExecution.unsafe(),
-    config=EvaluationConfig(
-        split="validation",
-        episodes=10,
-        seed=42,
-    ),
-)
-
-print(result.feedback.score)
-```
-
-Every Episode receives a fresh Policy process, instance, and scratch directory.
-State may persist between `act()` calls within that Episode. Invalid Actions
-are never repaired, and trusted Environment failures are not converted into
-Policy penalties.
-
-A Benchmark distribution may expose a configured task through
-`BenchmarkSpec.environment_parameters`. These values are fixed before an
-Evaluation or Run, visible to both the Coding Agent and every Policy instance,
-and included in the Evaluation and retained Run identity. Per-Episode
-`scenario` values and Environment seeds remain trusted and Policy-invisible.
-
-## Coding-agent runs
-
-`run()` gives a coding agent a fixed `workspace/` containing an editable
-`program/` and Benchmark-authorized `feedback/`. Agent Skills are independent
-experiment inputs selected explicitly by the caller. Complete Skill directory
-snapshots appear read-only under `workspace/skills/` and never enter the
-Policy process:
-
-```python
-from cartpole import CartPoleBenchmark, baseline_program
-
-from evopolicygym import (
-    AssessmentConfig,
-    RunConfig,
-    ValidationConfig,
-    run,
-)
-from evopolicygym.agents import Codex
-from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import ConsoleProgress
-from evopolicygym.skills import AgentSkill
-
-result = run(
     baseline_program(),
     CartPoleBenchmark(),
-    agent=Codex(
-        model="gpt-5.6-luna",
-        reasoning_effort="high",
-    ),
     execution=ProcessExecution.unsafe(),
-    record_to="runs/cartpole-001",
-    skills=(
-        AgentSkill.from_directory("path/to/task-skill"),
-    ),
-    config=RunConfig(
-        max_submissions=16,
-        episode_budget=48,
-        episode_pool_size=96,
-        max_episodes_per_submission=3,
-        validation=ValidationConfig(
-            split="validation",
-            episodes_per_candidate=10,
-            max_candidates=3,
-        ),
-        assessment=AssessmentConfig(
-            split="test",
-            episodes=20,
-        ),
-    ),
-    observer=ConsoleProgress(),
+    config=EvaluationConfig(episodes=5, seed=42),
 )
+print(result.feedback.score)
+print(result.feedback.content)
+PY
 ```
 
-`Codex.reasoning_effort` is a required provider-specific experiment input.
-The provider passes it to the Codex CLI as `model_reasoning_effort` and
-retains it in the Run's Agent identity. Supported values are model-dependent
-and are validated authoritatively by the installed Codex CLI.
+A Policy Program is an immutable snapshot of a source directory whose
+`policy.py` defines `make_policy(context)`. See the
+[Policy guide](https://linzwcs.github.io/EvoPolicyGym/docs/policy/) to write
+one.
 
-An `AgentSkill` is a pathless, content-addressed snapshot containing
-`SKILL.md` and any referenced files, scripts, or assets. A Run accepts up to
-16 uniquely named Skills. Their names, digests, and retained workspace paths
-are recorded in `run.json`, making with-Skill and without-Skill comparisons
-explicit and reproducible. The combined snapshot is also bounded to 2,048
-files and 64 MiB. Benchmarks never select or load Skills themselves.
+> `ProcessExecution` is not a sandbox. Policy and Agent processes run with the
+> authority of the current operating-system user; use it only with trusted
+> code.
 
-During the Run, the agent evaluates immutable submissions and hands candidates
-to the Host with:
+## Run a coding agent
+
+After authenticating the Codex CLI, start a small budgeted CartPole Run:
+
+```console
+mkdir -p runs
+uv run --project environments/gymnasium/classic_control/cartpole \
+  python scripts/run_cartpole_codex.py \
+  --model gpt-5.6-luna \
+  --reasoning-effort high \
+  --record-to runs/cartpole-001 \
+  --max-submissions 3 \
+  --episode-budget 30 \
+  --episode-pool-size 60 \
+  --max-episodes-per-submission 10 \
+  --validation-episodes-per-candidate 5 \
+  --assessment-episodes 10 \
+  --allow-unsafe-process
+```
+
+Public Evaluation and Run workflows use the Python SDK. During one active Run,
+the Agent-facing `evopolicygym-session` command provides only two capabilities:
 
 ```console
 evopolicygym-session submit program --episodes "0:2,4:8"
-evopolicygym-session finish submission-000002 submission-000007
+evopolicygym-session finish submission-000002 submission-000003
 ```
 
-`evopolicygym-session` is the Agent-facing client for one active Run. The
-separate `evopolicygym` command is reserved for Host/operator workflows over
-the public SDK; it never submits to an Agent Session.
+`submit` requests an experiment over selected Run-local Episode indices.
+`finish` hands published candidates to the Host and permanently closes Agent
+authority before private Validation and Assessment.
 
-`RunConfig.seed` deterministically creates one fixed Host-owned training
-Episode pool before the Agent starts. `episode_pool_size` defaults to the total
-Episode budget. The Agent selects public Run-local indices from
-`0..episode_pool_size-1`; ranges are half-open and comma-separated items form a
-union. The example selects indices `0, 1, 4, 5, 6, 7`. A selection must be
-non-empty, strictly increasing, and contain no duplicate or overlapping
-indices.
+For AI-assisted setup, SDK usage, provider integration, Benchmark authoring,
+and Run diagnostics, use the reusable
+[`evopolicygym` Agent Skill](skills/evopolicygym/).
 
-The same index always binds the same trusted `EpisodeSpec` and Policy seed
-within one Run, so the Agent can compare Program revisions on matched
-conditions. Every evaluation still creates a fresh Environment, Policy
-process, Policy instance, and scratch directory. Reusing an index in a later
-Submission is allowed and consumes another Episode budget unit. Actual
-Environment seeds and scenarios are not published to the Agent; Validation
-and Assessment use separate Host-only Episode plans that cannot be selected
-through `submit`.
+## Benchmarks
 
-`finish` atomically hands an ordered candidate set to the Host and closes Agent
-authority. With `ValidationConfig`, the Host waits for the Agent process to be
-reaped, evaluates every candidate on the same private Validation Episodes, and
-selects by the Benchmark score direction, fewer Policy failures, then argument
-order. Validation has a separate Episode allocation and is never published
-back into workspace Feedback. Without `ValidationConfig`, `finish` accepts
-exactly one candidate and the Host selects it after Agent cleanup.
+Benchmark distributions are independent packages built on the public
+EvoPolicyGym authoring API.
 
-With `AssessmentConfig`, the Host then evaluates only the selected final
-Program on a separately seeded held-out split. Assessment never changes the
-selection and is never returned to the Agent. Its aggregate score and Policy
-failure count are the Run's final benchmark evidence.
+| Collection | Coverage |
+| --- | --- |
+| [AtCoder AHC](environments/atcoder/) | AHC054, AHC057, and AHC058 |
+| [CodeChef Challenges](environments/codechef/) | WAREHOUS |
+| [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing |
+| [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, Mountain Car, and Pendulum |
+| [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks |
+| [Gymnasium Toy Text](environments/gymnasium/toy_text/) | Blackjack, CliffWalking, FrozenLake, and Taxi |
+| [MiniGrid and BabyAI](environments/minigrid/) | Standard MiniGrid families, all 22 WFC presets, and 40 BabyAI tasks |
+| [HighwayEnv](environments/highway_env/) | All ten canonical single-agent tasks |
+| [Gymnasium-Robotics](environments/gymnasium_robotics/) | Fetch, Maze, Adroit, Shadow Hand, and FrankaKitchen profiles |
+| [MetaWorld](environments/metaworld/) | All 50 MT1 tasks, MT10, MT50, and custom collections |
+| [ALE](environments/ale/) | Redistributable Tetris profile |
+| [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios |
+| [Stable-Retro](environments/stable_retro/) | Redistributable Airstriker Level 1 profile |
+| [Jackdaw](environments/jackdaw/) | Balatro |
+| [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | Historical `v0.1.0` paper suite |
 
-The Host retains submitted Programs, public Feedback and Artifacts,
-content-addressed Agent Skill snapshots, `events.jsonl`, the final `run.json`,
-separate Agent logs, and—when configured—aggregate
-`validation/report.json` and `assessment/report.json` records. Benchmark
-authors control the public Feedback content and may publish bounded traces,
-replays, diagnostics, images, or reports without exposing private seeds,
-paths, or execution evidence. Submission Feedback includes the selected
-Run-local Episode index beside each public Episode summary.
+See the [environment catalog](environments/) and
+[integration ledger](environments/STATUS.md) for complete coverage.
 
-`ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
-with the authority of the current operating-system user. Use it only with
-trusted code; whole-Run virtualization is planned for a later release.
+## Author a Benchmark
 
-## Authoring environments
+External distributions implement the structural `Benchmark` and `Environment`
+interfaces from `evopolicygym.authoring`. A Benchmark owns deterministic
+Episode planning, scoring, sanitized Feedback, and public Artifacts; an
+Environment owns reset, step, and cleanup behavior. Typed environment
+configuration is fixed before a Run and recorded in the Benchmark identity.
 
-External packages implement the structural `Benchmark` and `Environment`
-interfaces from `evopolicygym.authoring`. An Environment owns reset, step, and
-cleanup behavior. A Benchmark owns deterministic Episode planning, scoring,
-sanitized Feedback, and public Artifacts. Environment-specific constructors
-validate typed parameters and bind them to the Benchmark instance; the
-corresponding `BenchmarkSpec.environment_parameters` records the exact public
-values that `make_environment()` applies. The generic Kernel does not accept or
-interpret simulator-specific keyword arguments.
-
-For example, the FrozenLake distribution accepts
-`FrozenLakeConfig(map_name="8x8", is_slippery=True)`, publishes that
-configuration in its specification, and uses the bound values whenever it
-creates a fresh Environment.
-
-Use `check_benchmark()` with deterministic fixtures before distribution. See
-the [authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/)
-and the [CartPole](environments/gymnasium/classic_control/cartpole/) and
+Use `check_benchmark()` before distribution. See the
+[authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/) and
+the [CartPole](environments/gymnasium/classic_control/cartpole/) or
 [FrozenLake](environments/gymnasium/toy_text/frozen_lake/) packages.
 
 ## Development
 
 ```console
+uv sync --extra dev
 uv run ruff check src tests
 uv run mypy
 uv run python -m unittest discover -s tests
 uv build
 ```
 
-EvoPolicyGym 0.3 is an alpha release. The current Kernel intentionally does not
-provide process isolation, crash recovery, or Run resumption. See
-[CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before
-contributing runtime changes.
+EvoPolicyGym 0.3 is an alpha release and does not provide process isolation,
+crash recovery, or Run resumption. Read [CONTRIBUTING.md](CONTRIBUTING.md) and
+[SECURITY.md](SECURITY.md) before changing runtime behavior.
 
 ## Citation
 
-The paper and its reported experiments correspond to the
+The paper and reported experiments correspond to the
 [`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) research
-implementation. If you use EvoPolicyGym in research, please cite:
+implementation:
 
 ```bibtex
 @article{wang2026evopolicygym,

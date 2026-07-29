@@ -105,8 +105,8 @@ repository discovery or attach a Skill to `BenchmarkSpec`.
 During search, the Agent uses:
 
 ```console
-evopolicygym submit program --episodes "0:2,4:6"
-evopolicygym finish submission-000003 submission-000011
+evopolicygym-session submit program --episodes "0:2,4:6"
+evopolicygym-session finish submission-000003 submission-000011
 ```
 
 The submit selector addresses the fixed Run-local training Episode pool.

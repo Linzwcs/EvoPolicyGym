@@ -53,7 +53,7 @@ def build_agent_task(
         finish_guidance = """\
 When you have selected the best published submission, end the Run with:
 
-    evopolicygym finish SUBMISSION_ID
+    evopolicygym-session finish SUBMISSION_ID
 
 finish accepts exactly one published submission. A successful finish closes
 your authority; the Host selects that sole candidate only after your process
@@ -64,7 +64,7 @@ has exited.
 When you are ready to end search, pass an ordered set of one to
 {validation.max_candidates} published candidates:
 
-    evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]
+    evopolicygym-session finish SUBMISSION_ID [SUBMISSION_ID ...]
 
 A successful finish closes your authority. Only after your process has exited,
 the Host evaluates every candidate on identical private Validation Episodes and
@@ -124,7 +124,7 @@ The Host publishes authorized evaluation data under:
 
 Do not modify feedback/. Evaluate the current Program with:
 
-    evopolicygym submit program --episodes "{_selector_example(pool_size)}"
+    evopolicygym-session submit program --episodes "{_selector_example(pool_size)}"
 
 The available Run-local training Episode indices are 0 through
 {pool_size - 1}. A singleton like "7" selects one index; START:END is a

@@ -70,6 +70,7 @@ evopolicygym/
 │   ├── _feedback.py            Feedback and Artifact publication
 │   ├── _json.py                retained public-value JSON projection
 │   ├── _socket.py              active Agent Session transport
+│   ├── _session_cli.py         Agent-facing Session presentation
 │   └── _task.py                provider-independent Agent instructions
 │
 ├── execution/                  public execution selections
@@ -86,13 +87,18 @@ evopolicygym/
 │   ├── _framing.py             shared bounded JSON frame mechanism
 │   ├── policy.py               Policy process framing and PolicyValue codec
 │   └── session.py              versioned Agent Session framing
-└── cli.py                      Agent-facing Session presentation
+└── cli.py                      Host/operator presentation over the public SDK
 ```
 
 There is no parallel private shadow package for a public use case.
 `evopolicygym.evaluation`, `evopolicygym.run`, and
 `evopolicygym.execution` are both their stable public entry points and their
 implementation ownership boundaries.
+
+The `evopolicygym` executable is the Host/operator command surface. The
+separate `evopolicygym-session` executable is projected into an active Agent
+Run and owns only `submit` and `finish`; it is a presentation over
+`agent-session/v3`, not an operator workflow or Benchmark registry.
 
 ## Environment distributions
 

@@ -94,9 +94,9 @@ authority.
   Policy.
 - Add `ConsoleProgress()` when interactive progress is useful.
 - Require the Agent to publish candidates through
-  `evopolicygym submit program --episodes "0:2,4:8"` and finish by handing the
-  Host one or more published IDs with
-  `evopolicygym finish SUBMISSION_ID [SUBMISSION_ID ...]`.
+  `evopolicygym-session submit program --episodes "0:2,4:8"` and finish by
+  handing the Host one or more published IDs with
+  `evopolicygym-session finish SUBMISSION_ID [SUBMISSION_ID ...]`.
 - Treat submit selectors as public Run-local Episode indices: comma joins
   singleton or half-open range items, each request is strictly increasing and
   duplicate-free, and reusing an index in a later Submission consumes budget

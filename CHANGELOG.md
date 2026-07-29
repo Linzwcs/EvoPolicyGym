@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Renamed the reusable general-purpose Agent Skill from `use-evopolicygym` to
+  `evopolicygym`, refocused it on caller-side Host and public SDK workflows,
+  and split its setup, Evaluation, Run, provider, authoring, and diagnostic
+  guidance for progressive loading.
 - Expanded CI to test and build all 57 first-party Benchmark distributions,
   including the Gymnasium Classic Control, Toy Text, Box2D, and MuJoCo suites
   plus Balatro, and added a repository test that rejects unlisted Environment

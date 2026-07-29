@@ -1,4 +1,4 @@
-# Run diagnostics
+# EvoPolicyGym Run diagnostics
 
 Inspect generated Run data read-only. Do not repair a Run by hand and do not
 copy Host logs into the Agent workspace.
@@ -88,3 +88,8 @@ commit behavior.
   execute; publication happens only after Evaluation and Feedback succeed.
 - Remember that current local processes are not isolated even though the
   logical workspace and log views are separate.
+
+Report the Run path, terminal reason, last committed lifecycle event, affected
+Submission or Host phase, evidence inspected, classified failure domain,
+probable cause, and the smallest safe reproduction. Do not mutate retained
+records unless the user explicitly requests artifact repair.

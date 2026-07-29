@@ -106,8 +106,8 @@ the economy.
 
 Luna, Terra, and Sol each received the same training Episode pool and a total
 Episode budget of 1,024. After optimization, we froze the Program selected by
-each Agent and evaluated all four Programs with the `epg2` engine on the same
-128 held-out test Episodes:
+each Agent and evaluated all four Programs on the same 128 held-out test
+Episodes:
 
 | Experiment | Agent | Reasoning | Training Episode budget | Test Episodes |
 | --- | --- | --- | ---: | ---: |

@@ -90,8 +90,8 @@ Baseline 是一套确定性的扑克牌型策略。它会穷举手牌中所有 1
 经济。
 
 Luna、Terra 和 Sol 的训练 Episode pool 与总 Episode budget 均为 1024。
-优化结束后，我们冻结三个 Agent 最终选择的 Program，并使用 `epg2` 引擎在完全
-相同的 128 个 held-out test Episodes 上评测。四个 Program 的评测条件如下：
+优化结束后，我们冻结三个 Agent 最终选择的 Program，并在完全相同的 128 个
+held-out test Episodes 上评测。四个 Program 的评测条件如下：
 
 | 实验 | Agent | Reasoning | 训练 Episode budget | Test Episodes |
 | --- | --- | --- | ---: | ---: |

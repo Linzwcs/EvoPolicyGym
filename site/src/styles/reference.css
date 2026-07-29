@@ -301,6 +301,16 @@ html[lang="zh-CN"] .reference-article h3 {
   font-size: 13px;
 }
 
+.content-markdown .blog-result-figure {
+  margin: 26px 0 34px;
+}
+
+.content-markdown .blog-result-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .reference-flow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

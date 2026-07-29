@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 442" role="img" aria-labelledby="title description">
+  <title id="title">Balatro held-out test results</title>
+  <desc id="description">Horizontal bars compare the average number of Blinds cleared by Packaged baseline, Luna, Terra, and Sol. Sol cleared 10.45 Blinds on average and won 5 of 128 runs.</desc>
+
+  <g font-family="'Avenir Next', 'Inter', sans-serif">
+    <text x="196" y="28" fill="#50524d" font-size="13">Average Blinds cleared</text>
+    <text x="740" y="28" fill="#50524d" font-size="13" text-anchor="middle">Runs won</text>
+    <text x="920" y="28" fill="#50524d" font-size="13" text-anchor="end">Mean final score</text>
+
+    <g stroke="#d3d0c7" stroke-width="1">
+      <line x1="196" y1="48" x2="196" y2="360"/>
+      <line x1="349" y1="48" x2="349" y2="360"/>
+      <line x1="503" y1="48" x2="503" y2="360"/>
+      <line x1="656" y1="48" x2="656" y2="360"/>
+    </g>
+
+    <g fill="#8b8e85" font-size="12">
+      <text x="196" y="384" text-anchor="middle">0</text>
+      <text x="349" y="384" text-anchor="middle">4</text>
+      <text x="503" y="384" text-anchor="middle">8</text>
+      <text x="656" y="384" text-anchor="middle">12</text>
+    </g>
+
+    <g>
+      <text x="20" y="92" fill="#171815" font-size="15" font-weight="500">Sol</text>
+      <rect x="196" y="73" width="460" height="24" rx="4" fill="#f4f4f1"/>
+      <rect x="196" y="73" width="401" height="24" rx="4" fill="#c84b27"/>
+      <text x="609" y="91" fill="#171815" font-size="14" font-weight="500">10.45</text>
+      <circle cx="704" cy="84" r="5" fill="#c84b27"/>
+      <text x="740" y="91" fill="#171815" font-size="15" font-weight="500" text-anchor="middle">5 / 128</text>
+      <text x="920" y="91" fill="#171815" font-size="15" font-weight="500" text-anchor="end">49.52</text>
+    </g>
+
+    <g>
+      <text x="20" y="169" fill="#171815" font-size="15" font-weight="500">Terra</text>
+      <rect x="196" y="150" width="460" height="24" rx="4" fill="#f4f4f1"/>
+      <rect x="196" y="150" width="341" height="24" rx="4" fill="#176b6d"/>
+      <text x="549" y="168" fill="#171815" font-size="14" font-weight="500">8.89</text>
+      <text x="740" y="168" fill="#8b8e85" font-size="15" text-anchor="middle">0 / 128</text>
+      <text x="920" y="168" fill="#171815" font-size="15" text-anchor="end">8.89</text>
+    </g>
+
+    <g>
+      <text x="20" y="246" fill="#171815" font-size="15" font-weight="500">Luna</text>
+      <rect x="196" y="227" width="460" height="24" rx="4" fill="#f4f4f1"/>
+      <rect x="196" y="227" width="302" height="24" rx="4" fill="#176b6d"/>
+      <text x="510" y="245" fill="#171815" font-size="14" font-weight="500">7.87</text>
+      <text x="740" y="245" fill="#8b8e85" font-size="15" text-anchor="middle">0 / 128</text>
+      <text x="920" y="245" fill="#171815" font-size="15" text-anchor="end">7.87</text>
+    </g>
+
+    <g>
+      <text x="20" y="323" fill="#171815" font-size="15" font-weight="500">Packaged baseline</text>
+      <rect x="196" y="304" width="460" height="24" rx="4" fill="#f4f4f1"/>
+      <rect x="196" y="304" width="142" height="24" rx="4" fill="#8b8e85"/>
+      <text x="350" y="322" fill="#171815" font-size="14" font-weight="500">3.70</text>
+      <text x="740" y="322" fill="#8b8e85" font-size="15" text-anchor="middle">0 / 128</text>
+      <text x="920" y="322" fill="#171815" font-size="15" text-anchor="end">3.70</text>
+    </g>
+
+    <line x1="20" y1="406" x2="940" y2="406" stroke="#d3d0c7" stroke-width="1"/>
+    <text x="20" y="430" fill="#8b8e85" font-size="12">128 held-out test Episodes · Red Deck · White Stake</text>
+  </g>
+</svg>

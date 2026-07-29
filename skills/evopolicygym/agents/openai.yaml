@@ -1,0 +1,4 @@
+interface:
+  display_name: "EvoPolicyGym"
+  short_description: "Operate and extend EvoPolicyGym workflows"
+  default_prompt: "Use $evopolicygym to select and complete the appropriate setup, evaluation, run, provider, authoring, or diagnostic workflow."

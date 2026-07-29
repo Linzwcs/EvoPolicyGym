@@ -30,13 +30,15 @@ experiment configuration, and Core16 results are preserved at
 [`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0); they are
 historical research artifacts, not outputs of the current 0.3 Kernel.
 
-For AI-assisted setup, Benchmark integration, runs, and diagnostics, this
-repository ships the reusable
-[`use-evopolicygym` Agent Skill](skills/use-evopolicygym/). Install that folder
-with a compatible Agent skill manager and invoke it as `$use-evopolicygym`.
+For AI-assisted Host/operator setup, public SDK workflows, provider
+integration, Benchmark authoring, and Run diagnostics, this repository ships
+the reusable
+[`evopolicygym` Agent Skill](skills/evopolicygym/). Install that folder with a
+compatible Agent skill manager and invoke it as `$evopolicygym`.
 Task-specific workflows, such as
-[`optimize-balatro-policy`](skills/optimize-balatro-policy/), live beside it
-and are selected explicitly per Run rather than embedded in a Benchmark.
+[`optimize-balatro-policy`](skills/optimize-balatro-policy/), are separate
+explicit Run inputs rather than part of the general Skill or a Benchmark
+contract.
 
 ## Environments
 

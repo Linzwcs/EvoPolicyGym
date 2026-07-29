@@ -1,9 +1,17 @@
-# Benchmark authoring
+# EvoPolicyGym Benchmark authoring
 
 Build each Benchmark as an independent Python distribution that depends only
 on the public EvoPolicyGym SDK and its own Environment dependencies. Use
 `environments/gymnasium/classic_control/cartpole/` as the minimal live
 reference.
+
+## Contents
+
+1. Preserve the package boundary
+2. Implement the public contracts
+3. Preserve privacy and determinism
+4. Design bounded Feedback
+5. Verify the independent distribution
 
 ## Package boundary
 
@@ -102,3 +110,8 @@ sequences twice. Add unittest coverage for:
 
 Run the Environment distribution's Ruff, strict mypy, unittest, and `uv build`
 checks from its own project directory.
+
+Report the distribution path and package name, public imports, configured
+Benchmark ID and environment parameters, split and Episode-planning behavior,
+Feedback and Artifact bounds, conformance results, test and build commands,
+and any remaining simulator or execution limitation.

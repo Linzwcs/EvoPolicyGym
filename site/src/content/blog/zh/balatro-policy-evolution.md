@@ -114,9 +114,9 @@ held-out test Episodes 上评测。四个 Program 的评测条件如下：
   />
 </figure>
 
-Sol 是唯一完成 Run 的策略：它平均通过 10.45 个 Blind，是 baseline 的 2.83
-倍，并在 128 局中通关 5 次。Luna 和 Terra 的平均推进距离也超过 baseline 的
-两倍，但没有通关。减少早期错误可以走得更远，完成 Run 还需要一套连贯的长期
+Sol 是唯一实现可通关策略的模型：它平均通过 10.45 个 Blind，是 baseline 的
+2.83 倍，并在 128 局中通关 5 次。Luna 和 Terra 的平均推进距离也超过 baseline
+的两倍，但没有通关。减少早期错误可以走得更远，完成 Run 还需要一套连贯的长期
 构筑策略。
 
 ## Baseline 的能力边界

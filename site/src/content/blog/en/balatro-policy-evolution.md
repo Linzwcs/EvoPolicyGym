@@ -130,11 +130,11 @@ The experiment used Red Deck, White Stake, a Run seed of `20260729`, and a
   />
 </figure>
 
-Sol was the only Policy to complete a Run. It cleared 10.45 Blinds on average,
-2.83 times the baseline result, and completed 5 of 128 Runs. Luna and Terra
-also more than doubled the baseline's average progress, but neither completed
-a Run. Reducing early mistakes can extend a Run; completing one requires a
-coherent long-term build strategy.
+Sol was the only model to produce a strategy capable of completing a Run. It
+cleared 10.45 Blinds on average, 2.83 times the baseline result, and completed
+5 of 128 Runs. Luna and Terra also more than doubled the baseline's average
+progress, but neither completed a Run. Reducing early mistakes can extend a
+Run; completing one requires a coherent long-term build strategy.
 
 ## The baseline's capability boundary
 

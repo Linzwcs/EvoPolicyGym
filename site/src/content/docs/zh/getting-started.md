@@ -126,3 +126,4 @@ evopolicygym-session submit program --episodes "0:2,4:8"
 - [阅读 Policy ABI →](../policy/)
 - [理解 Evaluation 与 Runs →](../evaluation/)
 - [选择并配置 Environment →](../../environments/)
+- [通过 AI Coding Assistant 使用 `$evopolicygym` Skill →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/skills/evopolicygym)

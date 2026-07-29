@@ -137,3 +137,4 @@ The actual seeds remain hidden.
 - [Read the Policy ABI →](../policy/)
 - [Understand Evaluation and Runs →](../evaluation/)
 - [Choose and configure an Environment →](../../environments/)
+- [Use the `$evopolicygym` Skill with an AI coding assistant →](https://github.com/Linzwcs/EvoPolicyGym/tree/main/skills/evopolicygym)

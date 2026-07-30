@@ -1,90 +1,169 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Copy from "../components/Copy.astro";
+import StatusPill from "../components/StatusPill.astro";
+import {
+  environmentDistributionCount,
+  environmentEcosystemCount,
+} from "../data/environmentCatalog";
 import { paperMeta, projectMeta } from "../data/project";
 import { withBase } from "../lib/paths";
 import "../styles/home.css";
 
-const environmentFamilies = [
+const lifecycle = [
   {
-    name: "Gymnasium",
-    roleEn: "Control and planning",
-    roleZh: "控制与规划",
-    examples: "Classic Control · Toy Text · Box2D · MuJoCo · …",
+    number: "01",
+    nameEn: "Author",
+    nameZh: "编写",
+    detailEn: "A coding agent edits an executable Policy Program.",
+    detailZh: "Coding Agent 编辑可执行的 Policy Program。",
   },
   {
-    name: "MiniGrid & BabyAI",
-    roleEn: "Navigation and language",
-    roleZh: "导航与语言任务",
-    examples: "MiniGrid families · WFC presets · BabyAI tasks · …",
+    number: "02",
+    nameEn: "Train",
+    nameZh: "训练",
+    detailEn: "The agent selects indices from one fixed training Episode pool.",
+    detailZh: "Agent 从一个固定训练 Episode 池中选择编号。",
   },
   {
-    name: "Driving & Robotics",
-    roleEn: "Structured and goal-conditioned control",
-    roleZh: "结构化与目标条件控制",
-    examples: "HighwayEnv · Gymnasium-Robotics · MetaWorld · …",
+    number: "03",
+    nameEn: "Learn",
+    nameZh: "迭代",
+    detailEn: "Committed Feedback informs the next immutable Program.",
+    detailZh: "已提交的 Feedback 用于编写下一个不可变 Program。",
   },
   {
-    name: "Games",
-    roleEn: "Visual and long-horizon decisions",
-    roleZh: "视觉与长时程决策",
-    examples: "ALE · ViZDoom · Stable-Retro · Balatro · …",
+    number: "04",
+    nameEn: "Select",
+    nameZh: "选择",
+    detailEn: "After agent cleanup, hidden Validation selects one candidate.",
+    detailZh: "Agent 清理完成后，由隐藏 Validation 选择一个候选。",
   },
+  {
+    number: "05",
+    nameEn: "Measure",
+    nameZh: "测量",
+    detailEn: "Assessment measures only that Policy on held-out Cases.",
+    detailZh: "Assessment 只在 held-out Cases 上测量该 Policy。",
+  },
+];
+
+const taskEntries = [
+  {
+    number: "01",
+    href: "docs/evaluation/",
+    titleEn: "Evaluate a coding agent",
+    titleZh: "评估 Coding Agent",
+    detailEn: "Run bounded Program evolution with explicit budgets, selection, and held-out measurement.",
+    detailZh: "通过显式预算、候选选择与 held-out 测量，运行有界的 Program 演化。",
+  },
+  {
+    number: "02",
+    href: "docs/policy/",
+    titleEn: "Author a Policy",
+    titleZh: "编写 Policy",
+    detailEn: "Implement the small Policy ABI without exposing Host state or evaluation evidence.",
+    detailZh: "实现精简的 Policy ABI，不暴露 Host 状态或评估证据。",
+  },
+  {
+    number: "03",
+    href: "docs/authoring/",
+    titleEn: "Publish a Benchmark",
+    titleZh: "发布 Benchmark",
+    detailEn: "Package an external Environment through the public authoring and conformance surface.",
+    detailZh: "通过公共 authoring 与 conformance 接口封装外部 Environment。",
+  },
+  {
+    number: "04",
+    href: "results/",
+    titleEn: "Inspect the evidence",
+    titleZh: "检查实验依据",
+    detailEn: "Read experiment provenance, score matrices, and final-Policy behavioral reruns.",
+    detailZh: "查看实验来源、分数矩阵与最终 Policy 行为重跑。",
+  },
+];
+
+const ecosystemExamples = [
+  "Gymnasium",
+  "MiniGrid",
+  "BabyAI",
+  "MuJoCo",
+  "MetaWorld",
+  "ViZDoom",
+  "Stable-Retro",
+  "Balatro",
 ];
 ---
 
 <BaseLayout
-  title="EvoPolicyGym — Autonomous policy evolution"
-  description="Open-source research software for evaluating autonomous Policy evolution in interactive Environments."
+  title="EvoPolicyGym — Measure autonomous policy evolution"
+  description="Open-source infrastructure for evaluating how coding agents evolve executable decision policies in interactive Environments."
   bodyClass="home-page"
 >
-  <article class="academic-home">
-    <header class="academic-intro page-wide">
-      <div class="academic-intro-main">
-        <p class="academic-label">
+  <article class="refresh-home">
+    <header class="refresh-hero page-wide">
+      <div class="refresh-hero-copy">
+        <p class="refresh-kicker">
+          <span aria-hidden="true"></span>
           <Copy
-            en="Open-source research software for agent evaluation"
-            zh="面向 Agent 评估的开源研究软件"
+            en="Open-source evaluation infrastructure"
+            zh="开源 Agent 评估基础设施"
           />
         </p>
-        <h1>EvoPolicyGym</h1>
         <Copy
-          class="academic-deck"
-          en="Evaluating autonomous Policy evolution in interactive Environments."
-          zh="在交互式 Environment 中评估自主 Policy 演化。"
-          as="p"
+          class="refresh-title"
+          en="Measure how coding agents evolve decision policies."
+          zh="衡量 Coding Agent 如何演化决策 Policy。"
+          as="h1"
         />
         <Copy
-          class="academic-abstract"
-          en="EvoPolicyGym treats a coding agent as an optimizer of executable decision systems. Given a finite interaction budget, the agent authors a Program whose Policy is selected and then measured on held-out Cases after the agent has stopped running."
-          zh="EvoPolicyGym 将 Coding Agent 视为可执行决策系统的优化器。Agent 在有限交互预算内编写 Program；Agent 停止运行后，系统选择其中一个 Policy，并在隐藏 Cases 上完成最终测量。"
+          class="refresh-deck"
+          en="EvoPolicyGym gives an agent a finite interaction budget, records the Programs it authors, selects a candidate only after the agent stops, and measures that Policy on held-out Cases."
+          zh="EvoPolicyGym 为 Agent 提供有限交互预算，记录它编写的 Programs；Agent 停止后再选择候选，并在 held-out Cases 上测量该 Policy。"
           as="p"
         />
-        <nav class="academic-links" aria-label="Project entry points">
-          <a href={withBase("docs/getting-started/")}><Copy en="Get started" zh="快速开始" /> →</a>
-          <a href={withBase("docs/")}><Copy en="Documentation" zh="文档" /></a>
-          <a href={withBase("environments/")}><Copy en="Environments" zh="环境" /></a>
-          <a href={paperMeta.url} target="_blank" rel="noreferrer"><Copy en="Paper" zh="论文" /> ↗</a>
-        </nav>
-      </div>
-
-      <aside class="project-record" aria-label="Project record">
-        <p><Copy en="Project record" zh="项目记录" /></p>
-        <dl>
+        <div class="refresh-actions" aria-label="Primary project actions">
+          <a class="refresh-button refresh-button-primary" href={withBase("docs/getting-started/")}>
+            <Copy en="Run your first evaluation" zh="运行第一次评估" />
+            <span aria-hidden="true">→</span>
+          </a>
+          <a class="refresh-button refresh-button-secondary" href="#lifecycle">
+            <Copy en="Understand the lifecycle" zh="理解运行流程" />
+          </a>
+        </div>
+        <dl class="refresh-proof" aria-label="Current project coverage">
           <div>
-            <dt><Copy en="Release" zh="版本" /></dt>
-            <dd>{projectMeta.versionLabel} · <Copy en="active alpha" zh="活跃 Alpha" /></dd>
+            <dt><Copy en="Benchmarks" zh="Benchmarks" /></dt>
+            <dd>{environmentDistributionCount}</dd>
+          </div>
+          <div>
+            <dt><Copy en="Ecosystems" zh="上游生态" /></dt>
+            <dd>{environmentEcosystemCount}</dd>
           </div>
           <div>
             <dt><Copy en="Policy interface" zh="Policy 接口" /></dt>
             <dd><code>{projectMeta.protocolVersion}</code></dd>
           </div>
+        </dl>
+      </div>
+
+      <aside class="refresh-release" aria-label="Current release">
+        <div class="refresh-release-heading">
+          <StatusPill en="Current system" zh="当前系统" tone="active" />
+          <span>{projectMeta.versionLabel}</span>
+        </div>
+        <Copy
+          en="A clean-slate public SDK for direct Evaluation, bounded coding-agent Runs, and independently distributed Benchmarks."
+          zh="面向直接 Evaluation、有界 Coding Agent Run 与独立分发 Benchmarks 的 clean-slate 公共 SDK。"
+          as="p"
+        />
+        <dl>
           <div>
-            <dt><Copy en="Paper experiments" zh="论文实验" /></dt>
-            <dd>{paperMeta.experimentVersion}</dd>
+            <dt><Copy en="Stage" zh="阶段" /></dt>
+            <dd><Copy en={projectMeta.developmentStageEn} zh={projectMeta.developmentStageZh} /></dd>
           </div>
           <div>
-            <dt><Copy en="Implementation" zh="实现" /></dt>
+            <dt><Copy en="Runtime" zh="运行时" /></dt>
             <dd>Python 3.12</dd>
           </div>
           <div>
@@ -93,24 +172,159 @@ const environmentFamilies = [
           </div>
         </dl>
         <a href="https://github.com/Linzwcs/EvoPolicyGym" target="_blank" rel="noreferrer">
-          <Copy en="Source repository" zh="源代码仓库" /> ↗
+          <Copy en="View source on GitHub" zh="在 GitHub 查看源码" /> ↗
         </a>
       </aside>
     </header>
 
-    <div class="academic-columns page-wide">
-      <section class="academic-section compact-section" aria-labelledby="quickstart-heading">
-        <p class="academic-label">01 · <Copy en="Start here" zh="从这里开始" /></p>
-        <Copy en="Quick start" zh="快速开始" as="h2" id="quickstart-heading" />
+    <section class="refresh-section refresh-lifecycle page-wide" id="lifecycle" aria-labelledby="lifecycle-heading">
+      <div class="refresh-section-heading">
+        <p>01 · <Copy en="Evaluation model" zh="评估模型" /></p>
+        <div>
+          <Copy
+            en="Optimization and measurement stay separate."
+            zh="优化与测量始终分离。"
+            as="h2"
+            id="lifecycle-heading"
+          />
+          <Copy
+            en="The agent may learn from a bounded training surface. It never receives Validation or Assessment evidence, and Assessment never changes which Program was selected."
+            zh="Agent 可以从有界训练表面学习，但不会获得 Validation 或 Assessment 证据；Assessment 也不会改变已选中的 Program。"
+            as="p"
+          />
+        </div>
+      </div>
+
+      <div class="refresh-flow" aria-label="EvoPolicyGym evaluation lifecycle">
+        {lifecycle.map((stage) => (
+          <article>
+            <span class="refresh-flow-node" aria-hidden="true"></span>
+            <span class="refresh-flow-number">{stage.number}</span>
+            <Copy en={stage.nameEn} zh={stage.nameZh} as="h3" />
+            <Copy en={stage.detailEn} zh={stage.detailZh} as="p" />
+          </article>
+        ))}
+      </div>
+      <p class="refresh-boundary-note">
+        <strong><Copy en="Boundary:" zh="边界：" /></strong>
         <Copy
-          en="Install the CartPole Benchmark and directly evaluate its packaged baseline over five Episodes."
-          zh="安装 CartPole Benchmark，并在 5 个 Episodes 上直接评估 package 内置的 baseline。"
+          en="Validation and Assessment begin only after the Agent Session has closed."
+          zh="Validation 与 Assessment 只会在 Agent Session 关闭后开始。"
+        />
+      </p>
+    </section>
+
+    <section class="refresh-section refresh-tasks page-wide" aria-labelledby="tasks-heading">
+      <div class="refresh-section-heading">
+        <p>02 · <Copy en="Choose a path" zh="选择路径" /></p>
+        <div>
+          <Copy
+            en="Start from the work you need to do."
+            zh="从你要完成的工作出发。"
+            as="h2"
+            id="tasks-heading"
+          />
+          <Copy
+            en="The SDK, Policy boundary, Benchmark SPI, and evidence archive are documented as separate public surfaces."
+            zh="SDK、Policy 边界、Benchmark SPI 与实验档案分别作为独立公共表面进行说明。"
+            as="p"
+          />
+        </div>
+      </div>
+
+      <div class="refresh-task-grid">
+        {taskEntries.map((entry) => (
+          <a href={withBase(entry.href)}>
+            <span>{entry.number}</span>
+            <Copy en={entry.titleEn} zh={entry.titleZh} as="h3" />
+            <Copy en={entry.detailEn} zh={entry.detailZh} as="p" />
+            <strong aria-hidden="true">↗</strong>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="refresh-section refresh-coverage page-wide" aria-labelledby="coverage-heading">
+      <div class="refresh-coverage-main">
+        <p class="refresh-section-label">03 · <Copy en="Environment coverage" zh="环境覆盖" /></p>
+        <Copy
+          en="One evaluation model, many interactive domains."
+          zh="一套评估模型，覆盖多种交互领域。"
+          as="h2"
+          id="coverage-heading"
+        />
+        <Copy
+          en={`Browse ${environmentDistributionCount} independently installable Benchmark distributions across control, navigation, robotics, driving, visual play, and long-horizon strategy.`}
+          zh={`浏览 ${environmentDistributionCount} 个可独立安装的 Benchmark distributions，覆盖控制、导航、机器人、驾驶、视觉玩法与长时程策略。`}
           as="p"
         />
-        <pre><code>git clone https://github.com/Linzwcs/EvoPolicyGym
+        <div class="refresh-ecosystems" aria-label="Representative ecosystems">
+          {ecosystemExamples.map((name) => <span>{name}</span>)}
+        </div>
+        <a class="refresh-text-link" href={withBase("environments/")}>
+          <Copy en="Explore all environments" zh="浏览全部环境" /> →
+        </a>
+      </div>
+
+      <div class="refresh-evidence" aria-label="Current and historical evidence">
+        <article>
+          <div>
+            <StatusPill en="Current" zh="当前" tone="active" />
+            <span>{projectMeta.versionLabel}</span>
+          </div>
+          <Copy en="Implemented system" zh="已实现系统" as="h3" />
+          <Copy
+            en="Public SDK contracts, conformance-tested Benchmark distributions, and auditable local Run records."
+            zh="公共 SDK 契约、通过一致性测试的 Benchmark distributions，以及可审计的本地 Run records。"
+            as="p"
+          />
+          <a href={withBase("runs/")}><Copy en="Read the Run model" zh="查看 Run 模型" /> →</a>
+        </article>
+        <article class="is-historical">
+          <div>
+            <StatusPill en="Historical" zh="历史" tone="research" />
+            <span>{paperMeta.experimentVersion}</span>
+          </div>
+          <Copy en="Core16 paper record" zh="Core16 论文记录" as="h3" />
+          <Copy
+            en="A preserved score matrix and 64 final-Policy reruns from the original research implementation."
+            zh="由最初研究实现产生并保留的分数矩阵与 64 段最终 Policy 重跑。"
+            as="p"
+          />
+          <a href={withBase("results/")}><Copy en="Inspect historical results" zh="查看历史结果" /> →</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="refresh-section refresh-quickstart page-wide" aria-labelledby="quickstart-heading">
+      <div>
+        <p class="refresh-section-label">04 · <Copy en="First evaluation" zh="第一次评估" /></p>
+        <Copy en="Run CartPole locally." zh="在本地运行 CartPole。" as="h2" id="quickstart-heading" />
+        <Copy
+          en="Install the active Kernel and CartPole Benchmark, then directly evaluate its packaged baseline over five Episodes."
+          zh="安装当前 Kernel 与 CartPole Benchmark，然后在 5 个 Episodes 上直接评估 package 内置 baseline。"
+          as="p"
+        />
+        <p class="refresh-safety">
+          <strong><Copy en="Execution note" zh="执行说明" /></strong>
+          <Copy
+            en="The process backend is intended for trusted Policy code and does not provide hostile-code isolation."
+            zh="Process backend 只适用于可信 Policy 代码，不提供恶意代码隔离。"
+          />
+        </p>
+        <a class="refresh-text-link" href={withBase("docs/getting-started/")}>
+          <Copy en="Open the complete guide" zh="打开完整指南" /> →
+        </a>
+      </div>
+      <pre><code>git clone https://github.com/Linzwcs/EvoPolicyGym
 cd EvoPolicyGym
-uv sync --project environments/gymnasium/classic_control/cartpole --extra dev
-uv run --project environments/gymnasium/classic_control/cartpole python - &lt;&lt;'PY'
+uv sync --project \
+  environments/gymnasium/classic_control/cartpole \
+  --extra dev
+
+uv run --project \
+  environments/gymnasium/classic_control/cartpole \
+  python - &lt;&lt;'PY'
 from cartpole import CartPoleBenchmark, baseline_program
 from evopolicygym import EvaluationConfig, evaluate
 from evopolicygym.execution import ProcessExecution
@@ -119,46 +333,14 @@ result = evaluate(
     baseline_program(),
     CartPoleBenchmark(),
     execution=ProcessExecution.unsafe(),
-    config=EvaluationConfig(split="validation", episodes=5, seed=42),
+    config=EvaluationConfig(
+        split="validation",
+        episodes=5,
+        seed=42,
+    ),
 )
 print(result.feedback.score)
 PY</code></pre>
-        <a class="text-link" href={withBase("docs/getting-started/")}>
-          <Copy en="Full installation and usage guide" zh="完整安装与使用指南" /> →
-        </a>
-      </section>
-
-      <section class="academic-section compact-section" aria-labelledby="scope-heading">
-        <p class="academic-label">02 · <Copy en="Gym-compatible environments" zh="Gym 兼容环境" /></p>
-        <Copy en="Broad coverage across environment ecosystems." zh="覆盖广泛的环境生态。" as="h2" id="scope-heading" />
-        <Copy
-          en="EvoPolicyGym integrates Gymnasium and Gym-style ecosystems through explicit Benchmark distributions, spanning control, navigation, robotics, driving, and visual or long-horizon games."
-          zh="EvoPolicyGym 通过显式 Benchmark distribution 接入 Gymnasium 与 Gym-style 生态，覆盖控制、导航、机器人、驾驶，以及视觉或长时程游戏。"
-          as="p"
-        />
-        <table class="environment-summary">
-          <thead>
-            <tr>
-              <th><Copy en="Family" zh="类型" /></th>
-              <th><Copy en="Coverage" zh="覆盖方向" /></th>
-              <th><Copy en="Examples" zh="示例" /></th>
-            </tr>
-          </thead>
-          <tbody>
-            {environmentFamilies.map((environment) => (
-              <tr>
-                <td>{environment.name}</td>
-                <td><Copy en={environment.roleEn} zh={environment.roleZh} /></td>
-                <td>{environment.examples}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <a class="text-link" href={withBase("environments/")}>
-          <Copy en="View all environments and contracts" zh="查看全部环境与契约" /> →
-        </a>
-      </section>
-    </div>
-
+    </section>
   </article>
 </BaseLayout>

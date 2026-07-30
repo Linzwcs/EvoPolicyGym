@@ -21,7 +21,7 @@ const {
 const active = sectionFromPath(Astro.url.pathname);
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site) : Astro.url;
 const socialImage = Astro.site
-  ? new URL(withBase("og.png"), Astro.site)
+  ? new URL(withBase("og-refresh.png"), Astro.site)
   : undefined;
 ---
 

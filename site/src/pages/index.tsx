@@ -1,34 +1,9 @@
 import Link from "@docusaurus/Link";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import Layout from "@theme/Layout";
 import {Localized} from "../components/Localized";
-import {paperMeta, projectMeta} from "../data/project";
-
-const portals = [
-  {
-    index: "01",
-    path: "/docs/",
-    titleEn: "Project documentation",
-    titleZh: "项目文档",
-    copyEn: "Install the Kernel, understand the evaluation lifecycle, and work against the public SDK.",
-    copyZh: "安装 Kernel、理解评估生命周期，并通过公开 SDK 使用项目。",
-  },
-  {
-    index: "02",
-    path: "/environments/",
-    titleEn: "Environment catalog",
-    titleZh: "Environment 目录",
-    copyEn: "Browse independently installable Benchmark distributions across control, planning, robotics, and games.",
-    copyZh: "浏览覆盖控制、规划、机器人与游戏的独立 Benchmark distributions。",
-  },
-  {
-    index: "03",
-    path: "/results/",
-    titleEn: "Research evidence",
-    titleZh: "研究证据",
-    copyEn: "Inspect held-out scores and final-Policy reruns from the historical Core16 experiment.",
-    copyZh: "检查历史 Core16 实验的 held-out 分数与最终 Policy 重跑。",
-  },
-];
+import {paperMeta} from "../data/project";
+import {formatScore, showcase} from "../lib/showcase";
 
 const notes = [
   {
@@ -50,106 +25,101 @@ const notes = [
 ];
 
 export default function HomePage() {
+  const mediaBaseUrl = useBaseUrl("/");
+  const featuredClips = [
+    ["gpt_5_5", "minigrid_doorkey"],
+    ["claude_opus_4_7", "bipedal"],
+    ["deepseek_v4_pro", "parking"],
+    ["claude_opus_4_7", "fetch_push"],
+  ].flatMap(([modelSlug, environmentId]) => {
+    const clip = showcase.clips.find(
+      (candidate) => candidate.model_slug === modelSlug && candidate.env_id === environmentId,
+    );
+    return clip ? [clip] : [];
+  });
+
   return (
     <Layout
       title="Autonomous policy evolution"
-      description="Open-source research software for evaluating autonomous Policy evolution in interactive Environments."
+      description="Open-source research infrastructure for evaluating the decision systems that Coding Agents build from environment feedback."
     >
       <main className="home-journal">
-        <header className="home-masthead epg-wide">
-          <div className="home-masthead-copy">
+        <header className="home-hero epg-wide">
+          <div className="home-hero-copy">
             <p className="epg-eyebrow">
               <Localized
-                en="Open-source research software · v0.3"
-                zh="开源研究软件 · v0.3"
+                en="Open-source research infrastructure · v0.3"
+                zh="开源研究基础设施 · v0.3"
               />
             </p>
-            <h1>EvoPolicyGym</h1>
+            <h1>
+              <Localized
+                en="Coding agents build better policy systems from environment feedback."
+                zh="让 Coding Agent 从环境反馈中构建更好的 Policy 系统。"
+              />
+            </h1>
             <p className="home-deck">
               <Localized
-                en="Evaluating autonomous Policy evolution in interactive Environments."
-                zh="在交互式 Environment 中评估自主 Policy 演化。"
-              />
-            </p>
-            <p className="home-abstract">
-              <Localized
-                en="A Coding Agent studies an Environment, authors executable decision systems, learns from bounded evaluation evidence, and leaves behind a Program that can be selected, inspected, and measured on held-out Cases."
-                zh="Coding Agent 研究 Environment、编写可执行决策系统、从有界评估证据中学习，并留下能够被选择、检查和在 held-out Cases 上测量的 Program。"
+                en="EvoPolicyGym provides a standardized evaluation protocol and a unified interface to interactive environments, giving Coding Agents the infrastructure to evolve executable Policies from bounded feedback and measure them on held-out Cases."
+                zh="EvoPolicyGym 提供标准化的评估协议与统一的交互式 Environment 接口，为 Coding Agent 从有界反馈中演化可执行 Policy，并在 held-out Cases 上进行测量提供基础设施。"
               />
             </p>
             <div className="home-actions">
-              <Link className="epg-button epg-button--primary" to="/docs/getting-started/">
-                <Localized en="Get started" zh="快速开始" /> <span>→</span>
+              <Link className="epg-button epg-button--primary" to="/results/environments/minigrid_doorkey/">
+                <Localized en="Watch a rerun" zh="观看重跑" /> <span>→</span>
               </Link>
-              <Link className="epg-text-link" to="/blog/">
-                <Localized en="Read the research journal" zh="阅读研究日志" />
+              <Link className="epg-text-link" to="/docs/getting-started/">
+                <Localized en="Get started" zh="快速开始" />
               </Link>
+              <a className="epg-text-link" href={paperMeta.url}>
+                <Localized en="Paper" zh="论文" /> ↗
+              </a>
             </div>
           </div>
 
-          <aside className="home-project-record">
-            <p className="epg-eyebrow">
-              <Localized en="Project record" zh="项目记录" />
-            </p>
-            <dl>
-              <div>
-                <dt><Localized en="Release" zh="版本" /></dt>
-                <dd>{projectMeta.versionLabel}</dd>
-              </div>
-              <div>
-                <dt><Localized en="Policy interface" zh="Policy 接口" /></dt>
-                <dd><code>{projectMeta.protocolVersion}</code></dd>
-              </div>
-              <div>
-                <dt><Localized en="Paper experiment" zh="论文实验" /></dt>
-                <dd>{paperMeta.experimentVersion}</dd>
-              </div>
-              <div>
-                <dt><Localized en="Implementation" zh="实现" /></dt>
-                <dd>Python 3.12</dd>
-              </div>
-              <div>
-                <dt><Localized en="License" zh="许可证" /></dt>
-                <dd>MIT</dd>
-              </div>
-            </dl>
-            <a href={paperMeta.url}>
-              <Localized en="Read the paper" zh="阅读论文" /> ↗
-            </a>
-          </aside>
-        </header>
-
-        <section className="home-portals epg-wide">
-          <header className="home-section-intro">
-            <h2><Localized en="Project index" zh="项目索引" /></h2>
-            <p className="home-section-meta">
-              <Localized
-                en="Documentation · Environments · Evidence"
-                zh="文档 · 环境 · 证据"
-              />
-            </p>
-          </header>
-          <div className="home-portal-grid">
-            {portals.map((portal) => (
-              <Link key={portal.path} to={portal.path} className="home-portal">
-                <span>{portal.index}</span>
-                <h3><Localized en={portal.titleEn} zh={portal.titleZh} /></h3>
-                <p><Localized en={portal.copyEn} zh={portal.copyZh} /></p>
-                <b><Localized en="Open" zh="打开" /> →</b>
+          <div className="home-hero-demo">
+            <div className="home-demo-grid">
+              {featuredClips.map((clip) => (
+                <Link
+                  key={clip.id}
+                  className="home-demo-tile"
+                  to={`/results/environments/${clip.env_id}/`}
+                  aria-label={`Open the ${clip.env_display} held-out rerun record`}
+                >
+                  <img
+                    src={`${mediaBaseUrl}${clip.media}`}
+                    alt={`${clip.model_display}-authored Policy running in the ${clip.env_display} environment`}
+                  />
+                  <span>
+                    <strong>{clip.env_display}</strong>
+                    <small>{clip.model_display} · {formatScore(clip.score)}</small>
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <div className="home-demo-caption">
+              <span>
+                <Localized
+                  en="Four selected Policies · original-Environment reruns"
+                  zh="四个选中 Policy · 原始 Environment 重跑"
+                />
+              </span>
+              <Link to="/results/core16/">
+                <Localized en="Open archive" zh="打开档案" /> →
               </Link>
-            ))}
+            </div>
           </div>
-        </section>
+        </header>
 
         <section className="home-notes epg-wide">
           <header className="home-section-intro">
-            <h2><Localized en="Research notes" zh="研究记录" /></h2>
-            <p className="home-section-meta">
-              <Localized
-                en="Experiments · Design · Findings"
-                zh="实验 · 设计 · 发现"
-              />
-            </p>
+            <div>
+              <p className="epg-eyebrow"><Localized en="Research journal" zh="研究日志" /></p>
+              <h2><Localized en="Recent Blogs" zh="近期博客" /></h2>
+            </div>
+            <Link className="epg-text-link" to="/blog/">
+              <Localized en="All notes" zh="全部文章" /> →
+            </Link>
           </header>
           <div className="home-note-list">
             {notes.map((note) => (
@@ -161,9 +131,6 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-          <Link className="epg-text-link" to="/blog/">
-            <Localized en="Browse all research notes" zh="浏览全部研究文章" /> →
-          </Link>
         </section>
       </main>
     </Layout>

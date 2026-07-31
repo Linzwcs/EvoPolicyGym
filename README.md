@@ -217,3 +217,11 @@ implementation:
 The EvoPolicyGym Kernel is released under the [MIT License](LICENSE).
 Environment distributions may include separately attributed dependencies; see
 their package documentation for details.
+
+## Acknowledgements
+
+EvoPolicyGym was directly inspired by Jiayi Weng's
+[Learning Beyond Gradients](https://trinkle23897.github.io/learning-beyond-gradients/#zh).
+We thank the author for articulating the idea of heuristic learning: coding
+agents can learn from rewards, failures, tests, logs, and replays, then express
+what they learn as an improved executable strategy system.

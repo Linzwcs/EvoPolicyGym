@@ -1,0 +1,50 @@
+{
+  "link.title.Project": {
+    "message": "项目",
+    "description": "The title of the footer links column with title=Project in the footer"
+  },
+  "link.title.Research": {
+    "message": "研究",
+    "description": "The title of the footer links column with title=Research in the footer"
+  },
+  "link.title.Source": {
+    "message": "源码",
+    "description": "The title of the footer links column with title=Source in the footer"
+  },
+  "link.item.label.Documentation": {
+    "message": "项目文档",
+    "description": "The label of footer link with label=Documentation linking to /docs/"
+  },
+  "link.item.label.Environments": {
+    "message": "环境目录",
+    "description": "The label of footer link with label=Environments linking to /environments/"
+  },
+  "link.item.label.Research results": {
+    "message": "研究结果",
+    "description": "The label of footer link with label=Research results linking to /results/"
+  },
+  "link.item.label.Blog": {
+    "message": "研究日志",
+    "description": "The label of footer link with label=Blog linking to /blog/"
+  },
+  "link.item.label.Run records": {
+    "message": "运行记录",
+    "description": "The label of footer link with label=Run records linking to /runs/"
+  },
+  "link.item.label.Paper ↗": {
+    "message": "论文 ↗",
+    "description": "The label of footer link with label=Paper ↗ linking to https://arxiv.org/abs/2607.02440"
+  },
+  "link.item.label.GitHub repository ↗": {
+    "message": "GitHub 仓库 ↗",
+    "description": "The label of footer link with label=GitHub repository ↗ linking to https://github.com/Linzwcs/EvoPolicyGym"
+  },
+  "link.item.label.MIT License ↗": {
+    "message": "MIT License ↗",
+    "description": "The label of footer link with label=MIT License ↗ linking to https://github.com/Linzwcs/EvoPolicyGym/blob/main/LICENSE"
+  },
+  "copyright": {
+    "message": "EvoPolicyGym · 开源研究软件 · 2026",
+    "description": "The footer copyright"
+  }
+}

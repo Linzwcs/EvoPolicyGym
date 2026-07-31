@@ -1,0 +1,18 @@
+{
+  "version.label": {
+    "message": "当前",
+    "description": "The label for version current"
+  },
+  "sidebar.docsSidebar.category.Start": {
+    "message": "开始",
+    "description": "The label for category 'Start' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Core reference": {
+    "message": "核心参考",
+    "description": "The label for category 'Core reference' in sidebar 'docsSidebar'"
+  },
+  "sidebar.docsSidebar.category.Extend": {
+    "message": "扩展",
+    "description": "The label for category 'Extend' in sidebar 'docsSidebar'"
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: optimize-balatro-policy
-description: Build, improve, test, and select a reward-aligned EvoPolicyGym Bot system for the Jackdaw Balatro Benchmark. Use when architecting program/, analyzing indexed train Feedback or replay.jsonl, modeling hands, draws, builds, economy, and visible effects, hardening legal Actions, partitioning a train-only Episode pool and budget, running matched Program comparisons, diagnosing Policy failures, or handing frozen published candidates to Host Validation and Assessment.
+description: Build, modularize, improve, test, and select a reward-aligned EvoPolicyGym Bot system for the Jackdaw Balatro Benchmark. Use when architecting or refactoring program/, assigning module ownership and dependency direction, choosing high-value strategy experiments, diagnosing or optimizing layered state/mechanics/outcome/value/policy models, analyzing indexed train Feedback or replay.jsonl, modeling hands, draws, builds, economy, and visible effects, hardening legal Actions, partitioning a train-only Episode pool and budget, running matched Program comparisons, diagnosing Policy failures, or handing frozen published candidates to Host Validation and Assessment.
 ---
 
 # Optimize Balatro Policy
@@ -14,11 +14,24 @@ phase heuristics, tooltip tier lists, and encounter-specific patches.
 
 - Before planning or interpreting an evaluation, read
   [references/experiment-protocol.md](references/experiment-protocol.md).
+- Before choosing the next capability, use the failure-signature routing and
+  experiment cards in
+  [references/experiment-catalog.md](references/experiment-catalog.md).
+- Before editing `program/`, read the applicable implementation pattern in
+  [references/implementation-playbook.md](references/implementation-playbook.md).
+- Before extracting, splitting, merging, or rewiring Policy modules, read
+  [references/modularity-guide.md](references/modularity-guide.md).
+- Before changing a prediction, value, planning, or selection model, localize
+  the lowest incorrect layer with
+  [references/modeling-stack.md](references/modeling-stack.md).
 - Before changing scoring, discard, shop, build, or Joker-order behavior, read
   the relevant part of
   [references/strategy-lessons.md](references/strategy-lessons.md).
 - Use `scripts/summarize_evidence.py` to pool public submission Feedback by
   immutable digest. Do not hand-calculate repeated evidence summaries.
+- Use `scripts/compare_indexed_feedback.py` to compare separate control and
+  candidate Feedback files. It refuses unmatched Episode-index sets or repeat
+  counts.
 
 ## Align with the objective
 
@@ -104,8 +117,9 @@ tests/
   test_replays.py  persistent public replay regression
 ```
 
-Adapt names and merge adjacent small modules, but preserve these enforceable
-boundaries:
+Treat this tree as a responsibility map, not a mandatory file list. Adapt names
+and merge adjacent small modules according to the ownership and dependency
+rules in the modularity guide, but preserve these enforceable boundaries:
 
 - Concentrate raw dictionary access and nullable-field normalization in one
   observation adapter.
@@ -122,18 +136,24 @@ boundaries:
   silently treating them as zero or inventing behavior.
 - Persist the replay harness and regression fixtures under `program/`; do not
   leave essential tests only in one-off shell snippets.
+- Give every responsibility one authoritative owner and keep dependencies
+  acyclic toward normalized facts and pure models. Do not preserve parallel
+  scorers, parsers, tier lists, or Action builders after migration.
 
 Use this decision pipeline:
 
 ```text
-observation -> StateView -> EpisodePlan -> phase intents
-            -> shared outcome/value model -> ActionGateway -> Action
+observation -> StateView + LegalCatalog
+            -> MechanicsSnapshot + EpisodePlan
+            -> OutcomeEstimate -> ActionValue
+            -> ranked Intent -> ActionGateway -> Action
 ```
 
 Treat the system checkpoint as required work, even though refactoring alone
-does not increase reward. Validate behavioral equivalence on public replays,
-then use a small submission to confirm it. Do not defer structural work until
-the final evidence phase.
+does not increase reward. Keep modular refactors separate from strategic
+experiments. Validate intent and Action equivalence on public replays, then use
+a small matched submission only when local evidence cannot cover runtime
+behavior. Do not defer structural work until the final evidence phase.
 
 ## Enforce the Action contract
 
@@ -156,7 +176,9 @@ Build a reusable model of visible game mechanics, not a collection of
 encounter-name patches. Parse structured rule parameters into effect roles and
 evaluate actions as changes to survival probability, build strength, economy,
 and win probability. Use localized text handling only when structured public
-data cannot express an encountered rule.
+data cannot express an encountered rule. Diagnose the earliest wrong model
+layer and fix it there; do not compensate for a mechanics or prediction defect
+with an upper-layer threshold.
 
 ### Hands and draws
 
@@ -216,8 +238,9 @@ data cannot express an encountered rule.
 
 Change one capability at a time:
 
-1. State which public states are eligible, which decisions may change, why the
-   change should improve survival or growth, and what would reject it.
+1. Route the observed failure signature through the experiment catalog. State
+   which public states are eligible, which decisions may change, why the change
+   should improve survival or growth, and what would reject it.
 2. Run a development replay or counterfactual opportunity audit before an
    environment evaluation. Count eligible states and changed actions.
 3. Predeclare a small development index selector. Evaluate the exact control
@@ -269,7 +292,8 @@ Use a staged sequence unless evidence points elsewhere:
 1. Establish the unchanged baseline and diagnose the first consequential error.
 2. Eliminate Policy failures and implement exact Action admission.
 3. Complete the required system checkpoint: normalized state, Episode plan,
-   module boundaries, and persistent replay tests.
+   one-owner module boundaries, an acyclic dependency graph, and persistent
+   replay tests.
 4. Audit whether the proposed capability can alter actions often enough to
    matter.
 5. Unify hand enumeration, visible scoring, draw probability, and discard

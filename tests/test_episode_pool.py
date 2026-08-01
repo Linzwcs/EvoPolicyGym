@@ -87,7 +87,7 @@ class TrainingEpisodePoolTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            tuple(item.episode.scenario for item in pool),
+            tuple(item.spec.scenario for item in pool),
             tuple({"pool_offset": index} for index in range(6)),
         )
 

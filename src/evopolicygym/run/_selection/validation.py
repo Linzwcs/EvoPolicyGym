@@ -7,18 +7,18 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from ..benchmark import Benchmark, BenchmarkSpec
-from ..errors import EvaluationError
-from ..evaluation import EvaluationConfig
-from ..program import Program
-from ..results import (
+from ...benchmark import Benchmark, BenchmarkSpec
+from ...errors import EvaluationError
+from ...evaluation import EvaluationConfig
+from ...program import Program
+from ...results import (
     EpisodeSummary,
     EvaluationResult,
     SubmissionResult,
     ValidationCandidateResult,
     ValidationResult,
 )
-from . import RunConfig
+from .. import RunConfig
 
 _VALIDATION_SEED_DOMAIN = b"evopolicygym/validation-seed/v1\0"
 

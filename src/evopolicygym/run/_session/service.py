@@ -1,60 +1,29 @@
-"""Submission accounting, receipts, and atomic candidate handoff."""
+"""Submission accounting and atomic candidate handoff."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from typing import Protocol
 
-from .._protocol.session import SESSION_MAX_EPISODE_INDICES
-from ..benchmark import Benchmark, BenchmarkSpec
-from ..errors import EvaluationError, ProgramError
-from ..evaluation._plan import PlannedEpisode
-from ..program import Program
-from ..results import (
+from ..._protocol.session import SESSION_MAX_EPISODE_INDICES
+from ...benchmark import Benchmark, BenchmarkSpec
+from ...errors import EvaluationError, ProgramError
+from ...evaluation._inputs import EpisodeInput
+from ...program import Program
+from ...results import (
     EpisodeSummary,
     EvaluationResult,
     RunTerminalReason,
     SubmissionResult,
 )
-from . import RunConfig
-
-
-@dataclass(frozen=True, slots=True)
-class SessionError:
-    """Sanitized rejection returned to one Coding Agent request."""
-
-    code: str
-    message: str
-
-    def __post_init__(self) -> None:
-        for name in ("code", "message"):
-            value = getattr(self, name)
-            if type(value) is not str or not value:
-                raise ValueError(f"{name} must be non-empty text")
-
-
-@dataclass(frozen=True, slots=True)
-class SubmissionReceipt:
-    """Agent-visible receipt for one committed Submission."""
-
-    submission_id: str
-    program_digest: str
-    score: float
-    episode_indices: tuple[int, ...]
-    episodes_used: int
-    episodes_remaining: int
-
-
-@dataclass(frozen=True, slots=True)
-class FinishReceipt:
-    """Agent-visible receipt transferring candidate selection to the Host."""
-
-    candidate_submission_ids: tuple[str, ...]
-
-
-type SubmissionOutcome = SubmissionReceipt | SessionError
-type FinishOutcome = FinishReceipt | SessionError
+from .. import RunConfig
+from .outcomes import (
+    FinishOutcome,
+    FinishReceipt,
+    SessionError,
+    SubmissionOutcome,
+    SubmissionReceipt,
+)
 
 
 class ProgramSource(Protocol):
@@ -67,7 +36,7 @@ class ProgramEvaluator(Protocol):
         self,
         program: Program,
         benchmark: Benchmark,
-        episodes: tuple[PlannedEpisode, ...],
+        episode_inputs: tuple[EpisodeInput, ...],
         *,
         episode_timeout_seconds: float,
         episode_completed: (
@@ -104,7 +73,7 @@ class SubmissionSession:
         spec: BenchmarkSpec,
         config: RunConfig,
         recorder: EventRecorder,
-        episode_pool: tuple[PlannedEpisode, ...],
+        episode_pool: tuple[EpisodeInput, ...],
     ) -> None:
         if type(spec) is not BenchmarkSpec:
             raise TypeError("spec must be BenchmarkSpec")
@@ -112,12 +81,12 @@ class SubmissionSession:
             type(episode_pool) is not tuple
             or not episode_pool
             or any(
-                type(episode) is not PlannedEpisode
+                type(episode) is not EpisodeInput
                 for episode in episode_pool
             )
         ):
             raise TypeError(
-                "episode_pool must be a non-empty tuple of PlannedEpisode values"
+                "episode_pool must be a non-empty tuple of EpisodeInput values"
             )
         if len(episode_pool) != config.episode_pool_size:
             raise ValueError(

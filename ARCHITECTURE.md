@@ -39,9 +39,10 @@ not design inputs for this version.
 
 ```text
 evopolicygym/
-├── __init__.py                 lazy common workflow exports
+├── __init__.py                 lazy common values and Evaluation convenience
 ├── policy.py                   submitted Policy ABI; stdlib-only leaf
 ├── program.py                  immutable Program snapshots
+├── _snapshot.py                shared safe discovery and stable file reads
 ├── benchmark.py                caller-facing Benchmark identity
 ├── results.py                  detached Feedback and result values
 ├── artifacts.py                bounded public Artifact values
@@ -55,23 +56,36 @@ evopolicygym/
 │
 ├── evaluation/                 complete direct-Evaluation use case
 │   ├── __init__.py             EvaluationConfig and evaluate()
-│   ├── _plan.py                exact trusted Episode and Policy-seed inputs
+│   ├── _inputs.py              exact trusted Episode and Policy-seed inputs
 │   └── _service.py             Episode rules and narrow runtime contracts
 │
 ├── run/                        complete Program-Evolution use case
 │   ├── __init__.py             Run/Validation/Assessment configs and run()
 │   ├── progress.py             public Run events, observer, and console reporter
-│   ├── _service.py             Run coordination and process-setting assembly
+│   ├── _service.py             execution-independent Run lifecycle coordination
+│   ├── _process.py             ProcessExecution selection and graph assembly
+│   ├── _agent.py               Run-owned Agent outcome and runner contract
 │   ├── _episode_pool.py        fixed training pool and seed derivation
-│   ├── _session.py             Submission budget and atomic finish admission
-│   ├── _validation.py          post-Agent candidate evaluation and selection
-│   ├── _assessment.py          held-out final-Program measurement
-│   ├── _directory.py           workspace, events, invocation, and run.json
-│   ├── _feedback.py            Feedback and Artifact publication
+│   ├── _workspace.py           workspace layout, preparation, and Program capture
+│   ├── _publication.py         atomic Submission and Feedback publication
 │   ├── _json.py                retained public-value JSON projection
-│   ├── _socket.py              active Agent Session transport
-│   ├── _session_cli.py         Agent-facing Session presentation
-│   └── _task.py                provider-independent Agent instructions
+│   ├── _task.py                provider-independent Agent instructions
+│   ├── _session/               active mutable Agent Session control plane
+│   │   ├── outcomes.py         detached receipts and sanitized rejections
+│   │   ├── service.py          budget and atomic finish admission
+│   │   ├── gateway.py          Host-side Unix-socket Gateway
+│   │   ├── client.py           Agent-side framed transport
+│   │   └── cli.py              Agent-facing Session presentation
+│   ├── _selection/             Host-only post-Agent phases
+│   │   ├── validation.py       candidate evaluation and final selection
+│   │   └── assessment.py       held-out final-Program measurement
+│   └── _records/               immutable persisted Run facts
+│       ├── recorder.py         coordination and observer delivery
+│       ├── events.py           events.jsonl projection
+│       ├── invocation.py       retained Agent invocation
+│       ├── manifest.py         terminal run.json projection
+│       ├── reports.py          Validation and Assessment report projections
+│       └── writer.py           durable atomic writing primitives
 │
 ├── execution/                  public execution selections
 │   ├── __init__.py             explicit unsafe ProcessExecution acknowledgement
@@ -94,6 +108,11 @@ There is no parallel private shadow package for a public use case.
 `evopolicygym.evaluation`, `evopolicygym.run`, and
 `evopolicygym.execution` are both their stable public entry points and their
 implementation ownership boundaries.
+
+The canonical Program-Evolution import is
+`from evopolicygym.run import RunConfig, run`. The root package deliberately
+does not export a value named `run`, because that name is owned by the
+`evopolicygym.run` submodule and must not change meaning with import order.
 
 The `evopolicygym` executable is the Host/operator command surface. The
 separate `evopolicygym-session` executable is projected into an active Agent
@@ -164,12 +183,12 @@ called. Its private service owns the workflow.
 caller
   │
   ▼
-public use case ───────▶ provider integration
-  │                            │
-  ▼                            ▼
-service and rules ─────▶ execution implementation
-  │                            │
-  └──────────────▶ pure protocol codecs
+public use case ───────▶ use-case-local process assembly
+  │                                 │
+  ▼                                 ▼
+service and rules ◀──── narrow ports and execution adapters
+  │                                 │
+  └────────────────────▶ pure protocol codecs
 ```
 
 The rules are:
@@ -180,16 +199,24 @@ The rules are:
   separately from descriptive Benchmark metadata;
 - `evaluation/_service.py` declares the Policy-runtime capabilities it
   consumes and never selects an execution setting or Agent provider;
-- `run/_session.py` owns budgets, admission, publication ordering, and the
+- `run/_service.py` coordinates the lifecycle without importing a process
+  implementation or Coding Agent provider; `run/_process.py` is the only
+  ProcessExecution graph assembly owner;
+- `run/_session/service.py` owns budgets, admission, publication ordering, and the
   mapping from submitted public Episode indices to the fixed training pool,
   plus the atomic transfer of an ordered candidate set, without depending on
   an execution setting or provider;
-- `run/_validation.py` owns deterministic final selection. It starts only
+- `run/_session/client.py` and `run/_session/cli.py` do not import the Host
+  Session service; framed client transport and Host authority remain separate;
+- `run/_selection/validation.py` owns deterministic final selection. It starts only
   after the Agent runner has reaped the process tree and the Session gateway
   has closed;
-- `run/_assessment.py` evaluates only the selected Submission, uses its own
+- `run/_selection/assessment.py` evaluates only the selected Submission, uses its own
   seed domain, and cannot replace or rerank candidates;
-- `run/` owns Run directories, Feedback publication, and Session transport;
+- `run/_records` owns only immutable persisted facts and report projections;
+  it never imports the active Session. Reports may retain detached public
+  outcomes but never Session state, receipts, sockets, or raw frames;
+- `run/` owns workspaces, Feedback publication, records, and Session transport;
   these responsibilities do not live under process execution;
 - `run/progress.py` owns non-authoritative observation and terminal
   presentation; observers never participate in Run state transitions and
@@ -207,6 +234,9 @@ The rules are:
   into a Run; the Run retains each complete directory read-only at
   `workspace/skills/<name>/`, records its content digest, and never exposes a
   Skill to direct Evaluation or the Policy boundary;
+- `program.py` and `skills.py` retain separate domain validation and digests
+  while sharing only safe discovery and stable-read mechanisms in
+  `_snapshot.py`;
 - provider packages translate the task into their own invocation but do not
   author the task or start and supervise the process themselves;
 - provider-specific experiment inputs such as the Codex model and reasoning

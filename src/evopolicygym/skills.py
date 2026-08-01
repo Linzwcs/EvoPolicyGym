@@ -12,6 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ._snapshot import discover_snapshot_files, read_stable_snapshot_file
 from .errors import AgentSkillError
 
 _DIGEST_DOMAIN = b"evopolicygym/agent-skill/v1\0"
@@ -97,7 +98,12 @@ class AgentSkill:
             )
 
         name = _skill_name(root.name)
-        first_paths = _discover_files(root)
+        first_paths = discover_snapshot_files(
+            root,
+            label="Agent Skill",
+            excluded_directories=_EXCLUDED_DIRECTORIES,
+            error=AgentSkillError,
+        )
         if len(first_paths) > selected_limits.max_files:
             raise AgentSkillError("Agent Skill contains too many files")
         if "SKILL.md" not in first_paths:
@@ -106,13 +112,18 @@ class AgentSkill:
         files: list[_AgentSkillFile] = []
         total_bytes = 0
         for relative_path in first_paths:
-            content, executable = _read_stable_file(
+            content, executable = read_stable_snapshot_file(
                 root / relative_path,
+                label="Agent Skill",
                 max_bytes=(
                     selected_limits.max_instructions_bytes
                     if relative_path == "SKILL.md"
                     else selected_limits.max_file_bytes
                 ),
+                source_error=AgentSkillError,
+                changed_error=AgentSkillError,
+                limit_error=AgentSkillError,
+                retain_executable=True,
             )
             total_bytes += len(content)
             if total_bytes > selected_limits.max_total_bytes:
@@ -127,7 +138,12 @@ class AgentSkill:
                 )
             )
 
-        if _discover_files(root) != first_paths:
+        if discover_snapshot_files(
+            root,
+            label="Agent Skill",
+            excluded_directories=_EXCLUDED_DIRECTORIES,
+            error=AgentSkillError,
+        ) != first_paths:
             raise AgentSkillError(
                 "Agent Skill directory changed while being frozen"
             )
@@ -232,131 +248,6 @@ def _skill_name(name: str) -> str:
             "Agent Skill directory name must be lowercase hyphen-case"
         )
     return name
-
-
-def _discover_files(root: Path) -> tuple[str, ...]:
-    discovered: list[str] = []
-
-    def visit(directory: Path, prefix: tuple[str, ...]) -> None:
-        try:
-            entries = tuple(os.scandir(directory))
-        except OSError:
-            raise AgentSkillError(
-                "Agent Skill directory cannot be read"
-            ) from None
-        for entry in entries:
-            name = _canonical_component(entry.name)
-            if entry.is_symlink():
-                raise AgentSkillError(
-                    "Agent Skill cannot contain symbolic links"
-                )
-            if entry.is_dir(follow_symlinks=False):
-                if name not in _EXCLUDED_DIRECTORIES:
-                    visit(Path(entry.path), (*prefix, name))
-                continue
-            if entry.is_file(follow_symlinks=False):
-                if not name.endswith(".pyc"):
-                    discovered.append("/".join((*prefix, name)))
-                continue
-            raise AgentSkillError(
-                "Agent Skill cannot contain special files"
-            )
-
-    visit(root, ())
-    return tuple(sorted(discovered, key=str.encode))
-
-
-def _canonical_component(name: str) -> str:
-    if (
-        not name
-        or name in {".", ".."}
-        or "/" in name
-        or "\\" in name
-        or unicodedata.normalize("NFC", name) != name
-    ):
-        raise AgentSkillError("Agent Skill contains a non-canonical path")
-    try:
-        name.encode("utf-8", errors="strict")
-    except UnicodeEncodeError:
-        raise AgentSkillError(
-            "Agent Skill path is not valid UTF-8"
-        ) from None
-    return name
-
-
-def _read_stable_file(path: Path, *, max_bytes: int) -> tuple[bytes, bool]:
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(path, flags)
-    except OSError:
-        raise AgentSkillError(
-            "Agent Skill file changed while being frozen"
-        ) from None
-    try:
-        before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode):
-            raise AgentSkillError(
-                "Agent Skill can contain only regular files"
-            )
-        if before.st_size > max_bytes:
-            raise AgentSkillError(
-                "Agent Skill file exceeds its byte limit"
-            )
-
-        chunks: list[bytes] = []
-        remaining = max_bytes + 1
-        while remaining:
-            chunk = os.read(descriptor, min(1024 * 1024, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        content = b"".join(chunks)
-        if len(content) > max_bytes:
-            raise AgentSkillError(
-                "Agent Skill file exceeds its byte limit"
-            )
-
-        after = os.fstat(descriptor)
-        try:
-            current = path.lstat()
-        except OSError:
-            raise AgentSkillError(
-                "Agent Skill file changed while being frozen"
-            ) from None
-        identity_before = (
-            before.st_dev,
-            before.st_ino,
-            before.st_mode,
-            before.st_size,
-            before.st_mtime_ns,
-        )
-        identity_after = (
-            after.st_dev,
-            after.st_ino,
-            after.st_mode,
-            after.st_size,
-            after.st_mtime_ns,
-        )
-        identity_current = (
-            current.st_dev,
-            current.st_ino,
-            current.st_mode,
-            current.st_size,
-            current.st_mtime_ns,
-        )
-        if (
-            identity_before != identity_after
-            or identity_after != identity_current
-        ):
-            raise AgentSkillError(
-                "Agent Skill file changed while being frozen"
-            )
-        return content, bool(before.st_mode & 0o111)
-    finally:
-        os.close(descriptor)
 
 
 def _validate_instructions(

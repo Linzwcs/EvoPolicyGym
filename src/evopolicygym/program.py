@@ -6,11 +6,11 @@ import hashlib
 import os
 import shutil
 import stat
-import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ._snapshot import discover_snapshot_files, read_stable_snapshot_file
 from .errors import ProgramChangedError, ProgramLimitError, ProgramSourceError
 from .policy import POLICY_ABI_VERSION
 
@@ -76,23 +76,38 @@ class Program:
         if stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode):
             raise ProgramSourceError("Program source must be a real directory")
 
-        first_paths = _discover_files(root)
+        first_paths = discover_snapshot_files(
+            root,
+            label="Program",
+            excluded_directories=_EXCLUDED_DIRECTORIES,
+            error=ProgramSourceError,
+        )
         if len(first_paths) > selected_limits.max_files:
             raise ProgramLimitError("Program contains too many files")
 
         files: list[_ProgramFile] = []
         total_bytes = 0
         for relative_path in first_paths:
-            content = _read_stable_file(
+            content, _ = read_stable_snapshot_file(
                 root / relative_path,
+                label="Program",
                 max_bytes=selected_limits.max_file_bytes,
+                source_error=ProgramSourceError,
+                changed_error=ProgramChangedError,
+                limit_error=ProgramLimitError,
+                retain_executable=False,
             )
             total_bytes += len(content)
             if total_bytes > selected_limits.max_total_bytes:
                 raise ProgramLimitError("Program exceeds its total byte limit")
             files.append(_ProgramFile(path=relative_path, content=content))
 
-        if _discover_files(root) != first_paths:
+        if discover_snapshot_files(
+            root,
+            label="Program",
+            excluded_directories=_EXCLUDED_DIRECTORIES,
+            error=ProgramSourceError,
+        ) != first_paths:
             raise ProgramChangedError("Program directory changed while being frozen")
         if "policy.py" not in first_paths:
             raise ProgramSourceError("Program must contain policy.py")
@@ -175,105 +190,6 @@ class Program:
             f"total_bytes={self.total_bytes}"
             ")"
         )
-
-
-def _discover_files(root: Path) -> tuple[str, ...]:
-    discovered: list[str] = []
-
-    def visit(directory: Path, prefix: tuple[str, ...]) -> None:
-        try:
-            entries = tuple(os.scandir(directory))
-        except OSError:
-            raise ProgramSourceError("Program directory cannot be read") from None
-        for entry in entries:
-            name = _canonical_component(entry.name)
-            if entry.is_symlink():
-                raise ProgramSourceError("Program cannot contain symbolic links")
-            if entry.is_dir(follow_symlinks=False):
-                if name not in _EXCLUDED_DIRECTORIES:
-                    visit(Path(entry.path), (*prefix, name))
-                continue
-            if entry.is_file(follow_symlinks=False):
-                if not name.endswith(".pyc"):
-                    discovered.append("/".join((*prefix, name)))
-                continue
-            raise ProgramSourceError("Program cannot contain special files")
-
-    visit(root, ())
-    return tuple(sorted(discovered, key=str.encode))
-
-
-def _canonical_component(name: str) -> str:
-    if (
-        not name
-        or name in {".", ".."}
-        or "/" in name
-        or "\\" in name
-        or unicodedata.normalize("NFC", name) != name
-    ):
-        raise ProgramSourceError("Program contains a non-canonical path")
-    try:
-        name.encode("utf-8", errors="strict")
-    except UnicodeEncodeError:
-        raise ProgramSourceError("Program path is not valid UTF-8") from None
-    return name
-
-
-def _read_stable_file(path: Path, *, max_bytes: int) -> bytes:
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(path, flags)
-    except OSError:
-        raise ProgramChangedError("Program file changed while being frozen") from None
-    try:
-        before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode):
-            raise ProgramSourceError("Program can contain only regular files")
-        if before.st_size > max_bytes:
-            raise ProgramLimitError("Program file exceeds its byte limit")
-
-        chunks: list[bytes] = []
-        remaining = max_bytes + 1
-        while remaining:
-            chunk = os.read(descriptor, min(1024 * 1024, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        content = b"".join(chunks)
-        if len(content) > max_bytes:
-            raise ProgramLimitError("Program file exceeds its byte limit")
-
-        after = os.fstat(descriptor)
-        try:
-            current = path.lstat()
-        except OSError:
-            raise ProgramChangedError("Program file changed while being frozen") from None
-        identity_before = (
-            before.st_dev,
-            before.st_ino,
-            before.st_size,
-            before.st_mtime_ns,
-        )
-        identity_after = (
-            after.st_dev,
-            after.st_ino,
-            after.st_size,
-            after.st_mtime_ns,
-        )
-        identity_current = (
-            current.st_dev,
-            current.st_ino,
-            current.st_size,
-            current.st_mtime_ns,
-        )
-        if identity_before != identity_after or identity_after != identity_current:
-            raise ProgramChangedError("Program file changed while being frozen")
-        return content
-    finally:
-        os.close(descriptor)
 
 
 def _program_digest(files: tuple[_ProgramFile, ...]) -> str:

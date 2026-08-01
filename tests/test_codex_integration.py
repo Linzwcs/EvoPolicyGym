@@ -86,6 +86,14 @@ class CodexIntegrationTests(unittest.TestCase):
         assert invocation.instructions is not None
         self.assertIn("whole Run has 7 Episode units", invocation.instructions)
         self.assertIn(
+            "Network access is forbidden throughout this Run",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "Do not retrieve or consult external game",
+            invocation.instructions,
+        )
+        self.assertIn(
             "You decide",
             invocation.instructions,
         )

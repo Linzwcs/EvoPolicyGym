@@ -156,6 +156,7 @@ jobs:
       matrix:
         project:
           - environments/ale/atari
+          - environments/arcprize/arc_agi_3
           - environments/atcoder/ahc054/treants_forest
           - environments/atcoder/ahc057/molecules
           - environments/atcoder/ahc058/apple_incremental_game
@@ -185,6 +186,7 @@ jobs:
           - environments/gymnasium_robotics/robotics
           - environments/highway_env/highway_env
           - environments/jackdaw/balatro
+          - environments/jumanji/jumanji
           - environments/metaworld/metaworld
           - environments/minigrid/babyai
           - environments/stable_retro/airstriker

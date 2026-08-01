@@ -7,7 +7,7 @@ import hashlib
 from ..authoring import EpisodeSpec
 from ..benchmark import Benchmark
 from ..errors import EvaluationError
-from ..evaluation._plan import PlannedEpisode
+from ..evaluation._inputs import EpisodeInput
 from . import RunConfig
 
 TRAINING_POOL_DERIVATION = "evopolicygym/training-pool/v1"
@@ -20,7 +20,7 @@ _TRAINING_POLICY_SEED_DOMAIN = b"evopolicygym/training-policy/v1\0"
 def build_training_episode_pool(
     benchmark: Benchmark,
     config: RunConfig,
-) -> tuple[PlannedEpisode, ...]:
+) -> tuple[EpisodeInput, ...]:
     """Plan the fixed Run-local training pool before Agent execution."""
 
     pool_size = config.episode_pool_size
@@ -50,8 +50,8 @@ def build_training_episode_pool(
             "Benchmark returned an invalid training Episode pool"
         )
     return tuple(
-        PlannedEpisode(
-            episode=episode,
+        EpisodeInput(
+            spec=episode,
             policy_seed=_derive_seed(
                 config.seed,
                 _TRAINING_POLICY_SEED_DOMAIN,

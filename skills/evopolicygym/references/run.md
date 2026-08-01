@@ -18,15 +18,16 @@ Use the public SDK and a new `record_to` path whose parent already exists:
 ```python
 from example_benchmark import ExampleBenchmark, baseline_program
 
-from evopolicygym import (
+from evopolicygym import Program
+from evopolicygym.run import (
     AssessmentConfig,
+    ConsoleProgress,
     RunConfig,
     ValidationConfig,
     run,
 )
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import ConsoleProgress
 from evopolicygym.skills import AgentSkill
 
 result = run(

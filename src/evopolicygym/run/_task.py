@@ -109,6 +109,14 @@ and its results are not returned to this Agent Session.
 You are improving one Policy Program for an EvoPolicyGym Benchmark.
 
 {skill_guidance}\
+Network access is forbidden throughout this Run. Do not use web search,
+browsers, curl, wget, remote APIs, package registries, Git remotes, or any
+other network-capable mechanism. Do not retrieve or consult external game
+descriptions, source code, solutions, Action traces, replays, datasets, or
+prior results. Derive every improvement only from the files made available in
+this workspace, installed local libraries, and Host-published evaluation
+Feedback.
+
 Your working directory is the workspace root. The only submitted Program is:
 
     program/

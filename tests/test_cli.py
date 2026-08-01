@@ -7,7 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 
 from evopolicygym._protocol.session import SESSION_MAX_EPISODE_INDICES
 from evopolicygym.cli import main as operator_main
-from evopolicygym.run._session_cli import _parse_episode_selector
+from evopolicygym.run._session.cli import _parse_episode_selector
 
 
 class OperatorCommandTests(unittest.TestCase):

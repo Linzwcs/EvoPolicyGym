@@ -1,4 +1,4 @@
-"""Directory-backed publication of Benchmark-authorized Feedback."""
+"""Atomic publication of Host records and Agent-visible Feedback."""
 
 from __future__ import annotations
 

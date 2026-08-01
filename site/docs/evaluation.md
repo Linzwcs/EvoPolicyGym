@@ -62,7 +62,8 @@ Host paths, credentials, or private runtime evidence.
 Program:
 
 ```python
-from evopolicygym import Program, RunConfig, run
+from evopolicygym import Program
+from evopolicygym.run import RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from cartpole import CartPoleBenchmark

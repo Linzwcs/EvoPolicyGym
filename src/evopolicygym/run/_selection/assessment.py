@@ -6,17 +6,17 @@ import hashlib
 from collections.abc import Callable, Mapping
 from typing import Protocol
 
-from ..benchmark import Benchmark, BenchmarkSpec
-from ..errors import EvaluationError
-from ..evaluation import EvaluationConfig
-from ..program import Program
-from ..results import (
+from ...benchmark import Benchmark, BenchmarkSpec
+from ...errors import EvaluationError
+from ...evaluation import EvaluationConfig
+from ...program import Program
+from ...results import (
     AssessmentResult,
     EpisodeSummary,
     EvaluationResult,
     SubmissionResult,
 )
-from . import RunConfig
+from .. import RunConfig
 
 _ASSESSMENT_SEED_DOMAIN = b"evopolicygym/assessment-seed/v1\0"
 

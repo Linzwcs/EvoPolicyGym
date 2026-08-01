@@ -113,11 +113,35 @@ assert ProcessExecution.__module__ == "evopolicygym.execution"
 
 forbidden = (
     "evopolicygym.evaluation._service",
+    "evopolicygym.run._process",
     "evopolicygym.run._service",
     "evopolicygym.execution.process",
     "evopolicygym._protocol",
 )
 assert not any(name in sys.modules for name in forbidden)
+"""
+        subprocess.run(
+            [sys.executable, "-c", script],
+            check=True,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_run_function_has_one_canonical_import_order(self) -> None:
+        environment = {
+            **os.environ,
+            "PYTHONPATH": str(PACKAGE.parent),
+        }
+        script = """\
+import types
+import evopolicygym
+import evopolicygym.run
+from evopolicygym.run import run
+
+assert callable(run)
+assert isinstance(evopolicygym.run, types.ModuleType)
+assert "run" not in evopolicygym.__all__
 """
         subprocess.run(
             [sys.executable, "-c", script],
@@ -164,7 +188,7 @@ assert not any(name in sys.modules for name in forbidden)
         )
 
     def test_submission_rules_do_not_select_execution_or_provider(self) -> None:
-        session = PACKAGE / "run" / "_session.py"
+        session = PACKAGE / "run" / "_session" / "service.py"
         self.assertFalse(
             any(
                 name.startswith(
@@ -178,7 +202,7 @@ assert not any(name in sys.modules for name in forbidden)
         )
 
     def test_validation_rules_do_not_select_execution_or_provider(self) -> None:
-        validation = PACKAGE / "run" / "_validation.py"
+        validation = PACKAGE / "run" / "_selection" / "validation.py"
         self.assertFalse(
             any(
                 name.startswith(
@@ -192,7 +216,7 @@ assert not any(name in sys.modules for name in forbidden)
         )
 
     def test_assessment_rules_do_not_select_execution_or_provider(self) -> None:
-        assessment = PACKAGE / "run" / "_assessment.py"
+        assessment = PACKAGE / "run" / "_selection" / "assessment.py"
         self.assertFalse(
             any(
                 name.startswith(
@@ -205,14 +229,44 @@ assert not any(name in sys.modules for name in forbidden)
             )
         )
 
-    def test_run_service_does_not_select_a_provider(self) -> None:
+    def test_run_service_does_not_select_processes_or_providers(self) -> None:
         service = PACKAGE / "run" / "_service.py"
         self.assertFalse(
             any(
-                name.startswith("evopolicygym.agents.codex")
+                name.startswith(
+                    (
+                        "evopolicygym.agents",
+                        "evopolicygym.execution",
+                    )
+                )
                 for name in imports(service)
             )
         )
+
+    def test_session_client_does_not_load_host_session_service(self) -> None:
+        for path in (
+            PACKAGE / "run" / "_session" / "client.py",
+            PACKAGE / "run" / "_session" / "cli.py",
+        ):
+            with self.subTest(module=module_name(path)):
+                self.assertFalse(
+                    any(
+                        name.startswith(
+                            "evopolicygym.run._session.service"
+                        )
+                        for name in imports(path)
+                    )
+                )
+
+    def test_run_records_do_not_depend_on_active_session(self) -> None:
+        for path in (PACKAGE / "run" / "_records").rglob("*.py"):
+            with self.subTest(module=module_name(path)):
+                self.assertFalse(
+                    any(
+                        name.startswith("evopolicygym.run._session")
+                        for name in imports(path)
+                    )
+                )
 
     def test_process_execution_has_no_provider_dependencies(self) -> None:
         for path in (PACKAGE / "execution" / "process").rglob("*.py"):

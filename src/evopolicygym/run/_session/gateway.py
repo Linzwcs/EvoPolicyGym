@@ -1,4 +1,4 @@
-"""Unix-socket transport for one active Submission Session."""
+"""Host-side Unix-socket Gateway for one active Submission Session."""
 
 from __future__ import annotations
 
@@ -7,28 +7,14 @@ import socket
 import threading
 from pathlib import Path
 
-from .._protocol.session import (
-    SESSION_FRAMES,
-    SESSION_PROTOCOL,
-)
-from ._session import (
+from ..._protocol.session import SESSION_PROTOCOL
+from .client import receive_session_message, send_session_message
+from .outcomes import (
     FinishReceipt,
     SessionError,
     SubmissionReceipt,
-    SubmissionSession,
 )
-
-
-def send_session_message(
-    connection: socket.socket,
-    message: dict[str, object],
-) -> None:
-    connection.sendall(SESSION_FRAMES.encode(message))
-
-
-def receive_session_message(connection: socket.socket) -> dict[str, object]:
-    length = SESSION_FRAMES.decode_header(_receive_exact(connection, 4))
-    return SESSION_FRAMES.decode_payload(_receive_exact(connection, length))
+from .service import SubmissionSession
 
 
 class UnixSessionGateway:
@@ -160,18 +146,6 @@ def _handle_request(
             },
         }
     return _error("invalid_request", "unknown Session method")
-
-
-def _receive_exact(connection: socket.socket, length: int) -> bytes:
-    chunks: list[bytes] = []
-    remaining = length
-    while remaining:
-        chunk = connection.recv(remaining)
-        if not chunk:
-            raise EOFError("Session frame ended early")
-        chunks.append(chunk)
-        remaining -= len(chunk)
-    return b"".join(chunks)
 
 
 def _error(code: str, message: str) -> dict[str, object]:

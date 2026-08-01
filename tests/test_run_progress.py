@@ -9,10 +9,10 @@ from pathlib import Path
 from evopolicygym.authoring import BenchmarkSpec
 from evopolicygym.program import Program
 from evopolicygym.run import ConsoleProgress, RunConfig, RunEvent
-from evopolicygym.run._directory import (
-    RunDirectoryPaths,
+from evopolicygym.run._records.recorder import (
     RunDirectoryRecorder,
 )
+from evopolicygym.run._workspace import RunDirectoryPaths
 
 
 class FailingObserver:

@@ -8,15 +8,15 @@ from pathlib import Path
 
 from cartpole import CartPoleBenchmark, baseline_program
 
-from evopolicygym import (
+from evopolicygym.run import (
     AssessmentConfig,
+    ConsoleProgress,
     RunConfig,
     ValidationConfig,
     run,
 )
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import ConsoleProgress
 
 
 def main(arguments: list[str] | None = None) -> int:

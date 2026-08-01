@@ -1,4 +1,4 @@
 interface:
   display_name: "Optimize Balatro Policy"
-  short_description: "Run indexed Balatro policy experiments"
-  default_prompt: "Use $optimize-balatro-policy to partition the train Episode pool and budget, run matched Policy experiments, and hand frozen candidates to Host Validation."
+  short_description: "Optimize modular layered Balatro policies"
+  default_prompt: "Use $optimize-balatro-policy to modularize the Policy, diagnose the lowest incorrect model layer, run a matched experiment, and hand frozen candidates to Host Validation."

@@ -22,11 +22,11 @@ from evopolicygym.results import (
     SubmissionResult,
 )
 from evopolicygym.run import AssessmentConfig, RunConfig
-from evopolicygym.run._assessment import (
+from evopolicygym.run._selection.assessment import (
     ProgramAssessor,
     _assessment_seed,
 )
-from evopolicygym.run._validation import _validation_seed
+from evopolicygym.run._selection.validation import _validation_seed
 
 
 class StubBenchmark:

@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 
 from evopolicygym.execution.process.agent.runner import (
-    AgentExit,
     ProcessAgentRunner,
 )
+from evopolicygym.run._agent import AgentOutcome
 
 
 class NeverTerminal:
@@ -33,10 +33,10 @@ def runner(root: Path, source: str) -> ProcessAgentRunner:
     )
 
 
-class AgentExitTests(unittest.TestCase):
+class AgentOutcomeTests(unittest.TestCase):
     def test_exit_classifications_are_mutually_exclusive(self) -> None:
         with self.assertRaises(ValueError):
-            AgentExit(
+            AgentOutcome(
                 returncode=-15,
                 timed_out=True,
                 stopped_after_terminal=True,

@@ -12,16 +12,12 @@ from unittest.mock import patch
 
 import evopolicygym
 from evopolicygym import (
-    AssessmentConfig,
     Benchmark,
     EvaluationConfig,
     EvaluationResult,
     Program,
-    RunConfig,
     RunResult,
-    ValidationConfig,
     evaluate,
-    run,
 )
 from evopolicygym.agents import Codex, command_invocation
 from evopolicygym.artifacts import (
@@ -55,9 +51,15 @@ from evopolicygym.results import (
     Feedback,
     SubmissionResult,
 )
-from evopolicygym.run import RunEvent
-from evopolicygym.run._feedback import record_submission
-from evopolicygym.run._service import run_process_agent
+from evopolicygym.run import (
+    AssessmentConfig,
+    RunConfig,
+    RunEvent,
+    ValidationConfig,
+    run,
+)
+from evopolicygym.run._process import run_process_agent
+from evopolicygym.run._publication import record_submission
 from evopolicygym.skills import AgentSkill, AgentSkillLimits
 
 
@@ -158,17 +160,13 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(
             set(evopolicygym.__all__),
             {
-                "AssessmentConfig",
                 "Benchmark",
                 "EvaluationConfig",
                 "EvaluationResult",
                 "Program",
-                "RunConfig",
                 "RunResult",
-                "ValidationConfig",
                 "__version__",
                 "evaluate",
-                "run",
             },
         )
         self.assertEqual(evopolicygym.__version__, "0.3.0")
@@ -176,8 +174,8 @@ class PublicContractTests(unittest.TestCase):
         self.assertFalse(hasattr(evopolicygym, "PolicyValue"))
         self.assertTrue(callable(evaluate))
         self.assertTrue(callable(run))
-        self.assertIs(ValidationConfig, evopolicygym.ValidationConfig)
-        self.assertIs(AssessmentConfig, evopolicygym.AssessmentConfig)
+        self.assertNotIn("run", evopolicygym.__all__)
+        self.assertNotIn("RunConfig", evopolicygym.__all__)
 
     def test_policy_and_benchmark_are_structural(self) -> None:
         policy = ConstantPolicy()
@@ -1043,7 +1041,7 @@ def call(*arguments):
         [
             sys.executable,
             "-m",
-            "evopolicygym.run._session_cli",
+            "evopolicygym.run._session.cli",
             *arguments,
         ],
         check=True,
@@ -1349,7 +1347,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "evopolicygym.run._session_cli",
+        "evopolicygym.run._session.cli",
         "submit",
         "program",
         "--episodes",

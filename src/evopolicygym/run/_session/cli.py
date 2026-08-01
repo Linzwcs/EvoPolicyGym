@@ -11,12 +11,12 @@ import sys
 from pathlib import Path
 from typing import cast
 
-from .._protocol.session import (
+from ..._protocol.session import (
     SESSION_MAX_EPISODE_INDICES,
     SESSION_PROTOCOL,
 )
-from .._version import __version__
-from ._socket import (
+from ..._version import __version__
+from .client import (
     receive_session_message,
     send_session_message,
 )

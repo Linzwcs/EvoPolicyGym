@@ -162,7 +162,7 @@ def run(
     except TypeError:
         raise TypeError("record_to must be a path-like string") from None
 
-    from ._service import run_agent_with_processes
+    from ._process import run_agent_with_processes
 
     return run_agent_with_processes(
         initial_program,

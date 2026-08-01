@@ -8,6 +8,8 @@ upstream suite:
 environments/
 ├── ale/
 │   └── atari/
+├── arcprize/
+│   └── arc_agi_3/
 ├── atcoder/
 │   ├── ahc054/
 │   │   └── treants_forest/
@@ -29,6 +31,8 @@ environments/
 │   └── highway_env/
 ├── jackdaw/
 │   └── balatro/
+├── jumanji/
+│   └── jumanji/
 ├── metaworld/
 │   └── metaworld/
 ├── minigrid/
@@ -60,6 +64,7 @@ still absent.
 
 | Collection | Distribution | Import | Benchmark ID |
 | --- | --- | --- | --- |
+| [ARC Prize / ARC-AGI-3](arcprize/arc_agi_3/) | `evopolicygym-benchmark-arc-agi-3` | `arc_agi_3_benchmarks` | `arcprize/ARC-AGI-3/{profile}/official-score-v1` |
 | [AtCoder / AHC054](atcoder/ahc054/) | `evopolicygym-benchmark-treants-forest` | `treants_forest` | `atcoder/AHC054/TreantsForest/capped-mean-turns-v1` |
 | [AtCoder / AHC057](atcoder/ahc057/) | `evopolicygym-benchmark-molecules` | `molecules` | `atcoder/AHC057/Molecules/mean-log-cost-score-v1` |
 | [AtCoder / AHC058](atcoder/ahc058/) | `evopolicygym-benchmark-apple-incremental-game` | `apple_incremental_game` | `atcoder/AHC058/AppleIncrementalGame/mean-log2-score-v1` |
@@ -112,6 +117,7 @@ still absent.
 | [MiniGrid / WFC](minigrid/minigrid/wfc/) | `evopolicygym-benchmark-minigrid-wfc` | `minigrid_wfc` | `minigrid/WFC-v0/success-rate-v1` |
 | [MiniGrid / BabyAI](minigrid/babyai/) | `evopolicygym-benchmark-minigrid-babyai` | `minigrid_babyai` | `minigrid/BabyAI-{family}-v0/success-rate-v1` |
 | [HighwayEnv](highway_env/highway_env/) | `evopolicygym-benchmark-highway-env` | `highway_benchmarks` | `highway-env/{environment_id}/mean-return-v1` |
+| [Jumanji](jumanji/jumanji/) | `evopolicygym-benchmark-jumanji` | `jumanji_benchmarks` | `jumanji/{environment_id}/mean-return-v1` |
 | [Gymnasium-Robotics](gymnasium_robotics/robotics/) | `evopolicygym-benchmark-gymnasium-robotics` | `robotics_benchmarks` | `gymnasium-robotics/{environment_id}/success-rate-v1` |
 | [MetaWorld](metaworld/metaworld/) | `evopolicygym-benchmark-metaworld` | `metaworld_benchmarks` | `metaworld/{collection}/success-rate-v1` |
 | [ALE Atari](ale/atari/) | `evopolicygym-benchmark-atari` | `atari_benchmarks` | `ale/Tetris-v5/mean-return-v1` |

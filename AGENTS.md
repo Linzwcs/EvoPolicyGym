@@ -7,6 +7,8 @@ is under `src/evopolicygym/`:
 
 - `benchmark.py`, `program.py`, `results.py`, and `artifacts.py`: supported
   public values and SDK facades;
+- `_snapshot.py`: private safe file-discovery and stable-read mechanisms shared
+  by Program and Agent Skill snapshots;
 - `policy.py`: Policy-author-facing ABI;
 - `agents/base.py`: public `CodingAgent`, `AgentTask`, and `AgentInvocation`
   integration template;
@@ -16,10 +18,11 @@ is under `src/evopolicygym/`:
   Benchmark distributions;
 - `evaluation/`: public `EvaluationConfig`/`evaluate()` and private direct
   Evaluation rules;
-- `run/`: public Run/Validation/Assessment configuration and `run()` plus
-  Session rules, Host-side selection and held-out measurement, Run records,
-  Feedback publication, non-authoritative progress observation, and Agent
-  Session transport;
+- `run/`: public Run/Validation/Assessment configuration and canonical `run()`;
+  `_service.py` owns execution-independent coordination, `_process.py` owns
+  ProcessExecution assembly, `_session/` owns the active control plane,
+  `_selection/` owns post-Agent selection and measurement, and `_records/`
+  owns immutable persisted facts and reports without depending on Session;
 - `execution/`: public execution selections; `execution/process/` contains only
   the current Policy and command-Agent process mechanisms;
 - `_protocol/`: pure versioned Policy/Agent bytes-to-value codecs; it never
@@ -71,9 +74,11 @@ it when a formal virtualization profile was requested.
 Use idiomatic Python with 4-space indentation, `snake_case` functions/modules,
 `PascalCase` classes, and concise type hints on public APIs. Domain values are
 frozen dataclasses where practical. Keep I/O and subprocess details out of
-`evaluation/_service.py`, `run/_session.py`, and `_protocol`. Keep
-provider-specific behavior out of `execution/process`; narrow contracts live
-beside the service that consumes them.
+`evaluation/_service.py`, `run/_service.py`, `run/_session/service.py`,
+`run/_selection/`, and `_protocol`. Keep provider-specific behavior out of
+`execution/process`; narrow contracts live beside the service that consumes
+them. Run records and reports must not depend on the active Session or retain
+Session objects, receipts, sockets, or frames.
 
 Policy-visible values must use the bounded PolicyValue ABI. Never use pickle,
 custom Python objects, Host paths, file descriptors, credentials, Case identity,

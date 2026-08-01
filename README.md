@@ -127,6 +127,13 @@ uv run --project environments/gymnasium/classic_control/cartpole \
 Public Evaluation and Run workflows use the Python SDK. During one active Run,
 the Agent-facing `evopolicygym-session` command provides only two capabilities:
 
+```python
+from evopolicygym.run import RunConfig, run
+```
+
+`run()` is owned by the `evopolicygym.run` use-case package and is not exported
+from the root package, avoiding a function/submodule name collision.
+
 ```console
 evopolicygym-session submit program --episodes "0:2,4:8"
 evopolicygym-session finish submission-000002 submission-000003
@@ -147,6 +154,7 @@ EvoPolicyGym authoring API.
 
 | Collection | Coverage |
 | --- | --- |
+| [ARC Prize / ARC-AGI-3](environments/arcprize/arc_agi_3/) | All 25 version-pinned public interactive games plus custom collections |
 | [AtCoder AHC](environments/atcoder/) | AHC054, AHC057, and AHC058 |
 | [CodeChef Challenges](environments/codechef/) | WAREHOUS |
 | [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing |

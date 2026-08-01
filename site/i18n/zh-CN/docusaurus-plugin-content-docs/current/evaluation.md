@@ -60,7 +60,8 @@ Episode summary 绝不公开可信 scenario、Environment seed、Host path、cre
 `run()` 向一个 `CodingAgent` 提供改进初始 Program 的有限权限：
 
 ```python
-from evopolicygym import Program, RunConfig, run
+from evopolicygym import Program
+from evopolicygym.run import RunConfig, run
 from evopolicygym.agents import Codex
 from evopolicygym.execution import ProcessExecution
 from cartpole import CartPoleBenchmark

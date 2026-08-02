@@ -54,7 +54,7 @@ still absent.
 
 | Collection | Distribution | Import | Benchmark ID |
 | --- | --- | --- | --- |
-| [Crafter](crafter/) | `evopolicygym-benchmark-crafter` | `crafter_benchmarks` | `crafter/CrafterReward-v1/achievement-score-v1`; `crafter/CrafterReward-v1/long-horizon-development-v2` |
+| [Crafter](crafter/) | `evopolicygym-benchmark-crafter` | `crafter_benchmarks` | `crafter/CrafterReward-v1/achievement-score-v1`; `crafter/CrafterReward-v1/long-horizon-development-v2`; `crafter/CrafterReward-v1/mean-survival-development-return-v3` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-bipedal-walker` | `bipedal_walker` | `gymnasium/BipedalWalker-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-car-racing` | `car_racing` | `gymnasium/CarRacing-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-lunar-lander` | `lunar_lander` | `gymnasium/LunarLander-v3/mean-return-v1` |

@@ -10,6 +10,7 @@ from crafter_benchmarks import (
     CrafterBenchmark,
     CrafterConfig,
     CrafterLongHorizonBenchmark,
+    CrafterSurvivalDevelopmentBenchmark,
     baseline_program,
 )
 
@@ -40,11 +41,12 @@ def main(arguments: list[str] | None = None) -> int:
         parser.error("--record-to parent directory must exist")
 
     config = CrafterConfig(max_episode_steps=namespace.max_episode_steps)
-    benchmark = (
-        CrafterBenchmark(config)
-        if namespace.profile == "canonical"
-        else CrafterLongHorizonBenchmark(config)
-    )
+    benchmark_types = {
+        "canonical": CrafterBenchmark,
+        "long-horizon": CrafterLongHorizonBenchmark,
+        "survival-development": CrafterSurvivalDevelopmentBenchmark,
+    }
+    benchmark = benchmark_types[namespace.profile](config)
     observer = (
         None
         if namespace.progress == "off"
@@ -156,8 +158,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--record-to", type=Path, required=True)
     parser.add_argument(
         "--profile",
-        choices=("long-horizon", "canonical"),
-        default="long-horizon",
+        choices=("survival-development", "long-horizon", "canonical"),
+        default="survival-development",
     )
     parser.add_argument("--max-episode-steps", type=int, default=10_000)
     parser.add_argument(

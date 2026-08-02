@@ -1,17 +1,17 @@
-# Crafter long-horizon Feedback v3 design proposal
+# Crafter survival-development Feedback v3 contract
 
-Status: proposal for review; no runtime behavior implements this document yet.
+Status: implemented by `CrafterSurvivalDevelopmentBenchmark`.
 
-This document specifies only the scalar `Feedback.score` and the
-Benchmark-defined public `Feedback.content`/trajectory scoring fields for a new
+This document specifies the scalar `Feedback.score` and the Benchmark-defined
+public `Feedback.content`/trajectory scoring fields for the
 Crafter long-horizon profile. It deliberately does not prescribe submission
 batch sizes, train budgets, Validation Episode counts, Assessment Episode
 counts, or Agent search strategy.
 
 ## 1. Scope and compatibility
 
-The proposed profile is additive and NLE-inspired, but survival remains the
-primary Crafter objective. Its tentative identity is:
+The profile is additive and NLE-inspired, but survival remains the primary
+Crafter objective. Its identity is:
 
 ```text
 crafter/CrafterReward-v1/mean-survival-development-return-v3
@@ -21,7 +21,7 @@ The canonical achievement profile and
 `crafter/CrafterReward-v1/long-horizon-development-v2` remain unchanged. v3 is
 a new Benchmark identity; v1, v2, and v3 scores are not numerically comparable.
 
-The proposal does not change:
+The profile does not change:
 
 - the `64 x 64 x 3` uint8 RGB Policy observation;
 - the 17-Action Policy ABI;
@@ -36,7 +36,7 @@ The scorer may use trusted Crafter inventory counters that correspond to HUD
 information already rendered into the RGB observation. These values are not
 added to the live Policy observation.
 
-For this new profile, the recommended Environment `Step.reward` is the shaped
+For this profile, the Environment `Step.reward` is the shaped
 scoring delta defined below. The pinned Crafter 1.8.3 reward is retained as a
 separate diagnostic field. This makes Environment Episode return, trajectory
 reward, and the successful-Episode score agree, as they do in NLE. Existing
@@ -48,8 +48,9 @@ The score should satisfy these properties:
 
 1. Every additional step survived has positive value until the 10,000-step
    horizon. There are no 300/600/900 marginal-value discontinuities.
-2. Survival is the largest practical source of return. Maintenance and
-   development refine a surviving Policy rather than replacing survival.
+2. Survival is the persistent source of return across the full horizon, while
+   rare late capability milestones are individually large enough to remain
+   visible after averaging many Episodes.
 3. Maintaining vitals before an emergency is valuable. The score must not
    require a vital to cross a warning threshold before recovery can count.
 4. First-time capability progress and repeated useful production both count,
@@ -79,11 +80,11 @@ survival_credit = sum(alive_t)
                 = steps - int(naturally_terminated)
 ```
 
-Let the post-Action trusted vitals be health `h_t`, food `f_t`, drink `d_t`,
-and energy `e_t`, each in `[0, 9]`. Define continuous vital quality:
+Let the post-Action trusted vitals be health `h_t`, food `f_t`, and drink
+`d_t`, each in `[0, 9]`. Define continuous vital quality:
 
 ```text
-vital_quality_t = min(h_t, f_t, d_t, e_t) / 9
+vital_quality_t = min(h_t, f_t, d_t) / 9
 vital_credit_t  = 0.10 * alive_t * vital_quality_t
 ```
 
@@ -91,12 +92,12 @@ Using the minimum makes the weakest survival subsystem visible without a hard
 warning threshold. The maximum maintenance contribution is ten percent of
 survival credit.
 
-Let `I_t` be the normalized first-unlock progress potential and `P_t` the
-normalized repeated-productivity potential after transition `t`. Both are in
-`[0, 1]` and never decrease. Define:
+Let `A_t` be the absolute first-unlock progress potential and `P_t` the
+normalized repeated-productivity potential after transition `t`. Both never
+decrease, and `P_t` is in `[0, 1]`. Define:
 
 ```text
-progress_potential_t     = 75 * I_t
+progress_potential_t     = A_t
 productivity_potential_t = 25 * P_t
 
 progress_delta_t = progress_potential_t - progress_potential_(t-1)
@@ -136,9 +137,12 @@ episode_return = sum(score_delta_t)
 Consequences of this scale:
 
 - vital credit is at most `0.10 * survival_credit`;
-- first-unlock progress is at most 75 points per Episode;
+- first-unlock progress is at most 1,829 points per Episode;
 - repeated productivity is at most 25 points per Episode;
-- all non-survival development credit is bounded at 100 points;
+- a diamond-bearing development chain is large enough to remain visible after
+  averaging across a 128- or 512-Episode batch;
+- the 10,000-step survival horizon still exceeds the complete first-unlock
+  schedule, while every additional survived step retains value;
 - survival remains valuable after step 900 and up to the configured horizon.
 
 There is no separate death penalty. Death already removes the terminal
@@ -174,7 +178,7 @@ The scalar Feedback score is the ordinary arithmetic mean:
 Feedback.score = mean(episode_return)
 ```
 
-The proposed primary metric name is:
+The primary metric name is:
 
 ```text
 mean_survival_development_return
@@ -183,28 +187,33 @@ mean_survival_development_return
 ## 4. First-unlock progress potential
 
 For achievement `i`, let `u_i` be 1 after its first successful event in the
-Episode and 0 before it. Each achievement receives a dependency-stage weight
-`w_i`:
+Episode and 0 before it. Each achievement receives an absolute
+dependency-stage reward `a_i`:
 
-| Weight | Achievements |
+| Absolute reward | Achievements |
 |---:|---|
-| 1 | `collect_drink`, `collect_sapling`, `collect_wood`, `eat_cow`, `eat_plant`, `wake_up` |
-| 2 | `place_table`, `place_plant`, `make_wood_pickaxe`, `make_wood_sword`, `defeat_zombie` |
-| 3 | `collect_stone`, `place_stone`, `make_stone_pickaxe`, `make_stone_sword`, `defeat_skeleton` |
-| 4 | `collect_coal`, `place_furnace` |
-| 6 | `collect_iron`, `make_iron_pickaxe`, `make_iron_sword` |
-| 8 | `collect_diamond` |
+| 1 | `collect_drink`, `collect_sapling`, `collect_wood`, `eat_cow`, `wake_up` |
+| 4 | `place_table`, `place_plant` |
+| 8 | `eat_plant`, `make_wood_pickaxe`, `make_wood_sword` |
+| 16 | `collect_coal`, `collect_stone`, `place_stone`, `defeat_zombie` |
+| 32 | `place_furnace`, `make_stone_pickaxe`, `make_stone_sword`, `defeat_skeleton` |
+| 64 | `collect_iron` |
+| 256 | `make_iron_pickaxe`, `make_iron_sword` |
+| 1024 | `collect_diamond` |
 
-The weights sum to 65. The normalized potential is:
+The absolute rewards sum to 1,829. The potential is:
 
 ```text
-I_t = sum(w_i * u_i) / 65
+A_t = sum(a_i * u_i)
 ```
 
 This preserves credit for all 22 canonical achievements while making later
 dependency stages more valuable than repeatedly solving only the opening.
-Weights describe capability depth, not empirical achievement rarity in one
-particular run.
+The missing powers of two correspond to dependency stages that Crafter does
+not expose as separate achievements. For example, it has no planks, sticks, or
+iron-ingot milestone between raw material and the finished iron tool. Rewards
+describe capability depth, not empirical achievement rarity in one particular
+run.
 
 ## 5. Repeated-productivity potential
 
@@ -217,11 +226,19 @@ repeat_credit_i = log1p(min(r_i, c_i)) / log1p(c_i)
 P_t = sum(v_i * repeat_credit_i) / sum(v_i)
 ```
 
+The first successful event receives only its absolute first-unlock reward.
+Each subsequent successful event through `c_i` produces another positive
+productivity delta, and those deltas decrease monotonically as the repeat
+count rises. Every repeat delta is substantially smaller than that event's
+first-unlock reward. Events beyond the cap remain visible in feedback but add
+no score. The cap prevents one indefinitely renewable interaction from
+replacing broader survival and development.
+
 Only upstream-confirmed successful events count. Returning an Action, a failed
 craft, an unsuccessful attack, or `do` beside a nonproductive target does not
 count.
 
-The proposed repeat table is:
+The repeat table is:
 
 | Event | Weight | Repeat cap |
 |---|---:|---:|
@@ -280,7 +297,7 @@ sandbox game:
 - animal breeding is not implemented. Cows are spawned and despawned by the
   environment balance process rather than reproduced by a player Action.
 
-The proposed score already gives bounded credit to plant placement, ripe-plant
+The score gives bounded credit to plant placement, ripe-plant
 harvest, facility placement, dependent tool production, and repeated stone
 placement. It does not add a separate house score. Inferring an enclosure from
 trusted map topology would introduce a new private spatial classifier, while
@@ -288,7 +305,7 @@ rewarding only stone count would confuse a useful wall with arbitrary block
 spam. Successful shelter construction is therefore rewarded indirectly by
 the survival return rather than by a claimed house event.
 
-Feedback should group the upstream-confirmed events for interpretation without
+Feedback groups the upstream-confirmed events for interpretation without
 inventing new ground-truth states:
 
 ```json
@@ -320,7 +337,7 @@ building bonus before calibration.
 
 ## 7. Aggregate Feedback.content
 
-The proposed compact content schema is:
+The compact content schema is:
 
 ```json
 {
@@ -331,8 +348,8 @@ The proposed compact content schema is:
   "scoring_parameters": {
     "survival_credit_per_alive_step": 1.0,
     "vital_credit_scale": 0.1,
-    "vital_quality_formula": "min(health, food, drink, energy) / 9",
-    "progress_credit_max": 75.0,
+    "vital_quality_formula": "min(health, food, drink) / 9",
+    "progress_credit_max": 1829.0,
     "productivity_credit_max": 25.0
   },
   "score_components": {
@@ -414,9 +431,9 @@ The proposed compact content schema is:
     "scored": false
   },
   "progress": {
-    "maximum_credit_per_episode": 75.0,
-    "weight_sum": 65,
-    "achievement_weights": {},
+    "maximum_credit_per_episode": 1829.0,
+    "absolute_reward_sum": 1829,
+    "achievement_absolute_rewards": {},
     "achievement_success_percent": {},
     "achievement_mean_credit": {}
   },
@@ -548,7 +565,7 @@ the existing phase boundary.
 
 ## 10. Diagnostic interpretation
 
-The proposed feedback distinguishes these cases without changing the score:
+The feedback distinguishes these cases without changing the score:
 
 - high survival plus high vital quality: stable maintenance;
 - high survival plus low vital quality: fragile survival close to starvation,
@@ -570,14 +587,15 @@ cause for every death.
 
 ## 11. Required implementation tests
 
-Before enabling the profile, tests should cover:
+The implementation test suite covers these contracts:
 
 1. every alive step adds exactly one survival point;
 2. natural terminal transitions add no survival credit, while horizon
    truncation does;
 3. vital credit is continuous, bounded, and uses exactly the finalized public
    vital-quality formula;
-4. first-unlock weights cover exactly all 22 achievements and sum to 65;
+4. first-unlock absolute rewards cover exactly all 22 achievements and sum to
+   1,829;
 5. repeat weights/caps cover exactly the published repeat table and sum to 40;
 6. repeat credit excludes the first event and saturates at its cap;
 7. failed Actions with no achievement-counter increment receive no progress or
@@ -601,15 +619,15 @@ Review status as of 2026-08-02:
 
 | Decision | Status |
 |---|---|
-| Raw energy in continuous vital quality | Pending after mechanics review |
+| Exclude raw energy; use health, food, and drink only | Accepted |
 | Use the weakest included vital (`min`) | Accepted |
-| 75/25 first-progress/repeated-productivity split | Accepted for initial calibration |
-| Dependency-stage weights and repeat table | Accepted for initial calibration |
+| Absolute exponential first-progress rewards | Accepted in place of the normalized 75-point budget |
+| Absolute schedule and 25-point repeat table | Accepted |
 | Publish per-transition score deltas | Accepted |
 | Policy failure return is `-max_episode_steps` | Accepted |
 | v3 `Step.reward` is the shaped delta; preserve `upstream_reward` separately | Accepted |
 
-Energy requires one remaining decision. In pinned Crafter 1.8.3, awake energy
+The energy decision follows the pinned Crafter 1.8.3 mechanics. Awake energy
 drops by one after 31 awake updates. Sleeping restores one energy after a
 little over ten sleeping updates, halves hunger/thirst accumulation, and
 doubles the health-recovery accumulator. Energy does not restrict movement,
@@ -617,23 +635,20 @@ collection, combat, placement, or crafting. Its direct life-system effect is
 binary: while awake, `energy > 0` satisfies the energy necessity; while
 sleeping, the necessity is satisfied even at zero energy.
 
-For that reason, the updated recommendation is to exclude raw energy from the
-continuous minimum and use:
+Raw energy is therefore excluded from the continuous minimum:
 
 ```text
 vital_quality_t = min(health_t, food_t, drink_t) / 9
 ```
 
-Energy, sleeping, and wake-up counts would remain explicit diagnostics and
-survival consequences would still affect the primary score. Including raw
-energy instead would assign different maintenance value to energy 8 versus 9
-even though the game gives them identical capabilities, and may over-reward
-frequent sleep cycles. No implementation should begin until this final energy
-choice is accepted or revised.
+Energy, sleeping, and wake-up counts remain explicit diagnostics and survival
+consequences still affect the primary score. This avoids assigning different
+maintenance value to energy 8 versus 9 even though the game gives them
+identical capabilities, and avoids directly rewarding frequent sleep cycles.
 
 ## 13. MineRL comparison and adaptation rationale
 
-This section is informative: it records why the proposed Crafter design uses
+This section is informative: it records why the Crafter design uses
 its particular decomposition. The reference implementation reviewed was the
 official MineRL v0.4 branch at commit
 `ccc8c659d2b8e4737eda418593dee94c101c9ba3`.
@@ -666,9 +681,9 @@ contracts:
   survival;
 - survival provides the dominant dense signal because long-lived open-world
   development, rather than one terminal item, is this profile's objective;
-- absolute MineRL-style exponential rewards are normalized into the fixed
-  75-point progress budget, so a rare late milestone cannot numerically erase
-  survival;
+- MineRL-style absolute exponential rewards preserve a strong signal for rare
+  late milestones, while their 1,829-point total remains below the 10,000-step
+  survival horizon;
 - `achievement_mean_credit`, `event_mean_credit`, and
   `event_saturation_percent` make the realized reward sources inspectable,
   rather than showing only a total;
@@ -678,7 +693,8 @@ contracts:
 - no automatic house, aesthetics, farm-layout, or breeding score is invented
   where pinned Crafter has no authoritative corresponding state.
 
-This comparison supports keeping the initial 75/25 calibration. If rollouts
-show that the bounded repeated component is still dominated by resource reuse,
-the next profile should change the event eligibility contract explicitly; it
-must not silently reinterpret v3 results.
+This comparison supports the absolute first-unlock schedule plus a separate
+25-point bounded-repeat budget. If rollouts show that the bounded repeated
+component is still dominated by resource reuse, the next profile should
+change the event eligibility contract explicitly; it must not silently
+reinterpret v3 results.

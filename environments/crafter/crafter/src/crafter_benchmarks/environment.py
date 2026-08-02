@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, MutableSet, Sequence
-from typing import Protocol, SupportsFloat, cast
+from typing import Literal, Protocol, SupportsFloat, cast
 
 import crafter
 import numpy
@@ -14,11 +14,14 @@ from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import CrafterConfig
 from .constants import ACHIEVEMENTS, ACTIONS
+from .scoring import score_delta, transition_score_components
 
 _AREA = (64, 64)
 _VIEW = (9, 9)
 _OBSERVATION_SHAPE = (64, 64, 3)
 _ACTION_IDS = frozenset(range(len(ACTIONS)))
+
+type RewardProfile = Literal["upstream", "survival-development-v3"]
 
 
 class _CrafterEnv(Protocol):
@@ -60,13 +63,21 @@ class _InsertionOrderedObjectSet(MutableSet[object]):
 class CrafterEnvironment:
     """Strict seeded adapter around the canonical RGB Crafter profile."""
 
-    def __init__(self, episode: EpisodeSpec, *, config: CrafterConfig) -> None:
+    def __init__(
+        self,
+        episode: EpisodeSpec,
+        *,
+        config: CrafterConfig,
+        reward_profile: RewardProfile = "upstream",
+    ) -> None:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
         if type(config) is not CrafterConfig:
             raise TypeError("config must be CrafterConfig")
         if episode.scenario is not None:
             raise ValueError("Crafter configuration belongs in CrafterConfig")
+        if reward_profile not in {"upstream", "survival-development-v3"}:
+            raise ValueError("reward_profile is invalid")
 
         environment = cast(
             _CrafterEnv,
@@ -84,7 +95,9 @@ class CrafterEnvironment:
 
         self._environment: _CrafterEnv | None = environment
         self._max_episode_steps = config.max_episode_steps
+        self._reward_profile = reward_profile
         self._achievements = {name: 0 for name in ACHIEVEMENTS}
+        self._event_totals = {name: 0 for name in ACHIEVEMENTS}
         self._started = False
         self._done = False
         self._closed = False
@@ -149,21 +162,43 @@ class CrafterEnvironment:
         public_event_counts: dict[str, PolicyValue] = {
             name: count for name, count in event_counts.items()
         }
+        maintenance_vitals = _maintenance_vitals(information)
         public_maintenance_vitals: dict[str, PolicyValue] = {
             name: value
-            for name, value in _maintenance_vitals(information).items()
+            for name, value in maintenance_vitals.items()
         }
-
+        upstream_reward = _number(reward, "reward")
+        public_metrics: dict[str, PolicyValue] = {
+            "achievements_unlocked": public_unlocked,
+            "achievement_event_counts": public_event_counts,
+            "maintenance_vitals": public_maintenance_vitals,
+        }
+        step_reward = upstream_reward
+        if self._reward_profile == "survival-development-v3":
+            components, updated_totals = transition_score_components(
+                terminated=terminated,
+                unlocked=unlocked,
+                event_counts=event_counts,
+                event_totals=self._event_totals,
+                vitals=maintenance_vitals,
+            )
+            self._event_totals = updated_totals
+            public_metrics.update(
+                {
+                    "energy": _energy(information),
+                    "upstream_reward": upstream_reward,
+                    "score_delta_components": {
+                        name: value for name, value in components.items()
+                    },
+                }
+            )
+            step_reward = score_delta(components)
         return Step(
             observation=_observation(observation),
-            reward=_number(reward, "reward"),
+            reward=step_reward,
             terminated=terminated,
             truncated=truncated,
-            metrics={
-                "achievements_unlocked": public_unlocked,
-                "achievement_event_counts": public_event_counts,
-                "maintenance_vitals": public_maintenance_vitals,
-            },
+            metrics=public_metrics,
         )
 
     def close(self) -> None:
@@ -270,6 +305,16 @@ def _maintenance_vitals(information: Mapping[str, object]) -> dict[str, int]:
     return vitals
 
 
+def _energy(information: Mapping[str, object]) -> int:
+    value = information.get("inventory")
+    if type(value) is not dict:
+        raise RuntimeError("Crafter returned invalid inventory")
+    amount = value.get("energy")
+    if type(amount) is not int or not 0 <= amount <= 9:
+        raise RuntimeError("Crafter returned invalid energy")
+    return amount
+
+
 def _number(value: object, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, SupportsFloat):
         raise RuntimeError(f"Crafter returned a non-numeric {name}")
@@ -279,4 +324,4 @@ def _number(value: object, name: str) -> float:
     return number
 
 
-__all__ = ["CrafterEnvironment"]
+__all__ = ["CrafterEnvironment", "RewardProfile"]

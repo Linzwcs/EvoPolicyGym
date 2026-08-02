@@ -4,26 +4,30 @@ This independently installable distribution adapts
 [danijar/crafter](https://github.com/danijar/crafter) `1.8.3` to the public
 EvoPolicyGym authoring SDK.
 
-The distribution exposes two scoring profiles over the same environment:
+The distribution exposes three scoring profiles over the same environment:
 
 - `CrafterBenchmark` preserves the canonical achievement evaluation;
 - `CrafterLongHorizonBenchmark` makes survival the gate for sustained
-  production and new capabilities.
+  production and new capabilities (legacy v2);
+- `CrafterSurvivalDevelopmentBenchmark` uses an additive per-step survival,
+  vital-maintenance, first-unlock, and bounded repeated-productivity return.
 
-Both profiles run:
+All three profiles run:
 
 - one fresh seeded `64 x 64` procedural world per Episode;
 - `64 x 64 x 3` uint8 RGB Policy observations;
 - the original 17 discrete Actions;
 - up to 10,000 steps per Episode;
 - all 22 original achievements;
-- the official shifted-geometric achievement success score.
+- the official shifted-geometric achievement success score as either the
+  primary metric or a public comparison metric.
 
 The Benchmark IDs are:
 
 ```text
 crafter/CrafterReward-v1/achievement-score-v1
 crafter/CrafterReward-v1/long-horizon-development-v2
+crafter/CrafterReward-v1/mean-survival-development-return-v3
 ```
 
 `CrafterConfig(max_episode_steps=...)` can select a shorter bounded profile for
@@ -122,9 +126,45 @@ The scalar Feedback score is the mean Episode score. It can never exceed the
 survival component. The canonical Crafter score and all 22 success rates remain
 in Feedback for comparison but do not select the long-horizon Program.
 
+## Additive survival-development scoring
+
+`CrafterSurvivalDevelopmentBenchmark` is the current long-horizon optimization
+profile. Every transition after which the player remains alive earns `1`
+survival point plus:
+
+```text
+0.10 * min(health, food, drink) / 9
+```
+
+The naturally terminal transition earns neither term. The raw energy meter is
+reported as a diagnostic but is not scored. First achievement unlocks use a
+public absolute dependency-stage schedule from `1` through `1024`; the complete
+22-achievement schedule is worth at most `1829` per Episode. Repeated confirmed
+drinking, eating, gathering, combat, planting, and construction events add at
+most `25` further points using public event weights, caps, and logarithmic
+diminishing returns. Attempts do not score unless Crafter increments the
+corresponding event counter.
+
+The shaped delta is the Environment `Step.reward`, while the pinned upstream
+reward remains available as `Step.metrics["upstream_reward"]`. A completed
+Episode therefore has the exactly reconstructable return:
+
+```text
+survival + vital + first-unlock progress + repeated productivity
+```
+
+A Policy failure instead returns `-max_episode_steps` and discards partial
+credit. Natural death merely ends future earning; it does not erase earlier
+legitimate progress. `Feedback.score` is the arithmetic mean Episode return.
+Feedback publishes the component reconstruction, Episode return distribution,
+`survival@300/600/900`, weakest-vital exposure, terminal vital profile,
+achievement/event detail, canonical Crafter comparison, and unscored Action
+cycle diagnostics. The complete formula and tables are recorded in
+[`docs/long-horizon-feedback-v3-design.md`](docs/long-horizon-feedback-v3-design.md).
+
 ## Complete training evidence
 
-Both profiles encode every public transition and every RGB observation from
+All three profiles encode every public transition and every RGB observation from
 all Episodes used by a submission. There is no score-based Episode selection,
 first-Episode preference, temporal sampling, contact sheet, replay video, or
 hidden human-observer channel.
@@ -145,7 +185,8 @@ artifacts/
 Each gzip JSONL trajectory contains an Episode header followed by every
 transition in order. A transition records the Agent-visible Episode ordinal,
 step and observation indices, Action and Action name, reward, first-unlock and
-successful-event information, and termination flags. It never records an
+successful-event information, and termination flags. v3 additionally records
+the four shaped-reward components and the separate upstream reward. It never records an
 Environment seed, Policy seed, pool identity, Host path, process evidence, or
 privileged Crafter state.
 
@@ -226,7 +267,7 @@ ended after 47–242 steps, so this is only a short-survival lower bound. The
 1-GiB default deliberately leaves substantial headroom; it must be revisited
 after a representative optimized Policy survives much longer.
 
-From the repository root, the current 512-Episode long-horizon experiment can
+From the repository root, the current 512-Episode survival-development experiment can
 be launched with:
 
 ```console
@@ -248,8 +289,8 @@ keeps repository source outside the isolated Agent environment.
 ```console
 environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
   --model gpt-5.6-sol \
-  --record-to runs/crafter-long-horizon512-sol-<run-id> \
-  --profile long-horizon \
+  --record-to runs/crafter-survival-development512-sol-<run-id> \
+  --profile survival-development \
   --max-episode-steps 10000 \
   --seed <seed> \
   --max-submissions 40 \

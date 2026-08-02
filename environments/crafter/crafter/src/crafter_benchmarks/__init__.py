@@ -1,7 +1,11 @@
-"""Public canonical and long-horizon Crafter Benchmark profiles."""
+"""Public canonical and survival-development Crafter Benchmark profiles."""
 
 from .baseline import baseline_program
-from .benchmark import CrafterBenchmark, CrafterLongHorizonBenchmark
+from .benchmark import (
+    CrafterBenchmark,
+    CrafterLongHorizonBenchmark,
+    CrafterSurvivalDevelopmentBenchmark,
+)
 from .config import CrafterConfig
 from .constants import ACHIEVEMENTS, ACTIONS
 
@@ -11,5 +15,6 @@ __all__ = [
     "CrafterBenchmark",
     "CrafterConfig",
     "CrafterLongHorizonBenchmark",
+    "CrafterSurvivalDevelopmentBenchmark",
     "baseline_program",
 ]

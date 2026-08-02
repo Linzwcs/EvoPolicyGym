@@ -1,7 +1,7 @@
 [project]
 name = "evopolicygym-benchmark-crafter"
 version = "0.1.0"
-description = "Canonical and long-horizon Crafter Benchmark profiles for EvoPolicyGym."
+description = "Canonical and survival-development Crafter Benchmark profiles for EvoPolicyGym."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "MIT"

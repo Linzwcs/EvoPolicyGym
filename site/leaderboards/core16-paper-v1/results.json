@@ -1,0 +1,60 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-07-01T13:54:33+00:00",
+  "final_reruns": 64,
+  "environments": [
+    {"id": "acrobot", "display": "Acrobot", "category": "Control", "order": 0, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Swing-up control with a two-link underactuated arm.", "zh": "双连杆欠驱动机械臂的摆起控制任务。"}, "evidence_path": "/results/environments/acrobot/"},
+    {"id": "continuouscar", "display": "ContinuousCar", "category": "Control", "order": 1, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Continuous throttle control with delayed goal reward.", "zh": "带延迟目标奖励的连续油门控制任务。"}, "evidence_path": "/results/environments/continuouscar/"},
+    {"id": "bipedal", "display": "Bipedal", "category": "Box2D", "order": 2, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Contact-rich locomotion across uneven terrain.", "zh": "在不平地形上的高接触双足运动任务。"}, "evidence_path": "/results/environments/bipedal/"},
+    {"id": "racing", "display": "CarRacing", "category": "Box2D", "order": 3, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Pixel-observation driving on procedurally generated tracks.", "zh": "在程序生成赛道上的像素观测驾驶任务。"}, "evidence_path": "/results/environments/racing/"},
+    {"id": "reacher5", "display": "Reacher", "category": "MuJoCo", "order": 4, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Continuous robotic-arm control toward a target point.", "zh": "控制连续动作机械臂到达目标点。"}, "evidence_path": "/results/environments/reacher5/"},
+    {"id": "halfcheetah5", "display": "HalfCheetah", "category": "MuJoCo", "order": 5, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "High-dimensional planar locomotion with dense feedback.", "zh": "带稠密反馈的高维平面运动任务。"}, "evidence_path": "/results/environments/halfcheetah5/"},
+    {"id": "ant5", "display": "Ant", "category": "MuJoCo", "order": 6, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Multi-legged locomotion with eight continuous actions.", "zh": "包含八维连续动作的多足运动任务。"}, "evidence_path": "/results/environments/ant5/"},
+    {"id": "pusher5", "display": "Pusher", "category": "MuJoCo", "order": 7, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Contact manipulation that pushes an object to a goal.", "zh": "通过接触操作把物体推向目标位置。"}, "evidence_path": "/results/environments/pusher5/"},
+    {"id": "minigrid_doorkey", "display": "DoorKey", "category": "MiniGrid", "order": 8, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Find a key, unlock a door, and reach the goal.", "zh": "寻找钥匙、打开门并到达目标。"}, "evidence_path": "/results/environments/minigrid_doorkey/"},
+    {"id": "minigrid_keycorridor", "display": "KeyCorridor", "category": "MiniGrid", "order": 9, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Multi-room search with object interaction and memory.", "zh": "需要物体交互与记忆的多房间搜索。"}, "evidence_path": "/results/environments/minigrid_keycorridor/"},
+    {"id": "minigrid_fourrooms", "display": "FourRooms", "category": "MiniGrid", "order": 10, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Partial-observation navigation through bottlenecks.", "zh": "在部分观测下穿越四房间瓶颈。"}, "evidence_path": "/results/environments/minigrid_fourrooms/"},
+    {"id": "minigrid_obstructedmaze", "display": "ObstructedMaze", "category": "MiniGrid", "order": 11, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Maze navigation with blockers and interaction sequences.", "zh": "带阻挡物与交互顺序的迷宫导航。"}, "evidence_path": "/results/environments/minigrid_obstructedmaze/"},
+    {"id": "parking", "display": "Parking", "category": "Driving", "order": 12, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Continuous vehicle control toward a target parking pose.", "zh": "把车辆连续控制到目标停车姿态。"}, "evidence_path": "/results/environments/parking/"},
+    {"id": "roundabout", "display": "Roundabout", "category": "Driving", "order": 13, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Structured traffic control through a roundabout.", "zh": "在环岛场景中的结构化交通控制。"}, "evidence_path": "/results/environments/roundabout/"},
+    {"id": "fetch_push", "display": "FetchPush", "category": "Robotics", "order": 14, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Goal-conditioned robotic pushing with a gripper.", "zh": "使用机械臂夹爪完成目标条件推动。"}, "evidence_path": "/results/environments/fetch_push/"},
+    {"id": "fetch_pickandplace", "display": "FetchPickAndPlace", "category": "Robotics", "order": 15, "primary_metric": "reported_score", "score_direction": "maximize", "summary": {"en": "Grasp, lift, and place an object at a target.", "zh": "抓取、抬起并把物体放到目标位置。"}, "evidence_path": "/results/environments/fetch_pickandplace/"}
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_5",
+      "display": "GPT-5.5",
+      "harness": "Codex",
+      "kind": "agent",
+      "scores": {"acrobot": -84.6875, "continuouscar": 95.21632036034762, "bipedal": 248.87433952921492, "racing": 604.1449208431347, "reacher5": -3.4726870331754416, "halfcheetah5": 601.8327115520541, "ant5": 989.5804753204281, "pusher5": -37.10630011891853, "minigrid_doorkey": 0.98622314453125, "minigrid_keycorridor": 0.91826171875, "minigrid_fourrooms": 0.6641874999999999, "minigrid_obstructedmaze": 0.90359375, "parking": -30.23652819689018, "roundabout": 9.817708333333334, "fetch_push": -18.15625, "fetch_pickandplace": -11.8125}
+    },
+    {
+      "id": "claude_opus_4_7",
+      "display": "Claude Opus 4.7",
+      "harness": "Claude Code",
+      "kind": "agent",
+      "scores": {"acrobot": -88.59375, "continuouscar": 98.77355865253121, "bipedal": -15.844270020538715, "racing": 602.3372652227846, "reacher5": -3.978723597456614, "halfcheetah5": 452.0217704626293, "ant5": 990.149093275651, "pusher5": -38.51977888437037, "minigrid_doorkey": 0.982696533203125, "minigrid_keycorridor": 0.9297460937500001, "minigrid_fourrooms": 0.70103125, "minigrid_obstructedmaze": 0.911328125, "parking": -38.1811543444992, "roundabout": 9.330729166666666, "fetch_push": -19.6875, "fetch_pickandplace": -13.34375}
+    },
+    {
+      "id": "minimax_m3",
+      "display": "MiniMax-M3",
+      "harness": "Claude Code",
+      "kind": "agent",
+      "scores": {"acrobot": -136.40625, "continuouscar": 91.88134370232375, "bipedal": -80.87367647010615, "racing": 233.43482820221337, "reacher5": -5.103383964072854, "halfcheetah5": 606.1536322343612, "ant5": 983.4252953407882, "pusher5": -39.245446618032645, "minigrid_doorkey": 0, "minigrid_keycorridor": 0, "minigrid_fourrooms": 0.4034375, "minigrid_obstructedmaze": 0, "parking": -32.70967968450967, "roundabout": 9.520833333333334, "fetch_push": -25.875, "fetch_pickandplace": -13.21875}
+    },
+    {
+      "id": "deepseek_v4_pro",
+      "display": "DeepSeek-V4-Pro",
+      "harness": "Claude Code",
+      "kind": "agent",
+      "scores": {"acrobot": -91.15625, "continuouscar": 94.47733594465815, "bipedal": -97.4750034402532, "racing": 25.198665586048296, "reacher5": -6.505763722363936, "halfcheetah5": -0.4676944161665676, "ant5": 897.9947631876837, "pusher5": -54.17974515479469, "minigrid_doorkey": 0, "minigrid_keycorridor": 0, "minigrid_fourrooms": 0.07856250000000001, "minigrid_obstructedmaze": 0, "parking": -53.38364468084845, "roundabout": 10.203125, "fetch_push": -27.65625, "fetch_pickandplace": -20.5625}
+    },
+    {
+      "id": "random_policy",
+      "display": "Random policy",
+      "harness": "Uniform",
+      "kind": "baseline",
+      "scores": {"acrobot": -499.15625, "continuouscar": -33.359488, "bipedal": -100.975808, "racing": -29.627216, "reacher5": -43.771999, "halfcheetah5": -291.843544, "ant5": -34.602259, "pusher5": -147.461739, "minigrid_doorkey": 0, "minigrid_keycorridor": 0, "minigrid_fourrooms": 0.041688, "minigrid_obstructedmaze": 0, "parking": -47.447772, "roundabout": 7.1875, "fetch_push": -46.03125, "fetch_pickandplace": -43.75}
+    }
+  ]
+}

@@ -65,8 +65,8 @@ export default function HomePage() {
               />
             </p>
             <div className="home-actions">
-              <Link className="epg-button epg-button--primary" to="/results/environments/minigrid_doorkey/">
-                <Localized en="Watch a rerun" zh="观看重跑" /> <span>→</span>
+              <Link className="epg-button epg-button--primary" to="/leaderboard/">
+                <Localized en="Open leaderboard" zh="打开排行榜" /> <span>→</span>
               </Link>
               <Link className="epg-text-link" to="/docs/getting-started/">
                 <Localized en="Get started" zh="快速开始" />

@@ -1,0 +1,89 @@
+---
+schema: evopolicygym/leaderboard-suite/v2
+id: core16-paper-v1
+slug: core16-paper-v1
+status: frozen
+default: true
+version: v1
+experiment_version: v0.1.0
+title:
+  en: Core16 leaderboard
+  zh: Core16 排行榜
+label:
+  en: Core16 paper
+  zh: Core16 论文档案
+description:
+  en: Final-Policy evaluation across sixteen fixed paper-era Environment tracks.
+  zh: 十六个固定论文时期 Environment Track 上的最终 Policy 评估。
+profile:
+  id: core16-128-v1
+  label:
+    en: Core16 paper profile
+    zh: Core16 论文配置
+  budget: 128
+  budget_unit: episodes / run
+content:
+  suite:
+    en: index.mdx
+    zh: index.zh-CN.mdx
+  environment:
+    en: environment.mdx
+    zh: environment.zh-CN.mdx
+results: results.json
+---
+
+<LeaderboardIntro eyebrow="Historical research record">
+
+# Core16 leaderboard
+
+<LeaderboardLead>Final-Policy evaluation across sixteen fixed paper-era Environment tracks.</LeaderboardLead>
+
+<SuiteFacts />
+
+<LeaderboardNote title="Comparison rule">
+
+Raw rewards are comparable only within one fixed Environment track. The aggregate view summarizes placements and never adds incompatible reward scales.
+
+</LeaderboardNote>
+
+</LeaderboardIntro>
+
+<LeaderboardSection
+  number="1"
+  title="Aggregate placement summary"
+  lead="Ordered by Environment wins, with mean placement as the tie-breaker. This frozen suite reports placement rather than adding incompatible raw scores."
+>
+
+<AggregateTable />
+
+<LeaderboardCaption label="Table 1.">A descriptive placement summary for complete entries in this suite.</LeaderboardCaption>
+
+</LeaderboardSection>
+
+<LeaderboardSection
+  number="2"
+  title="Environment leaderboards"
+  lead="Only Environments with reported scores appear here. Each route preserves the suite and profile context."
+>
+
+<EnvironmentDirectory />
+
+</LeaderboardSection>
+
+<LeaderboardSection number="3" title="Method and scope" variant="method">
+
+### What enters the table
+
+Each reported value belongs to the checkpoint selected by Validation in one historical Core16 run. The archive preserves one original-Environment rerun for each model–Environment lane.
+
+### What the table does not claim
+
+This frozen paper archive is not a live v0.3 submission service. Its placement summary is descriptive and is not a universal policy-quality score.
+
+<LeaderboardLinks>
+  <LeaderboardLink to="/results/">Result evidence →</LeaderboardLink>
+  <LeaderboardLink to="/docs/evaluation/">Evaluation semantics →</LeaderboardLink>
+  <LeaderboardLink to="/environments/">Environment catalog →</LeaderboardLink>
+</LeaderboardLinks>
+
+</LeaderboardSection>

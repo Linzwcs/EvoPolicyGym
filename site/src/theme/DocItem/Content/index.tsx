@@ -7,10 +7,7 @@ import type {ReactNode} from "react";
 import type {Props} from "@theme/DocItem/Content";
 
 type ResearchFrontMatter = {
-  docsVersion?: string;
-  index?: string;
   lead?: string;
-  status?: string;
 };
 
 function useSyntheticTitle(): string | null {
@@ -24,30 +21,20 @@ export default function DocItemContent({children}: Props): ReactNode {
   const syntheticTitle = useSyntheticTitle();
   const {frontMatter} = useDoc();
   const research = frontMatter as typeof frontMatter & ResearchFrontMatter;
-  const metadata = [
-    research.index,
-    research.docsVersion,
-    research.status,
-  ].filter((value): value is string => Boolean(value));
 
   return (
     <div className={clsx(ThemeClassNames.docs.docMarkdown, "markdown")}>
       {syntheticTitle && (
-        <header className="doc-article-header">
-          {metadata.length > 0 && (
-            <div className="doc-article-meta" aria-label="Document metadata">
-              {metadata.map((value, index) => (
-                <span key={value} className={index === 0 ? "is-index" : undefined}>
-                  {value}
-                </span>
-              ))}
-            </div>
-          )}
-          <Heading as="h1">{syntheticTitle}</Heading>
-          {research.lead && <p className="doc-article-lead">{research.lead}</p>}
-        </header>
+        <div className="doc-article-column">
+          <header className="doc-article-header">
+            <Heading as="h1">{syntheticTitle}</Heading>
+            {research.lead && <p className="doc-article-lead">{research.lead}</p>}
+          </header>
+        </div>
       )}
-      <MDXContent>{children}</MDXContent>
+      <div className="doc-article-column doc-article-column--body">
+        <MDXContent>{children}</MDXContent>
+      </div>
     </div>
   );
 }

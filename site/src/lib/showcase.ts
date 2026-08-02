@@ -60,6 +60,10 @@ export interface LeaderboardRow {
   scores: Record<string, number>;
 }
 
+export interface ScoredLeaderboardRow extends LeaderboardRow {
+  score: number;
+}
+
 export interface Showcase {
   generated_at: string;
   mode: string;
@@ -84,7 +88,7 @@ export function clipsForEnvironment(envId: string): Clip[] {
     .sort((a, b) => a.model_order - b.model_order);
 }
 
-export function scoresForEnvironment(envId: string): LeaderboardRow[] {
+export function scoresForEnvironment(envId: string): ScoredLeaderboardRow[] {
   return showcase.leaderboard
     .map((row) => ({ ...row, score: row.scores[envId] }))
     .filter((row) => Number.isFinite(row.score))

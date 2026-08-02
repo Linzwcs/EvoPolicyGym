@@ -1,41 +1,53 @@
 # EvoPolicyGym website
 
-The project website is a static Astro application. It intentionally uses no
-client-side framework; JavaScript is limited to navigation, language preference,
-and result filtering.
-
-The site uses a deliberately mixed content model:
+The project website is a bilingual Docusaurus 3 application. Docusaurus owns
+the documentation, research blog, navigation, localization, metadata, sitemap,
+and static build. Purpose-built React pages retain the project's academic
+identity and render structured benchmark evidence.
 
 | Content | Source | Rendering |
 | --- | --- | --- |
-| Home and other tightly curated landing pages | Astro route | Direct composition from shared theme components |
-| Documentation | `src/content/docs/{en,zh}/*.md` | Schema-validated bilingual Markdown |
-| Blog posts | `src/content/blog/{en,zh}/*.md` | Date-ordered bilingual Markdown |
+| Home and curated project pages | `src/pages/**/*.tsx` | React pages inside the Docusaurus shell |
+| Documentation | `docs/*.md` | Docusaurus Docs, with Chinese sources under `i18n/zh-CN/` |
+| Research blog | `blog/*.md` | Docusaurus Blog, with Chinese sources under `i18n/zh-CN/` |
+| Environment narratives | `environments/**/*.mdx` | Markdown/MDX reference pages at `/environments/**` |
 | Versions and paper identity | `src/data/project.ts` | Shared structured values |
-| Environment catalogs and experiment results | Typed data or generated datasets | Purpose-built Astro views |
+| Structured catalogs and experiment results | Typed data plus `plugins/generated-pages/` | Generated routes with purpose-built React views |
+| Core16 media and replay artifacts | `public/` | Static assets consumed by result and replay views |
 
-Theme code lives in `src/layouts/`, `src/components/`, and `src/styles/`.
-Editorial prose does not belong in theme components. Conversely, Markdown
-should not contain layout classes or depend on a particular visual treatment.
-`BilingualArticleLayout.astro` provides the article shell for Docs, while the
-route only loads paired content entries and derives the table of contents.
+The shared visual system lives in `src/css/custom.css` and reusable page
+components live in `src/components/`. Editorial prose stays in Markdown.
+Catalogs, score matrices, reruns, and interactive replay behavior stay in typed
+data and React features rather than being forced into articles.
 
-Blog entries declare `publishedAt`, `author`,
-`tags`, and publication status; matching bilingual files generate
-`/blog/<page>/` and appear in reverse chronological order.
+New Environment explanations should start from
+`environments/_template.mdx`. The leading underscore keeps the template out of
+the build. Front matter owns the route and metadata; Markdown owns the research
+narrative, and MDX may embed figures, video, or a focused interactive
+component. The catalog remains a concise index rather than duplicating those
+details.
 
-The homepage intentionally remains a direct Astro page: it is a short,
-carefully composed project entrance rather than a long-form article. The
-Balatro page likewise renders bounded `replay.jsonl` artifacts entirely in the
-browser. Keep data-heavy galleries and replay pages as Astro components rather
-than forcing them into Markdown.
+English is served at the site root and Chinese under `/zh-CN/`. The locale
+switcher, translated navigation, Docs sidebar, Blog UI, and paired content are
+managed through Docusaurus i18n.
+
+## Local development
+
+Use Node 22 LTS. The project currently caps Node below 25 because newer Node
+runtimes are not yet reliable with Docusaurus's local static preview.
 
 ```bash
 npm install
 npm run dev
+npm run typecheck
 npm run build
+npm run serve
 ```
 
+The production output is written to `build/`. The GitHub Pages workflow uses
+Node 22, installs the locked dependencies, builds both locales, and publishes
+that directory when site changes reach `main`.
+
 `public/media/` contains the Core16 paper-companion reruns. The current v0.3
-runtime and the historical research results are labelled separately throughout
+runtime and historical research results remain labelled separately throughout
 the site.

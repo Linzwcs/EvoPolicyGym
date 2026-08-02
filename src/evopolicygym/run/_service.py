@@ -1,16 +1,11 @@
-"""Program Evolution orchestration and process-setting assembly."""
+"""Execution-independent Program Evolution lifecycle coordination."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
-from time import monotonic
 from typing import Protocol
 
-from ..agents import AgentInvocation, CodingAgent
-from ..benchmark import Benchmark, BenchmarkSpec
-from ..errors import AgentRunError, EvaluationError
-from ..execution.process.agent.runner import AgentExit
+from ..errors import EvaluationError
 from ..program import Program
 from ..results import (
     AssessmentResult,
@@ -18,25 +13,8 @@ from ..results import (
     RunTerminalReason,
     SubmissionResult,
 )
-from ..skills import AgentSkill
-from . import RunConfig, _select_skills
-from ._validation import CandidateSelection
-from .progress import RunObserver
-
-
-class TerminalSignal(Protocol):
-    def wait(self, timeout: float | None = None) -> bool:
-        ...
-
-
-class AgentRunner(Protocol):
-    def run(
-        self,
-        terminal: TerminalSignal,
-        *,
-        timeout_seconds: float,
-    ) -> AgentExit:
-        ...
+from ._agent import AgentOutcome, AgentRunner, TerminalSignal
+from ._selection.validation import CandidateSelection
 
 
 class SessionGateway(Protocol):
@@ -94,7 +72,7 @@ class RunRecorder(Protocol):
     ) -> None:
         ...
 
-    def commit(self, result: RunResult, agent_exit: AgentExit) -> None:
+    def commit(self, result: RunResult, agent_outcome: AgentOutcome) -> None:
         ...
 
 
@@ -133,7 +111,7 @@ class ProgramEvolutionRun:
     def execute(self) -> RunResult:
         """Execute the Run, commit its result, and return a detached value."""
 
-        agent_exit: AgentExit | None = None
+        agent_outcome: AgentOutcome | None = None
         try:
             self._gateway.start()
             self._recorder.record_event(
@@ -143,19 +121,19 @@ class ProgramEvolutionRun:
                     "initial_program_digest": self._initial_program.digest,
                 },
             )
-            agent_exit = self._agent_runner.run(
+            agent_outcome = self._agent_runner.run(
                 self._gateway.terminal,
                 timeout_seconds=self._agent_timeout_seconds,
             )
-            self._record_agent_exit(agent_exit)
+            self._record_agent_outcome(agent_outcome)
         finally:
             self._gateway.close()
 
-        assert agent_exit is not None
+        assert agent_outcome is not None
         candidate_ids = self._session.candidate_submission_ids
         selection: CandidateSelection | None = None
         assessment: AssessmentResult | None = None
-        terminal_reason = _terminal_reason(self._session, agent_exit)
+        terminal_reason = _terminal_reason(self._session, agent_outcome)
         if candidate_ids and self._session.terminal_reason is None:
             try:
                 selection = self._candidate_selector.select(
@@ -222,219 +200,49 @@ class ProgramEvolutionRun:
             ),
             assessment=assessment,
         )
-        self._recorder.commit(result, agent_exit)
+        self._recorder.commit(result, agent_outcome)
         return result
 
-    def _record_agent_exit(self, agent_exit: AgentExit) -> None:
-        if agent_exit.start_failed:
+    def _record_agent_outcome(self, agent_outcome: AgentOutcome) -> None:
+        if agent_outcome.start_failed:
             fields: dict[str, object] = {}
-            if agent_exit.start_error_type is not None:
-                fields["error_type"] = agent_exit.start_error_type
-            if agent_exit.start_errno is not None:
-                fields["errno"] = agent_exit.start_errno
+            if agent_outcome.start_error_type is not None:
+                fields["error_type"] = agent_outcome.start_error_type
+            if agent_outcome.start_errno is not None:
+                fields["errno"] = agent_outcome.start_errno
             self._recorder.record_event("agent_start_failed", fields)
             return
-        if agent_exit.timed_out:
+        if agent_outcome.timed_out:
             self._recorder.record_event("agent_timeout", {})
             return
-        if agent_exit.stopped_after_terminal:
+        if agent_outcome.stopped_after_terminal:
             self._recorder.record_event(
                 "agent_stopped_after_terminal",
-                {"returncode": agent_exit.returncode},
+                {"returncode": agent_outcome.returncode},
             )
             return
         self._recorder.record_event(
             "agent_exited",
-            {"returncode": agent_exit.returncode},
+            {"returncode": agent_outcome.returncode},
         )
 
 
 def _terminal_reason(
     session: EvolutionSession,
-    agent_exit: AgentExit,
+    agent_outcome: AgentOutcome,
 ) -> RunTerminalReason:
     if session.terminal_reason is not None:
         return session.terminal_reason
     if (
-        agent_exit.timed_out
-        or agent_exit.stopped_after_terminal
-        or agent_exit.start_failed
-        or agent_exit.returncode not in {0, None}
+        agent_outcome.timed_out
+        or agent_outcome.stopped_after_terminal
+        or agent_outcome.start_failed
+        or agent_outcome.returncode not in {0, None}
     ):
         return "agent_failed"
     if session.authority_exhausted:
         return "budget_exhausted"
     return "agent_exited"
-
-
-def run_agent_with_processes(
-    initial_program: Program,
-    benchmark: Benchmark,
-    *,
-    agent: CodingAgent,
-    run_directory: Path,
-    config: RunConfig,
-    skills: tuple[AgentSkill, ...] = (),
-    observer: RunObserver | None = None,
-) -> RunResult:
-    from ._task import build_agent_task
-
-    spec = _benchmark_spec(benchmark)
-    selected_skills = _select_skills(skills)
-    task = build_agent_task(spec, config, selected_skills)
-    try:
-        invocation = agent.build_invocation(task)
-    except AgentRunError:
-        raise
-    except Exception:
-        raise AgentRunError("Coding Agent integration failed") from None
-    if type(invocation) is not AgentInvocation:
-        raise AgentRunError("Coding Agent returned an invalid invocation")
-    if invocation.instructions != task.instructions:
-        raise AgentRunError("Coding Agent did not retain the Host task")
-    return run_process_agent(
-        initial_program,
-        benchmark,
-        spec=spec,
-        invocation=invocation,
-        run_directory=run_directory,
-        config=config,
-        skills=selected_skills,
-        observer=observer,
-    )
-
-
-def run_process_agent(
-    initial_program: Program,
-    benchmark: Benchmark,
-    *,
-    invocation: AgentInvocation,
-    run_directory: Path,
-    config: RunConfig,
-    spec: BenchmarkSpec | None = None,
-    skills: tuple[AgentSkill, ...] = (),
-    observer: RunObserver | None = None,
-) -> RunResult:
-    """Execute the process-Agent graph used by the public Run and tests."""
-
-    from ..evaluation._service import EvaluationService
-    from ..execution.process.agent.runner import (
-        ProcessAgentRunner,
-        build_agent_environment,
-    )
-    from ..execution.process.policy.runtime import ProcessPolicyRuntimeFactory
-    from ._assessment import ProgramAssessor
-    from ._directory import (
-        RunDirectoryRecorder,
-        WorkspaceProgramSource,
-        prepare_run_directory,
-        remove_control_directory,
-        retain_agent_invocation,
-    )
-    from ._episode_pool import build_training_episode_pool
-    from ._feedback import FilesystemSubmissionPublisher
-    from ._session import SubmissionSession
-    from ._socket import UnixSessionGateway
-    from ._validation import CandidateSelector
-
-    if type(initial_program) is not Program:
-        raise TypeError("initial_program must be Program")
-    if not isinstance(benchmark, Benchmark):
-        raise TypeError("benchmark must implement Benchmark")
-    if type(invocation) is not AgentInvocation:
-        raise TypeError("invocation must be AgentInvocation")
-    if type(config) is not RunConfig:
-        raise TypeError("config must be RunConfig")
-    selected_skills = _select_skills(skills)
-    if observer is not None and not isinstance(observer, RunObserver):
-        raise TypeError("observer must implement RunObserver or be None")
-
-    selected_spec = _benchmark_spec(benchmark) if spec is None else spec
-    if type(selected_spec) is not BenchmarkSpec:
-        raise TypeError("spec must be BenchmarkSpec or None")
-    episode_pool = build_training_episode_pool(benchmark, config)
-
-    paths = prepare_run_directory(
-        run_directory,
-        initial_program,
-        skills=selected_skills,
-    )
-    try:
-        retain_agent_invocation(paths, invocation)
-        with RunDirectoryRecorder(
-            paths=paths,
-            benchmark_spec=selected_spec,
-            initial_program=initial_program,
-            config=config,
-            agent_identity=invocation.identity,
-            skills=selected_skills,
-            observer=observer,
-        ) as recorder:
-            evaluator = EvaluationService(
-                policy_runtimes=ProcessPolicyRuntimeFactory(),
-                monotonic=monotonic,
-            )
-            session = SubmissionSession(
-                programs=WorkspaceProgramSource(paths.program),
-                evaluator=evaluator,
-                publisher=FilesystemSubmissionPublisher(
-                    submissions_root=paths.submissions,
-                    feedback_root=paths.feedback,
-                ),
-                benchmark=benchmark,
-                spec=selected_spec,
-                config=config,
-                recorder=recorder,
-                episode_pool=episode_pool,
-            )
-            gateway = UnixSessionGateway(paths.socket, session)
-            runner = ProcessAgentRunner(
-                command=invocation.command,
-                workspace=paths.workspace,
-                environment=build_agent_environment(
-                    paths.socket,
-                    paths.workspace,
-                    inherited_names=invocation.inherited_environment,
-                ),
-                stdout_path=paths.agent / "stdout.log",
-                stderr_path=paths.agent / "stderr.log",
-            )
-            evolution = ProgramEvolutionRun(
-                benchmark_id=selected_spec.id,
-                initial_program=initial_program,
-                session=session,
-                gateway=gateway,
-                agent_runner=runner,
-                candidate_selector=CandidateSelector(
-                    evaluator=evaluator,
-                    benchmark=benchmark,
-                    spec=selected_spec,
-                    config=config,
-                    recorder=recorder,
-                ),
-                final_assessor=ProgramAssessor(
-                    evaluator=evaluator,
-                    benchmark=benchmark,
-                    spec=selected_spec,
-                    config=config,
-                    recorder=recorder,
-                ),
-                recorder=recorder,
-                agent_timeout_seconds=config.agent_timeout_seconds,
-            )
-            return evolution.execute()
-    finally:
-        remove_control_directory(paths.control)
-
-
-def _benchmark_spec(benchmark: Benchmark) -> BenchmarkSpec:
-    try:
-        spec = benchmark.spec
-    except Exception:
-        raise AgentRunError("Benchmark specification is unavailable") from None
-    if type(spec) is not BenchmarkSpec:
-        raise AgentRunError("Benchmark returned an invalid specification")
-    return spec
 
 
 __all__: list[str] = []

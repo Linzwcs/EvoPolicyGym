@@ -21,6 +21,7 @@ archive/
 private/
 paper/
 reference/
+/human-in-loop/
 
 # Generated experiment/cache outputs
 /runs/

@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from evopolicygym.errors import EvaluationError
-from evopolicygym.execution.process.agent.runner import AgentExit
 from evopolicygym.program import Program
 from evopolicygym.results import (
     AssessmentResult,
@@ -16,11 +15,9 @@ from evopolicygym.results import (
     RunTerminalReason,
     SubmissionResult,
 )
-from evopolicygym.run._service import (
-    ProgramEvolutionRun,
-    TerminalSignal,
-)
-from evopolicygym.run._validation import CandidateSelection
+from evopolicygym.run._agent import AgentOutcome, TerminalSignal
+from evopolicygym.run._selection.validation import CandidateSelection
+from evopolicygym.run._service import ProgramEvolutionRun
 
 
 class FakeTerminal:
@@ -43,7 +40,7 @@ class FakeGateway:
 
 
 class FakeAgentRunner:
-    def __init__(self, outcome: AgentExit) -> None:
+    def __init__(self, outcome: AgentOutcome) -> None:
         self.outcome = outcome
         self.calls = 0
 
@@ -52,7 +49,7 @@ class FakeAgentRunner:
         terminal: TerminalSignal,
         *,
         timeout_seconds: float,
-    ) -> AgentExit:
+    ) -> AgentOutcome:
         del terminal, timeout_seconds
         self.calls += 1
         return self.outcome
@@ -130,7 +127,7 @@ class FakeFinalAssessor:
 class FakeRecorder:
     def __init__(self) -> None:
         self.events: list[tuple[str, dict[str, object]]] = []
-        self.committed: tuple[RunResult, AgentExit] | None = None
+        self.committed: tuple[RunResult, AgentOutcome] | None = None
 
     def record_event(
         self,
@@ -139,7 +136,7 @@ class FakeRecorder:
     ) -> None:
         self.events.append((event, dict(fields)))
 
-    def commit(self, result: RunResult, agent_exit: AgentExit) -> None:
+    def commit(self, result: RunResult, agent_exit: AgentOutcome) -> None:
         self.committed = (result, agent_exit)
 
 
@@ -159,7 +156,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
             program = make_program(Path(temporary))
             session = FakeSession()
             gateway = FakeGateway()
-            runner = FakeAgentRunner(AgentExit(returncode=0))
+            runner = FakeAgentRunner(AgentOutcome(returncode=0))
             recorder = FakeRecorder()
 
             result = ProgramEvolutionRun(
@@ -190,7 +187,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
             session = FakeSession(terminal_reason="evaluation_failed")
             gateway = FakeGateway()
             runner = FakeAgentRunner(
-                AgentExit(
+                AgentOutcome(
                     returncode=-15,
                     stopped_after_terminal=True,
                 )
@@ -230,7 +227,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                 session=FakeSession(),
                 gateway=FakeGateway(),
                 agent_runner=FakeAgentRunner(
-                    AgentExit(
+                    AgentOutcome(
                         returncode=None,
                         start_failed=True,
                         start_error_type="FileNotFoundError",
@@ -292,7 +289,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                 session=session,
                 gateway=gateway,
                 agent_runner=FakeAgentRunner(
-                    AgentExit(
+                    AgentOutcome(
                         returncode=-15,
                         stopped_after_terminal=True,
                     )
@@ -352,7 +349,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                     ),
                 ),
                 gateway=FakeGateway(),
-                agent_runner=FakeAgentRunner(AgentExit(returncode=0)),
+                agent_runner=FakeAgentRunner(AgentOutcome(returncode=0)),
                 candidate_selector=FakeCandidateSelector(fail=True),
                 final_assessor=FakeFinalAssessor(),
                 recorder=recorder,
@@ -406,7 +403,7 @@ class ProgramEvolutionRunTests(unittest.TestCase):
                     ),
                 ),
                 gateway=gateway,
-                agent_runner=FakeAgentRunner(AgentExit(returncode=0)),
+                agent_runner=FakeAgentRunner(AgentOutcome(returncode=0)),
                 candidate_selector=FakeCandidateSelector(
                     CandidateSelection(
                         submission=submission,

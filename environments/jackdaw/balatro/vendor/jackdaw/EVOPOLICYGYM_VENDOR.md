@@ -28,7 +28,7 @@ The following upstream commits are applied in order:
 The resulting benchmark revision identifier is:
 
 ```text
-c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg1
+c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg2
 ```
 
 ## Local maintenance
@@ -44,6 +44,11 @@ Voucher pool construction. It uses Jackdaw's existing `UNAVAILABLE` sentinel
 semantics, so excluded objects are filtered before RNG-backed selection. The
 Balatro Benchmark uses this plumbing for its versioned active-content profile;
 the vendored engine does not impose those exclusions by default.
+
+The `epg2` local patch applies Ceremonial Dagger's explicit
+`destroy_joker` setting-Blind mutation. The Joker already selected its
+right-hand neighbor and gained twice that Joker's sell value, but the game
+layer previously left the selected Joker in the owned list.
 
 This stack is not a claim of complete official Balatro equivalence. In
 particular, upstream PR #2 reports two unresolved multi-Ante pool divergences,

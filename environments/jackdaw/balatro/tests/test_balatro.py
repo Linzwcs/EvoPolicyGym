@@ -65,6 +65,9 @@ class BalatroBenchmarkTests(unittest.TestCase):
                 "deck": "b_red",
                 "stake": 1,
                 "content_profile": "jackdaw-active-content-v1",
+                "engine_revision": (
+                    "c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg2"
+                ),
             },
         )
 

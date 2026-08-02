@@ -49,3 +49,18 @@ class TestMarbleJokerRegression:
             "rank": "Ace",
             "id": 14,
         }
+
+
+class TestCeremonialDaggerRegression:
+    def test_selecting_blind_destroys_the_right_neighbor(self):
+        game_state = initialize_run("b_red", 1, "EPG-CEREMONIAL")
+        dagger = create_joker("j_ceremonial")
+        target = create_joker("j_card_sharp")
+        expected_mult = target.sell_cost * 2
+        game_state["jokers"] = [dagger, target]
+
+        step(game_state, SelectBlind())
+
+        assert len(game_state["jokers"]) == 1
+        assert game_state["jokers"][0] is dagger
+        assert dagger.ability["mult"] == expected_mult

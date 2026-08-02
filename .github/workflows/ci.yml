@@ -49,6 +49,7 @@ jobs:
       - name: Check CLI and build
         run: |
           uv run evopolicygym --version
+          uv run evopolicygym-session --version
           uv build
 
   cartpole:
@@ -88,36 +89,36 @@ jobs:
           uv build
 
   minigrid:
-    name: MiniGrid ${{ matrix.benchmark }} Benchmark (${{ matrix.os }})
+    name: ${{ matrix.project }} Benchmark (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        benchmark:
-          - blocked_unlock_pickup
-          - crossing
-          - dist_shift
-          - doorkey
-          - dynamic_obstacles
-          - empty
-          - fetch
-          - four_rooms
-          - go_to_door
-          - go_to_object
-          - keycorridor
-          - lava_gap
-          - locked_room
-          - memory
-          - multiroom
-          - obstructed_maze
-          - playground
-          - put_near
-          - red_blue_doors
-          - unlock
-          - unlock_pickup
-          - wfc
+        project:
+          - environments/minigrid/minigrid/blocked_unlock_pickup
+          - environments/minigrid/minigrid/crossing
+          - environments/minigrid/minigrid/dist_shift
+          - environments/minigrid/minigrid/doorkey
+          - environments/minigrid/minigrid/dynamic_obstacles
+          - environments/minigrid/minigrid/empty
+          - environments/minigrid/minigrid/fetch
+          - environments/minigrid/minigrid/four_rooms
+          - environments/minigrid/minigrid/go_to_door
+          - environments/minigrid/minigrid/go_to_object
+          - environments/minigrid/minigrid/keycorridor
+          - environments/minigrid/minigrid/lava_gap
+          - environments/minigrid/minigrid/locked_room
+          - environments/minigrid/minigrid/memory
+          - environments/minigrid/minigrid/multiroom
+          - environments/minigrid/minigrid/obstructed_maze
+          - environments/minigrid/minigrid/playground
+          - environments/minigrid/minigrid/put_near
+          - environments/minigrid/minigrid/red_blue_doors
+          - environments/minigrid/minigrid/unlock
+          - environments/minigrid/minigrid/unlock_pickup
+          - environments/minigrid/minigrid/wfc
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -134,12 +135,12 @@ jobs:
       - name: Sync locked Benchmark environment
         run: >-
           uv sync
-          --project environments/minigrid/minigrid/${{ matrix.benchmark }}
+          --project ${{ matrix.project }}
           --locked
           --extra dev
 
       - name: Check and test external Benchmark
-        working-directory: environments/minigrid/minigrid/${{ matrix.benchmark }}
+        working-directory: ${{ matrix.project }}
         run: |
           uv run ruff check src tests
           uv run mypy
@@ -155,8 +156,37 @@ jobs:
       matrix:
         project:
           - environments/ale/atari
+          - environments/arcprize/arc_agi_3
+          - environments/atcoder/ahc054/treants_forest
+          - environments/atcoder/ahc057/molecules
+          - environments/atcoder/ahc058/apple_incremental_game
+          - environments/codechef/june18/warehouseman
+          - environments/gymnasium/box2d/bipedal_walker
+          - environments/gymnasium/box2d/car_racing
+          - environments/gymnasium/box2d/lunar_lander
+          - environments/gymnasium/classic_control/acrobot
+          - environments/gymnasium/classic_control/mountain_car
+          - environments/gymnasium/classic_control/mountain_car_continuous
+          - environments/gymnasium/classic_control/pendulum
+          - environments/gymnasium/mujoco/ant
+          - environments/gymnasium/mujoco/half_cheetah
+          - environments/gymnasium/mujoco/hopper
+          - environments/gymnasium/mujoco/humanoid
+          - environments/gymnasium/mujoco/humanoid_standup
+          - environments/gymnasium/mujoco/inverted_double_pendulum
+          - environments/gymnasium/mujoco/inverted_pendulum
+          - environments/gymnasium/mujoco/pusher
+          - environments/gymnasium/mujoco/reacher
+          - environments/gymnasium/mujoco/swimmer
+          - environments/gymnasium/mujoco/walker2d
+          - environments/gymnasium/toy_text/blackjack
+          - environments/gymnasium/toy_text/cliff_walking
+          - environments/gymnasium/toy_text/frozen_lake
+          - environments/gymnasium/toy_text/taxi
           - environments/gymnasium_robotics/robotics
           - environments/highway_env/highway_env
+          - environments/jackdaw/balatro
+          - environments/jumanji/jumanji
           - environments/metaworld/metaworld
           - environments/minigrid/babyai
           - environments/stable_retro/airstriker

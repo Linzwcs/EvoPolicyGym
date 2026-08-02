@@ -19,6 +19,7 @@ dependencies = []
 
 [project.scripts]
 evopolicygym = "evopolicygym.cli:main"
+evopolicygym-session = "evopolicygym.run._session.cli:main"
 
 [build-system]
 requires = ["hatchling==1.31.0"]

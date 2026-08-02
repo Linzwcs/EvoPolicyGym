@@ -6,12 +6,13 @@ published product documentation.
 
 ## Principles
 
-- The site must distinguish implemented behavior, draft contracts, planned
+- The site distinguishes implemented behavior, draft contracts, planned
   systems, and historical research evidence.
 - Public documentation follows code and representative tests. It does not
   invent a stable API ahead of them.
-- Core explanatory pages are bilingual Markdown. Data-heavy result views remain
-  Astro pages backed by explicit datasets.
+- Core explanatory pages are bilingual Markdown managed by Docusaurus.
+- Data-heavy research views remain purpose-built React pages backed by explicit
+  datasets.
 - Environment authoring and benchmark results are separate surfaces.
 - Version controls appear only when they correspond to real snapshots.
 
@@ -19,10 +20,10 @@ published product documentation.
 
 | Area | Purpose | Initial blocks | Content mode |
 | --- | --- | --- | --- |
-| Home | Explain the research thesis and route readers. | Thesis, current status, lifecycle, quick start, project portals. | Short curated Astro page; intentionally direct-written. |
-| Docs | Explain the currently implemented system. | Getting started, lifecycle and architecture, Policy ABI, runtime and safety. | Version-aware bilingual Markdown. |
-| Environments | Compare current Benchmark distributions and explain how an external Environment is authored. | Task-domain overview, upstream ecosystems, suites, profiles, Policy interfaces, scoring, conformance. | Implementation-backed catalog plus normative authoring guide. |
-| Results | Preserve and inspect benchmark evidence. | Methodology, score matrix, qualitative reruns, per-environment records. | Immutable experiment data with custom views. |
+| Home | Explain the research thesis and route readers. | Thesis, current status, lifecycle, quick start, project portals. | Curated React page in the Docusaurus shell. |
+| Docs | Explain the currently implemented system. | Getting started, lifecycle and architecture, Policy ABI, runtime and safety. | Version-ready bilingual Markdown. |
+| Environments | Index current Benchmark distributions and give each Environment room for its own research narrative. | Concise collection index; per-Environment task, interface, evaluation, interpretation, and media when available. | Typed catalog plus Markdown/MDX Environment pages and the normative authoring guide. |
+| Results | Preserve and inspect benchmark evidence. | Methodology, score matrix, qualitative reruns, per-environment records. | Immutable experiment data with generated React views. |
 | Blog | Record when and why the project changes. | Releases, engineering decisions, Benchmark integrations, experiment retrospectives. | Date-ordered bilingual Markdown posts. |
 
 ## Theme and content boundary
@@ -30,27 +31,28 @@ published product documentation.
 The site does not force every surface into Markdown. Choose the source by the
 kind of change:
 
-- write a curated landing page directly in `src/pages/` when its structure and
-  visual composition are edited together;
-- write explanatory Docs and Blog prose in `src/content/`;
+- write curated landing pages in `src/pages/` when structure and visual
+  composition change together;
+- write explanatory Docs prose in `docs/` and Blog prose in `blog/`;
+- write Environment narratives in `environments/`, using MDX only when figures,
+  video, or a focused interactive component requires it;
+- keep Chinese Docs and Blog sources in the corresponding
+  `i18n/zh-CN/docusaurus-plugin-content-*` directories;
 - keep release identity and other shared facts in `src/data/`;
-- keep large catalogs, score matrices, reruns, and other generated evidence in
-  typed datasets with purpose-built views;
-- keep typography, spacing, navigation shell, article rendering, and responsive
-  behavior in `src/layouts/`, `src/components/`, and `src/styles/`.
+- keep large catalogs, score matrices, reruns, and generated evidence in typed
+  datasets with purpose-built views;
+- keep shared typography, spacing, navigation integration, article treatment,
+  and responsive behavior in `src/css/` and `src/components/`.
 
 Content files must not carry theme classes. Theme code must not contain
-paragraph-length editorial copy. Collection metadata drives titles,
-descriptions, navigation, ordering, status, and bilingual pairing.
+paragraph-length article copy. Front matter drives titles, descriptions,
+ordering, tags, publication dates, and authorship. Docusaurus owns route
+generation and localized content pairing.
 
-Blog content is organized by publication date and may describe releases,
-implementation decisions, and experiment retrospectives. Blog posts link to
-Docs, Results, and Environments as their factual sources; they do not redefine
-those surfaces.
-
-Project governance links such as README, CONTRIBUTING, CHANGELOG, license, and
-repository source remain in the footer or GitHub until they justify a dedicated
-Project section.
+Blog posts link to Docs, Results, and Environments as factual sources; they do
+not redefine those surfaces. Project governance links such as README,
+CONTRIBUTING, CHANGELOG, license, and repository source remain in the footer or
+GitHub until they justify a dedicated Project section.
 
 ## Content maturity
 
@@ -65,18 +67,15 @@ Every documentation page belongs to one visible state:
 
 ## Documentation versions
 
-The initial website has one real documentation channel:
+The initial website has one real documentation channel: the current default
+branch. Docusaurus versioning should be enabled only when a compatibility-
+bearing release is frozen. At that point:
 
-- <code>next</code>: tracks the default branch and may change.
-
-When the first compatibility-bearing release is frozen:
-
-- <code>/docs/</code> points to the latest stable documentation;
-- <code>/docs/next/</code> follows active development;
-- <code>/docs/vX.Y/</code> preserves a release snapshot;
-- the Environment landing page routes readers to the appropriate authoring
-  version;
-- a version selector is added only after at least two real snapshots exist.
+- `/docs/` points to the latest stable documentation;
+- a separate development snapshot follows active work;
+- prior release snapshots remain immutable;
+- Environment authoring links target the appropriate documentation version;
+- a version selector appears only after at least two real snapshots exist.
 
 Historical Results are versioned by experiment identity and generation date,
 not automatically by the Python package version.
@@ -85,22 +84,20 @@ not automatically by the Python package version.
 
 For each future release:
 
-1. Update <code>src/data/project.ts</code> for the global package, protocol, and
-   docs labels.
-2. Freeze compatibility-bearing Markdown into the release snapshot.
-3. Set page maturity to <code>stable</code>, <code>draft</code>, or
-   <code>historical</code> as appropriate.
-4. Add migration and compatibility notes only for contracts that actually
-   changed.
-5. Validate all bilingual routes, internal links, and canonical URLs.
+1. Update `src/data/project.ts` for package, protocol, paper, and docs labels.
+2. Freeze compatibility-bearing Docs through Docusaurus versioning.
+3. Mark content `stable`, `draft`, or `historical` as appropriate.
+4. Add migration notes only for contracts that actually changed.
+5. Validate type safety, both locale builds, internal links, and canonical URLs.
 6. Never rewrite historical score or rerun meaning to match a newer runtime.
 
 ## Environment section status
 
-The public boundary, structural entry points, lifecycle, conformance semantics,
-and CartPole reference contract are implementation-backed. The live catalog
-covers 53 independently installable Benchmark distributions across nine
-upstream ecosystems. Catalog content lives in a typed data module and is grouped
-first by research task domain, then by ecosystem and suite. Future dedicated
-Environment pages should use the CartPole contract shape and remain grounded in
-the corresponding distribution and tests.
+The public boundary, lifecycle, conformance semantics, and Environment
+reference contracts are implementation-backed. The catalog covers 57
+independently installable Benchmark distributions and at least 208 named tasks
+or profiles across 11 upstream ecosystems. Parameterized collections and size
+variants extend the concrete configuration surface beyond that named count.
+The typed catalog remains a compact inventory. Environment-specific
+explanation and media live in Markdown/MDX pages and remain grounded in the
+corresponding distribution and tests.

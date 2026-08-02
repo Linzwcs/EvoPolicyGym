@@ -8,8 +8,9 @@ from pathlib import Path
 
 from balatro import BalatroBenchmark, baseline_program
 
-from evopolicygym import (
+from evopolicygym.run import (
     AssessmentConfig,
+    ConsoleProgress,
     RunConfig,
     ValidationConfig,
     run,
@@ -17,7 +18,6 @@ from evopolicygym import (
 from evopolicygym.agents import Codex
 from evopolicygym.errors import AgentSkillError
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.run import ConsoleProgress
 from evopolicygym.skills import AgentSkill
 
 

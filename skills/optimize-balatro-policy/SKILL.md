@@ -1,6 +1,6 @@
 ---
 name: optimize-balatro-policy
-description: Build, improve, test, and select a reward-aligned EvoPolicyGym Bot system for the Jackdaw Balatro Benchmark. Use when architecting files under program/, analyzing Feedback or replay.jsonl, modeling hands, draws, builds, economy, and visible effects, hardening legal Actions, allocating the Episode budget, diagnosing Policy failures, or handing final candidates to the Host.
+description: Build, modularize, improve, test, and select a reward-aligned EvoPolicyGym Bot system for the Jackdaw Balatro Benchmark. Use when architecting or refactoring program/, assigning module ownership and dependency direction, choosing high-value strategy experiments, diagnosing or optimizing layered state/mechanics/outcome/value/policy models, analyzing indexed train Feedback or replay.jsonl, modeling hands, draws, builds, economy, and visible effects, hardening legal Actions, partitioning a train-only Episode pool and budget, running matched Program comparisons, diagnosing Policy failures, or handing frozen published candidates to Host Validation and Assessment.
 ---
 
 # Optimize Balatro Policy
@@ -10,18 +10,45 @@ strategy, software architecture, replay testing, and noisy evaluation as one
 engineering problem. Prefer a small shared decision model over disconnected
 phase heuristics, tooltip tier lists, and encounter-specific patches.
 
+## Load the reusable resources
+
+- Before planning or interpreting an evaluation, read
+  [references/experiment-protocol.md](references/experiment-protocol.md).
+- Before choosing the next capability, use the failure-signature routing and
+  experiment cards in
+  [references/experiment-catalog.md](references/experiment-catalog.md).
+- Before editing `program/`, read the applicable implementation pattern in
+  [references/implementation-playbook.md](references/implementation-playbook.md).
+- Before extracting, splitting, merging, or rewiring Policy modules, read
+  [references/modularity-guide.md](references/modularity-guide.md).
+- Before changing a prediction, value, planning, or selection model, localize
+  the lowest incorrect layer with
+  [references/modeling-stack.md](references/modeling-stack.md).
+- Before changing scoring, discard, shop, build, or Joker-order behavior, read
+  the relevant part of
+  [references/strategy-lessons.md](references/strategy-lessons.md).
+- Use `scripts/summarize_evidence.py` to pool public submission Feedback by
+  immutable digest. Do not hand-calculate repeated evidence summaries.
+- Use `scripts/compare_indexed_feedback.py` to compare separate control and
+  candidate Feedback files. It refuses unmatched Episode-index sets or repeat
+  counts.
+
 ## Align with the objective
 
 - Distinguish Benchmark reward from in-game Chips and dollars. Optimize
   expected Episode score: Blinds cleared plus the large complete-run win bonus.
+- Keep win reward and ordinary progress separate. A normal win clears 24
+  Blinds and receives the 1000-point win bonus, producing run reward 1024.
 - Treat Ante reach and Blinds cleared as development diagnostics, not
   substitutes for winning. Prefer changes that increase robust Ante 8
   completion probability over changes that only improve early progress.
 - Group evidence by Program digest and pool all Episodes for that digest. A
   single win is high-variance evidence, not proof that one observed build or
   purchase caused it.
-- Record wins, Episodes, Policy failures, score distribution, and Ante reach
-  separately. Never compare only the largest submission mean.
+- Record wins, Episodes, Policy failures, mean/median Blinds, early deaths,
+  mid/late tails, and Ante reach separately. Never compare only the largest
+  submission mean. Results for the same selected Episode indices are matched;
+  results for different index sets remain unmatched noisy evidence.
 
 ## Preserve the boundary
 
@@ -38,18 +65,35 @@ phase heuristics, tooltip tier lists, and encounter-specific patches.
 
 ## Establish evidence first
 
-1. Read this skill, inspect every file under `program/`, and inspect all
-   existing Feedback and advertised Artifacts.
-2. Submit the unchanged Program with the smallest useful batch to establish its
-   correctness, score distribution, failure count, Ante reach, and win rate.
-3. Keep an evidence ledger with submission ID, digest, Episode count, score,
-   failures, wins, Ante reach, hypothesis, and architectural change.
-4. Inspect retained replay trajectories and omission markers, not only
-   terminal states or aggregate scores. Identify the first consequential bad
-   decision in representative weak, strong, and failed Episodes.
+1. Read the Host task's Run-local Episode-index range, Episode budget,
+   submission limits, and candidate limit. Before the first result, partition
+   both train indices and spend into baseline, diagnosis, matched capability
+   development, and frozen confirmation roles.
+2. Inspect every file under `program/` and the permitted public train Feedback
+   and advertised Artifacts. Record the unchanged Program digest and preserve
+   an exact restore method.
+3. Submit the smallest useful baseline batch to establish correctness,
+   distribution, failures, Ante reach, and wins.
+4. Keep an evidence ledger with digest, submission IDs, selected Episode
+   indices, preassigned role, Episode count, mean/median Blinds, `≤5`, `≥12`,
+   `≥18`, failures, wins, hypothesis, and decision. Keep the ledger in working
+   reasoning; do not add non-Policy evidence files to the submitted `program/`.
+5. Inspect replay trajectories and omission markers only for baseline,
+   diagnosis, and capability-development submissions. Identify the first
+   consequential bad decision in representative weak, strong, and failed
+   Episodes.
+6. Enter frozen confirmation only once. Stop editing strategic behavior,
+   evaluate the frozen shortlist on pre-reserved, previously unseen train
+   indices, and inspect aggregate outcomes only.
 
-Treat small-batch score changes as noisy observations. Compare repeated
-identical digests and distributions before attributing a result to an edit.
+All Agent-visible submissions are train evidence from one fixed Host-owned
+Episode pool. The Agent can choose and reuse Run-local Episode indices but
+cannot observe their actual Environment or Policy seeds. Reusing an index
+preserves its hidden Episode specification and Policy seed while creating a
+fresh Environment and Policy runtime and consuming budget again. Use identical
+index selectors for matched online A/B, and treat comparisons over different
+selectors as unmatched. Follow the complete index-partition, budget, and freeze
+procedure in the experiment protocol.
 
 ## Build a Policy system
 
@@ -73,8 +117,9 @@ tests/
   test_replays.py  persistent public replay regression
 ```
 
-Adapt names and merge adjacent small modules, but preserve these enforceable
-boundaries:
+Treat this tree as a responsibility map, not a mandatory file list. Adapt names
+and merge adjacent small modules according to the ownership and dependency
+rules in the modularity guide, but preserve these enforceable boundaries:
 
 - Concentrate raw dictionary access and nullable-field normalization in one
   observation adapter.
@@ -91,18 +136,24 @@ boundaries:
   silently treating them as zero or inventing behavior.
 - Persist the replay harness and regression fixtures under `program/`; do not
   leave essential tests only in one-off shell snippets.
+- Give every responsibility one authoritative owner and keep dependencies
+  acyclic toward normalized facts and pure models. Do not preserve parallel
+  scorers, parsers, tier lists, or Action builders after migration.
 
 Use this decision pipeline:
 
 ```text
-observation -> StateView -> EpisodePlan -> phase intents
-            -> shared outcome/value model -> ActionGateway -> Action
+observation -> StateView + LegalCatalog
+            -> MechanicsSnapshot + EpisodePlan
+            -> OutcomeEstimate -> ActionValue
+            -> ranked Intent -> ActionGateway -> Action
 ```
 
 Treat the system checkpoint as required work, even though refactoring alone
-does not increase reward. Validate behavioral equivalence on public replays,
-then use a small submission to confirm it. Do not defer structural work until
-the final evidence phase.
+does not increase reward. Keep modular refactors separate from strategic
+experiments. Validate intent and Action equivalence on public replays, then use
+a small matched submission only when local evidence cannot cover runtime
+behavior. Do not defer structural work until the final evidence phase.
 
 ## Enforce the Action contract
 
@@ -125,7 +176,9 @@ Build a reusable model of visible game mechanics, not a collection of
 encounter-name patches. Parse structured rule parameters into effect roles and
 evaluate actions as changes to survival probability, build strength, economy,
 and win probability. Use localized text handling only when structured public
-data cannot express an encountered rule.
+data cannot express an encountered rule. Diagnose the earliest wrong model
+layer and fix it there; do not compensate for a mechanics or prediction defect
+with an upper-layer threshold.
 
 ### Hands and draws
 
@@ -141,6 +194,11 @@ data cannot express an encountered rule.
   above a highly upgraded core hand merely by poker category.
 - Compare predicted hand score with actual `last_hand` breakdowns and turn
   systematic error into effect-model regressions.
+- Treat two hidden cards with absent rank or suit as two unknowns, never as a
+  known Pair or Flush relation.
+- Test the downstream selector whenever calibration changes. A more accurate
+  immediate score can reduce survival when the play/discard horizon remains
+  myopic.
 
 ### Effects and build
 
@@ -158,6 +216,9 @@ data cannot express an encountered rule.
 - Model temporary, scaling, conditional, consumable, and decaying effects
   differently. Evaluate Joker and played-card ordering when resolution order
   matters.
+- Separate scored-card, held-card, main additive-Mult, main XMult, retrigger,
+  and copy phases. Do not apply a generic Joker sort across unresolved copy
+  dependencies.
 
 ### Economy and horizon
 
@@ -172,6 +233,31 @@ data cannot express an encountered rule.
   handling as a constraint on the plan, not a late special case.
 - Evaluate a purchase or skip by its effect on the current plan and future
   survival, not by a fixed global threshold alone.
+
+## Run controlled capability experiments
+
+Change one capability at a time:
+
+1. Route the observed failure signature through the experiment catalog. State
+   which public states are eligible, which decisions may change, why the change
+   should improve survival or growth, and what would reject it.
+2. Run a development replay or counterfactual opportunity audit before an
+   environment evaluation. Count eligible states and changed actions.
+3. Predeclare a small development index selector. Evaluate the exact control
+   digest and candidate digest on that same selector, then compare public
+   outcomes by `episode_index`. Prefer narrow guards that prevent catastrophic
+   early regressions.
+4. When a candidate looks promising, repeat the matched comparison on a second
+   predeclared selector or evaluate the unchanged digest on reserved train
+   indices. Require evidence beyond one matched batch.
+5. Require zero Policy failures and no safety regression. Restore rejected
+   controls exactly and verify their digest.
+
+Once frozen confirmation begins, do not inspect its replay to learn how to
+patch. Use its aggregate evidence only to reject brittle candidates or order
+the final shortlist. Host Validation and Assessment occur after Agent cleanup,
+publish nothing back to the Agent workspace, and stay outside the iteration
+loop.
 
 ## Add replay regression gates
 
@@ -196,8 +282,8 @@ Before every submission:
 Test shop, pack, consumable, full-slot, zero-money, no-discard, face-down,
 debuffed, ordering, and Boss paths. Do not submit a known failing path merely
 because its mean score is promising. If any gate fails, stop before
-`evopolicygym submit`; shell command sequencing must not continue after the
-failure.
+`evopolicygym-session submit`; shell command sequencing must not continue
+after the failure.
 
 ## Iterate by capability
 
@@ -206,12 +292,15 @@ Use a staged sequence unless evidence points elsewhere:
 1. Establish the unchanged baseline and diagnose the first consequential error.
 2. Eliminate Policy failures and implement exact Action admission.
 3. Complete the required system checkpoint: normalized state, Episode plan,
-   module boundaries, and persistent replay tests.
-4. Unify hand enumeration, visible scoring, draw probability, and discard
+   one-owner module boundaries, an acyclic dependency graph, and persistent
+   replay tests.
+4. Audit whether the proposed capability can alter actions often enough to
+   matter.
+5. Unify hand enumeration, visible scoring, draw probability, and discard
    value.
-5. Add structured effect roles and build-aware scoring.
-6. Add economy, slot replacement, pack, consumable, and ordering decisions.
-7. Add Blind scaling, Boss constraints, and long-horizon build control.
+6. Add structured effect roles and build-aware scoring.
+7. Add economy, slot replacement, pack, consumable, and ordering decisions.
+8. Add Blind scaling, Boss constraints, and long-horizon build control.
 
 Change one decision capability per experiment, but implement it through the
 shared system rather than appending a phase-local exception. Avoid named-object
@@ -234,6 +323,12 @@ reconstructing a previous candidate.
   enough.
 - Use small batches for correctness and directional experiments, then larger
   batches or repeated identical digests for candidate confidence.
+- Reserve a meaningful confirmation allocation before development consumes the
+  budget, including train indices that development will not inspect. Do not
+  spend the whole reserve chasing one promising result.
+- Reuse identical selectors deliberately for matched comparisons, remembering
+  that every reuse consumes budget. Never inspect, infer, name, or claim
+  control over the hidden seed identities behind Run-local indices.
 - Enter repeat-only evidence collection only after the required system
   checkpoint is complete, replay tests persist, and no known correctness or
   model-consistency defect remains.
@@ -244,8 +339,9 @@ reconstructing a previous candidate.
   alternatives rather than lucky observations.
 - Follow the Host task's current `finish` syntax and candidate limit. When
   private Validation is configured, hand the Host the strongest ordered
-  candidate set; do not consume Agent search budget pretending to reproduce
-  Host Validation.
+  credible candidate set. The Host evaluates them on identical private
+  Validation Episodes only after Agent exit; do not consume train budget
+  pretending to reproduce that stage.
 - Expect neither Validation nor held-out Assessment evidence in workspace
   Feedback. Never adapt after final handoff.
 - Finish successfully before exiting. Unsubmitted workspace edits are not

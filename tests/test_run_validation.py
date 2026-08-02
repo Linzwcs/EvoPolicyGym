@@ -23,7 +23,7 @@ from evopolicygym.results import (
     SubmissionResult,
 )
 from evopolicygym.run import RunConfig, ValidationConfig
-from evopolicygym.run._validation import CandidateSelector
+from evopolicygym.run._selection.validation import CandidateSelector
 
 
 class StubBenchmark:

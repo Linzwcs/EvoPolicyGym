@@ -14,7 +14,7 @@ from evopolicygym.results import (
     Feedback,
     SubmissionResult,
 )
-from evopolicygym.run._feedback import (
+from evopolicygym.run._publication import (
     FilesystemSubmissionPublisher,
     record_submission,
 )
@@ -55,7 +55,7 @@ class FilesystemSubmissionPublisherTests(unittest.TestCase):
                 replace(source, destination)
 
             with patch(
-                "evopolicygym.run._feedback.os.replace",
+                "evopolicygym.run._publication.os.replace",
                 side_effect=observing_replace,
             ):
                 record_submission(submissions, result)
@@ -99,7 +99,7 @@ class FilesystemSubmissionPublisherTests(unittest.TestCase):
 
             with (
                 patch(
-                    "evopolicygym.run._feedback._make_tree_read_only",
+                    "evopolicygym.run._publication._make_tree_read_only",
                     side_effect=OSError("freeze failed"),
                 ),
                 self.assertRaisesRegex(OSError, "freeze failed"),

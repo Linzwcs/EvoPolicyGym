@@ -12,16 +12,12 @@ from unittest.mock import patch
 
 import evopolicygym
 from evopolicygym import (
-    AssessmentConfig,
     Benchmark,
     EvaluationConfig,
     EvaluationResult,
     Program,
-    RunConfig,
     RunResult,
-    ValidationConfig,
     evaluate,
-    run,
 )
 from evopolicygym.agents import Codex, command_invocation
 from evopolicygym.artifacts import (
@@ -55,9 +51,15 @@ from evopolicygym.results import (
     Feedback,
     SubmissionResult,
 )
-from evopolicygym.run import RunEvent
-from evopolicygym.run._feedback import record_submission
-from evopolicygym.run._service import run_process_agent
+from evopolicygym.run import (
+    AssessmentConfig,
+    RunConfig,
+    RunEvent,
+    ValidationConfig,
+    run,
+)
+from evopolicygym.run._process import run_process_agent
+from evopolicygym.run._publication import record_submission
 from evopolicygym.skills import AgentSkill, AgentSkillLimits
 
 
@@ -158,17 +160,13 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(
             set(evopolicygym.__all__),
             {
-                "AssessmentConfig",
                 "Benchmark",
                 "EvaluationConfig",
                 "EvaluationResult",
                 "Program",
-                "RunConfig",
                 "RunResult",
-                "ValidationConfig",
                 "__version__",
                 "evaluate",
-                "run",
             },
         )
         self.assertEqual(evopolicygym.__version__, "0.3.0")
@@ -176,8 +174,8 @@ class PublicContractTests(unittest.TestCase):
         self.assertFalse(hasattr(evopolicygym, "PolicyValue"))
         self.assertTrue(callable(evaluate))
         self.assertTrue(callable(run))
-        self.assertIs(ValidationConfig, evopolicygym.ValidationConfig)
-        self.assertIs(AssessmentConfig, evopolicygym.AssessmentConfig)
+        self.assertNotIn("run", evopolicygym.__all__)
+        self.assertNotIn("RunConfig", evopolicygym.__all__)
 
     def test_policy_and_benchmark_are_structural(self) -> None:
         policy = ConstantPolicy()
@@ -1040,7 +1038,12 @@ workspace = Path(os.environ["EVOPOLICYGYM_WORKSPACE"])
 
 def call(*arguments):
     completed = subprocess.run(
-        [sys.executable, "-m", "evopolicygym.cli", *arguments],
+        [
+            sys.executable,
+            "-m",
+            "evopolicygym.run._session.cli",
+            *arguments,
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -1344,7 +1347,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "evopolicygym.cli",
+        "evopolicygym.run._session.cli",
         "submit",
         "program",
         "--episodes",
@@ -1467,7 +1470,7 @@ assert Path.cwd() == workspace
 assert os.environ["EVOPOLICYGYM_SESSION_SOCKET"] == os.path.join(
     "..", "control", "session.sock"
 )
-assert shutil.which("evopolicygym") is not None
+assert shutil.which("evopolicygym-session") is not None
 assert arguments[:5] == [
     "--ask-for-approval",
     "never",
@@ -1490,8 +1493,8 @@ prompt = arguments[-1]
 assert "program/" in prompt
 assert "feedback/" in prompt
 assert "skills/improve-counter/SKILL.md" in prompt
-assert 'evopolicygym submit program --episodes "0"' in prompt
-assert "evopolicygym finish SUBMISSION_ID" in prompt
+assert 'evopolicygym-session submit program --episodes "0"' in prompt
+assert "evopolicygym-session finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
 assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ
 
@@ -1505,7 +1508,7 @@ assert (skill / "references" / "model.md").read_text() == "Count calls.\\n"
 
 def call(*arguments):
     completed = subprocess.run(
-        ["evopolicygym", *arguments],
+        ["evopolicygym-session", *arguments],
         check=True,
         capture_output=True,
         text=True,

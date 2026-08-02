@@ -1,0 +1,30 @@
+{
+  "title": {
+    "message": "EvoPolicyGym",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "EvoPolicyGym",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Docs": {
+    "message": "文档",
+    "description": "Navbar item with label Docs"
+  },
+  "item.label.Environments": {
+    "message": "环境",
+    "description": "Navbar item with label Environments"
+  },
+  "item.label.Results": {
+    "message": "结果",
+    "description": "Navbar item with label Results"
+  },
+  "item.label.Blog": {
+    "message": "研究日志",
+    "description": "Navbar item with label Blog"
+  },
+  "item.label.GitHub ↗": {
+    "message": "GitHub ↗",
+    "description": "Navbar item with label GitHub ↗"
+  }
+}

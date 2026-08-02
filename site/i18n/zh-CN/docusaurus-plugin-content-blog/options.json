@@ -1,0 +1,14 @@
+{
+  "title": {
+    "message": "研究日志",
+    "description": "The title for the blog used in SEO"
+  },
+  "description": {
+    "message": "EvoPolicyGym 的设计记录与研究实验",
+    "description": "The description for the blog used in SEO"
+  },
+  "sidebar.title": {
+    "message": "研究笔记",
+    "description": "The label for the left sidebar"
+  }
+}

@@ -1,10 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import io
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 
 from evopolicygym._protocol.session import SESSION_MAX_EPISODE_INDICES
-from evopolicygym.cli import _parse_episode_selector
+from evopolicygym.cli import main as operator_main
+from evopolicygym.run._session.cli import _parse_episode_selector
+
+
+class OperatorCommandTests(unittest.TestCase):
+    def test_operator_command_does_not_expose_agent_session_methods(self) -> None:
+        standard_output = io.StringIO()
+        with redirect_stdout(standard_output):
+            self.assertEqual(operator_main([]), 0)
+        self.assertIn("public Python SDK", standard_output.getvalue())
+
+        standard_error = io.StringIO()
+        with redirect_stderr(standard_error):
+            with self.assertRaises(SystemExit) as raised:
+                operator_main(["submit"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("unrecognized arguments: submit", standard_error.getvalue())
 
 
 class EpisodeSelectorTests(unittest.TestCase):

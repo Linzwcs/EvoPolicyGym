@@ -13,7 +13,7 @@ from evopolicygym.authoring import (
     EpisodeSpec,
 )
 from evopolicygym.errors import EvaluationError, ProgramSourceError
-from evopolicygym.evaluation._plan import PlannedEpisode
+from evopolicygym.evaluation._inputs import EpisodeInput
 from evopolicygym.program import Program
 from evopolicygym.results import (
     EpisodeSummary,
@@ -23,10 +23,12 @@ from evopolicygym.results import (
     SubmissionResult,
 )
 from evopolicygym.run import RunConfig, ValidationConfig
-from evopolicygym.run._session import (
+from evopolicygym.run._session.outcomes import (
     FinishReceipt,
     SessionError,
     SubmissionReceipt,
+)
+from evopolicygym.run._session.service import (
     SubmissionSession,
 )
 
@@ -88,13 +90,13 @@ class FakeEvaluator:
     ) -> None:
         self.fail = fail
         self.mismatch_environment = mismatch_environment
-        self.plans: list[tuple[PlannedEpisode, ...]] = []
+        self.inputs: list[tuple[EpisodeInput, ...]] = []
 
     def evaluate_episodes(
         self,
         program: Program,
         benchmark: Benchmark,
-        episodes: tuple[PlannedEpisode, ...],
+        episode_inputs: tuple[EpisodeInput, ...],
         *,
         episode_timeout_seconds: float,
         episode_completed: (
@@ -102,12 +104,12 @@ class FakeEvaluator:
         ) = None,
     ) -> EvaluationResult:
         del episode_timeout_seconds
-        self.plans.append(episodes)
+        self.inputs.append(episode_inputs)
         if self.fail:
             raise EvaluationError("trusted fixture failure")
         summaries = tuple(
             EpisodeSummary(status="completed", reward=1.0, steps=1)
-            for _ in episodes
+            for _ in episode_inputs
         )
         if episode_completed is not None:
             for index, summary in enumerate(summaries, start=1):
@@ -121,7 +123,7 @@ class FakeEvaluator:
             ),
             program_digest=program.digest,
             feedback=Feedback(
-                score=float(len(episodes)),
+                score=float(len(episode_inputs)),
                 content="fixture",
             ),
             episodes=summaries,
@@ -184,7 +186,7 @@ class SubmissionSessionTests(unittest.TestCase):
         self.assertEqual(submitted.episodes_used, 7)
         self.assertEqual(submitted.episode_indices, tuple(range(7)))
         self.assertEqual(submitted.episodes_remaining, 0)
-        self.assertEqual(len(evaluator.plans[0]), 7)
+        self.assertEqual(len(evaluator.inputs[0]), 7)
 
     def test_optional_submission_cap_rejects_only_oversized_requests(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -465,11 +467,11 @@ class SubmissionSessionTests(unittest.TestCase):
         self.assertIsInstance(first, SubmissionReceipt)
         self.assertIsInstance(second, SubmissionReceipt)
         self.assertEqual(
-            tuple(item.episode.environment_seed for item in evaluator.plans[0]),
+            tuple(item.spec.environment_seed for item in evaluator.inputs[0]),
             (0, 1, 4, 5, 6, 7),
         )
-        self.assertEqual(evaluator.plans[0][1], evaluator.plans[1][0])
-        self.assertEqual(evaluator.plans[0][2], evaluator.plans[1][1])
+        self.assertEqual(evaluator.inputs[0][1], evaluator.inputs[1][0])
+        self.assertEqual(evaluator.inputs[0][2], evaluator.inputs[1][1])
 
     def test_invalid_index_sets_do_not_capture_or_consume_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -499,7 +501,7 @@ class SubmissionSessionTests(unittest.TestCase):
         self.assertIsInstance(accepted, SubmissionReceipt)
         assert isinstance(accepted, SubmissionReceipt)
         self.assertEqual(accepted.episodes_remaining, 2)
-        self.assertEqual(len(evaluator.plans), 1)
+        self.assertEqual(len(evaluator.inputs), 1)
 
     def _session(
         self,
@@ -521,7 +523,7 @@ class SubmissionSessionTests(unittest.TestCase):
         pool_size = config.episode_pool_size
         assert pool_size is not None
         episode_pool = tuple(
-            PlannedEpisode(
+            EpisodeInput(
                 EpisodeSpec(environment_seed=index),
                 policy_seed=10_000 + index,
             )

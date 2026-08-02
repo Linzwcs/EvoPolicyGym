@@ -12,13 +12,20 @@ identity and render structured benchmark evidence.
 | Research blog | `blog/*.md` | Docusaurus Blog, with Chinese sources under `i18n/zh-CN/` |
 | Environment narratives | `environments/**/*.mdx` | Markdown/MDX reference pages at `/environments/**` |
 | Versions and paper identity | `src/data/project.ts` | Shared structured values |
-| Structured catalogs and experiment results | Typed data plus `plugins/generated-pages/` | Generated routes with purpose-built React views |
+| Leaderboards | `leaderboards/<suite>/` Markdown/MDX plus validated JSON | Auto-discovered aggregate and per-Environment routes |
+| Other structured catalogs and results | Typed data plus `plugins/catalog-pages/` | Generated routes with purpose-built React views |
 | Core16 media and replay artifacts | `public/` | Static assets consumed by result and replay views |
 
 The shared visual system lives in `src/css/custom.css` and reusable page
 components live in `src/components/`. Editorial prose stays in Markdown.
-Catalogs, score matrices, reruns, and interactive replay behavior stay in typed
-data and React features rather than being forced into articles.
+Leaderboard prose and page order live in Markdown/MDX content packages. Score
+matrices remain validated JSON, while React features are limited to dynamic
+tables, charts, navigation, and replay behavior.
+
+Build-time leaderboard types and validation live in `lib/leaderboard/`.
+`plugins/leaderboards/` discovers content packages and creates routes;
+`src/features/leaderboard/` is browser-side presentation only. See
+`leaderboards/README.md` for the authoring contract.
 
 New Environment explanations should start from
 `environments/_template.mdx`. The leading underscore keeps the template out of

@@ -19,6 +19,10 @@
     "message": "环境目录",
     "description": "The label of footer link with label=Environments linking to /environments/"
   },
+  "link.item.label.Leaderboard": {
+    "message": "排行榜",
+    "description": "The label of footer link with label=Leaderboard linking to /leaderboard/"
+  },
   "link.item.label.Research results": {
     "message": "研究结果",
     "description": "The label of footer link with label=Research results linking to /results/"

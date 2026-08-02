@@ -1,5 +1,6 @@
 import type {Config} from "@docusaurus/types";
 import {themes as prismThemes} from "prism-react-renderer";
+import {projectMeta} from "./src/data/project";
 
 const config: Config = {
   title: "EvoPolicyGym",
@@ -83,7 +84,8 @@ const config: Config = {
         showLastUpdateTime: true,
       },
     ],
-    "./plugins/generated-pages/index.ts",
+    "./plugins/catalog-pages/index.ts",
+    "./plugins/leaderboards/index.ts",
   ],
 
   themeConfig: {
@@ -107,6 +109,12 @@ const config: Config = {
       },
       items: [
         {
+          type: "html",
+          position: "left",
+          value: `<span class="epg-navbar-version">${projectMeta.versionLabel}</span>`,
+          className: "epg-navbar-version-item",
+        },
+        {
           type: "docSidebar",
           sidebarId: "docsSidebar",
           position: "left",
@@ -115,6 +123,11 @@ const config: Config = {
         {
           to: "/environments/",
           label: "Environments",
+          position: "left",
+        },
+        {
+          to: "/leaderboard/",
+          label: "Leaderboard",
           position: "left",
         },
         {
@@ -153,6 +166,10 @@ const config: Config = {
         {
           label: "Environments",
           to: "/environments/",
+        },
+        {
+          label: "Leaderboard",
+          to: "/leaderboard/",
         },
         {
           label: "Results",

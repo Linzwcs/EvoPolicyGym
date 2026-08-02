@@ -1,0 +1,337 @@
+---
+import ReferenceLayout from "../../../layouts/ReferenceLayout.astro";
+import Copy from "../../../components/Copy.astro";
+import { withBase } from "../../../lib/paths";
+
+const toc = [
+  { id: "challenge", en: "Why NetHack", zh: "为什么选择 NetHack" },
+  { id: "evidence", en: "Raw evidence", zh: "原始证据" },
+  { id: "protocol", en: "Experiment protocol", zh: "实验协议" },
+  { id: "results", en: "Held-out results", zh: "Held-out 结果" },
+  { id: "evolution", en: "Policy evolution", zh: "Policy 演化" },
+  { id: "findings", en: "What we learned", zh: "实验发现" },
+  { id: "reproducibility", en: "Reproducibility", zh: "可复现性" },
+];
+---
+
+<ReferenceLayout
+  title="NLE NetHack experiment — EvoPolicyGym"
+  description="How three coding agents used bounded raw NLE trajectories to diagnose behavior, rewrite executable Policies, and face held-out NetHack assessment."
+  area="environments"
+  current="nle"
+  {toc}
+>
+  <nav class="reference-breadcrumbs" aria-label="Breadcrumb">
+    <a href={withBase("environments/")}>
+      <Copy en="Environment collection" zh="环境目录" />
+    </a>
+    <span aria-hidden="true">/</span>
+    <span>NLE</span>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">NetHack</span>
+  </nav>
+
+  <header>
+    <p class="reference-kicker">
+      <Copy
+        en="Environment showcase · Agent RL experiment · 2026-08-02"
+        zh="环境展示 · Agent RL 实验 · 2026-08-02"
+      />
+    </p>
+    <Copy
+      en="Into the dungeon: autonomous Policy evolution in NetHack"
+      zh="深入地下城：在 NetHack 中自主演化 Policy"
+      as="h1"
+    />
+    <Copy
+      class="reference-lead"
+      en="We gave coding agents a NetHack Environment, an executable baseline, and complete Policy-visible raw trajectories. Their task was not to describe a strategy, but to write one that could survive held-out evaluation on its own."
+      zh="我们向 Coding Agent 提供 NetHack Environment、一个可执行 baseline，以及完整的 Policy 可见原始轨迹。它们的任务不是描述一套策略，而是写出一套能够独立接受 held-out 评测的策略。"
+      as="p"
+    />
+  </header>
+
+  <section id="challenge">
+    <Copy en="A dungeon for policy engineers" zh="为 Policy 工程师准备的地下城" as="h2" />
+    <Copy
+      en="NetHack is an unusually demanding place to test autonomous Policy evolution. It is partially observable, procedurally generated, and long-horizon. A useful Policy must navigate rooms and corridors, respond to messages, manage hunger and inventory, fight or avoid creatures, handle interaction prompts, and find its way to deeper dungeon levels."
+      zh="NetHack 是检验自主 Policy 演化能力的一块独特试验场。它具有部分可观测、程序生成和长时程等特征。一个有效的 Policy 不仅需要探索房间与走廊，还需要理解消息、管理饥饿与背包、战斗或避开生物、处理交互提示，并找到通往地下城更深处的道路。"
+      as="p"
+    />
+    <Copy
+      en="Many failures are not clean crashes. An apparently functional Policy may walk into the same boulder for thousands of turns, repeatedly try to cross iron bars, oscillate between two tiles, or stand on a staircase without using it. NetHack tests whether a coding agent can turn this execution evidence into a better strategy system."
+      zh="很多失败并不会表现为程序崩溃。一个看似正常运行的 Policy，可能连续数千步撞击同一块巨石，反复尝试穿过铁栏，在两个格子之间振荡，或者站在楼梯上却不知道如何使用它。NetHack 可以检验 Coding Agent 能否将这些执行证据转化为更好的策略系统。"
+      as="p"
+    />
+    <Copy
+      en="We integrated NLE 1.3.0's NetHackScore-v0, backed by NetHack 3.6.7, as an independently installable EvoPolicyGym Benchmark. During a Run, the coding agent studies a baseline Program, evaluates revisions, diagnoses behavior, and leaves behind a complete Policy that acts without the coding agent during Episodes."
+      zh="我们将 NLE 1.3.0 的 NetHackScore-v0 接入为一个可独立安装的 EvoPolicyGym Benchmark，其底层游戏为 NetHack 3.6.7。在一个 Run 中，Coding Agent 研究 baseline Program、评估修改、诊断行为，并最终留下一个在 Episode 中脱离 Coding Agent 独立行动的完整 Policy。"
+      as="p"
+    />
+    <div class="reference-note">
+      <strong><Copy en="Learning lives in the Program" zh="学习保存在 Program 中" /></strong>
+      <Copy
+        en="Model weights do not change during a Run. What evolves is executable source code: map memory, movement rules, obstacle handling, state estimation, and exploration strategy."
+        zh="模型权重不会在 Run 内发生变化。持续演化的是可执行源代码，包括地图记忆、移动规则、障碍处理、状态估计和探索策略。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="evidence">
+    <Copy en="Raw evidence, chosen analysis" zh="原始证据与自主分析" as="h2" />
+    <Copy
+      en="Every Policy receives the same bounded semantic state: a 21-by-79 terminal map, glyphs and colors, named status values, the current message, inventory entries, and the current input mode. It chooses from 23 public NLE Actions, including movement, running, stairs, waiting, kicking, eating, and searching."
+      zh="每个 Policy 都会收到相同且有界的语义状态：21×79 的终端地图、glyph 与颜色、具名状态值、当前消息、背包条目和当前输入模式。Policy 可以从 23 个公开 NLE Action 中选择，包括移动、奔跑、上下楼梯、等待、踢、进食和搜索。"
+      as="p"
+    />
+    <Copy
+      en="After every successful training submission, the Agent receives complete raw evidence from every evaluated Episode:"
+      zh="每次成功的训练 Submission 完成后，Agent 会获得所有已评估 Episode 的完整原始证据："
+      as="p"
+    />
+    <ul>
+      <li>
+        <Copy
+          en="every Policy-visible initial and post-Action observation in compressed NPZ files;"
+          zh="压缩 NPZ 中的每一个 Policy 可见初始 observation 与 Action 后 observation；"
+        />
+      </li>
+      <li>
+        <Copy
+          en="every transition in ordered gzip JSONL trajectories; and"
+          zh="gzip JSONL 中按顺序记录的每一个 transition；"
+        />
+      </li>
+      <li>
+        <Copy
+          en="aggregate return, game score, dungeon depth, Episode length, deaths, truncations, failures, and frozen-step diagnostics."
+          zh="聚合 return、游戏分数、地下城深度、Episode 长度、死亡、截断、失败和 frozen-step 诊断。"
+        />
+      </li>
+    </ul>
+    <Copy
+      en="The Environment does not select interesting Episodes, sample frames, render images, produce a video, or maintain a separate human-observer feed. Raw arrays and trajectories are the source evidence. The Agent decides what to open, what scripts to write, which segments to sample, whether to construct a visual representation, and what derived analysis to retain."
+      zh="Environment 不负责选择所谓有趣的 Episode，不采样帧，不渲染图像，不制作视频，也不维护独立的人类观察通道。原始数组和轨迹就是证据源。由 Agent 自己决定打开哪些文件、编写什么脚本、采样哪些片段、是否构造视觉表示，以及保留哪些衍生分析。"
+      as="p"
+    />
+    <Copy
+      en="In these Runs, all three Agents chose programmatic trajectory analysis instead of an image viewer. They counted repeated Actions and messages, decoded terminal arrays, compared positions between transitions, and connected those patterns to Policy code. This was an Agent decision, not a Benchmark prescription."
+      zh="在这三次 Run 中，三个 Agent 都自主选择了程序化轨迹分析，而没有调用图像查看器。它们统计重复 Action 和消息、解码终端数组、比较 transition 前后的位置，再将这些模式对应到 Policy 源码。这个选择来自 Agent，而不是 Benchmark 的预设。"
+      as="p"
+    />
+    <pre><code>submit executable Policy
+        ↓
+complete raw training trajectories
+        ↓
+Agent-chosen inspection and diagnosis
+        ↓
+rewrite map memory, routing, and Action rules
+        ↓
+submit another immutable Program</code></pre>
+  </section>
+
+  <section id="protocol">
+    <Copy en="A bounded Agent RL experiment" zh="一次有界的 Agent RL 实验" as="h2" />
+    <Copy
+      en="We ran Codex with three GPT-5.6 model variants under the same NLE Benchmark configuration. The optional NetHack optimization skill was disabled, so no packaged domain guide was placed in the Agent workspace."
+      zh="我们在相同的 NLE Benchmark 配置下，通过 Codex 分别运行了三个 GPT-5.6 模型。实验禁用了可选的 NetHack 优化 skill，因此 Agent workspace 中没有预先提供的领域攻略。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Setting" zh="设置" /></th>
+          <th><Copy en="Value" zh="配置" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Benchmark</td><td><code>nle/NetHackScore-v0/mean-return-v1</code></td></tr>
+        <tr><td>Runtime</td><td>NLE 1.3.0 · NetHack 3.6.7 · Python 3.12</td></tr>
+        <tr><td><Copy en="Character" zh="角色" /></td><td>neutral human male Monk</td></tr>
+        <tr><td>Episode horizon</td><td>5,000 Policy steps</td></tr>
+        <tr><td><Copy en="Training allowance" zh="训练额度" /></td><td><Copy en="up to 128 Episodes" zh="最多 128 个 Episodes" /></td></tr>
+        <tr><td><Copy en="Submission allowance" zh="Submission 额度" /></td><td><Copy en="up to 32 submissions · 64 Episodes each" zh="最多 32 次 · 每次最多 64 个 Episodes" /></td></tr>
+        <tr><td>Validation</td><td><Copy en="up to 3 candidates · 64 private Episodes each" zh="最多 3 个候选 · 每个 64 个私有 Episodes" /></td></tr>
+        <tr><td>Assessment</td><td>256 held-out Episodes</td></tr>
+        <tr><td><Copy en="Experiment seed" zh="实验 seed" /></td><td><code>20260801</code></td></tr>
+        <tr><td><Copy en="Reproducibility" zh="可复现环境" /></td><td><Copy en="uv 0.11.16 and a committed lockfile" zh="uv 0.11.16 与提交到仓库的 lockfile" /></td></tr>
+        <tr><td>Environment visualization</td><td><Copy en="disabled" zh="禁用" /></td></tr>
+      </tbody>
+    </table>
+    <Copy
+      en="Training is the only optimization phase. After the Agent calls finish, the Host evaluates up to three handed-off candidates on identical private Validation Episodes, selects one, and measures it on a disjoint held-out Assessment split. Validation and Assessment retain aggregate results only and never reopen the Agent feedback loop."
+      zh="只有训练阶段可以形成优化 Feedback。Agent 调用 finish 后，Host 才会在相同的私有 Validation Episodes 上评估最多三个已交接候选，选出其中一个，再通过互不重叠的 held-out Assessment split 进行最终测量。Validation 与 Assessment 只保留聚合结果，也不会重新打开 Agent 的反馈闭环。"
+      as="p"
+    />
+    <div class="reference-note is-warning">
+      <strong><Copy en="A ceiling, not a forced budget" zh="预算上限，而非强制消耗量" /></strong>
+      <Copy
+        en="Sol used all 128 training Episodes; Terra used 68 and Luna used 40 before voluntarily finishing. The results are valid under this protocol, but they are not a strictly resource-matched model leaderboard."
+        zh="Sol 用满了全部 128 个训练 Episodes；Terra 使用 68 个，Luna 使用 40 个后主动结束。三条结果在当前协议下均有效，但不能被视为严格资源匹配的模型排行榜。"
+        as="p"
+      />
+    </div>
+  </section>
+
+  <section id="results">
+    <Copy en="Held-out results" zh="Held-out 实验结果" as="h2" />
+    <Copy
+      en="The primary score is mean shaped NLE return over 256 Assessment Episodes. It combines NLE game-score deltas with a constant -0.01 penalty for every frozen step. A Policy execution failure receives -5000, the negative Episode horizon."
+      zh="主分数是 256 个 Assessment Episodes 上的 mean shaped NLE return。它由 NLE 游戏分数增量与每次 frozen step 的固定 -0.01 惩罚共同构成。Policy 执行失败时，该 Episode 记为 -5000，也就是 Episode horizon 的负值。"
+      as="p"
+    />
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th><Copy en="Agent lane" zh="Agent 链路" /></th>
+          <th><Copy en="Training used" zh="已用训练额度" /></th>
+          <th>Submissions</th>
+          <th>Assessment</th>
+          <th><Copy en="Mean game score" zh="平均游戏分数" /></th>
+          <th><Copy en="Mean / max depth" zh="平均 / 最大地下城深度" /></th>
+          <th><Copy en="Frozen steps" zh="Frozen steps" /></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>GPT-5.6 Sol + Codex</strong></td>
+          <td>128 / 128</td>
+          <td>8</td>
+          <td><strong>204.026</strong></td>
+          <td>208.230</td>
+          <td>2.867 / <strong>11</strong></td>
+          <td><strong>27.53%</strong></td>
+        </tr>
+        <tr>
+          <td><strong>GPT-5.6 Terra + Codex</strong></td>
+          <td>68 / 128</td>
+          <td>4</td>
+          <td><strong>80.237</strong></td>
+          <td>87.094</td>
+          <td>1.082 / 4</td>
+          <td>33.77%</td>
+        </tr>
+        <tr>
+          <td><strong>GPT-5.6 Luna + Codex</strong></td>
+          <td>40 / 128</td>
+          <td>4</td>
+          <td><strong>63.773</strong></td>
+          <td>70.777</td>
+          <td>1.094 / 4</td>
+          <td>35.75%</td>
+        </tr>
+      </tbody>
+    </table>
+    <Copy
+      en="All three selected Policies completed Assessment with zero Policy failures. None ascended. Every Episode ended in death or at the 5,000-step horizon, so these scores describe early-game survival, exploration, and progress rather than complete NetHack mastery."
+      zh="三个最终 Policy 在 Assessment 中都没有发生 Policy failure，但也都没有完成 ascension。所有 Episode 最终都以死亡或达到 5,000-step horizon 结束。因此，这些分数反映的是 NetHack 前期生存、探索和地下城推进能力，而不是对完整游戏的掌握。"
+      as="p"
+    />
+    <Copy
+      en="Sol produced the strongest result in this experiment. Its selected Policy more than doubled Terra's mean return, reached dungeon depth 11 in one held-out Episode, and had the lowest frozen-step fraction. This is an observation from these Runs, not yet a general claim about the three models."
+      zh="Sol 在本次实验中取得了最强结果。其最终 Policy 的 mean return 超过 Terra 的两倍，在一个 held-out Episode 中到达地下城深度 11，同时具有三者中最低的 frozen-step 比例。这是这些具体 Run 的观察结果，还不能推广为三个模型的一般能力结论。"
+      as="p"
+    />
+  </section>
+
+  <section id="evolution">
+    <Copy en="From stuck loops to dungeon progress" zh="从行为循环到地下城推进" as="h2" />
+    <Copy
+      en="The evolution records show what aggregate scores alone cannot: the Agents identified concrete failure modes and translated them into executable Policy changes."
+      zh="Program 演化记录展示了聚合分数无法单独说明的部分：Agent 找到了具体失败原因，并将诊断落实成了可执行 Policy 修改。"
+      as="p"
+    />
+    <Copy en="Luna: obstacle memory" zh="Luna：障碍记忆" as="h3" />
+    <Copy
+      en="Luna found an Episode in which the baseline walked into a boulder for most of the trajectory. A later evaluation exposed 1,470 attempts to cross iron bars, along with diagonal moves into intact doorways. Luna added local memory for failed directions and used message and position changes to avoid retrying static obstacles. Frozen behavior fell, but the selected Policy remained mostly on the first dungeon level."
+      zh="Luna 发现 baseline 在一个 Episode 的大部分时间都在反复撞击同一块巨石。后续评估又暴露了 1,470 次尝试穿过铁栏的行为，以及斜向进入完整门框的问题。Luna 加入局部失败方向记忆，并利用消息和位置变化避免重试静态障碍。Frozen 行为有所下降，但被选中的 Policy 仍然主要停留在地下城第一层。"
+      as="p"
+    />
+    <Copy en="Terra: private selection preserved an earlier revision" zh="Terra：私有选择保留了较早的修改" as="h3" />
+    <Copy
+      en="Terra also found a boulder loop, introduced anti-loop memory, and experimented with stair descent. Its strongest private Validation candidate was an early 12-Episode revision rather than its final submission. Host-side selection preserved that candidate even after later edits produced noisier public training results."
+      zh="Terra 同样发现了巨石循环，加入 anti-loop memory，并尝试实现楼梯下降。它在私有 Validation 中表现最好的候选并非最后一次 Submission，而是一个较早的、只使用了 12 个 Episodes 的修改版本。即使后续编辑产生了噪声更大的公开训练结果，Host 侧的候选选择仍然保留了这个较早的版本。"
+      as="p"
+    />
+    <Copy en="Sol: spatial memory and a progression objective" zh="Sol：空间记忆与推进目标" as="h3" />
+    <Copy
+      en="Sol added remembered-map routing and explicit stair use, then used later trajectories to repair blocked edges, peaceful-monster interactions, stale stair targets, mimic-related confusion, and repeated thump loops. The result was a Policy with Episode-local spatial memory and a clearer progression objective. Its held-out depth and frozen-step statistics reflect that structural change."
+      zh="Sol 加入了地图记忆寻路和明确的楼梯使用逻辑，随后继续利用轨迹修复 blocked edge、peaceful monster 交互、过期楼梯目标、mimic 引发的判断混乱以及重复 thump 循环。最终得到的是一个带有 Episode 内空间记忆和更明确推进目标的 Policy。held-out 深度和 frozen-step 指标反映了这种结构变化。"
+      as="p"
+    />
+    <Copy
+      en="Each idea had to leave the Agent transcript and survive inside code that independently receives observations and returns Actions. This is why EvoPolicyGym treats the Program as the durable result of a Run."
+      zh="每个想法最终都必须离开 Agent transcript，进入一份能够独立接收 observations 并返回 Actions 的代码。这就是 EvoPolicyGym 将 Program 视为 Run 持久结果的原因。"
+      as="p"
+    />
+  </section>
+
+  <section id="findings">
+    <Copy en="What the experiment tells us" zh="这次实验说明了什么" as="h2" />
+    <ul>
+      <li>
+        <Copy
+          en="Complete semantic trajectories supported useful Policy engineering without an Environment-authored replay interface."
+          zh="即使没有 Environment 编写好的 replay 界面，完整语义轨迹仍然支持了有效的 Policy 工程。"
+        />
+      </li>
+      <li>
+        <Copy
+          en="Mean return, game score, depth, frozen fraction, deaths, and truncations describe different parts of NetHack behavior; the primary score ranks candidates while the diagnostics explain them."
+          zh="Mean return、游戏分数、地下城深度、frozen fraction、死亡和截断描述了 NetHack 行为的不同侧面；主分数负责排序，诊断指标负责解释。"
+        />
+      </li>
+      <li>
+        <Copy
+          en="Private Validation matters because bounded public training batches are noisy. Terra's earlier candidate winning Validation shows why the final result should not automatically be the last edited Program."
+          zh="私有 Validation 十分重要，因为有界的公开训练 batch 包含自然噪声。Terra 的较早候选赢得 Validation，说明最终结果不应被简单定义为最后一次编辑的 Program。"
+        />
+      </li>
+      <li>
+        <Copy
+          en="Coding-agent search is itself stochastic. A separate Terra Run under the same Environment configuration scored 49.464 instead of 80.237."
+          zh="Coding Agent 的搜索过程本身具有随机性。另一次相同 Environment 配置的 Terra Run 得分为 49.464，而本次为 80.237。"
+        />
+      </li>
+    </ul>
+    <Copy
+      en="Repeated Runs, multiple Host seeds, and enforced equal budget consumption will be needed before making strong model comparisons."
+      zh="在进行更强的模型比较之前，仍需要重复 Runs、多个 Host seeds，以及强制一致的预算消耗。"
+      as="p"
+    />
+  </section>
+
+  <section id="reproducibility">
+    <Copy en="Reproducibility and protocol boundaries" zh="可复现性与协议边界" as="h2" />
+    <Copy
+      en="The NLE distribution pins the simulator version, derives split-scoped hidden seeds deterministically, gives every Episode a fresh Environment, disables bones files, ttyrec capture, saved games, and anti-TAS reseeding, and keeps RNG seeds and privileged NLE state outside the Policy interface."
+      zh="NLE distribution 锁定模拟器版本，从 split-scoped 隐藏 seed 确定性地派生每个 Episode，为每个 Episode 创建全新的 Environment，并关闭 bones 文件、ttyrec 录制、存档和 anti-TAS reseeding。RNG seeds 与 NLE privileged state 始终位于 Policy 接口之外。"
+      as="p"
+    />
+    <Copy
+      en="The complete Python environment is resolved by uv from a committed lockfile. NumPy is available for decoding observations, while Pillow, ImageIO, and imageio-ffmpeg are optional Agent analysis tools. Their presence lets the Agent inspect data in a form it chooses; it does not cause the Environment to generate visual Feedback."
+      zh="完整 Python 环境通过 uv 和提交到仓库的 lockfile 解析。NumPy 可用于解码 observations；Pillow、ImageIO 和 imageio-ffmpeg 是可选的 Agent 分析工具。提供这些工具意味着 Agent 可以用自己选择的形式检查数据，并不意味着 Environment 会自动生成视觉 Feedback。"
+      as="p"
+    />
+    <div class="reference-note is-warning">
+      <strong><Copy en="An initial experiment, not a final leaderboard" zh="初始实验，而非最终排行榜" /></strong>
+      <Copy
+        en="This experiment uses one Benchmark configuration and one primary Run per model lane. Not every Agent consumed the full training allowance, and no Policy approached ascension. The results establish that NLE integration, raw-evidence feedback, candidate selection, and held-out Assessment work together; they are a starting point for controlled scaling experiments."
+        zh="本次实验只使用一种 Benchmark 配置，每条模型链路只有一次主要 Run，并非所有 Agent 都消耗了全部训练额度，也没有 Policy 接近 ascension。当前结果证明 NLE 接入、原始证据反馈、候选选择和 held-out Assessment 可以协同工作；它们是后续受控扩展实验的起点。"
+        as="p"
+      />
+    </div>
+    <p class="reference-actions">
+      <a href={withBase("docs/evaluation/")}>
+        <Copy en="Evaluation and Runs →" zh="Evaluation 与 Runs →" />
+      </a>
+      <a href={withBase("docs/policy/")}>
+        <Copy en="Policy boundary →" zh="Policy 边界 →" />
+      </a>
+      <a href={withBase("environments/")}>
+        <Copy en="Environment collection →" zh="环境目录 →" />
+      </a>
+    </p>
+  </section>
+</ReferenceLayout>

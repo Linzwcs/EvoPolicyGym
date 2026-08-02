@@ -52,10 +52,10 @@ const catalogSections: CatalogSection[] = [
       zh: "交互模拟与游戏",
     },
     lead: {
-      en: "Driving, first-person control, arcade play, and long-horizon strategy across five upstream ecosystems.",
-      zh: "覆盖五个上游生态的驾驶、第一人称控制、街机玩法与长时程策略。",
+      en: "Driving, first-person control, arcade play, and long-horizon strategy across six upstream ecosystems.",
+      zh: "覆盖六个上游生态的驾驶、第一人称控制、街机玩法与长时程策略。",
     },
-    ecosystems: ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
+    ecosystems: ["HighwayEnv", "NLE", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
   },
 ];
 
@@ -86,7 +86,7 @@ const toc = [
 
 <ReferenceLayout
   title="Environment Collection — EvoPolicyGym Documentation"
-  description="Fifty-three EvoPolicyGym Benchmark distributions across Gymnasium, MiniGrid, robotics, driving, and interactive game ecosystems."
+  description={`${environmentDistributionCount} EvoPolicyGym Benchmark distributions across Gymnasium, MiniGrid, robotics, driving, and interactive game ecosystems.`}
   area="environments"
   current="environments"
   {toc}

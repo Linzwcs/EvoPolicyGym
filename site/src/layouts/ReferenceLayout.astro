@@ -235,12 +235,18 @@ const navigationByArea: Record<ReferenceArea, AreaNavigation> = {
       {
         en: "Simulation and games",
         zh: "模拟与游戏",
-        meta: "5",
+        meta: "6",
         collapsible: true,
+        open: current === "nle",
         links: environmentLinks(
-          ["HighwayEnv", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
+          ["HighwayEnv", "NLE", "ALE", "ViZDoom", "Stable-Retro", "Jackdaw"],
           true,
-        ),
+        ).concat({
+          key: "nle",
+          path: "environments/nle/",
+          en: "NLE / NetHack · experiment",
+          zh: "NLE / NetHack · 实验",
+        }),
       },
     ],
   },

@@ -349,6 +349,27 @@ export const environmentCollections: EnvironmentCollection[] = [
     ],
   },
   {
+    id: "nle-nethack",
+    domain: "games",
+    ecosystem: "NLE",
+    suite: "NetHack",
+    distributions: 1,
+    coverage: { en: "NetHackScore-v0", zh: "NetHackScore-v0" },
+    summary: {
+      en: "Long-horizon procedural dungeon survival with complete semantic training trajectories.",
+      zh: "提供完整语义训练轨迹的长时程程序生成地下城生存任务。",
+    },
+    policyInterface: {
+      en: "Terminal map, status, message, inventory, and 23 Actions",
+      zh: "终端地图、状态、消息、背包与 23 个 Actions",
+    },
+    score: { en: "Mean shaped NLE return", zh: "NLE shaped return 平均值" },
+    sourcePath: "environments/nle/nethack",
+    items: [
+      { name: "NetHackScore-v0", path: "environments/nle/" },
+    ],
+  },
+  {
     id: "ale-atari",
     domain: "games",
     ecosystem: "ALE",

@@ -141,6 +141,7 @@ class ProgramAssessor:
                 episode.status == "policy_failed"
                 for episode in evaluated.episodes
             ),
+            feedback_content=evaluated.feedback.content,
         )
         self._recorder.record_event(
             "assessment_completed",

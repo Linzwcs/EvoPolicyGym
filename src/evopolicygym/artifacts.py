@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 ARTIFACT_MAX_BYTES = 16 * 1024 * 1024
-FEEDBACK_MAX_ARTIFACTS = 64
-FEEDBACK_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+FEEDBACK_MAX_ARTIFACTS = 1_024
+FEEDBACK_MAX_ARTIFACT_BYTES = ARTIFACT_MAX_BYTES * FEEDBACK_MAX_ARTIFACTS
+
+type ArtifactRetention = Literal["permanent", "bulk"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +19,7 @@ class Artifact:
     name: str
     media_type: str
     content: bytes = field(repr=False)
+    retention: ArtifactRetention = "permanent"
 
     def __post_init__(self) -> None:
         _validate_artifact_name(self.name)
@@ -25,6 +29,8 @@ class Artifact:
             raise TypeError("artifact content must be exact bytes")
         if len(self.content) > ARTIFACT_MAX_BYTES:
             raise ValueError("artifact content exceeds the public byte limit")
+        if self.retention not in {"permanent", "bulk"}:
+            raise ValueError("artifact retention must be 'permanent' or 'bulk'")
 
     @property
     def size(self) -> int:
@@ -45,6 +51,7 @@ def _validate_artifact_name(name: str) -> None:
 
 __all__ = [
     "ARTIFACT_MAX_BYTES",
+    "ArtifactRetention",
     "Artifact",
     "FEEDBACK_MAX_ARTIFACTS",
     "FEEDBACK_MAX_ARTIFACT_BYTES",

@@ -20,6 +20,8 @@ environments/
 ├── codechef/
 │   └── june18/
 │       └── warehouseman/
+├── crafter/
+│   └── crafter/
 ├── gymnasium/
 │   ├── box2d/
 │   ├── classic_control/
@@ -42,6 +44,8 @@ environments/
 │       ├── crossing/
 │       ├── ... 18 additional standard families ...
 │       └── wfc/
+├── nle/
+│   └── nethack/
 ├── stable_retro/
 │   └── airstriker/
 └── vizdoom/
@@ -69,6 +73,7 @@ still absent.
 | [AtCoder / AHC057](atcoder/ahc057/) | `evopolicygym-benchmark-molecules` | `molecules` | `atcoder/AHC057/Molecules/mean-log-cost-score-v1` |
 | [AtCoder / AHC058](atcoder/ahc058/) | `evopolicygym-benchmark-apple-incremental-game` | `apple_incremental_game` | `atcoder/AHC058/AppleIncrementalGame/mean-log2-score-v1` |
 | [CodeChef / June 2018](codechef/june18/) | `evopolicygym-benchmark-warehouseman` | `warehouseman` | `codechef/WAREHOUS/Warehouseman/mean-normalized-cost-v1` |
+| [Crafter](crafter/) | `evopolicygym-benchmark-crafter` | `crafter_benchmarks` | `crafter/CrafterReward-v1/{achievement-score-v1,long-horizon-development-v2,mean-survival-development-return-v3}` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-bipedal-walker` | `bipedal_walker` | `gymnasium/BipedalWalker-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-car-racing` | `car_racing` | `gymnasium/CarRacing-v3/mean-return-v1` |
 | [Gymnasium / Box2D](gymnasium/box2d/) | `evopolicygym-benchmark-lunar-lander` | `lunar_lander` | `gymnasium/LunarLander-v3/mean-return-v1` |
@@ -120,6 +125,7 @@ still absent.
 | [Jumanji](jumanji/jumanji/) | `evopolicygym-benchmark-jumanji` | `jumanji_benchmarks` | `jumanji/{environment_id}/mean-return-v1` |
 | [Gymnasium-Robotics](gymnasium_robotics/robotics/) | `evopolicygym-benchmark-gymnasium-robotics` | `robotics_benchmarks` | `gymnasium-robotics/{environment_id}/success-rate-v1` |
 | [MetaWorld](metaworld/metaworld/) | `evopolicygym-benchmark-metaworld` | `metaworld_benchmarks` | `metaworld/{collection}/success-rate-v1` |
+| [NLE / NetHack](nle/nethack/) | `evopolicygym-benchmark-nle-nethack` | `nle_benchmarks` | `nle/NetHackScore-v0/mean-return-v1` |
 | [ALE Atari](ale/atari/) | `evopolicygym-benchmark-atari` | `atari_benchmarks` | `ale/Tetris-v5/mean-return-v1` |
 | [ViZDoom](vizdoom/vizdoom/) | `evopolicygym-benchmark-vizdoom` | `vizdoom_benchmarks` | `vizdoom/{environment_id}/mean-return-v1` |
 | [Stable-Retro](stable_retro/airstriker/) | `evopolicygym-benchmark-airstriker` | `airstriker` | `stable-retro/Airstriker-Genesis-v0/mean-score-delta-v1` |

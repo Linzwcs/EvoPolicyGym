@@ -477,6 +477,56 @@ export const environmentCollections: EnvironmentCollection[] = [
     ],
   },
   {
+    id: "crafter",
+    domain: "games",
+    ecosystem: "Crafter",
+    suite: "Crafter",
+    distributions: 1,
+    taskProfiles: 3,
+    coverage: { en: "3 scoring profiles", zh: "3 个计分 profiles" },
+    summary: {
+      en: "Open-world survival, resource collection, crafting, and long-horizon development from RGB observations.",
+      zh: "基于 RGB observation 的开放世界生存、资源收集、制造与长时程发展。",
+    },
+    policyInterface: {
+      en: "64 × 64 RGB tensor and 17 discrete Actions",
+      zh: "64 × 64 RGB tensor 与 17 个离散 Actions",
+    },
+    score: {
+      en: "Achievement, long-horizon development, or survival-development score",
+      zh: "成就、长时程发展或生存发展得分",
+    },
+    sourcePath: "environments/crafter/crafter",
+    items: [
+      { name: "Canonical achievement score" },
+      { name: "Long-horizon development" },
+      { name: "Survival development" },
+    ],
+  },
+  {
+    id: "nle-nethack",
+    domain: "games",
+    ecosystem: "NLE",
+    suite: "NetHack",
+    distributions: 1,
+    taskProfiles: 1,
+    coverage: { en: "NetHackScore-v0", zh: "NetHackScore-v0" },
+    summary: {
+      en: "Long-horizon procedural dungeon survival with complete semantic training trajectories.",
+      zh: "提供完整语义训练轨迹的长时程程序生成地下城生存任务。",
+    },
+    policyInterface: {
+      en: "Terminal map, status, message, inventory, and 23 Actions",
+      zh: "终端地图、状态、消息、背包与 23 个 Actions",
+    },
+    score: { en: "Mean shaped NLE return", zh: "NLE shaped return 平均值" },
+    sourcePath: "environments/nle/nethack",
+    referencePath: "environments/nle/nethack/",
+    items: [
+      { name: "NetHackScore-v0", path: "environments/nle/nethack/" },
+    ],
+  },
+  {
     id: "ale-atari",
     domain: "games",
     ecosystem: "ALE",

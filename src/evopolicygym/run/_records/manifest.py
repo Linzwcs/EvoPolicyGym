@@ -18,7 +18,7 @@ from .._episode_pool import (
 from .._json import encode_public_json_value
 from .writer import write_json_atomic
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v6"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v7"
 
 
 def write_run_manifest(
@@ -65,6 +65,7 @@ def write_run_manifest(
             "workspace": {
                 "root": "workspace",
                 "program": "workspace/program",
+                "analysis": "workspace/analysis",
                 "feedback": "workspace/feedback",
                 **(
                     {"skills": "workspace/skills"}
@@ -89,6 +90,9 @@ def write_run_manifest(
                 "episode_pool_size": config.episode_pool_size,
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
+                ),
+                "bulk_feedback_retention_bytes": (
+                    config.bulk_feedback_retention_bytes
                 ),
                 "episode_timeout_seconds": config.episode_timeout_seconds,
                 "agent_timeout_seconds": config.agent_timeout_seconds,

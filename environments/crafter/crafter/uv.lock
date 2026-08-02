@@ -48,11 +48,9 @@ source = { editable = "../../../" }
 [package.metadata]
 requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.3.0" },
-    { name = "numpy", marker = "extra == 'agent-tools'", specifier = ">=2,<3" },
-    { name = "pillow", marker = "extra == 'agent-tools'", specifier = ">=12,<13" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
 ]
-provides-extras = ["agent-tools", "dev"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "evopolicygym-benchmark-crafter"

@@ -157,13 +157,14 @@ from evopolicygym.run import ConsoleProgress
 result = run(
     baseline_program(),
     CartPoleBenchmark(),
-    agent=Codex(model="gpt-5.6-luna"),
+    agent=Codex(model="gpt-5.6-luna", view_image=True),
     execution=ProcessExecution.unsafe(),
     record_to="runs/cartpole-001",
     config=RunConfig(
         max_submissions=16,
         episode_budget=48,
         max_episodes_per_submission=3,
+        bulk_feedback_retention_bytes=1024 * 1024 * 1024,
         use_benchmark_skill=True,
         validation=ValidationConfig(
             split="validation",
@@ -192,13 +193,16 @@ authority. With `ValidationConfig`, the Host waits for the Agent process to be
 reaped, evaluates every candidate on the same private Validation Episodes, and
 selects by the Benchmark score direction, fewer Policy failures, then argument
 order. Validation has a separate Episode allocation and is never published
-back into workspace Feedback. Without `ValidationConfig`, `finish` accepts
+back into workspace Feedback. Its Host-only report includes the Benchmark's
+aggregate Feedback content but no Feedback Artifacts. Without
+`ValidationConfig`, `finish` accepts
 exactly one candidate and the Host selects it after Agent cleanup.
 
 With `AssessmentConfig`, the Host then evaluates only the selected final
 Program on a separately seeded held-out split. Assessment never changes the
-selection and is never returned to the Agent. Its aggregate score and Policy
-failure count are the Run's final benchmark evidence.
+selection and is never returned to the Agent. Its score, Policy-failure count,
+and Benchmark-defined aggregate Feedback content are the Run's final benchmark
+evidence; detailed Artifacts remain omitted.
 
 The Host retains submitted Programs, public Feedback and Artifacts,
 `events.jsonl`, the final `run.json`, separate Agent logs, and—when
@@ -206,6 +210,15 @@ configured—aggregate `validation/report.json` and
 `assessment/report.json` records. Benchmark authors control the public
 Feedback content and may publish bounded traces, replays, diagnostics, images,
 or reports without exposing private seeds, paths, or execution evidence.
+
+An Artifact may declare `retention="bulk"` for large reproducible evidence
+such as complete observations or trajectories. After each submission is
+published, the Run applies `bulk_feedback_retention_bytes` to the combined
+bulk bytes in the formal Host record and Agent-visible mirror. It evicts only
+old bulk files, oldest submission first; compact Feedback and manifests remain,
+and the newest submission is protected even when it exceeds the capacity. The
+Agent can preserve derived work under `workspace/analysis/`, which is neither
+submitted nor pruned by this mechanism.
 
 `ProcessExecution` is **not a sandbox**. The Agent and Policy processes run
 with the authority of the current operating-system user. Use it only with

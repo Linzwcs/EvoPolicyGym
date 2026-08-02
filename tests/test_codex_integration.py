@@ -49,6 +49,7 @@ class CodexIntegrationTests(unittest.TestCase):
             invocation = Codex(
                 model="fixture-model",
                 executable=str(executable),
+                view_image=True,
             ).build_invocation(task)
 
         self.assertIsInstance(
@@ -58,9 +59,11 @@ class CodexIntegrationTests(unittest.TestCase):
         self.assertEqual(invocation.instructions, task.instructions)
         self.assertEqual(invocation.identity["provider"], "codex")
         self.assertEqual(invocation.identity["model"], "fixture-model")
+        self.assertEqual(invocation.identity["view_image"], "enabled")
         self.assertEqual(invocation.stdout_media_type, "application/x-ndjson")
         self.assertIn("--ephemeral", invocation.command)
         self.assertIn("--ignore-user-config", invocation.command)
+        self.assertIn("tools.view_image=true", invocation.command)
         self.assertEqual(
             invocation.command[
                 invocation.command.index("--sandbox") + 1
@@ -85,6 +88,10 @@ class CodexIntegrationTests(unittest.TestCase):
             invocation.recorded_command[-1],
             "@agent/instructions.md",
         )
+
+    def test_codex_image_tool_selection_requires_a_bool(self) -> None:
+        with self.assertRaisesRegex(TypeError, "view_image must be a bool"):
+            Codex(model="fixture-model", view_image=1)  # type: ignore[arg-type]
 
     def test_benchmark_skill_is_explicitly_enabled_per_run(self) -> None:
         spec = BenchmarkSpec(

@@ -122,6 +122,16 @@ class CrafterEnvironment:
 
         discount = _discount(information)
         achievements = _achievements(information)
+        event_counts = {
+            name: achievements[name] - self._achievements[name]
+            for name in ACHIEVEMENTS
+            if achievements[name] > self._achievements[name]
+        }
+        if any(
+            achievements[name] < self._achievements[name]
+            for name in ACHIEVEMENTS
+        ):
+            raise RuntimeError("Crafter achievement counters decreased")
         unlocked = [
             name
             for name in ACHIEVEMENTS
@@ -136,13 +146,24 @@ class CrafterEnvironment:
             truncated = True
         self._done = terminated or truncated
         public_unlocked: list[PolicyValue] = list(unlocked)
+        public_event_counts: dict[str, PolicyValue] = {
+            name: count for name, count in event_counts.items()
+        }
+        public_maintenance_vitals: dict[str, PolicyValue] = {
+            name: value
+            for name, value in _maintenance_vitals(information).items()
+        }
 
         return Step(
             observation=_observation(observation),
             reward=_number(reward, "reward"),
             terminated=terminated,
             truncated=truncated,
-            metrics={"achievements_unlocked": public_unlocked},
+            metrics={
+                "achievements_unlocked": public_unlocked,
+                "achievement_event_counts": public_event_counts,
+                "maintenance_vitals": public_maintenance_vitals,
+            },
         )
 
     def close(self) -> None:
@@ -234,6 +255,19 @@ def _achievements(information: Mapping[str, object]) -> dict[str, int]:
             raise RuntimeError("Crafter returned an invalid achievement count")
         achievements[name] = count
     return achievements
+
+
+def _maintenance_vitals(information: Mapping[str, object]) -> dict[str, int]:
+    value = information.get("inventory")
+    if type(value) is not dict:
+        raise RuntimeError("Crafter returned invalid inventory")
+    vitals: dict[str, int] = {}
+    for name in ("health", "food", "drink"):
+        amount = value.get(name)
+        if type(amount) is not int or not 0 <= amount <= 9:
+            raise RuntimeError("Crafter returned invalid maintenance vitals")
+        vitals[name] = amount
+    return vitals
 
 
 def _number(value: object, name: str) -> float:

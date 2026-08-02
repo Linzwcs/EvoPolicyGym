@@ -23,11 +23,11 @@ from . import RunConfig
 from ._json import encode_public_json_value
 from .progress import RunEvent, RunEventValue, RunObserver
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v4"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v5"
 _RUN_EVENT_SCHEMA = "evopolicygym/run-event/v1"
 _INVOCATION_SCHEMA = "evopolicygym/agent-invocation/v1"
-_VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
-_ASSESSMENT_REPORT_SCHEMA = "evopolicygym/assessment-report/v1"
+_VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v2"
+_ASSESSMENT_REPORT_SCHEMA = "evopolicygym/assessment-report/v2"
 _SESSION_SOCKET_VARIABLE = "EVOPOLICYGYM_SESSION_SOCKET"
 _WORKSPACE_VARIABLE = "EVOPOLICYGYM_WORKSPACE"
 
@@ -38,6 +38,7 @@ class RunDirectoryPaths:
     workspace: Path
     skill: Path
     program: Path
+    analysis: Path
     feedback: Path
     initial: Path
     submissions: Path
@@ -57,6 +58,7 @@ class RunDirectoryPaths:
             workspace=workspace,
             skill=workspace / "skill",
             program=workspace / "program",
+            analysis=workspace / "analysis",
             feedback=workspace / "feedback",
             initial=root / "initial",
             submissions=root / "submissions",
@@ -176,6 +178,7 @@ def prepare_run_directory(
     paths = RunDirectoryPaths.under(root)
     for directory in (
         paths.workspace,
+        paths.analysis,
         paths.feedback,
         paths.initial,
         paths.submissions,
@@ -330,6 +333,7 @@ def _write_run_manifest(
             "workspace": {
                 "root": "workspace",
                 "program": "workspace/program",
+                "analysis": "workspace/analysis",
                 "feedback": "workspace/feedback",
                 **(
                     {"skill": "workspace/skill/SKILL.md"}
@@ -345,6 +349,9 @@ def _write_run_manifest(
                 "episode_budget": config.episode_budget,
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
+                ),
+                "bulk_feedback_retention_bytes": (
+                    config.bulk_feedback_retention_bytes
                 ),
                 "use_benchmark_skill": config.use_benchmark_skill,
                 "episode_timeout_seconds": config.episode_timeout_seconds,
@@ -432,6 +439,9 @@ def _write_validation_report(
                     "score": candidate.score,
                     "episodes": candidate.episodes,
                     "policy_failures": candidate.policy_failures,
+                    "feedback_content": encode_public_json_value(
+                        candidate.feedback_content
+                    ),
                 }
                 for candidate in validation.candidates
             ],
@@ -473,6 +483,9 @@ def _write_assessment_report(
             "score_direction": assessment.score_direction,
             "score": assessment.score,
             "policy_failures": assessment.policy_failures,
+            "feedback_content": encode_public_json_value(
+                assessment.feedback_content
+            ),
         },
         error_message="Assessment record could not be committed",
     )

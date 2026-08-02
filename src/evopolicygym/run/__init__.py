@@ -54,6 +54,7 @@ class RunConfig:
     max_submissions: int = 20
     episode_budget: int = 1_000
     max_episodes_per_submission: int | None = None
+    bulk_feedback_retention_bytes: int = 1024 * 1024 * 1024
     use_benchmark_skill: bool = False
     validation: ValidationConfig | None = None
     assessment: AssessmentConfig | None = None
@@ -81,6 +82,13 @@ class RunConfig:
                 raise ValueError(
                     "max_episodes_per_submission cannot exceed episode_budget"
                 )
+        if (
+            type(self.bulk_feedback_retention_bytes) is not int
+            or self.bulk_feedback_retention_bytes <= 0
+        ):
+            raise ValueError(
+                "bulk_feedback_retention_bytes must be a positive integer"
+            )
         if type(self.use_benchmark_skill) is not bool:
             raise TypeError("use_benchmark_skill must be bool")
         if self.validation is not None:

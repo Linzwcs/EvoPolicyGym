@@ -25,6 +25,10 @@ requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [project.optional-dependencies]
+agent-tools = [
+    "numpy>=2,<3",
+    "pillow>=12,<13",
+]
 dev = [
     "mypy==2.3.0",
     "ruff>=0.12.0",

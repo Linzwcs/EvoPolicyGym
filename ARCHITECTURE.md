@@ -20,7 +20,8 @@ not design inputs for this version.
 - `Assessment` is a Host-only held-out Evaluation of the already selected
   final Program. It measures the result but never participates in selection.
 - `Feedback` has a Kernel-required scalar score, Benchmark-defined public
-  content, and optional public Artifact files.
+  content, and optional public Artifact files. A Benchmark classifies each
+  Artifact as permanent or bulk; the Kernel never guesses from media content.
 - A `ProgramEvolutionRun` is one bounded outer loop in which a Coding Agent
   edits Programs, submits candidates, reads Feedback, and hands candidates to
   Host-side final selection.
@@ -171,6 +172,11 @@ The rules are:
   seed domain, and cannot replace or rerank candidates;
 - `run/` owns Run directories, Feedback publication, and Session transport;
   these responsibilities do not live under process execution;
+- `run/` also owns cross-submission bulk retention because only the Run knows
+  submission chronology and both publication roots. It applies the same
+  oldest-first decision to the Host record and Agent mirror, never removes
+  compact Feedback or Agent-owned analysis, and always protects the newest
+  submission;
 - `run/progress.py` owns non-authoritative observation and terminal
   presentation; observers never participate in Run state transitions and
   receive no private Case, seed, Policy exchange, or Host path;
@@ -236,14 +242,29 @@ selected Submission. A trusted fault terminates as `assessment_failed` while
 retaining that final Program; it never falls back to another candidate and
 does not create a partial report.
 
-The Agent-visible `workspace/` contains only editable `program/`, public
-`feedback/`, and an optional Benchmark skill. `validation/` and `assessment/`
-are not created until after Agent cleanup. Successful phases retain only
-aggregate scores and Policy-failure counts in their reports; private Episodes,
-seeds, cases, traces, and execution evidence do not cross into Feedback.
-`run.json` uses `evopolicygym/run-record/v4`, retains the public Environment
-parameters and canonical digest beside the Benchmark ID, and references the
-available aggregate reports.
+The Agent-visible `workspace/` contains editable `program/`, public
+`feedback/`, Agent-owned non-submitted `analysis/`, and an optional Benchmark
+skill. The Kernel never prunes `analysis/`. `validation/` and `assessment/` are
+not created until after Agent cleanup. Successful phases retain scores,
+Policy-failure counts, and copied Benchmark-defined aggregate Feedback content
+in their Host-only reports. Feedback Artifacts, private Episodes, seeds, cases,
+traces, and execution evidence are omitted, and none of this evidence crosses
+back into the Agent workspace.
+
+Publication writes independent Host and Agent copies. Artifact metadata in
+`feedback.json` records a Benchmark-declared `permanent` or `bulk` retention
+class. A configurable Run-level byte capacity counts the actual bulk bytes in
+both copies. After committing a new submission, the Kernel removes only bulk
+files from older submissions in chronological order and updates each view's
+`availability.json`; it preserves Feedback metadata, hashes, permanent
+Artifacts, and the complete newest submission. If the newest copy pair alone
+exceeds capacity, it remains intact and `retention.json` records the over-limit
+condition.
+
+`run.json` uses `evopolicygym/run-record/v5`, retains the public Environment
+parameters and canonical digest beside the Benchmark ID, records the bulk
+capacity and `workspace/analysis` path, and references the available aggregate
+reports.
 
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires

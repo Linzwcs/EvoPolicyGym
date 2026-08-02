@@ -375,6 +375,9 @@ def run_process_agent(
                 publisher=FilesystemSubmissionPublisher(
                     submissions_root=paths.submissions,
                     feedback_root=paths.feedback,
+                    bulk_retention_bytes=(
+                        config.bulk_feedback_retention_bytes
+                    ),
                 ),
                 benchmark=benchmark,
                 spec=selected_spec,

@@ -171,6 +171,7 @@ class AssessmentResult:
     score_direction: Literal["maximize", "minimize"]
     score: float
     policy_failures: int
+    feedback_content: PolicyValue = None
 
     def __post_init__(self) -> None:
         _non_empty_text(self.submission_id, "submission_id")
@@ -197,6 +198,11 @@ class AssessmentResult:
                 "policy_failures must be between zero and episodes"
             )
         object.__setattr__(self, "score", float(self.score))
+        object.__setattr__(
+            self,
+            "feedback_content",
+            copy_policy_value(self.feedback_content),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +214,7 @@ class ValidationCandidateResult:
     score: float
     episodes: int
     policy_failures: int
+    feedback_content: PolicyValue = None
 
     def __post_init__(self) -> None:
         _non_empty_text(self.submission_id, "submission_id")
@@ -228,6 +235,11 @@ class ValidationCandidateResult:
                 "policy_failures must be between zero and episodes"
             )
         object.__setattr__(self, "score", float(self.score))
+        object.__setattr__(
+            self,
+            "feedback_content",
+            copy_policy_value(self.feedback_content),
+        )
 
 
 @dataclass(frozen=True, slots=True)

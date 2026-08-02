@@ -359,6 +359,13 @@ class PublicContractTests(unittest.TestCase):
         for name in ("", "/tmp/report.txt", "../report.txt", "a/../report.txt", r"a\report"):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 Artifact(name=name, media_type="text/plain", content=b"unsafe")
+        with self.assertRaises(ValueError):
+            Artifact(
+                name="report.txt",
+                media_type="text/plain",
+                content=b"unsafe",
+                retention="temporary",  # type: ignore[arg-type]
+            )
         artifacts = tuple(
             Artifact(
                 name=f"reports/{index}.txt",
@@ -406,6 +413,10 @@ class PublicContractTests(unittest.TestCase):
         self.assertEqual(run.max_submissions, 4)
         self.assertEqual(run.episode_budget, 20)
         self.assertIsNone(run.max_episodes_per_submission)
+        self.assertEqual(
+            run.bulk_feedback_retention_bytes,
+            1024 * 1024 * 1024,
+        )
         self.assertFalse(run.use_benchmark_skill)
         capped = RunConfig(
             episode_budget=20,
@@ -442,6 +453,8 @@ class PublicContractTests(unittest.TestCase):
             )
         with self.assertRaises(TypeError):
             RunConfig(use_benchmark_skill=1)  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            RunConfig(bulk_feedback_retention_bytes=0)
         with self.assertRaises(ValueError):
             RunConfig(
                 max_submissions=1,
@@ -601,6 +614,7 @@ class ProgramTests(unittest.TestCase):
         self.assertNotIn("metrics", document)
         self.assertEqual(metadata["name"], "traces/episodes.jsonl")
         self.assertEqual(metadata["media_type"], "application/x-ndjson")
+        self.assertEqual(metadata["retention"], "permanent")
         self.assertNotIn("role", metadata)
         self.assertNotIn("schema", metadata)
         self.assertEqual(artifact_content, trace.read_bytes())
@@ -1172,7 +1186,7 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v4")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v5")
         self.assertEqual(
             manifest["benchmark"],
             {
@@ -1200,7 +1214,7 @@ print("fake-agent-finished")
         self.assertEqual(
             validation,
             {
-                "schema": "evopolicygym/validation-report/v1",
+                "schema": "evopolicygym/validation-report/v2",
                 "split": "validation",
                 "episodes_per_candidate": 2,
                 "primary_metric": "completed",
@@ -1214,6 +1228,10 @@ print("fake-agent-finished")
                         "score": 0.0,
                         "episodes": 2,
                         "policy_failures": 2,
+                        "feedback_content": {
+                            "status": "complete",
+                            "completed": 0,
+                        },
                     },
                     {
                         "submission_id": "submission-000002",
@@ -1223,6 +1241,10 @@ print("fake-agent-finished")
                         "score": 2.0,
                         "episodes": 2,
                         "policy_failures": 0,
+                        "feedback_content": {
+                            "status": "complete",
+                            "completed": 2,
+                        },
                     },
                 ],
                 "selected_submission_id": "submission-000002",
@@ -1231,7 +1253,7 @@ print("fake-agent-finished")
         self.assertEqual(
             assessment,
             {
-                "schema": "evopolicygym/assessment-report/v1",
+                "schema": "evopolicygym/assessment-report/v2",
                 "submission_id": "submission-000002",
                 "program_digest": (
                     result.submissions[1].program_digest
@@ -1242,6 +1264,10 @@ print("fake-agent-finished")
                 "score_direction": "maximize",
                 "score": 3.0,
                 "policy_failures": 0,
+                "feedback_content": {
+                    "status": "complete",
+                    "completed": 3,
+                },
             },
         )
         self.assertFalse(manifest["agent"]["stopped_after_terminal"])
@@ -1537,6 +1563,10 @@ print(json.dumps({{"type": "turn.completed"}}))
         self.assertEqual(
             manifest["workspace"]["feedback"],
             "workspace/feedback",
+        )
+        self.assertEqual(
+            manifest["workspace"]["analysis"],
+            "workspace/analysis",
         )
         self.assertEqual(
             manifest["workspace"]["skill"],

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added Benchmark-declared permanent/bulk Artifact retention, complete-newest
+  protection, synchronized oldest-first bulk eviction in Host and Agent views,
+  Agent-owned `workspace/analysis/`, and `run-record/v5`.
 - Added first-class public Environment parameters to `BenchmarkSpec`, the
   `policy/v2` `PolicyContext`, Coding Agent tasks, Evaluation identity, and
   `run-record/v4`.

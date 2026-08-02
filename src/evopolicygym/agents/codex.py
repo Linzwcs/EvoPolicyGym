@@ -31,6 +31,7 @@ class Codex:
 
     model: str
     executable: str = "codex"
+    view_image: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -50,6 +51,8 @@ class Codex:
             or "\n" in self.executable
         ):
             raise ValueError("executable must be a bounded command or path")
+        if type(self.view_image) is not bool:
+            raise TypeError("view_image must be a bool")
 
     def build_invocation(self, task: AgentTask) -> AgentInvocation:
         """Translate one Host-authored task into a Codex CLI invocation."""
@@ -73,6 +76,7 @@ class Codex:
             "--ignore-rules",
             "--color",
             "never",
+            *(("-c", "tools.view_image=true") if self.view_image else ()),
         )
         return AgentInvocation(
             command=(*command_prefix, task.instructions),
@@ -80,6 +84,7 @@ class Codex:
             identity={
                 "provider": "codex",
                 "model": self.model,
+                **({"view_image": "enabled"} if self.view_image else {}),
             },
             instructions=task.instructions,
             inherited_environment=_CODEX_ENVIRONMENT_ALLOWLIST,

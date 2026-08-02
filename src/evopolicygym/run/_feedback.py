@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -13,7 +14,10 @@ from ..artifacts import Artifact
 from ..results import EpisodeSummary, SubmissionResult
 from ._json import encode_public_json_value
 
-_FEEDBACK_SCHEMA = "evopolicygym/feedback/v1"
+_FEEDBACK_SCHEMA = "evopolicygym/feedback/v2"
+_AVAILABILITY_SCHEMA = "evopolicygym/artifact-availability/v1"
+_RETENTION_SCHEMA = "evopolicygym/bulk-feedback-retention/v1"
+_SUBMISSION_ID = re.compile(r"submission-[0-9]{6}")
 
 
 class FilesystemSubmissionPublisher:
@@ -24,9 +28,18 @@ class FilesystemSubmissionPublisher:
         *,
         submissions_root: Path,
         feedback_root: Path,
+        bulk_retention_bytes: int | None = None,
     ) -> None:
+        if bulk_retention_bytes is not None and (
+            type(bulk_retention_bytes) is not int
+            or bulk_retention_bytes <= 0
+        ):
+            raise ValueError(
+                "bulk_retention_bytes must be a positive integer or None"
+            )
         self._submissions_root = submissions_root
         self._feedback_root = feedback_root
+        self._bulk_retention_bytes = bulk_retention_bytes
 
     def commit(self, result: SubmissionResult) -> None:
         try:
@@ -42,6 +55,21 @@ class FilesystemSubmissionPublisher:
                 except Exception:
                     pass
             raise
+        if self._bulk_retention_bytes is not None:
+            try:
+                _enforce_bulk_retention(
+                    submissions_root=self._submissions_root,
+                    feedback_root=self._feedback_root,
+                    protected_submission_id=result.submission_id,
+                    limit_bytes=self._bulk_retention_bytes,
+                )
+            except Exception as error:
+                _record_retention_failure(
+                    self._feedback_root,
+                    protected_submission_id=result.submission_id,
+                    limit_bytes=self._bulk_retention_bytes,
+                    error=error,
+                )
 
 
 def publish_feedback(feedback_root: Path, result: SubmissionResult) -> None:
@@ -146,6 +174,14 @@ def _materialize_feedback(
         "artifacts": artifacts,
     }
     _write_json(submission_root / "feedback.json", feedback_document)
+    _write_json(
+        submission_root / "availability.json",
+        _availability_document(
+            result.submission_id,
+            artifacts,
+            reason=None,
+        ),
+    )
 
 
 def _materialize_artifacts(
@@ -169,9 +205,265 @@ def _materialize_artifacts(
                 "path": relative,
                 "size": len(content),
                 "sha256": hashlib.sha256(content).hexdigest(),
+                "retention": artifact.retention,
             }
         )
     return documents
+
+
+def _availability_document(
+    submission_id: str,
+    artifacts: list[dict[str, object]],
+    *,
+    reason: str | None,
+    submission_root: Path | None = None,
+) -> dict[str, object]:
+    bulk: list[dict[str, object]] = []
+    available_count = 0
+    for artifact in artifacts:
+        if artifact.get("retention") != "bulk":
+            continue
+        path = artifact.get("path")
+        available = bool(
+            type(path) is str
+            and (
+                submission_root is None
+                or (submission_root / path).is_file()
+            )
+        )
+        available_count += available
+        bulk.append(
+            {
+                "name": artifact["name"],
+                "path": artifact["path"],
+                "size": artifact["size"],
+                "sha256": artifact["sha256"],
+                "available": available,
+            }
+        )
+    status = "available"
+    if bulk and available_count == 0:
+        status = "evicted"
+    elif available_count != len(bulk):
+        status = "partial"
+    document: dict[str, object] = {
+        "schema": _AVAILABILITY_SCHEMA,
+        "submission_id": submission_id,
+        "bulk_status": status,
+        "bulk_artifacts": bulk,
+    }
+    if reason is not None:
+        document["reason"] = reason
+    return document
+
+
+def _enforce_bulk_retention(
+    *,
+    submissions_root: Path,
+    feedback_root: Path,
+    protected_submission_id: str,
+    limit_bytes: int,
+) -> None:
+    workspace_submissions = feedback_root / "submissions"
+    identifiers = sorted(
+        path.name
+        for path in submissions_root.iterdir()
+        if path.is_dir() and _SUBMISSION_ID.fullmatch(path.name)
+    )
+    retained_bytes = _combined_bulk_bytes(
+        submissions_root,
+        workspace_submissions,
+        identifiers,
+    )
+    evicted: list[str] = []
+    for submission_id in identifiers:
+        if retained_bytes <= limit_bytes:
+            break
+        if submission_id == protected_submission_id:
+            continue
+        host_submission = submissions_root / submission_id
+        artifacts = _feedback_artifacts(host_submission)
+        freed = _evict_bulk_artifacts(
+            (
+                host_submission,
+                workspace_submissions / submission_id,
+            ),
+            submission_id,
+            artifacts,
+        )
+        if freed:
+            retained_bytes -= freed
+            evicted.append(submission_id)
+
+    _replace_json(
+        feedback_root / "retention.json",
+        {
+            "schema": _RETENTION_SCHEMA,
+            "limit_bytes": limit_bytes,
+            "retained_bytes_across_host_and_workspace": retained_bytes,
+            "protected_submission_id": protected_submission_id,
+            "evicted_submission_ids": evicted,
+            "over_limit_to_preserve_latest": retained_bytes > limit_bytes,
+            "status": "complete",
+        },
+    )
+
+
+def _combined_bulk_bytes(
+    submissions_root: Path,
+    workspace_submissions: Path,
+    identifiers: list[str],
+) -> int:
+    total = 0
+    for submission_id in identifiers:
+        host_submission = submissions_root / submission_id
+        artifacts = _feedback_artifacts(host_submission)
+        for root in (submissions_root, workspace_submissions):
+            submission_root = root / submission_id
+            if not submission_root.is_dir():
+                continue
+            for artifact in artifacts:
+                if artifact.get("retention") != "bulk":
+                    continue
+                path = artifact.get("path")
+                if type(path) is not str:
+                    raise ValueError("Feedback artifact path is invalid")
+                candidate = _artifact_target(submission_root, path)
+                if candidate.is_file() and not candidate.is_symlink():
+                    total += candidate.stat().st_size
+    return total
+
+
+def _evict_bulk_artifacts(
+    submission_roots: tuple[Path, Path],
+    submission_id: str,
+    artifacts: list[dict[str, object]],
+) -> int:
+    if any(not root.is_dir() or root.is_symlink() for root in submission_roots):
+        raise ValueError("matching Host and workspace submissions are required")
+    targets: list[tuple[Path, int]] = []
+    freed = 0
+    for submission_root in submission_roots:
+        for artifact in artifacts:
+            if artifact.get("retention") != "bulk":
+                continue
+            relative = artifact.get("path")
+            if type(relative) is not str:
+                raise ValueError("Feedback artifact path is invalid")
+            target = _artifact_target(submission_root, relative)
+            if target.is_symlink():
+                raise ValueError("Feedback bulk artifact must not be a symlink")
+            if target.is_file():
+                size = target.stat().st_size
+                targets.append((target, size))
+                freed += size
+
+    mutable_directories = set(submission_roots)
+    for target, _ in targets:
+        current = target.parent
+        submission_root = next(
+            root for root in submission_roots if target.is_relative_to(root)
+        )
+        while current != submission_root:
+            mutable_directories.add(current)
+            current = current.parent
+    for directory in sorted(mutable_directories, key=lambda path: len(path.parts)):
+        os.chmod(directory, 0o700)
+    staged: list[tuple[Path, Path]] = []
+    try:
+        for target, _ in targets:
+            temporary = target.with_name(
+                f".{target.name}.evict-{uuid.uuid4().hex}"
+            )
+            os.replace(target, temporary)
+            staged.append((target, temporary))
+        for submission_root in submission_roots:
+            _replace_json(
+                submission_root / "availability.json",
+                _availability_document(
+                    submission_id,
+                    artifacts,
+                    reason="run_bulk_feedback_capacity",
+                    submission_root=submission_root,
+                ),
+            )
+    except BaseException:
+        for target, temporary in reversed(staged):
+            if temporary.is_file() and not target.exists():
+                os.replace(temporary, target)
+        for submission_root in submission_roots:
+            try:
+                _replace_json(
+                    submission_root / "availability.json",
+                    _availability_document(
+                        submission_id,
+                        artifacts,
+                        reason=None,
+                        submission_root=submission_root,
+                    ),
+                )
+            except Exception:
+                pass
+        raise
+    else:
+        for _, temporary in staged:
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+    finally:
+        for directory in sorted(
+            mutable_directories,
+            key=lambda path: len(path.parts),
+            reverse=True,
+        ):
+            os.chmod(directory, 0o555)
+    return freed
+
+
+def _artifact_target(submission_root: Path, relative: str) -> Path:
+    parts = relative.split("/")
+    if (
+        not relative.startswith("artifacts/")
+        or "\\" in relative
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
+        raise ValueError("Feedback artifact path is invalid")
+    return submission_root.joinpath(*parts)
+
+
+def _feedback_artifacts(submission_root: Path) -> list[dict[str, object]]:
+    document = json.loads(
+        (submission_root / "feedback.json").read_text(encoding="utf-8")
+    )
+    artifacts = document.get("artifacts")
+    if type(artifacts) is not list or any(
+        type(artifact) is not dict for artifact in artifacts
+    ):
+        raise ValueError("Feedback artifact manifest is invalid")
+    return artifacts
+
+
+def _record_retention_failure(
+    feedback_root: Path,
+    *,
+    protected_submission_id: str,
+    limit_bytes: int,
+    error: Exception,
+) -> None:
+    try:
+        _replace_json(
+            feedback_root / "retention.json",
+            {
+                "schema": _RETENTION_SCHEMA,
+                "limit_bytes": limit_bytes,
+                "protected_submission_id": protected_submission_id,
+                "status": "failed",
+                "error_type": type(error).__name__,
+            },
+        )
+    except Exception:
+        pass
 
 
 def _episode_document(episode: EpisodeSummary) -> dict[str, object]:

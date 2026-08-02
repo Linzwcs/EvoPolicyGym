@@ -83,11 +83,11 @@ least these concepts:
   temporarily preempt crafting without erasing the current progression stage.
 
 Make the state machine auditable through behavior. For each revision, inspect
-the achievement event order in `trace.jsonl` and the corresponding frames in
-`artifact-manifest.json`. Verify dependencies such as `collect_wood` before
-`place_table`, and `place_table` before `make_wood_pickaxe`. Re-evaluate a
-promising unchanged Program across additional Episodes before trusting a small
-batch score.
+the achievement event order in the per-Episode `trajectory.jsonl.gz` Artifacts
+and use `artifact-manifest.json` to locate the lossless observation chunks.
+Verify dependencies such as `collect_wood` before `place_table`, and
+`place_table` before `make_wood_pickaxe`. Re-evaluate a promising unchanged
+Program across additional Episodes before trusting a small batch score.
 
 Avoid policies whose main behavior is periodic `do`, periodic sleep, or a
 fixed recipe loop. Those Actions are legal but do not demonstrate that the
@@ -106,11 +106,31 @@ The shifted geometric mean rewards breadth. Improving a rare missing
 achievement can matter more than repeating an easy achievement. A Policy
 failure receives zero achievement credit for that Episode.
 
+## Audit inherited controller bias
+
+Treat the packaged baseline as disposable scaffolding, not as a behavioral
+prior. Before extending it, identify control flow that ignores the current RGB
+observation and replace it when it creates a repeated spatial or Action motif.
+In particular, do not inherit:
+
+- fixed clockwise or counterclockwise direction cycles;
+- expanding-square, spiral, or rectangular patrol routes;
+- a fixed number of `do` Actions after every movement regardless of the facing
+  tile;
+- periodic placement or crafting attempts without visible prerequisite
+  evidence.
+
+Exploration should react to visible walkability, resources, facilities,
+creatures, and recent Episode-local movement evidence. Inspect lossless RGB
+observations and the Action sequence after each revision. Repeated local loops
+or a dominant Action-frequency pattern are controller defects unless the
+current observation and state explicitly justify them.
+
 ## Iterate safely
 
 1. Submit the packaged baseline on a small batch.
-2. Inspect `trace.jsonl`, the achievement success table, and the sampled frame
-   contact sheet.
+2. Inspect the complete compressed trajectories, achievement success table,
+   and selected lossless RGB observations.
 3. Eliminate invalid Actions, exceptions, and timeouts first.
 4. Add visual parsing for nearby terrain, creatures, facing direction, and
    inventory icons.
@@ -119,5 +139,7 @@ failure receives zero achievement credit for that Episode.
 6. Change one capability at a time and compare repeated batches because small
    achievement samples are noisy.
 
-Keep traces, tests, and all derived state inside the submitted Program. Do not
-access Host paths, runtime internals, or unavailable Crafter `info` fields.
+Keep submitted Policy source inside `program/`. Store non-submitted diagnostic
+scripts, selected frames, and derived notes in the Agent-owned `analysis/`
+directory. Do not access Host paths, runtime internals, or unavailable Crafter
+`info` fields.

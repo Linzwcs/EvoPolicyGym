@@ -1,7 +1,7 @@
 [project]
 name = "evopolicygym-benchmark-crafter"
 version = "0.1.0"
-description = "The canonical Crafter achievement Benchmark distribution for EvoPolicyGym."
+description = "Canonical and long-horizon Crafter Benchmark profiles for EvoPolicyGym."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
@@ -18,7 +18,6 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "crafter==1.8.3",
-    "imageio-ffmpeg>=0.6,<0.7",
     "numpy>=2,<3",
     "pillow>=12,<13",
 ]
@@ -66,7 +65,7 @@ warn_unused_configs = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["crafter", "imageio_ffmpeg"]
+module = ["crafter"]
 follow_imports = "skip"
 ignore_missing_imports = true
 

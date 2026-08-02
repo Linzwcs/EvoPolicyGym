@@ -53,7 +53,7 @@ from evopolicygym.run import ConsoleProgress
 result = run(
     baseline_program(),
     ExampleBenchmark(),
-    agent=Codex(model="MODEL_ID"),
+    agent=Codex(model="MODEL_ID", view_image=True),
     execution=ProcessExecution.unsafe(),
     record_to="runs/example-001",
     config=RunConfig(
@@ -61,6 +61,7 @@ result = run(
         max_submissions=16,
         episode_budget=48,
         max_episodes_per_submission=4,
+        bulk_feedback_retention_bytes=1024 * 1024 * 1024,
         use_benchmark_skill=True,
         validation=ValidationConfig(
             split="validation",

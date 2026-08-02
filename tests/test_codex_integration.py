@@ -55,6 +55,7 @@ class CodexIntegrationTests(unittest.TestCase):
                 model="fixture-model",
                 reasoning_effort="xhigh",
                 executable=str(executable),
+                view_image=True,
             ).build_invocation(task)
 
         self.assertIsInstance(
@@ -68,9 +69,11 @@ class CodexIntegrationTests(unittest.TestCase):
         self.assertEqual(invocation.identity["provider"], "codex")
         self.assertEqual(invocation.identity["model"], "fixture-model")
         self.assertEqual(invocation.identity["reasoning_effort"], "xhigh")
+        self.assertEqual(invocation.identity["view_image"], "enabled")
         self.assertEqual(invocation.stdout_media_type, "application/x-ndjson")
         self.assertIn("--ephemeral", invocation.command)
         self.assertIn("--ignore-user-config", invocation.command)
+        self.assertIn("tools.view_image=true", invocation.command)
         self.assertEqual(
             invocation.command[
                 invocation.command.index("--config") + 1
@@ -121,6 +124,14 @@ class CodexIntegrationTests(unittest.TestCase):
                         model="fixture-model",
                         reasoning_effort=invalid,
                     )
+
+    def test_codex_image_tool_selection_requires_a_bool(self) -> None:
+        with self.assertRaisesRegex(TypeError, "view_image must be bool"):
+            Codex(
+                model="fixture-model",
+                reasoning_effort="high",
+                view_image=1,  # type: ignore[arg-type]
+            )
 
     def test_agent_skills_are_explicitly_selected_per_run(self) -> None:
         spec = BenchmarkSpec(

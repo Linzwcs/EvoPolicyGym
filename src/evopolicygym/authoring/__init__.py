@@ -1,6 +1,6 @@
 """The only supported authoring surface for external Benchmark packages."""
 
-from ..artifacts import Artifact
+from ..artifacts import Artifact, ArtifactRetention
 from ..results import Feedback
 from .benchmark import Benchmark, BenchmarkSpec, ScoreDirection
 from .environment import (
@@ -20,6 +20,7 @@ from .testing import (
 
 __all__ = [
     "Artifact",
+    "ArtifactRetention",
     "Benchmark",
     "BenchmarkFixture",
     "BenchmarkSpec",

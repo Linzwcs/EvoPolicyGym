@@ -121,10 +121,18 @@ Your working directory is the workspace root. The only submitted Program is:
 
     program/
 
-Edit files only inside program/. The required entrypoint is
+Edit Policy source only inside program/. The required entrypoint is
 program/policy.py:make_policy. A Policy exposes act(observation); it does not
 learn inside an Episode. Persistent improvement happens only by editing and
 submitting a new Program between evaluations.
+
+You may write derived diagnostics, selected frames, summaries, and temporary
+analysis scripts under:
+
+    analysis/
+
+analysis/ is Agent-owned and is never part of a submitted Program. The Host
+does not automatically delete its contents.
 
 The Host publishes authorized evaluation data under:
 
@@ -149,6 +157,12 @@ maps each public Episode result back to its selected Run-local index. Its
 content field and all Artifact contents are defined by the Benchmark. Inspect
 their structure, names, media types, and contents to understand the available
 development evidence.
+
+Large observation and trajectory Artifacts from older submissions may be
+evicted after a newer submission is published. Compact Feedback remains, and
+the newest submission is always protected. Before starting another submission,
+copy any derived evidence you need to retain into analysis/; never copy it into
+feedback/.
 
 Iterate by inspecting the Program, editing it, submitting it, and using the
 published Feedback.

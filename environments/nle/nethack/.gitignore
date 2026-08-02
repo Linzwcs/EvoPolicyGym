@@ -1,0 +1,13 @@
+.local/
+.venv/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+runs/
+nle_data/
+*.ttyrec*.bz2
+*.xlogfile

@@ -134,6 +134,14 @@ cleared 10.45 Blinds on average, 2.83 times the baseline result, and completed
 progress, but neither completed a Run. Reducing early mistakes can extend a
 Run; completing one requires a coherent long-term build strategy.
 
+![Semantic replay of a winning held-out Balatro Episode from Sol's final
+Policy. The replay advances from Ante 1 to Ante 9, clears 21 Blinds, and
+completes the Run with a score of 1021.](/images/blog/balatro-sol-winning-replay.gif)
+
+*Held-out case index 41 from the same 128-Episode test set. The geometric
+rendering was generated from the Benchmark's semantic replay and contains no
+official Balatro game assets.*
+
 ## The baseline's capability boundary
 
 The packaged baseline enumerates every one-to-five-card combination in the

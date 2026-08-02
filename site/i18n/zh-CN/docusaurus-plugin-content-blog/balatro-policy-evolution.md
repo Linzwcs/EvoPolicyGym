@@ -116,6 +116,12 @@ Sol 是唯一实现可通关策略的模型：它平均通过 10.45 个 Blind，
 的两倍，但没有通关。减少早期错误可以走得更远，完成 Run 还需要一套连贯的长期
 构筑策略。
 
+![Sol 最终 Policy 在 Balatro held-out 测试中的一次获胜回放。回放从 Ante 1
+推进到 Ante 9，通过 21 个 Blind，并以 1021 分完成 Run。](/images/blog/balatro-sol-winning-replay.gif)
+
+*来自同一组 128-Episode 测试的 held-out case index 41。画面由 Benchmark 的
+语义 replay 几何化渲染，不包含 Balatro 官方游戏素材。*
+
 ## Baseline 的能力边界
 
 Packaged baseline 会穷举当前手牌中所有 1–5 张组合，优先选择传统牌型等级和

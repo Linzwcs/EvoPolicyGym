@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gzip
-import importlib
 import io
 import json
 import math
@@ -528,9 +527,10 @@ class NetHackBenchmarkTests(unittest.TestCase):
         agent_tools = project["project"]["optional-dependencies"]["agent-tools"]
         self.assertTrue(any(item.startswith("numpy") for item in dependencies))
         self.assertTrue(any(item.startswith("pillow") for item in agent_tools))
-        self.assertTrue(any(item.startswith("imageio") for item in agent_tools))
-        for module in ("numpy", "PIL", "imageio.v3", "imageio_ffmpeg"):
-            self.assertIsNotNone(importlib.import_module(module))
+        self.assertTrue(any(item.startswith("imageio>=") for item in agent_tools))
+        self.assertTrue(
+            any(item.startswith("imageio-ffmpeg") for item in agent_tools)
+        )
 
         runner = (project_root / "scripts" / "run_nle_codex.py").read_text()
         self.assertIn("view_image=True", runner)

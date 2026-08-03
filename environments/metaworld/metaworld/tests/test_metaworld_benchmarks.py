@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
@@ -35,11 +36,12 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
                     step = environment.step([0.0, 0.0, 0.0, 0.0])
                     self.assertIsInstance(step.reward, float)
                     self.assertIsInstance(step.metrics, dict)
-                    self.assertEqual(step.metrics["task_name"], profile)
-                    self.assertIn("best_reward", step.metrics)
-                    self.assertIn("obj_to_target_improvement_this_step", step.metrics)
-                    self.assertIn("action_l2_norm", step.metrics)
-                    self.assertIn("state_motion_l2", step.metrics)
+                    metrics = _step_metrics(step)
+                    self.assertEqual(metrics["task_name"], profile)
+                    self.assertIn("best_reward", metrics)
+                    self.assertIn("obj_to_target_improvement_this_step", metrics)
+                    self.assertIn("action_l2_norm", metrics)
+                    self.assertIn("state_motion_l2", metrics)
                 finally:
                     environment.close()
                     environment.close()
@@ -106,12 +108,22 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
 
     def test_spec_documents_dense_feedback_and_nonterminating_success(self) -> None:
         spec = MetaWorldBenchmark().spec
+        reward_mode = spec.metadata["reward_mode"]
+        success_persistence = spec.metadata["success_persistence"]
+        action_handling = spec.environment_parameters["action_handling"]
+        horizon = spec.environment_parameters["horizon"]
+        feedback_diagnostics = spec.environment_parameters["feedback_diagnostics"]
+        assert isinstance(reward_mode, str)
+        assert isinstance(success_persistence, str)
+        assert isinstance(action_handling, str)
+        assert isinstance(horizon, str)
+        assert isinstance(feedback_diagnostics, str)
 
-        self.assertIn("dense shaped", spec.metadata["reward_mode"])
-        self.assertIn("does not terminate", spec.metadata["success_persistence"])
-        self.assertIn("rejected", spec.environment_parameters["action_handling"])
-        self.assertIn("500 steps", spec.environment_parameters["horizon"])
-        self.assertIn("obj_to_target", spec.environment_parameters["feedback_diagnostics"])
+        self.assertIn("dense shaped", reward_mode)
+        self.assertIn("does not terminate", success_persistence)
+        self.assertIn("rejected", action_handling)
+        self.assertIn("500 steps", horizon)
+        self.assertIn("obj_to_target", feedback_diagnostics)
 
     def test_collection_requires_host_task_scenario(self) -> None:
         with self.assertRaises(ValueError):
@@ -131,35 +143,41 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
             steps = []
             for _ in range(26):
                 values = _tensor_values(observation)
-                action = [
-                    max(
-                        -1.0,
-                        min(1.0, 10.0 * (values[-3 + index] - values[index])),
-                    )
-                    for index in range(3)
-                ] + [0.0]
+                action: PolicyValue = [
+                    *(
+                        max(
+                            -1.0,
+                            min(1.0, 10.0 * (values[-3 + index] - values[index])),
+                        )
+                        for index in range(3)
+                    ),
+                    0.0,
+                ]
                 step = environment.step(action)
                 steps.append(step)
                 observation = step.observation
                 assert isinstance(observation, TensorValue)
 
             success = steps[-1]
-            self.assertEqual(success.metrics["success"], True)
-            self.assertEqual(success.metrics["success_ever"], True)
-            self.assertEqual(success.metrics["first_success_step"], 26)
-            self.assertEqual(success.metrics["success_first_reached_this_step"], True)
+            success_metrics = _step_metrics(success)
+            self.assertEqual(success_metrics["success"], True)
+            self.assertEqual(success_metrics["success_ever"], True)
+            self.assertEqual(success_metrics["first_success_step"], 26)
+            self.assertEqual(success_metrics["success_first_reached_this_step"], True)
             self.assertEqual(success.reward, 10.0)
-            self.assertEqual(success.metrics["best_reward"], 10.0)
-            self.assertLess(success.metrics["best_obj_to_target"], 0.05)
+            self.assertEqual(success_metrics["best_reward"], 10.0)
+            self.assertLess(_number_metric(success_metrics, "best_obj_to_target"), 0.05)
 
             still_success = environment.step([-1.0, -1.0, -1.0, 0.0])
             lost = environment.step([-1.0, -1.0, -1.0, 0.0])
-            self.assertEqual(still_success.metrics["success"], True)
-            self.assertEqual(lost.metrics["success"], False)
-            self.assertEqual(lost.metrics["success_ever"], True)
-            self.assertEqual(lost.metrics["success_lost_this_step"], True)
-            self.assertEqual(lost.metrics["success_lost_count"], 1)
-            self.assertEqual(lost.metrics["task_stage"], "success_lost")
+            still_success_metrics = _step_metrics(still_success)
+            lost_metrics = _step_metrics(lost)
+            self.assertEqual(still_success_metrics["success"], True)
+            self.assertEqual(lost_metrics["success"], False)
+            self.assertEqual(lost_metrics["success_ever"], True)
+            self.assertEqual(lost_metrics["success_lost_this_step"], True)
+            self.assertEqual(lost_metrics["success_lost_count"], 1)
+            self.assertEqual(lost_metrics["task_stage"], "success_lost")
         finally:
             environment.close()
 
@@ -207,8 +225,8 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["mean_zero_action_fraction"], 1.0)
         self.assertEqual(feedback.content["task_episode_counts"], {"reach-v3": 1})
         self.assertEqual(feedback.content["task_success_rates"], {"reach-v3": 0.0})
-        self.assertGreater(feedback.content["mean_best_reward"], 0.0)
-        self.assertGreaterEqual(feedback.content["mean_state_motion_l2"], 0.0)
+        self.assertGreater(_number_metric(feedback.content, "mean_best_reward"), 0.0)
+        self.assertGreaterEqual(_number_metric(feedback.content, "mean_state_motion_l2"), 0.0)
         self.assertIn("best_in_place_reward", transitions_json[0]["metrics"])
         self.assertEqual(
             transitions_json[-1]["metrics"]["terminal_reason"],
@@ -230,6 +248,18 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
 
 def _tensor_values(value: TensorValue) -> tuple[float, ...]:
     return tuple(item[0] for item in struct.iter_unpack("<d", value.data))
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 if __name__ == "__main__":

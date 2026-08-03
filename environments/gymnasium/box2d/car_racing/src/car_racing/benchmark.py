@@ -11,6 +11,7 @@ import struct
 import zlib
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy
 from evopolicygym.authoring import (
@@ -391,12 +392,7 @@ def _episode_summary(
             key = str(action)
             action_counts[key] = action_counts.get(key, 0) + 1
         else:
-            steering = action[0]
-            gas = action[1]
-            brake = action[2]
-            assert isinstance(steering, float)
-            assert isinstance(gas, float)
-            assert isinstance(brake, float)
+            steering, gas, brake = cast(list[float], action)
             steering_total += steering
             steering_absolute_total += abs(steering)
             gas_total += gas
@@ -890,9 +886,9 @@ def _action_meaning(action: PolicyValue, *, continuous: bool) -> str:
         return _DISCRETE_ACTIONS[action]
     if not isinstance(action, list) or len(action) != 3:
         raise ValueError("CarRacing trace Action meaning is invalid")
-    steering, gas, brake = action
     if not all(isinstance(value, float) for value in action):
         raise ValueError("CarRacing trace Action meaning is invalid")
+    steering, gas, brake = cast(list[float], action)
     return f"steering={steering:g},gas={gas:g},brake={brake:g}"
 
 
@@ -901,9 +897,10 @@ def _short_action(action: PolicyValue) -> str:
         return "initial"
     if isinstance(action, int):
         return _DISCRETE_ACTIONS[action]
-    if not isinstance(action, list) or len(action) != 3:
-        raise ValueError("CarRacing replay Action is invalid")
-    return f"s={action[0]:g} g={action[1]:g} b={action[2]:g}"
+    traced = _trace_action(action, continuous=True)
+    assert isinstance(traced, list)
+    values = cast(list[float], traced)
+    return f"s={values[0]:g} g={values[1]:g} b={values[2]:g}"
 
 
 def _progress_bonus(reward: float) -> float:

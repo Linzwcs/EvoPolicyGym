@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import unittest
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -39,12 +40,15 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                 try:
                     initial_observation = environment.reset()
                     self.assertIsInstance(initial_observation, dict)
-                    schema = JumanjiBenchmark(config).spec.observation_space
+                    schema = _dictionary(
+                        JumanjiBenchmark(config).spec.observation_space
+                    )
+                    schema_fields = _dictionary(schema["fields"])
                     self.assertEqual(
                         _policy_carriers(initial_observation),
                         {
-                            field: specification["policy_carrier"]
-                            for field, specification in schema["fields"].items()
+                            field: _dictionary(specification)["policy_carrier"]
+                            for field, specification in schema_fields.items()
                         },
                     )
                     observation = initial_observation
@@ -71,7 +75,10 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                         )
                     )
                     self.assertEqual(len(feedback.artifacts), 2)
-                    manifest = feedback.content["observation_artifacts"][0]
+                    feedback_content = _dictionary(feedback.content)
+                    manifest = _dictionary(
+                        _sequence(feedback_content["observation_artifacts"])[0]
+                    )
                     self.assertTrue(
                         all(
                             "policy_carrier" in field and "policy_path" in field
@@ -79,7 +86,9 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                         )
                     )
                     if profile == "job-shop":
-                        summary = feedback.content["episode_summaries"][0]
+                        summary = _dictionary(
+                            _sequence(feedback_content["episode_summaries"])[0]
+                        )
                         self.assertLessEqual(len(summary["actions"]), 16)
                         self.assertGreater(summary["distinct_actions"], 16)
                         self.assertGreater(summary["action_summaries_omitted"], 0)
@@ -132,7 +141,9 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                             progress["aggregate_height"],
                             sum(progress["column_heights"]),
                         )
-                        self.assertIn("lines_cleared", transitions[0].step.metrics)
+                        self.assertIn(
+                            "lines_cleared", _dictionary(transitions[0].step.metrics)
+                        )
                     self.assertEqual(
                         semantics["action_mask"] is not None,
                         config.has_action_mask,
@@ -169,15 +180,19 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertNotEqual(maze.spec.environment_digest, tetris.spec.environment_digest)
         self.assertEqual(tetris.spec.environment_parameters["profile"], "tetris")
         self.assertEqual(tetris.spec.max_episode_steps, 400)
-        maze_fields = maze.spec.observation_space["fields"]
-        self.assertEqual(maze_fields["agent_position.row"]["policy_carrier"], "int")
-        self.assertEqual(maze_fields["walls"]["policy_carrier"], "TensorValue")
+        maze_fields = _dictionary(_dictionary(maze.spec.observation_space)["fields"])
+        self.assertEqual(
+            _dictionary(maze_fields["agent_position.row"])["policy_carrier"], "int"
+        )
+        self.assertEqual(_dictionary(maze_fields["walls"])["policy_carrier"], "TensorValue")
         easy_rubik = JumanjiBenchmark(
             JumanjiConfig(profile="rubiks-cube-partly-scrambled")
         )
         self.assertEqual(easy_rubik.spec.environment_parameters["initial_scramble_moves"], 7)
         self.assertEqual(
-            easy_rubik.spec.observation_space["fields"]["cube"]["face_order"],
+            _dictionary(
+                _dictionary(_dictionary(easy_rubik.spec.observation_space)["fields"])["cube"]
+            )["face_order"],
             ["up", "front", "right", "back", "left", "down"],
         )
 
@@ -202,13 +217,17 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                 )
                 self.assertIn("All 18 actions are always legal", spec.description)
                 self.assertIn("produces six uniform faces rewards 1", spec.description)
-                cube_spec = spec.observation_space["fields"]["cube"]
+                cube_spec = _dictionary(
+                    _dictionary(_dictionary(spec.observation_space)["fields"])["cube"]
+                )
                 self.assertIn("sticker color id", cube_spec["meaning"])
-                self.assertEqual(cube_spec["sticker_value_colors"]["0"], "white")
-                self.assertEqual(cube_spec["sticker_value_colors"]["5"], "yellow")
+                sticker_colors = _dictionary(cube_spec["sticker_value_colors"])
+                orientations = _dictionary(cube_spec["face_view_orientations"])
+                self.assertEqual(sticker_colors["0"], "white")
+                self.assertEqual(sticker_colors["5"], "yellow")
                 self.assertIn(
                     "back face points up",
-                    cube_spec["face_view_orientations"]["up"],
+                    orientations["up"],
                 )
                 self.assertFalse(
                     spec.environment_parameters[
@@ -234,7 +253,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                 self.assertFalse(transitions[-1].step.truncated)
                 self.assertEqual(transitions[-1].step.reward, 1.0)
                 self.assertEqual(
-                    transitions[-1].step.metrics["terminal_reason"], "solved"
+                    _dictionary(transitions[-1].step.metrics)["terminal_reason"], "solved"
                 )
                 feedback = benchmark.feedback(
                     (
@@ -278,23 +297,27 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertEqual(step.reward, 0.0)
         self.assertTrue(step.terminated)
         self.assertFalse(step.truncated)
-        self.assertEqual(step.metrics["terminal_reason"], "time_limit")
-        self.assertEqual(step.observation["step_count"], 200)
+        self.assertEqual(_dictionary(step.metrics)["terminal_reason"], "time_limit")
+        self.assertEqual(_dictionary(step.observation)["step_count"], 200)
 
     def test_graph_coloring_spec_explains_objective_and_fields(self) -> None:
         spec = JumanjiBenchmark(JumanjiConfig(profile="graph-coloring")).spec
         self.assertIn("minimizing the number of distinct colors", spec.description)
         self.assertIn("successful terminal reward", spec.description)
-        fields = spec.observation_space["fields"]
-        self.assertIn("nodes u and v are adjacent", fields["adj_matrix"]["meaning"])
-        self.assertIn("-1 until node i is assigned", fields["colors"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn(
+            "nodes u and v are adjacent", _dictionary(fields["adj_matrix"])["meaning"]
+        )
+        self.assertIn(
+            "-1 until node i is assigned", _dictionary(fields["colors"])["meaning"]
+        )
         self.assertIn(
             "node colored by the next action",
-            fields["current_node_index"]["meaning"],
+            _dictionary(fields["current_node_index"])["meaning"],
         )
         self.assertIn(
             "assigning color c",
-            fields["action_mask"]["meaning"],
+            _dictionary(fields["action_mask"])["meaning"],
         )
 
     def test_minesweeper_spec_explains_objective_and_fields(self) -> None:
@@ -302,43 +325,53 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("Reveal all 90 non-mine cells", spec.description)
         self.assertIn("Each safe reveal rewards 1", spec.description)
         self.assertIn("a mine is revealed", spec.description)
-        fields = spec.observation_space["fields"]
-        self.assertIn("-1 for an unexplored cell", fields["board"]["meaning"])
-        self.assertIn("up to eight neighbors", fields["board"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        board = _dictionary(fields["board"])
+        action_mask = _dictionary(fields["action_mask"])
+        self.assertIn("-1 for an unexplored cell", board["meaning"])
+        self.assertIn("up to eight neighbors", board["meaning"])
         self.assertIn(
             "still unexplored and may be selected",
-            fields["action_mask"]["meaning"],
+            action_mask["meaning"],
         )
-        self.assertIn("Total number of mines", fields["num_mines"]["meaning"])
-        self.assertIn("Number of cells selected", fields["step_count"]["meaning"])
+        self.assertIn("Total number of mines", _dictionary(fields["num_mines"])["meaning"])
+        self.assertIn(
+            "Number of cells selected", _dictionary(fields["step_count"])["meaning"]
+        )
 
     def test_sliding_tile_spec_explains_goal_reward_and_fields(self) -> None:
         spec = JumanjiBenchmark(JumanjiConfig(profile="sliding-tile-puzzle")).spec
         self.assertIn("[1, 2, ..., 24, 0]", spec.description)
         self.assertIn("applies 200 random legal moves", spec.description)
         self.assertIn("newly correct positions", spec.description)
-        fields = spec.observation_space["fields"]
-        self.assertIn("solved flattened ordering", fields["puzzle"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn(
+            "solved flattened ordering", _dictionary(fields["puzzle"])["meaning"]
+        )
         self.assertIn(
             "[row, column] coordinates",
-            fields["empty_tile_position"]["meaning"],
+            _dictionary(fields["empty_tile_position"])["meaning"],
         )
-        self.assertIn("empty tile can move", fields["action_mask"]["meaning"])
-        self.assertIn("empty-tile moves taken", fields["step_count"]["meaning"])
+        self.assertIn("empty tile can move", _dictionary(fields["action_mask"])["meaning"])
+        self.assertIn(
+            "empty-tile moves taken", _dictionary(fields["step_count"])["meaning"]
+        )
 
     def test_bin_pack_spec_explains_objective_nested_paths_and_fields(self) -> None:
         spec = JumanjiBenchmark(JumanjiConfig(profile="bin-pack")).spec
         self.assertIn("Maximize volume utilization", spec.description)
         self.assertIn("fixed-orientation item", spec.description)
         self.assertIn("return equals final volume utilization", spec.description)
-        observation_space = spec.observation_space
+        observation_space = _dictionary(spec.observation_space)
         self.assertIn("never observation['ems.x1']", observation_space["policy_path_rule"])
-        fields = observation_space["fields"]
-        self.assertEqual(fields["ems.x1"]["policy_path"], ["ems", "x1"])
-        self.assertEqual(fields["action_mask"]["policy_path"], ["action_mask"])
-        self.assertIn("Normalized lower x", fields["ems.x1"]["meaning"])
-        self.assertIn("unpacked item i fits", fields["action_mask"]["meaning"])
-        self.assertIn("already packed", fields["items_placed"]["meaning"])
+        fields = _dictionary(observation_space["fields"])
+        ems_x1 = _dictionary(fields["ems.x1"])
+        action_mask = _dictionary(fields["action_mask"])
+        self.assertEqual(ems_x1["policy_path"], ["ems", "x1"])
+        self.assertEqual(action_mask["policy_path"], ["action_mask"])
+        self.assertIn("Normalized lower x", ems_x1["meaning"])
+        self.assertIn("unpacked item i fits", action_mask["meaning"])
+        self.assertIn("already packed", _dictionary(fields["items_placed"])["meaning"])
 
     def test_flat_pack_spec_and_mask_dead_end_are_explicit(self) -> None:
         config = JumanjiConfig(profile="flat-pack")
@@ -346,9 +379,9 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("generated instances admit a complete tiling", spec.description)
         self.assertIn("clockwise rotation", spec.description)
         self.assertIn("return equals final grid occupancy", spec.description)
-        fields = spec.observation_space["fields"]
-        self.assertIn("zero cells are transparent", fields["blocks"]["meaning"])
-        self.assertIn("without overlap", fields["action_mask"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("zero cells are transparent", _dictionary(fields["blocks"])["meaning"])
+        self.assertIn("without overlap", _dictionary(fields["action_mask"])["meaning"])
 
         environment = JumanjiBenchmark(config).make_environment(
             EpisodeSpec(environment_seed=123)
@@ -363,7 +396,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                 observation = step.observation
             self.assertTrue(step.terminated)
             self.assertFalse(step.truncated)
-            self.assertIs(step.metrics.get("no_legal_actions"), True)
+            self.assertIs(_dictionary(step.metrics).get("no_legal_actions"), True)
             final_observation = step.observation
             self.assertIsInstance(final_observation, dict)
             if type(final_observation) is not dict:
@@ -382,11 +415,13 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("dense reward is that item's value", spec.description)
         self.assertIn("return equals the packed subset's total value", spec.description)
         self.assertEqual(spec.environment_parameters["total_capacity"], 12.5)
-        fields = spec.observation_space["fields"]
-        self.assertIn("12.5 minus the total weight", fields["action_mask"]["meaning"])
-        self.assertIn("already been packed", fields["packed_items"]["meaning"])
-        self.assertIn("immediate reward", fields["values"]["meaning"])
-        self.assertIn("contribution to capacity", fields["weights"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn(
+            "12.5 minus the total weight", _dictionary(fields["action_mask"])["meaning"]
+        )
+        self.assertIn("already been packed", _dictionary(fields["packed_items"])["meaning"])
+        self.assertIn("immediate reward", _dictionary(fields["values"])["meaning"])
+        self.assertIn("contribution to capacity", _dictionary(fields["weights"])["meaning"])
 
     def test_tetris_spec_explains_dynamics_reward_and_upstream_step_fix(self) -> None:
         config = JumanjiConfig(profile="tetris")
@@ -395,12 +430,12 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("crop the current 4x4 shape", spec.description)
         self.assertIn("0/40/100/300/1200", spec.description)
         self.assertIn("after 400 placed pieces", spec.description)
-        meanings = spec.action_space["component_value_meanings"]
-        self.assertEqual(meanings["rotation"]["1"], "90_degrees_clockwise")
-        fields = spec.observation_space["fields"]
-        self.assertIn("row 0 is the top", fields["grid"]["meaning"])
-        self.assertIn("reports constant zero", fields["step_count"]["meaning"])
-        self.assertIn("crop all-zero outer", fields["tetromino"]["meaning"])
+        meanings = _dictionary(_dictionary(spec.action_space)["component_value_meanings"])
+        self.assertEqual(_dictionary(meanings["rotation"])["1"], "90_degrees_clockwise")
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("row 0 is the top", _dictionary(fields["grid"])["meaning"])
+        self.assertIn("reports constant zero", _dictionary(fields["step_count"])["meaning"])
+        self.assertIn("crop all-zero outer", _dictionary(fields["tetromino"])["meaning"])
 
         environment = JumanjiBenchmark(config).make_environment(
             EpisodeSpec(environment_seed=123)
@@ -419,7 +454,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
             self.assertEqual(step.observation["step_count"], 1)
             self.assertIn(step.reward, (0.0, 40.0, 100.0, 300.0, 1_200.0))
             self.assertEqual(
-                step.metrics["lines_cleared"],
+                _dictionary(step.metrics)["lines_cleared"],
                 (0.0, 40.0, 100.0, 300.0, 1_200.0).index(step.reward),
             )
         finally:
@@ -433,15 +468,16 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("raw capacity 30", spec.description)
         self.assertIn("negative distance", spec.description)
         self.assertIn("returns to depot 0", spec.description)
-        self.assertEqual(spec.action_space["meaning"]["0"], "depot")
-        self.assertEqual(spec.action_space["meaning"]["20"], "customer_20")
+        action_meanings = _dictionary(_dictionary(spec.action_space)["meaning"])
+        self.assertEqual(action_meanings["0"], "depot")
+        self.assertEqual(action_meanings["20"], "customer_20")
         self.assertEqual(spec.environment_parameters["raw_vehicle_capacity"], 30)
-        fields = spec.observation_space["fields"]
-        self.assertIn("depot resets this scalar", fields["capacity"]["meaning"])
-        self.assertIn("Unused suffix slots", fields["trajectory"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("depot resets this scalar", _dictionary(fields["capacity"])["meaning"])
+        self.assertIn("Unused suffix slots", _dictionary(fields["trajectory"])["meaning"])
         self.assertIn(
             "not that it is an unvisited customer",
-            fields["unvisited_nodes"]["meaning"],
+            _dictionary(fields["unvisited_nodes"])["meaning"],
         )
 
         episode = EpisodeSpec(environment_seed=123)
@@ -495,7 +531,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         environment = benchmark.make_environment(full_episode)
         try:
             initial = environment.reset()
-            observation = initial
+            observation: PolicyValue = initial
             transitions: list[Transition] = []
             for _ in range(config.max_episode_steps):
                 action = _first_valid_action(observation, config=config)
@@ -539,14 +575,19 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("20 cities", spec.description)
         self.assertIn("first selected city starts the tour and rewards 0", spec.description)
         self.assertIn("distance back to the first city", spec.description)
-        self.assertEqual(spec.action_space["meaning"]["0"], "city_0")
-        self.assertEqual(spec.action_space["meaning"]["19"], "city_19")
+        action_meanings = _dictionary(_dictionary(spec.action_space)["meaning"])
+        self.assertEqual(action_meanings["0"], "city_0")
+        self.assertEqual(action_meanings["19"], "city_19")
         self.assertEqual(spec.environment_parameters["city_count"], 20)
         self.assertIs(spec.environment_parameters["tour_returns_to_first_city"], True)
-        fields = spec.observation_space["fields"]
-        self.assertIn("not yet been selected", fields["action_mask"]["meaning"])
-        self.assertIn("-1 before the first selection", fields["position"]["meaning"])
-        self.assertIn("Unused suffix entries are -1", fields["trajectory"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("not yet been selected", _dictionary(fields["action_mask"])["meaning"])
+        self.assertIn(
+            "-1 before the first selection", _dictionary(fields["position"])["meaning"]
+        )
+        self.assertIn(
+            "Unused suffix entries are -1", _dictionary(fields["trajectory"])["meaning"]
+        )
 
         episode = EpisodeSpec(environment_seed=123)
         environment = benchmark.make_environment(episode)
@@ -565,7 +606,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
             ).reshape(20, 2)
             self.assertEqual(initial["position"], -1)
 
-            observation = initial
+            observation: PolicyValue = initial
             transitions: list[Transition] = []
             for _ in range(config.max_episode_steps):
                 action = _first_valid_action(observation, config=config)
@@ -579,7 +620,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
             self.assertFalse(step.truncated)
             self.assertEqual(len(transitions), 20)
 
-            route = [int(transition.action) for transition in transitions]
+            route = [_integer(transition.action) for transition in transitions]
             closed_route = numpy.asarray((*route, route[0]), dtype=numpy.int64)
             tour_length = float(
                 numpy.linalg.norm(
@@ -635,7 +676,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("fruits eaten", spec.description)
         self.assertIn("current tail cell", spec.description)
         self.assertEqual(
-            spec.action_space["meaning"],
+            _dictionary(spec.action_space)["meaning"],
             {"0": "up", "1": "right", "2": "down", "3": "left"},
         )
         self.assertEqual(spec.environment_parameters["grid_cells"], 144)
@@ -644,10 +685,11 @@ class JumanjiBenchmarkTests(unittest.TestCase):
             spec.environment_parameters["grid_channels"],
             ["body", "head", "tail", "fruit", "normalized_body_order"],
         )
-        fields = spec.observation_space["fields"]
-        self.assertIn("tail advances", fields["action_mask"]["meaning"])
-        self.assertIn("Channels 0/1/2/3", fields["grid"]["meaning"])
-        self.assertIn("1/length at the tail", fields["grid"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("tail advances", _dictionary(fields["action_mask"])["meaning"])
+        grid_spec = _dictionary(fields["grid"])
+        self.assertIn("Channels 0/1/2/3", grid_spec["meaning"])
+        self.assertIn("1/length at the tail", grid_spec["meaning"])
 
         episode = EpisodeSpec(environment_seed=123)
         environment = benchmark.make_environment(episode)
@@ -738,7 +780,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertIn("for 60 total", spec.description)
         self.assertIn("at most once per ghost", spec.description)
         self.assertEqual(
-            spec.action_space["meaning"],
+            _dictionary(spec.action_space)["meaning"],
             {
                 "0": "up",
                 "1": "left",
@@ -750,11 +792,16 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.environment_parameters["initial_pellets"], 318)
         self.assertEqual(spec.environment_parameters["power_up_extra_reward"], 50)
         self.assertEqual(spec.environment_parameters["maze_layout"], "fixed")
-        fields = spec.observation_space["fields"]
-        self.assertIn("Entry 4", fields["action_mask"]["meaning"])
-        self.assertIn("grid row index", fields["player_locations.x"]["meaning"])
-        self.assertIn("[column, row]", fields["pellet_locations"]["meaning"])
-        self.assertIn("continues below zero", fields["frightened_state_time"]["meaning"])
+        fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+        self.assertIn("Entry 4", _dictionary(fields["action_mask"])["meaning"])
+        self.assertIn(
+            "grid row index", _dictionary(fields["player_locations.x"])["meaning"]
+        )
+        self.assertIn("[column, row]", _dictionary(fields["pellet_locations"])["meaning"])
+        self.assertIn(
+            "continues below zero",
+            _dictionary(fields["frightened_state_time"])["meaning"],
+        )
 
         episode = EpisodeSpec(environment_seed=123)
         environment = benchmark.make_environment(episode)
@@ -775,14 +822,15 @@ class JumanjiBenchmarkTests(unittest.TestCase):
             self.assertEqual(list(mask.data), [0, 1, 0, 1, 0])
 
             left_step = environment.step(1)
-            left_player = left_step.observation["player_locations"]
+            left_observation = _dictionary(left_step.observation)
+            left_player = left_observation["player_locations"]
             self.assertIsInstance(left_player, dict)
             if type(left_player) is not dict:
                 self.fail("expected an object player position")
             self.assertEqual([left_player["x"], left_player["y"]], [23, 12])
             self.assertEqual(left_step.reward, 10.0)
-            self.assertEqual(left_step.observation["score"], 10)
-            self.assertEqual(left_step.observation["frightened_state_time"], -1)
+            self.assertEqual(left_observation["score"], 10)
+            self.assertEqual(left_observation["frightened_state_time"], -1)
 
             feedback = benchmark.feedback(
                 (
@@ -816,7 +864,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
         try:
             environment.reset()
             right_step = environment.step(3)
-            right_player = right_step.observation["player_locations"]
+            right_player = _dictionary(right_step.observation)["player_locations"]
             self.assertIsInstance(right_player, dict)
             if type(right_player) is not dict:
                 self.fail("expected an object player position")
@@ -838,7 +886,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                     break
                 observation = step.observation
             self.assertTrue(step.terminated)
-            self.assertEqual(step.metrics["terminal_reason"], "ghost_collision")
+            self.assertEqual(_dictionary(step.metrics)["terminal_reason"], "ghost_collision")
             terminal_feedback = benchmark.feedback(
                 (
                     EpisodeRecord(
@@ -849,9 +897,13 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                     ),
                 )
             )
-            summary = terminal_feedback.content["episode_summaries"][0]
+            summary = _dictionary(
+                _sequence(_dictionary(terminal_feedback.content)["episode_summaries"])[0]
+            )
+            summary_metrics = _dictionary(summary["metrics"])
+            terminal_reason = _dictionary(summary_metrics["terminal_reason"])
             self.assertEqual(
-                summary["metrics"]["terminal_reason"]["final"],
+                terminal_reason["final"],
                 "ghost_collision",
             )
         finally:
@@ -884,12 +936,17 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                     spec.environment_parameters["maximum_initial_clues"],
                     maximum_clues,
                 )
-                value_meanings = spec.action_space["component_value_meanings"]
-                self.assertEqual(value_meanings["value"]["0"], "human_symbol_1")
-                self.assertEqual(value_meanings["value"]["8"], "human_symbol_9")
-                fields = spec.observation_space["fields"]
-                self.assertIn("human Sudoku symbols 1-9", fields["board"]["meaning"])
-                self.assertIn("3x3 box", fields["action_mask"]["meaning"])
+                value_meanings = _dictionary(
+                    _dictionary(spec.action_space)["component_value_meanings"]
+                )
+                value_labels = _dictionary(value_meanings["value"])
+                self.assertEqual(value_labels["0"], "human_symbol_1")
+                self.assertEqual(value_labels["8"], "human_symbol_9")
+                fields = _dictionary(_dictionary(spec.observation_space)["fields"])
+                self.assertIn(
+                    "human Sudoku symbols 1-9", _dictionary(fields["board"])["meaning"]
+                )
+                self.assertIn("3x3 box", _dictionary(fields["action_mask"])["meaning"])
 
                 episode = EpisodeSpec(environment_seed=123)
                 environment = benchmark.make_environment(episode)
@@ -910,7 +967,7 @@ class JumanjiBenchmarkTests(unittest.TestCase):
 
                     transitions: list[Transition] = []
                     for row, column in numpy.argwhere(board < 0):
-                        action = [
+                        action: PolicyValue = [
                             int(row),
                             int(column),
                             int(solution[int(row), int(column)]),
@@ -1055,8 +1112,9 @@ class JumanjiBenchmarkTests(unittest.TestCase):
                 ),
             )
         )
-        self.assertEqual(feedback.content["traced_steps"], 48)
-        self.assertEqual(feedback.content["trace_steps_omitted"], 12)
+        feedback_content = _dictionary(feedback.content)
+        self.assertEqual(feedback_content["traced_steps"], 48)
+        self.assertEqual(feedback_content["trace_steps_omitted"], 12)
         lines = [
             json.loads(line) for line in feedback.artifacts[0].content.splitlines()
         ]
@@ -1091,6 +1149,21 @@ def _maze_observation(step: int) -> PolicyValue:
         ),
         "step_count": step,
     }
+
+
+def _dictionary(value: object) -> dict[str, Any]:
+    assert isinstance(value, dict)
+    return value
+
+
+def _sequence(value: object) -> list[Any]:
+    assert isinstance(value, list)
+    return value
+
+
+def _integer(value: object) -> int:
+    assert isinstance(value, int) and not isinstance(value, bool)
+    return value
 
 
 def _solve_sudoku(board: NDArray[numpy.int32]) -> NDArray[numpy.int32]:

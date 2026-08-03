@@ -50,8 +50,11 @@ class MemoryBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters["random_length"],
             True,
         )
+        action_space = default.spec.action_space
+        self.assertIsInstance(action_space, dict)
+        assert isinstance(action_space, dict)
         self.assertEqual(
-            default.spec.action_space["values"],
+            action_space["values"],
             [0, 1, 2],
         )
         self.assertEqual(

@@ -254,7 +254,9 @@ class BabyAIEnvironment:
             "visible_object_labels": list(facts.visible_object_labels),
             "visible_object_count": len(facts.visible_object_labels),
             "newly_discovered_object_labels": list(newly_discovered),
-            "discovered_object_labels": sorted(self._discovered_object_labels),
+            "discovered_object_labels": list[PolicyValue](
+                sorted(self._discovered_object_labels)
+            ),
             "discovered_object_label_count": len(self._discovered_object_labels),
             "pickup_attempt": pickup_attempt,
             "object_picked_up_this_step": object_picked_up,
@@ -356,10 +358,20 @@ def _observation(value: object) -> tuple[dict[str, PolicyValue], _ObservationFac
         "direction": direction,
         "mission": mission,
     }
-    front_cell = tuple(int(item) for item in image[3, 5])
+    front_cell = (
+        int(image[3, 5, 0]),
+        int(image[3, 5, 1]),
+        int(image[3, 5, 2]),
+    )
     labels = sorted(
         {
-            _cell_label(tuple(int(item) for item in image[x, y]))
+            _cell_label(
+                (
+                    int(image[x, y, 0]),
+                    int(image[x, y, 1]),
+                    int(image[x, y, 2]),
+                )
+            )
             for x in range(7)
             for y in range(7)
             if int(image[x, y, 0]) not in {0, 1, 2, 3, 10}

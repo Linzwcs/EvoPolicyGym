@@ -283,7 +283,7 @@ class CarRacingBenchmarkTests(unittest.TestCase):
         self.assertIsInstance(summary, dict)
         assert isinstance(summary, dict)
         self.assertEqual(summary["inferred_new_tile_events"], 6)
-        self.assertAlmostEqual(summary["inferred_track_coverage"], 0.06)
+        self.assertAlmostEqual(_number_metric(summary, "inferred_track_coverage"), 0.06)
         self.assertEqual(
             summary["control_summary"],
             {
@@ -374,7 +374,10 @@ class CarRacingBenchmarkTests(unittest.TestCase):
                 24,
             )
             self.assertEqual(replay.size, (288, 316))
-        manifest = feedback.content["frame_artifacts"][0]
+        frame_artifacts = feedback.content["frame_artifacts"]
+        assert isinstance(frame_artifacts, list)
+        manifest = frame_artifacts[0]
+        assert isinstance(manifest, dict)
         self.assertEqual(manifest["replay_frames"], 24)
         self.assertEqual(manifest["replay_frames_omitted"], 25)
         self.assertLess(
@@ -474,6 +477,12 @@ def _black_frame() -> TensorValue:
         shape=(96, 96, 3),
         data=bytes(96 * 96 * 3),
     )
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 def _frame(value: int) -> TensorValue:

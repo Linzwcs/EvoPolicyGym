@@ -114,7 +114,9 @@ class AirstrikerBenchmarkTests(unittest.TestCase):
         assert isinstance(first_summary, dict)
         self.assertEqual(first_summary["positive_reward_events"], 12)
         self.assertEqual(first_summary["trace_steps_omitted"], 168)
-        self.assertEqual(first_summary["action_counts"]["0"], 2)
+        action_counts = first_summary["action_counts"]
+        assert isinstance(action_counts, dict)
+        self.assertEqual(action_counts["0"], 2)
 
         artifacts = {
             artifact.name: artifact for artifact in feedback.artifacts

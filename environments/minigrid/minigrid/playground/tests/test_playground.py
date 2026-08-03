@@ -77,9 +77,17 @@ class PlaygroundTests(unittest.TestCase):
         self.assertEqual(parameters["initial_room_reward"], 0.0)
         self.assertEqual(parameters["new_room_reward"], 1.0)
         self.assertEqual(parameters["maximum_episode_return"], 8.0)
-        self.assertIn("without exposing room coordinates", parameters["coverage_definition"])
-        self.assertIn("all nine rooms", parameters["natural_termination"])
-        self.assertIn("destroys that box", parameters["action_notes"]["toggle"])
+        coverage_definition = parameters["coverage_definition"]
+        natural_termination = parameters["natural_termination"]
+        action_notes = parameters["action_notes"]
+        assert isinstance(coverage_definition, str)
+        assert isinstance(natural_termination, str)
+        assert isinstance(action_notes, dict)
+        toggle_note = action_notes["toggle"]
+        assert isinstance(toggle_note, str)
+        self.assertIn("without exposing room coordinates", coverage_definition)
+        self.assertIn("all nine rooms", natural_termination)
+        self.assertIn("destroys that box", toggle_note)
 
     def test_split_planning_and_scenario_rejection(self) -> None:
         benchmark = PlaygroundBenchmark()
@@ -125,23 +133,26 @@ class PlaygroundTests(unittest.TestCase):
         benchmark = PlaygroundBenchmark()
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
         steps = _run_actions(benchmark, episode, _EARLY_COVERAGE_ACTIONS)
+        door_metrics = _step_metrics(steps[3])
 
-        self.assertEqual(steps[3].metrics["door_opened_this_step"], True)
-        self.assertEqual(steps[3].metrics["door_open_event_count"], 1)
+        self.assertEqual(door_metrics["door_opened_this_step"], True)
+        self.assertEqual(door_metrics["door_open_event_count"], 1)
         for index, room_count in ((22, 2), (35, 3), (39, 4)):
             step = steps[index]
+            metrics = _step_metrics(step)
             self.assertEqual(step.reward, 1.0)
-            self.assertEqual(step.metrics["new_room"], True)
-            self.assertEqual(step.metrics["rooms_visited"], room_count)
-            self.assertEqual(step.metrics["rooms_remaining"], 9 - room_count)
-            self.assertAlmostEqual(step.metrics["room_coverage"], room_count / 9)
-            self.assertEqual(step.metrics[f"room_{room_count}_first_entry_step"], index + 1)
+            self.assertEqual(metrics["new_room"], True)
+            self.assertEqual(metrics["rooms_visited"], room_count)
+            self.assertEqual(metrics["rooms_remaining"], 9 - room_count)
+            self.assertAlmostEqual(_number_metric(metrics, "room_coverage"), room_count / 9)
+            self.assertEqual(metrics[f"room_{room_count}_first_entry_step"], index + 1)
 
+        final_metrics = _step_metrics(steps[-1])
         self.assertFalse(steps[-1].terminated)
         self.assertFalse(steps[-1].truncated)
-        self.assertEqual(steps[-1].metrics["rooms_visited"], 4)
-        self.assertEqual(steps[-1].metrics["new_room_entry_count"], 3)
-        self.assertEqual(steps[-1].metrics["cumulative_return"], 3.0)
+        self.assertEqual(final_metrics["rooms_visited"], 4)
+        self.assertEqual(final_metrics["new_room_entry_count"], 3)
+        self.assertEqual(final_metrics["cumulative_return"], 3.0)
         self.assertEqual(sum(step.reward for step in steps), 3.0)
 
     def test_failed_toggle_and_timeout_are_actionable(self) -> None:
@@ -151,24 +162,26 @@ class PlaygroundTests(unittest.TestCase):
         try:
             environment.reset()
             first = environment.step(5)
-            self.assertEqual(first.metrics["failed_toggle"], True)
-            self.assertEqual(first.metrics["failed_toggle_count"], 1)
+            first_metrics = _step_metrics(first)
+            self.assertEqual(first_metrics["failed_toggle"], True)
+            self.assertEqual(first_metrics["failed_toggle_count"], 1)
             final = first
             for _ in range(999):
                 final = environment.step(6)
         finally:
             environment.close()
 
+        final_metrics = _step_metrics(final)
         self.assertFalse(final.terminated)
         self.assertTrue(final.truncated)
         self.assertEqual(final.reward, 0.0)
-        self.assertEqual(final.metrics["rooms_visited"], 1)
-        self.assertAlmostEqual(final.metrics["room_coverage"], 1 / 9)
-        self.assertEqual(final.metrics["step_count"], 1000)
-        self.assertEqual(final.metrics["remaining_steps"], 0)
-        self.assertEqual(final.metrics["done_action_count"], 999)
-        self.assertEqual(final.metrics["terminal_reason"], "time_limit")
-        self.assertEqual(final.metrics["task_stage"], "time_limit")
+        self.assertEqual(final_metrics["rooms_visited"], 1)
+        self.assertAlmostEqual(_number_metric(final_metrics, "room_coverage"), 1 / 9)
+        self.assertEqual(final_metrics["step_count"], 1000)
+        self.assertEqual(final_metrics["remaining_steps"], 0)
+        self.assertEqual(final_metrics["done_action_count"], 999)
+        self.assertEqual(final_metrics["terminal_reason"], "time_limit")
+        self.assertEqual(final_metrics["task_stage"], "time_limit")
 
     def test_feedback_privacy_and_failure_penalty(self) -> None:
         failed = EpisodeRecord(
@@ -180,13 +193,15 @@ class PlaygroundTests(unittest.TestCase):
         )
         feedback = PlaygroundBenchmark().feedback((failed,))
         trace = feedback.artifacts[0].read_bytes()
+        content = feedback.content
+        assert isinstance(content, dict)
 
         self.assertEqual(feedback.score, 0.0)
         self.assertNotIn(b"environment_seed", trace)
         self.assertNotIn(b"policy_seed", trace)
         self.assertNotIn(b"agent_pos", trace)
-        self.assertEqual(feedback.content["policy_failures"], 1)
-        self.assertIsNone(feedback.content["mean_door_open_event_count"])
+        self.assertEqual(content["policy_failures"], 1)
+        self.assertIsNone(content["mean_door_open_event_count"])
 
     def test_baseline_solves_seeded_episodes_with_bounded_semantic_trace(self) -> None:
         benchmark = PlaygroundBenchmark()
@@ -202,12 +217,14 @@ class PlaygroundTests(unittest.TestCase):
             ),
         )
 
+        content = result.feedback.content
+        assert isinstance(content, dict)
         self.assertEqual(result.feedback.score, 1.0)
-        self.assertEqual(result.feedback.content["mean_room_coverage"], 1.0)
-        self.assertEqual(result.feedback.content["mean_return"], 8.0)
-        self.assertEqual(result.feedback.content["room_9_reached_rate"], 1.0)
-        self.assertEqual(result.feedback.content["door_opened_rate"], 1.0)
-        self.assertGreater(result.feedback.content["object_picked_up_rate"], 0.0)
+        self.assertEqual(content["mean_room_coverage"], 1.0)
+        self.assertEqual(content["mean_return"], 8.0)
+        self.assertEqual(content["room_9_reached_rate"], 1.0)
+        self.assertEqual(content["door_opened_rate"], 1.0)
+        self.assertGreater(_number_metric(content, "object_picked_up_rate"), 0.0)
         documents = tuple(
             json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
@@ -235,6 +252,18 @@ def _run_actions(
     finally:
         environment.close()
     return tuple(steps)
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

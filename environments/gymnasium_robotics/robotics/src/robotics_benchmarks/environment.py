@@ -216,6 +216,9 @@ class RoboticsEnvironment:
             if truncated
             else "in_progress"
         )
+        completed_task_names = list[PolicyValue](sorted(self._completed_tasks))
+        newly_completed_task_names = list[PolicyValue](sorted(step_completions))
+        remaining_task_names = list[PolicyValue](sorted(remaining_tasks))
         metrics: dict[str, PolicyValue] = {
             "step_count": self._steps,
             "remaining_steps": max(self._config.max_episode_steps - self._steps, 0),
@@ -259,9 +262,9 @@ class RoboticsEnvironment:
             "reward_this_step": number,
             "best_reward": self._best_reward,
             "cumulative_return": self._cumulative_return,
-            "completed_task_names": sorted(self._completed_tasks),
-            "newly_completed_task_names": sorted(step_completions),
-            "remaining_task_names": sorted(remaining_tasks),
+            "completed_task_names": completed_task_names,
+            "newly_completed_task_names": newly_completed_task_names,
+            "remaining_task_names": remaining_task_names,
             "completed_tasks": (
                 len(self._completed_tasks) if self._config.family == "franka-kitchen" else None
             ),

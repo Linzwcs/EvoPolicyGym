@@ -115,21 +115,29 @@ class HighwayBenchmarkTests(unittest.TestCase):
             "parking",
         )
         self.assertEqual(parking.spec.max_episode_steps, 500)
+        highway_action_space = highway.spec.action_space
+        intersection = HighwayBenchmark(HighwayConfig(profile="intersection"))
+        intersection_action_space = intersection.spec.action_space
+        parking_observation_space = parking.spec.observation_space
+        assert isinstance(highway_action_space, dict)
+        assert isinstance(intersection_action_space, dict)
+        assert isinstance(parking_observation_space, dict)
+        highway_meanings = highway_action_space["meaning"]
+        fields = parking_observation_space["fields"]
+        assert isinstance(highway_meanings, dict)
+        assert isinstance(fields, dict)
+        achieved_goal = fields["achieved_goal"]
+        assert isinstance(achieved_goal, dict)
         self.assertEqual(
-            highway.spec.action_space["meaning"]["0"],
+            highway_meanings["0"],
             "lane_left",
         )
-        intersection = HighwayBenchmark(
-            HighwayConfig(profile="intersection")
-        )
         self.assertEqual(
-            intersection.spec.action_space["meaning"],
+            intersection_action_space["meaning"],
             {"0": "slower", "1": "idle", "2": "faster"},
         )
         self.assertEqual(
-            parking.spec.observation_space["fields"]["achieved_goal"][
-                "features"
-            ],
+            achieved_goal["features"],
             ["x", "y", "vx", "vy", "cos_h", "sin_h"],
         )
 
@@ -233,8 +241,8 @@ class HighwayBenchmarkTests(unittest.TestCase):
         self.assertIsInstance(steering, dict)
         assert isinstance(acceleration, dict)
         assert isinstance(steering, dict)
-        self.assertAlmostEqual(acceleration["mean"], 0.1)
-        self.assertAlmostEqual(acceleration["mean_absolute"], 0.1)
+        self.assertAlmostEqual(_number_metric(acceleration, "mean"), 0.1)
+        self.assertAlmostEqual(_number_metric(acceleration, "mean_absolute"), 0.1)
         self.assertEqual(
             steering,
             {"mean": 0.0, "mean_absolute": 0.0},
@@ -310,6 +318,12 @@ def _tensor(array: NDArray[numpy.float64]) -> TensorValue:
         shape=tuple(int(size) for size in array.shape),
         data=array.tobytes(order="C"),
     )
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 if __name__ == "__main__":

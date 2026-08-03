@@ -105,7 +105,7 @@ _METRICS = frozenset(
         "cumulative_return",
         "success",
         "terminal_reason",
-        *(f"{name}_count" for name in _ACTIONS.values()),
+        *(f"{name}_count" for name in _ACTIONS.values() if isinstance(name, str)),
     }
 )
 _EVENT_METRICS = (

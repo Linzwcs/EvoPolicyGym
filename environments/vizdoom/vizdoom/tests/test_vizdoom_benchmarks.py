@@ -149,8 +149,10 @@ class ViZDoomBenchmarkTests(unittest.TestCase):
         assert isinstance(summary, dict)
         self.assertEqual(summary["positive_reward_events"], 6)
         self.assertEqual(summary["action_counts"], {"0": 50, "1": 50, "2": 50, "3": 50})
+        ranges = summary["game_variable_ranges"]
+        assert isinstance(ranges, dict)
         self.assertEqual(
-            summary["game_variable_ranges"]["AMMO2"],
+            ranges["AMMO2"],
             {
                 "initial": 50.0,
                 "final": 31.0,
@@ -235,7 +237,10 @@ class ViZDoomBenchmarkTests(unittest.TestCase):
                 24,
             )
             self.assertEqual(replay.size, (640, 508))
-        manifest = feedback.content["observation_artifacts"][0]
+        observation_artifacts = feedback.content["observation_artifacts"]
+        assert isinstance(observation_artifacts, list)
+        manifest = observation_artifacts[0]
+        assert isinstance(manifest, dict)
         self.assertEqual(manifest["stored_channels"], ["screen", "gamevariables"])
         self.assertEqual(manifest["replay_frames"], 24)
         self.assertEqual(manifest["replay_frames_omitted"], 9)
@@ -327,10 +332,13 @@ class ViZDoomBenchmarkTests(unittest.TestCase):
             notification_trace[1]["result_observation"]["notifications"],
             "picked up ammo",
         )
-        self.assertEqual(
-            notification_feedback.content["episode_summaries"][0]["notification_events"],
-            1,
-        )
+        notification_content = notification_feedback.content
+        assert isinstance(notification_content, dict)
+        notification_summaries = notification_content["episode_summaries"]
+        assert isinstance(notification_summaries, list)
+        notification_summary = notification_summaries[0]
+        assert isinstance(notification_summary, dict)
+        self.assertEqual(notification_summary["notification_events"], 1)
 
 
 def _observation(

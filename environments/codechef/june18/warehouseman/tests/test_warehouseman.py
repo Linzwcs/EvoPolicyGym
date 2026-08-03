@@ -9,10 +9,12 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
+from evopolicygym.policy import PolicyValue
 
 from warehouseman import WarehousemanBenchmark, baseline_program
 from warehouseman.benchmark import FAILURE_COST
@@ -60,9 +62,15 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
             MAX_INSTRUCTION_CHARACTERS,
         )
         self.assertEqual(spec.environment_parameters["failure_cost"], FAILURE_COST)
-        self.assertIn("one Action", spec.environment_parameters["solution_atomicity"])
-        self.assertIn("instruction_characters", spec.environment_parameters["score_formula"])
-        self.assertIn("at least 6 characters", spec.environment_parameters["handling_lower_bound"])
+        solution_atomicity = spec.environment_parameters["solution_atomicity"]
+        score_formula = spec.environment_parameters["score_formula"]
+        handling_lower_bound = spec.environment_parameters["handling_lower_bound"]
+        assert isinstance(solution_atomicity, str)
+        assert isinstance(score_formula, str)
+        assert isinstance(handling_lower_bound, str)
+        self.assertIn("one Action", solution_atomicity)
+        self.assertIn("instruction_characters", score_formula)
+        self.assertIn("at least 6 characters", handling_lower_bound)
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_material_license"],
@@ -216,15 +224,17 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             terminal.metrics["instruction_characters"],
-            terminal.metrics["moves"] + terminal.metrics["handling_characters"],
+            _number_metric(terminal.metrics, "moves")
+            + _number_metric(terminal.metrics, "handling_characters"),
         )
         self.assertEqual(
             terminal.metrics["excess_characters_above_handling_lower_bound"],
-            terminal.metrics["moves"] + 4 * terminal.metrics["relocation_cycles"],
+            _number_metric(terminal.metrics, "moves")
+            + 4 * _number_metric(terminal.metrics, "relocation_cycles"),
         )
         self.assertAlmostEqual(
-            terminal.metrics["movement_character_fraction"]
-            + terminal.metrics["handling_character_fraction"],
+            _number_metric(terminal.metrics, "movement_character_fraction")
+            + _number_metric(terminal.metrics, "handling_character_fraction"),
             1.0,
         )
         self.assertEqual(
@@ -317,11 +327,11 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             feedback.content["mean_characters_per_shipment"],
-            step.metrics["characters_per_shipment"],
+            _step_metrics(step)["characters_per_shipment"],
         )
         self.assertEqual(
             feedback.content["mean_relocation_cycles"],
-            float(step.metrics["relocation_cycles"]),
+            _number_metric(_step_metrics(step), "relocation_cycles"),
         )
         self.assertEqual(
             feedback.content["mean_instruction_budget_fraction"],
@@ -394,6 +404,18 @@ def _ordered_case(rows: int, columns: int) -> WarehouseCase:
     arrivals = list(range(1, rows * columns))
     arrivals[-1], arrivals[-2] = arrivals[-2], arrivals[-1]
     return WarehouseCase(rows, columns, tuple(arrivals))
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import json
 import statistics
 import struct
 from collections.abc import Sequence
+from typing import cast
 
 from evopolicygym.authoring import (
     Artifact,
@@ -369,7 +370,7 @@ def _mean_metric(
     values = tuple(value for item in metrics if (value := item[name]) is not None)
     if any(type(value) not in {int, float} for value in values):
         raise ValueError(f"Gymnasium-Robotics {name} metric is invalid")
-    return _mean_present(tuple(float(value) for value in values))
+    return _mean_present(tuple(float(cast(float | int, value)) for value in values))
 
 
 def _mean_present(values: Sequence[float | int]) -> float | None:

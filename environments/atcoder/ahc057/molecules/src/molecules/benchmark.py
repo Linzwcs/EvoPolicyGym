@@ -258,7 +258,7 @@ def _final_number(
         return None
     if type(value) not in {int, float}:
         raise ValueError("Molecules terminal metrics are invalid")
-    return value
+    return cast(float | int, value)
 
 
 def _mean_final_number(

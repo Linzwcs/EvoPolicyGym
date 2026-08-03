@@ -70,6 +70,7 @@ class EnvironmentAuditTests(unittest.TestCase):
             tuple(command.label for command in full),
             ("sync", "ruff", "mypy", "tests", "build"),
         )
+        self.assertEqual(full[2].arguments, ("uv", "run", "mypy", "--no-incremental"))
         self.assertEqual(
             tuple(
                 command.label

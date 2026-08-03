@@ -47,7 +47,12 @@ _RUBIK_FACE_VIEW_ORIENTATIONS = {
     "left": "back face is on the left; up face points up",
     "down": "left face is on the left; front face points up",
 }
-_RUBIK_FIELDS = {"cube": ("int8", (6, 3, 3)), "step_count": ("int64", ())}
+type _ObservationFieldSpec = tuple[str, tuple[int, ...]]
+
+_RUBIK_FIELDS: dict[str, _ObservationFieldSpec] = {
+    "cube": ("int8", (6, 3, 3)),
+    "step_count": ("int64", ()),
+}
 _RUBIK_FIELD_MEANINGS = {
     "cube": (
         "cube[face, row, column] is a sticker color id. Face indices "
@@ -59,7 +64,7 @@ _RUBIK_FIELD_MEANINGS = {
     ),
     "step_count": "Number of face turns applied since reset.",
 }
-_SUDOKU_FIELDS = {
+_SUDOKU_FIELDS: dict[str, _ObservationFieldSpec] = {
     "action_mask": ("bool", (9, 9, 9)),
     "board": ("int32", (9, 9)),
 }
@@ -434,7 +439,7 @@ _OBSERVATION_FIELD_MEANINGS: dict[str, dict[str, str]] = {
         "score": "Cumulative reward earned so far; final score equals Episode return.",
     },
 }
-_OBSERVATION_FIELDS = {
+_OBSERVATION_FIELDS: dict[str, dict[str, _ObservationFieldSpec]] = {
     "game-2048": {
         "action_mask": ("bool", (4,)),
         "board": ("int32", (4, 4)),
@@ -878,7 +883,7 @@ def _observation_space(config: JumanjiConfig) -> PolicyValue:
         meaning = _OBSERVATION_FIELD_MEANINGS.get(config.profile, {}).get(field)
         if meaning is not None:
             field_spec["meaning"] = meaning
-        field_spec["policy_path"] = field.split(".")
+        field_spec["policy_path"] = list[PolicyValue](field.split("."))
         fields[field] = field_spec
     return {
         "type": "object",
@@ -1018,7 +1023,11 @@ def _metric_summaries(record: EpisodeRecord) -> PolicyValue:
                 "final": items[-1],
             }
         elif items and all(type(item) in {int, float} for item in items):
-            numeric = [float(item) for item in items]
+            numeric = [
+                float(item)
+                for item in items
+                if type(item) is int or type(item) is float
+            ]
             summaries[name] = {
                 "minimum": min(numeric),
                 "mean": statistics.fmean(numeric),
@@ -1177,31 +1186,36 @@ def _action_meaning(action: PolicyValue, *, config: JumanjiConfig) -> str:
         return f"{config.action_components[0]}={action}"
     if type(action) is not list:
         raise ValueError("Jumanji trace Action meaning is invalid")
+    if any(type(item) is not int for item in action):
+        raise ValueError("Jumanji trace Action meaning is invalid")
+    integer_action = [item for item in action if type(item) is int]
     if config.profile.startswith("rubiks-cube"):
         return (
-            f"face={_RUBIK_FACES[action[0]]}({action[0]}),"
-            f"depth={action[1]},"
-            f"rotation={_RUBIK_ROTATIONS[action[2]]}({action[2]})"
+            f"face={_RUBIK_FACES[integer_action[0]]}({integer_action[0]}),"
+            f"depth={integer_action[1]},"
+            f"rotation={_RUBIK_ROTATIONS[integer_action[2]]}({integer_action[2]})"
         )
     if config.profile == "job-shop":
         no_op = config.action_num_values[0] - 1
         return ",".join(
             f"{name}={'no_op' if value == no_op else value}"
-            for name, value in zip(config.action_components, action, strict=True)
+            for name, value in zip(
+                config.action_components, integer_action, strict=True
+            )
         )
     if config.profile == "tetris":
         return (
-            f"rotation={action[0] * 90}_degrees_clockwise({action[0]}),"
-            f"window_left_column={action[1]}"
+            f"rotation={integer_action[0] * 90}_degrees_clockwise({integer_action[0]}),"
+            f"window_left_column={integer_action[1]}"
         )
     if config.profile.startswith("sudoku"):
         return (
-            f"row={action[0]},column={action[1]},"
-            f"value={action[2]}(human_symbol={action[2] + 1})"
+            f"row={integer_action[0]},column={integer_action[1]},"
+            f"value={integer_action[2]}(human_symbol={integer_action[2] + 1})"
         )
     return ",".join(
         f"{name}={value}"
-        for name, value in zip(config.action_components, action, strict=True)
+        for name, value in zip(config.action_components, integer_action, strict=True)
     )
 
 
@@ -1254,7 +1268,10 @@ def _action_was_legal(
         return bool(mask[action])
     if type(action) is not list:
         raise ValueError("Jumanji trace Action is invalid")
-    indices = tuple(action)
+    if any(type(item) is not int for item in action):
+        raise ValueError("Jumanji trace Action is invalid")
+    integer_action = [item for item in action if type(item) is int]
+    indices = tuple(integer_action)
     if config.action_mask_layout == "joint":
         if mask.shape != config.action_num_values:
             raise ValueError("Jumanji trace action mask shape changed")
@@ -1262,7 +1279,7 @@ def _action_was_legal(
     expected = (len(config.action_num_values), config.action_num_values[0])
     if mask.shape != expected:
         raise ValueError("Jumanji trace action mask shape changed")
-    return all(bool(mask[index, item]) for index, item in enumerate(action))
+    return all(bool(mask[index, item]) for index, item in enumerate(integer_action))
 
 
 def _observation_artifact(
@@ -1305,7 +1322,7 @@ def _observation_artifact(
         manifests.append(
             {
                 "field": field,
-                "policy_path": field.split("."),
+                "policy_path": list[PolicyValue](field.split(".")),
                 "policy_carrier": _policy_carrier(initial_array),
                 "dtype": initial_array.dtype.name,
                 "shape": list(initial_array.shape),
@@ -1315,7 +1332,7 @@ def _observation_artifact(
             }
         )
     buffer = io.BytesIO()
-    numpy.savez_compressed(buffer, **arrays)
+    numpy.savez_compressed(buffer, **arrays)  # type: ignore[arg-type]
     return (
         Artifact(
             name=episode.observation_artifact_name,
@@ -1407,7 +1424,12 @@ def _flatten_observation(
             child_path = f"{path}.{key}" if path else key
             _flatten_observation(value[key], path=child_path, fields=fields)
         return
-    if type(value) in {list, tuple}:
+    if type(value) is list:
+        for index, item in enumerate(value):
+            child_path = f"{path}[{index}]" if path else f"root[{index}]"
+            _flatten_observation(item, path=child_path, fields=fields)
+        return
+    if type(value) is tuple:
         for index, item in enumerate(value):
             child_path = f"{path}[{index}]" if path else f"root[{index}]"
             _flatten_observation(item, path=child_path, fields=fields)
@@ -1505,7 +1527,13 @@ def _public_scalar(value: object) -> bool | int | float | str:
         if not math.isfinite(result):
             raise ValueError("Jumanji trace observation is non-finite")
         return result
-    if type(value) in {bool, int, float, str}:
+    if type(value) is bool:
+        return value
+    if type(value) is int:
+        return value
+    if type(value) is float:
+        return value
+    if type(value) is str:
         return value
     raise ValueError("Jumanji trace observation scalar is invalid")
 
@@ -1581,17 +1609,17 @@ def _profile_progress(
             "occupied_cells": int(numpy.count_nonzero(board)),
         }
     if profile == "graph-coloring":
-        colors = _array(fields, "colors")
+        colors = _array(fields, "colors").astype(numpy.int64, copy=False)
         return {
             "colored_nodes": int(numpy.count_nonzero(colors >= 0)),
             "total_nodes": int(colors.size),
             "current_node": _integer(fields, "current_node_index"),
         }
     if profile == "minesweeper":
-        board = _array(fields, "board")
+        mines_board = _array(fields, "board").astype(numpy.int64, copy=False)
         return {
-            "revealed_cells": int(numpy.count_nonzero(board >= 0)),
-            "total_cells": int(board.size),
+            "revealed_cells": int(numpy.count_nonzero(mines_board >= 0)),
+            "total_cells": int(mines_board.size),
             "mines": _integer(fields, "num_mines"),
             "step": _integer(fields, "step_count"),
         }
@@ -1623,19 +1651,21 @@ def _profile_progress(
             "step": _integer(fields, "step_count"),
         }
     if profile.startswith("sudoku"):
-        board = _array(fields, "board")
+        sudoku_board = _array(fields, "board").astype(numpy.int64, copy=False)
         action_mask = _array(fields, "action_mask")
-        if board.shape != (9, 9) or action_mask.shape != (9, 9, 9):
+        if sudoku_board.shape != (9, 9) or action_mask.shape != (9, 9, 9):
             raise ValueError("Jumanji Sudoku observation is invalid")
-        empty = board < 0
+        empty = sudoku_board < 0
         candidate_counts = numpy.count_nonzero(action_mask, axis=-1)
         empty_candidate_counts = candidate_counts[empty]
         filled_cells = int(numpy.count_nonzero(~empty))
-        solved = filled_cells == int(board.size) and _sudoku_board_is_solved(board)
+        solved_board = filled_cells == int(
+            sudoku_board.size
+        ) and _sudoku_board_is_solved(sudoku_board)
         return {
             "filled_cells": filled_cells,
             "empty_cells": int(numpy.count_nonzero(empty)),
-            "total_cells": int(board.size),
+            "total_cells": int(sudoku_board.size),
             "legal_assignments": int(numpy.count_nonzero(action_mask)),
             "forced_empty_cells": int(
                 numpy.count_nonzero(empty & (candidate_counts == 1))
@@ -1652,7 +1682,7 @@ def _profile_progress(
             "candidate_counts": [
                 [int(count) for count in row] for row in candidate_counts
             ],
-            "solved": solved,
+            "solved": solved_board,
         }
     if profile == "sliding-tile-puzzle":
         puzzle = _array(fields, "puzzle").reshape(-1)
@@ -1689,7 +1719,12 @@ def _profile_progress(
         return {
             "remaining_operations": int(numpy.count_nonzero(_array(fields, "ops_mask"))),
             "busy_machines": int(
-                numpy.count_nonzero(_array(fields, "machines_remaining_times") > 0)
+                numpy.count_nonzero(
+                    _array(fields, "machines_remaining_times").astype(
+                        numpy.float64, copy=False
+                    )
+                    > 0
+                )
             ),
         }
     if profile == "knapsack":
@@ -1735,7 +1770,9 @@ def _profile_progress(
         unvisited = _array(fields, "unvisited_nodes").astype(bool, copy=False)
         position = _integer(fields, "position")
         route = _cvrp_route(fields, position=position, unvisited=unvisited)
-        coordinates = _array(fields, "coordinates")
+        coordinates = _array(fields, "coordinates").astype(
+            numpy.float64, copy=False
+        )
         traveled = float(
             numpy.linalg.norm(
                 coordinates[route[1:]] - coordinates[route[:-1]],
@@ -1770,15 +1807,15 @@ def _profile_progress(
             "step": _integer(fields, "step_count"),
         }
     if profile == "snake":
-        grid = _array(fields, "grid")
-        if grid.shape != (12, 12, 5):
+        snake_grid = _array(fields, "grid").astype(numpy.float64, copy=False)
+        if snake_grid.shape != (12, 12, 5):
             raise ValueError("Jumanji Snake grid is invalid")
-        body = grid[..., 0] > 0.5
-        head = _single_grid_position(grid[..., 1] > 0.5, name="head")
-        tail = _single_grid_position(grid[..., 2] > 0.5, name="tail")
-        fruit = _single_grid_position(grid[..., 3] > 0.5, name="fruit")
+        body = snake_grid[..., 0] > 0.5
+        head = _single_grid_position(snake_grid[..., 1] > 0.5, name="head")
+        tail = _single_grid_position(snake_grid[..., 2] > 0.5, name="tail")
+        fruit = _single_grid_position(snake_grid[..., 3] > 0.5, name="fruit")
         length = int(numpy.count_nonzero(body))
-        normalized_order = grid[..., 4]
+        normalized_order = snake_grid[..., 4]
         body_positions = numpy.argwhere(body)
         if (
             length < 1
@@ -1828,7 +1865,9 @@ def _profile_progress(
             visited_nodes > 0 and int(route[-1]) != position
         ):
             raise ValueError("Jumanji TSP position is invalid")
-        coordinates = _array(fields, "coordinates")
+        coordinates = _array(fields, "coordinates").astype(
+            numpy.float64, copy=False
+        )
         path_length = float(
             numpy.linalg.norm(
                 coordinates[route[1:]] - coordinates[route[:-1]],

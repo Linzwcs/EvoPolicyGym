@@ -9,6 +9,7 @@ import math
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy
 from evopolicygym.authoring import (
@@ -239,12 +240,12 @@ def _spec(config: HighwayConfig) -> BenchmarkSpec:
             "meaning": list(meanings),
         }
     else:
-        meanings = _discrete_action_meanings(config)
+        discrete_meanings = _discrete_action_meanings(config)
         action_space = {
             "type": "discrete",
             "values": list(range(config.action_size)),
             "meaning": {
-                str(action): meaning for action, meaning in meanings.items()
+                str(action): meaning for action, meaning in discrete_meanings.items()
             },
         }
     return BenchmarkSpec(
@@ -294,7 +295,7 @@ def _observation_space(config: HighwayConfig) -> PolicyValue:
             "values": "predicted collision cost in [0, 1]",
         }
     if config.profile == "parking":
-        field = {
+        field: dict[str, PolicyValue] = {
             "type": "tensor",
             "dtype": "float64",
             "shape": [6],
@@ -407,7 +408,7 @@ def _episode_summary(
             key = str(action)
             action_counts[key] = action_counts.get(key, 0) + 1
         else:
-            for index, value in enumerate(action):
+            for index, value in enumerate(cast(list[float], action)):
                 assert isinstance(value, float)
                 control_totals[index] += value
                 control_absolute_totals[index] += abs(value)
@@ -677,7 +678,7 @@ def _observation_artifact(
         )
         for step_index in episode.step_indices
     )
-    arrays: dict[str, object] = {
+    arrays: dict[str, NDArray[numpy.generic]] = {
         "step_indices": numpy.asarray(
             episode.step_indices,
             dtype=numpy.int32,
@@ -710,7 +711,7 @@ def _observation_artifact(
             }
         )
     buffer = io.BytesIO()
-    numpy.savez_compressed(buffer, **arrays)
+    numpy.savez_compressed(buffer, **arrays)  # type: ignore[arg-type]
     return (
         Artifact(
             name=episode.observation_artifact_name,

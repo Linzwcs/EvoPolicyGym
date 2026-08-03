@@ -67,11 +67,15 @@ class WFCTests(unittest.TestCase):
         self.assertEqual(parameters["procedurally_generated_each_episode"], True)
         self.assertEqual(parameters["pattern_source"], "packaged preset PNG")
         self.assertEqual(parameters["ensure_connected"], True)
-        self.assertIn("largest generated navigable component", parameters["connectivity_rule"])
         self.assertEqual(parameters["wfc_attempt_limit_per_reset"], 1000)
         self.assertEqual(parameters["deterministic_generation_reset_retries"], 8)
         self.assertEqual(parameters["unused_actions"], [3, 4, 5, 6])
-        self.assertIn("moving forward onto the green goal", parameters["natural_termination"])
+        connectivity_rule = parameters["connectivity_rule"]
+        natural_termination = parameters["natural_termination"]
+        assert isinstance(connectivity_rule, str)
+        assert isinstance(natural_termination, str)
+        self.assertIn("largest generated navigable component", connectivity_rule)
+        self.assertIn("moving forward onto the green goal", natural_termination)
 
     def test_profile_generation_classes_and_identity_are_distinct(self) -> None:
         default = WFCConfig(profile="MazeSimple", size=15)
@@ -110,14 +114,16 @@ class WFCTests(unittest.TestCase):
         )
         feedback = WFCBenchmark().feedback((failed,))
         trace = feedback.artifacts[0].read_bytes()
+        content = feedback.content
+        assert isinstance(content, dict)
 
         self.assertEqual(feedback.score, 0.0)
         self.assertNotIn(b"environment_seed", trace)
         self.assertNotIn(b"policy_seed", trace)
         self.assertNotIn(b'"profile"', trace)
         self.assertNotIn(b"generation_seed", trace)
-        self.assertEqual(feedback.content["policy_failures"], 1)
-        self.assertIsNone(feedback.content["mean_known_cell_count"])
+        self.assertEqual(content["policy_failures"], 1)
+        self.assertIsNone(content["mean_known_cell_count"])
 
     def test_all_requested_profiles_reset_and_step(self) -> None:
         self.assertEqual(len(WFC_PROFILES), 22)
@@ -129,9 +135,10 @@ class WFCTests(unittest.TestCase):
                     observation = environment.reset()
                     self.assertIsInstance(observation, dict)
                     step = environment.step(0)
+                    metrics = _step_metrics(step)
                     self.assertIsInstance(step.reward, float)
-                    self.assertGreater(step.metrics["known_cell_count"], 0)
-                    self.assertGreaterEqual(step.metrics["known_frontier_count"], 0)
+                    self.assertGreater(_number_metric(metrics, "known_cell_count"), 0)
+                    self.assertGreaterEqual(_number_metric(metrics, "known_frontier_count"), 0)
                 finally:
                     environment.close()
                     environment.close()
@@ -157,25 +164,31 @@ class WFCTests(unittest.TestCase):
         steps = _run_actions(benchmark, episode, _SUCCESS_ACTIONS)
 
         first_goal = steps[22]
-        self.assertEqual(first_goal.metrics["goal_visible"], True)
-        self.assertEqual(first_goal.metrics["goal_found"], True)
-        self.assertEqual(first_goal.metrics["goal_first_seen_step"], 23)
-        self.assertEqual(first_goal.metrics["known_goal_distance"], 8)
-        self.assertEqual(first_goal.metrics["task_stage"], "navigate_to_goal")
-        self.assertGreater(first_goal.metrics["known_cell_count"], 0)
-        self.assertGreater(first_goal.metrics["known_walkable_cell_count"], 0)
-        self.assertGreaterEqual(first_goal.metrics["known_frontier_count"], 0)
-        self.assertGreater(first_goal.metrics["known_map_fraction"], 0.0)
-        self.assertLessEqual(first_goal.metrics["known_map_fraction"], 1.0)
+        first_goal_metrics = _step_metrics(first_goal)
+        self.assertEqual(first_goal_metrics["goal_visible"], True)
+        self.assertEqual(first_goal_metrics["goal_found"], True)
+        self.assertEqual(first_goal_metrics["goal_first_seen_step"], 23)
+        self.assertEqual(first_goal_metrics["known_goal_distance"], 8)
+        self.assertEqual(first_goal_metrics["task_stage"], "navigate_to_goal")
+        self.assertGreater(_number_metric(first_goal_metrics, "known_cell_count"), 0)
+        self.assertGreater(
+            _number_metric(first_goal_metrics, "known_walkable_cell_count"), 0
+        )
+        self.assertGreaterEqual(
+            _number_metric(first_goal_metrics, "known_frontier_count"), 0
+        )
+        self.assertGreater(_number_metric(first_goal_metrics, "known_map_fraction"), 0.0)
+        self.assertLessEqual(_number_metric(first_goal_metrics, "known_map_fraction"), 1.0)
 
         final = steps[-1]
+        final_metrics = _step_metrics(final)
         self.assertTrue(final.terminated)
         self.assertFalse(final.truncated)
         self.assertAlmostEqual(final.reward, 1.0 - 0.9 * 35 / 900)
-        self.assertEqual(final.metrics["goal_in_front_before_action"], True)
-        self.assertEqual(final.metrics["known_goal_distance"], 0)
-        self.assertEqual(final.metrics["success"], True)
-        self.assertEqual(final.metrics["terminal_reason"], "success")
+        self.assertEqual(final_metrics["goal_in_front_before_action"], True)
+        self.assertEqual(final_metrics["known_goal_distance"], 0)
+        self.assertEqual(final_metrics["success"], True)
+        self.assertEqual(final_metrics["terminal_reason"], "success")
 
     def test_blocked_forward_and_unused_action_are_diagnostic(self) -> None:
         benchmark = WFCBenchmark(WFCConfig(profile="MazeSimple", size=15))
@@ -188,27 +201,30 @@ class WFCTests(unittest.TestCase):
         finally:
             environment.close()
 
-        self.assertEqual(blocked.metrics["front_object_before_action"], "wall")
-        self.assertEqual(blocked.metrics["blocked_forward"], True)
-        self.assertEqual(blocked.metrics["move_succeeded"], False)
-        self.assertEqual(unused.metrics["unused_action"], True)
-        self.assertEqual(unused.metrics["unused_action_count"], 1)
-        self.assertEqual(unused.metrics["done_count"], 1)
-        self.assertEqual(unused.metrics["ineffective_action"], True)
+        blocked_metrics = _step_metrics(blocked)
+        unused_metrics = _step_metrics(unused)
+        self.assertEqual(blocked_metrics["front_object_before_action"], "wall")
+        self.assertEqual(blocked_metrics["blocked_forward"], True)
+        self.assertEqual(blocked_metrics["move_succeeded"], False)
+        self.assertEqual(unused_metrics["unused_action"], True)
+        self.assertEqual(unused_metrics["unused_action_count"], 1)
+        self.assertEqual(unused_metrics["done_count"], 1)
+        self.assertEqual(unused_metrics["ineffective_action"], True)
 
     def test_timeout_is_distinct_from_navigation_failure(self) -> None:
         benchmark = WFCBenchmark(WFCConfig(profile="MazeSimple", size=15))
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
         final = _run_actions(benchmark, episode, (6,) * 900)[-1]
+        final_metrics = _step_metrics(final)
 
         self.assertFalse(final.terminated)
         self.assertTrue(final.truncated)
         self.assertEqual(final.reward, 0.0)
-        self.assertEqual(final.metrics["step_count"], 900)
-        self.assertEqual(final.metrics["remaining_steps"], 0)
-        self.assertEqual(final.metrics["unused_action_count"], 900)
-        self.assertEqual(final.metrics["terminal_reason"], "time_limit")
-        self.assertEqual(final.metrics["task_stage"], "time_limit")
+        self.assertEqual(final_metrics["step_count"], 900)
+        self.assertEqual(final_metrics["remaining_steps"], 0)
+        self.assertEqual(final_metrics["unused_action_count"], 900)
+        self.assertEqual(final_metrics["terminal_reason"], "time_limit")
+        self.assertEqual(final_metrics["task_stage"], "time_limit")
 
     def test_baseline_solves_representative_generation_families(self) -> None:
         profiles = (
@@ -233,8 +249,10 @@ class WFCTests(unittest.TestCase):
                         episode_timeout_seconds=30,
                     ),
                 )
+                content = result.feedback.content
+                assert isinstance(content, dict)
                 self.assertEqual(result.feedback.score, 1.0)
-                self.assertEqual(result.feedback.content["goal_found_rate"], 1.0)
+                self.assertEqual(content["goal_found_rate"], 1.0)
                 documents = tuple(
                     json.loads(line)
                     for line in result.feedback.artifacts[0].read_bytes().splitlines()
@@ -263,6 +281,18 @@ def _run_actions(
     finally:
         environment.close()
     return tuple(steps)
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

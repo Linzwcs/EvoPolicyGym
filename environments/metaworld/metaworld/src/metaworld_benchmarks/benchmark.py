@@ -8,6 +8,7 @@ import json
 import statistics
 import struct
 from collections.abc import Sequence
+from typing import cast
 
 from evopolicygym.authoring import (
     Artifact,
@@ -111,6 +112,9 @@ class MetaWorldBenchmark:
         task_mean_returns = {
             name: statistics.fmean(task_returns[name]) for name in task_episode_counts
         }
+        task_episode_count_values: dict[str, PolicyValue] = dict(task_episode_counts)
+        task_success_rate_values: dict[str, PolicyValue] = dict(task_success_rates)
+        task_mean_return_values: dict[str, PolicyValue] = dict(task_mean_returns)
         zero_action_fractions = tuple(
             _required_int(metrics, "zero_action_count") / _required_int(metrics, "step_count")
             for metrics in final_metrics
@@ -198,9 +202,9 @@ class MetaWorldBenchmark:
                     "mean_state_motion_l2",
                 ),
                 "mean_no_state_change_fraction": _mean_present(no_state_change_fractions),
-                "task_episode_counts": task_episode_counts,
-                "task_success_rates": task_success_rates,
-                "task_mean_returns": task_mean_returns,
+                "task_episode_counts": task_episode_count_values,
+                "task_success_rates": task_success_rate_values,
+                "task_mean_returns": task_mean_return_values,
                 "episodes": len(records),
                 "successful_episodes": successes,
                 "terminated_episodes": sum(_terminated(r) for r in records),
@@ -397,7 +401,7 @@ def _mean_metric(
     values = tuple(item[name] for item in metrics)
     if any(type(value) not in {int, float} for value in values):
         raise ValueError(f"MetaWorld {name} metric is invalid")
-    return _mean_present(tuple(float(value) for value in values))
+    return _mean_present(tuple(float(cast(float | int, value)) for value in values))
 
 
 def _mean_present(values: Sequence[float | int]) -> float | None:

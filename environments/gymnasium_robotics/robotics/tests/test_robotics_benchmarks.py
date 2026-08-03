@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
@@ -42,10 +43,11 @@ class RoboticsBenchmarkTests(unittest.TestCase):
                     step = environment.step([0.0] * config.action_size)
                     self.assertIsInstance(step.reward, float)
                     self.assertIsInstance(step.metrics, dict)
-                    self.assertIn("goal_distance", step.metrics)
-                    self.assertIn("action_l2_norm", step.metrics)
-                    self.assertIn("state_motion_l2", step.metrics)
-                    self.assertIn("task_stage", step.metrics)
+                    metrics = _step_metrics(step)
+                    self.assertIn("goal_distance", metrics)
+                    self.assertIn("action_l2_norm", metrics)
+                    self.assertIn("state_motion_l2", metrics)
+                    self.assertIn("task_stage", metrics)
                 finally:
                     environment.close()
                     environment.close()
@@ -72,19 +74,31 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         pen = RoboticsBenchmark(
             RoboticsConfig(profile="hand-manipulate-pen")
         ).spec.environment_parameters
+        fetch_success = fetch["success_condition"]
+        maze_success = maze["success_condition"]
+        pen_success = pen["success_condition"]
+        fetch_reward = fetch["reward_semantics"]
+        adroit_reward = adroit["reward_semantics"]
+        action_handling = fetch["action_handling"]
+        assert isinstance(fetch_success, dict)
+        assert isinstance(maze_success, dict)
+        assert isinstance(pen_success, dict)
+        assert isinstance(fetch_reward, str)
+        assert isinstance(adroit_reward, str)
+        assert isinstance(action_handling, str)
 
-        self.assertIn("-1 until", fetch["reward_semantics"])
+        self.assertIn("-1 until", fetch_reward)
         self.assertEqual(
-            fetch["success_condition"]["euclidean_goal_distance_strictly_below"],
+            fetch_success["euclidean_goal_distance_strictly_below"],
             0.05,
         )
         self.assertEqual(
-            maze["success_condition"]["euclidean_goal_distance_at_most"],
+            maze_success["euclidean_goal_distance_at_most"],
             0.45,
         )
-        self.assertIn("dense", adroit["reward_semantics"])
-        self.assertEqual(pen["success_condition"]["z_rotation_ignored"], True)
-        self.assertIn("rejected", fetch["action_handling"])
+        self.assertIn("dense", adroit_reward)
+        self.assertEqual(pen_success["z_rotation_ignored"], True)
+        self.assertIn("rejected", action_handling)
 
     def test_invalid_profile_and_action_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -121,32 +135,38 @@ class RoboticsBenchmarkTests(unittest.TestCase):
             for _ in range(3):
                 achieved = _tensor_values(observation["achieved_goal"])
                 desired = _tensor_values(observation["desired_goal"])
-                action = [
-                    max(-1.0, min(1.0, 10.0 * (desired[index] - achieved[index])))
-                    for index in range(3)
-                ] + [0.0]
+                action: PolicyValue = [
+                    *(
+                        max(-1.0, min(1.0, 10.0 * (desired[index] - achieved[index])))
+                        for index in range(3)
+                    ),
+                    0.0,
+                ]
                 step = environment.step(action)
                 steps.append(step)
                 observation = step.observation
                 assert isinstance(observation, dict)
 
-            self.assertEqual(steps[0].metrics["new_best_goal_distance"], True)
+            first_metrics = _step_metrics(steps[0])
+            final_metrics = _step_metrics(steps[2])
+            self.assertEqual(first_metrics["new_best_goal_distance"], True)
             self.assertGreater(
-                steps[0].metrics["goal_distance_improvement_this_step"],
+                _number_metric(first_metrics, "goal_distance_improvement_this_step"),
                 0.0,
             )
             self.assertEqual(steps[2].reward, 0.0)
             self.assertFalse(steps[2].terminated)
-            self.assertEqual(steps[2].metrics["success"], True)
-            self.assertEqual(steps[2].metrics["success_ever"], True)
-            self.assertEqual(steps[2].metrics["first_success_step"], 3)
+            self.assertEqual(final_metrics["success"], True)
+            self.assertEqual(final_metrics["success_ever"], True)
+            self.assertEqual(final_metrics["first_success_step"], 3)
 
             lost = environment.step([-1.0, -1.0, -1.0, 0.0])
-            self.assertEqual(lost.metrics["success"], False)
-            self.assertEqual(lost.metrics["success_ever"], True)
-            self.assertEqual(lost.metrics["success_lost_this_step"], True)
-            self.assertEqual(lost.metrics["success_lost_count"], 1)
-            self.assertEqual(lost.metrics["task_stage"], "goal_lost_after_achievement")
+            lost_metrics = _step_metrics(lost)
+            self.assertEqual(lost_metrics["success"], False)
+            self.assertEqual(lost_metrics["success_ever"], True)
+            self.assertEqual(lost_metrics["success_lost_this_step"], True)
+            self.assertEqual(lost_metrics["success_lost_count"], 1)
+            self.assertEqual(lost_metrics["task_stage"], "goal_lost_after_achievement")
         finally:
             environment.close()
 
@@ -155,16 +175,17 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         try:
             fetch.reset()
             saturated = fetch.step([1.0, -1.0, 0.0, 0.5])
-            self.assertEqual(saturated.metrics["action_l2_norm"], 1.5)
+            saturated_metrics = _step_metrics(saturated)
+            self.assertEqual(saturated_metrics["action_l2_norm"], 1.5)
             self.assertEqual(
-                saturated.metrics["saturated_action_component_count"],
+                saturated_metrics["saturated_action_component_count"],
                 2,
             )
             self.assertEqual(
-                saturated.metrics["saturated_action_component_fraction"],
+                saturated_metrics["saturated_action_component_fraction"],
                 0.5,
             )
-            self.assertEqual(saturated.metrics["zero_action"], False)
+            self.assertEqual(saturated_metrics["zero_action"], False)
         finally:
             fetch.close()
 
@@ -175,11 +196,14 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         try:
             kitchen.reset()
             step = kitchen.step([0.0] * kitchen_config.action_size)
-            self.assertEqual(step.metrics["completed_task_names"], [])
-            self.assertEqual(len(step.metrics["remaining_task_names"]), 7)
-            self.assertEqual(step.metrics["completed_tasks"], 0)
-            self.assertEqual(step.metrics["task_completion_fraction"], 0.0)
-            self.assertEqual(step.metrics["task_progress"], 0.0)
+            metrics = _step_metrics(step)
+            remaining_tasks = metrics["remaining_task_names"]
+            assert isinstance(remaining_tasks, list)
+            self.assertEqual(metrics["completed_task_names"], [])
+            self.assertEqual(len(remaining_tasks), 7)
+            self.assertEqual(metrics["completed_tasks"], 0)
+            self.assertEqual(metrics["task_completion_fraction"], 0.0)
+            self.assertEqual(metrics["task_progress"], 0.0)
             self.assertEqual(step.reward, 0.0)
         finally:
             kitchen.close()
@@ -222,14 +246,14 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         self.assertEqual(transitions_json[-1]["step_index"], 299)
         self.assertIn("observation", transitions_json[0])
         self.assertIn("next_observation", transitions_json[0])
-        self.assertGreater(feedback.content["mean_initial_goal_distance"], 0.0)
+        self.assertGreater(_number_metric(feedback.content, "mean_initial_goal_distance"), 0.0)
         self.assertEqual(feedback.content["mean_zero_action_fraction"], 1.0)
         self.assertEqual(
             feedback.content["mean_saturated_action_component_fraction"],
             0.0,
         )
-        self.assertGreaterEqual(feedback.content["mean_state_motion_l2"], 0.0)
-        self.assertEqual(transitions[-1].step.metrics["terminal_reason"], "time_limit")
+        self.assertGreaterEqual(_number_metric(feedback.content, "mean_state_motion_l2"), 0.0)
+        self.assertEqual(_step_metrics(transitions[-1].step)["terminal_reason"], "time_limit")
 
     def test_replay_conformance(self) -> None:
         report = check_benchmark(
@@ -248,6 +272,18 @@ def _tensor_values(value: PolicyValue) -> tuple[float, ...]:
     if type(value) is not TensorValue or value.dtype != "float64":
         raise AssertionError("expected a float64 tensor")
     return tuple(item[0] for item in struct.iter_unpack("<d", value.data))
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 if __name__ == "__main__":

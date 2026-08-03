@@ -6,6 +6,7 @@ import hashlib
 import json
 import statistics
 from collections.abc import Sequence
+from typing import cast
 
 from evopolicygym.authoring import (
     Artifact,
@@ -268,7 +269,7 @@ def _final_number(
         return None
     if type(value) not in {int, float}:
         raise ValueError("Apple Incremental terminal metrics are invalid")
-    return value
+    return cast(float | int, value)
 
 
 def _mean_final_number(
@@ -300,7 +301,7 @@ def _mean_final_list_item(
             or any(type(item) is not int for item in value)
         ):
             raise ValueError("Apple Incremental terminal metrics are invalid")
-        values.append(value[index])
+        values.append(cast(list[int], value)[index])
     return statistics.fmean(values) if values else None
 
 

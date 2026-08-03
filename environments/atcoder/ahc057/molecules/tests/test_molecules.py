@@ -10,6 +10,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
@@ -53,9 +54,15 @@ class MoleculesBenchmarkTests(unittest.TestCase):
             TARGET_COMPONENTS,
         )
         self.assertEqual(spec.environment_parameters["target_size"], TARGET_SIZE)
-        self.assertIn("0 for turns 1-999", spec.environment_parameters["reward_semantics"])
-        self.assertIn("atomically", spec.environment_parameters["bond_atomicity"])
-        self.assertIn("log2", spec.environment_parameters["score_formula"])
+        reward_semantics = spec.environment_parameters["reward_semantics"]
+        bond_atomicity = spec.environment_parameters["bond_atomicity"]
+        score_formula = spec.environment_parameters["score_formula"]
+        assert isinstance(reward_semantics, str)
+        assert isinstance(bond_atomicity, str)
+        assert isinstance(score_formula, str)
+        self.assertIn("0 for turns 1-999", reward_semantics)
+        self.assertIn("atomically", bond_atomicity)
+        self.assertIn("log2", score_formula)
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_tool_license"],
@@ -277,23 +284,27 @@ class MoleculesBenchmarkTests(unittest.TestCase):
         finally:
             incremental.close()
 
+        first_metrics = _step_metrics(first)
+        waited_metrics = _step_metrics(waited)
         self.assertEqual(first.reward, 0.0)
-        self.assertEqual(first.metrics["bond_count_this_turn"], 1)
-        self.assertEqual(first.metrics["components"], POINTS - 1)
+        self.assertEqual(first_metrics["bond_count_this_turn"], 1)
+        self.assertEqual(first_metrics["components"], POINTS - 1)
         self.assertEqual(
-            first.metrics["required_bonds_remaining"],
+            first_metrics["required_bonds_remaining"],
             POINTS - 1 - TARGET_COMPONENTS,
         )
-        self.assertEqual(first.metrics["total_bonds"], 1)
-        self.assertEqual(first.metrics["bond_completion_fraction"], 1 / 290)
-        self.assertEqual(first.metrics["singleton_component_count"], 298)
-        self.assertEqual(first.metrics["largest_component_size"], 2)
-        self.assertEqual(sum(first.metrics["component_size_histogram"]), 299)
-        self.assertGreater(first.metrics["action_cost_per_bond"], 0.0)
-        self.assertGreater(first.metrics["score_upper_bound_if_no_further_cost"], 0)
-        self.assertEqual(waited.metrics["bond_action_this_turn"], False)
-        self.assertEqual(waited.metrics["empty_bond_action_count"], 1)
-        self.assertEqual(waited.metrics["empty_bond_action_fraction"], 0.5)
+        self.assertEqual(first_metrics["total_bonds"], 1)
+        self.assertEqual(first_metrics["bond_completion_fraction"], 1 / 290)
+        self.assertEqual(first_metrics["singleton_component_count"], 298)
+        self.assertEqual(first_metrics["largest_component_size"], 2)
+        self.assertEqual(sum(_int_list_metric(first_metrics, "component_size_histogram")), 299)
+        self.assertGreater(_number_metric(first_metrics, "action_cost_per_bond"), 0.0)
+        self.assertGreater(
+            _number_metric(first_metrics, "score_upper_bound_if_no_further_cost"), 0
+        )
+        self.assertEqual(waited_metrics["bond_action_this_turn"], False)
+        self.assertEqual(waited_metrics["empty_bond_action_count"], 1)
+        self.assertEqual(waited_metrics["empty_bond_action_fraction"], 0.5)
 
         complete = MoleculesEnvironment(EpisodeSpec(environment_seed=123))
         try:
@@ -301,13 +312,14 @@ class MoleculesBenchmarkTests(unittest.TestCase):
             grouped = complete.step({"bonds": [list(bond) for bond in _baseline_bonds()]})
         finally:
             complete.close()
-        self.assertEqual(grouped.metrics["components"], TARGET_COMPONENTS)
-        self.assertEqual(grouped.metrics["required_bonds_remaining"], 0)
-        self.assertEqual(grouped.metrics["target_size_component_count"], 10)
-        self.assertEqual(grouped.metrics["target_partition_ready"], True)
-        self.assertEqual(grouped.metrics["target_partition_first_ready_turn"], 1)
+        grouped_metrics = _step_metrics(grouped)
+        self.assertEqual(grouped_metrics["components"], TARGET_COMPONENTS)
+        self.assertEqual(grouped_metrics["required_bonds_remaining"], 0)
+        self.assertEqual(grouped_metrics["target_size_component_count"], 10)
+        self.assertEqual(grouped_metrics["target_partition_ready"], True)
+        self.assertEqual(grouped_metrics["target_partition_first_ready_turn"], 1)
         self.assertEqual(
-            grouped.metrics["component_size_histogram"],
+            grouped_metrics["component_size_histogram"],
             [0] * 29 + [10],
         )
 
@@ -409,6 +421,29 @@ def _baseline_bonds() -> tuple[tuple[int, int], ...]:
         for group_start in range(0, POINTS, TARGET_SIZE)
         for point in range(group_start + 1, group_start + TARGET_SIZE)
     )
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
+
+
+def _int_list_metric(metrics: dict[str, PolicyValue], name: str) -> list[int]:
+    value = metrics[name]
+    assert isinstance(value, list)
+    assert all(isinstance(item, int) and not isinstance(item, bool) for item in value)
+    return [
+        item
+        for item in value
+        if isinstance(item, int) and not isinstance(item, bool)
+    ]
 
 
 def _simple_case() -> MoleculesCase:

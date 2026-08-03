@@ -715,19 +715,21 @@ def _observation_semantics(
     observation: _TraceObservation,
     *,
     config: ViZDoomConfig,
-) -> dict[str, object]:
-    document: dict[str, object] = {}
+) -> dict[str, PolicyValue]:
+    document: dict[str, PolicyValue] = {}
     if observation.game_variables is not None:
-        document["game_variables"] = {
+        game_variables: dict[str, PolicyValue] = {
             name: float(observation.game_variables[index])
             for index, name in enumerate(config.game_variable_names)
         }
+        document["game_variables"] = game_variables
     if observation.audio is not None:
         samples = observation.audio.astype(numpy.float64)
-        document["audio"] = {
+        audio: dict[str, PolicyValue] = {
             "peak_absolute": int(numpy.abs(samples).max(initial=0.0)),
             "rms": float(numpy.sqrt(numpy.mean(numpy.square(samples)))),
         }
+        document["audio"] = audio
     return document
 
 
@@ -785,7 +787,7 @@ def _observation_artifact(episode: _TracedEpisode) -> Artifact:
             }
         )
     buffer = io.BytesIO()
-    numpy.savez_compressed(buffer, **arrays)
+    numpy.savez_compressed(buffer, **arrays)  # type: ignore[arg-type]
     return Artifact(
         name=episode.observation_artifact_name,
         media_type="application/x-npz",
@@ -1078,7 +1080,7 @@ def _trace_action(
         raise ValueError("ViZDoom trace binary Action is invalid")
     if type(continuous) is not list or len(continuous) != 3:
         raise ValueError("ViZDoom trace continuous Action is invalid")
-    controls: list[float] = []
+    controls: list[PolicyValue] = []
     for item in continuous:
         if type(item) is not float or not math.isfinite(item):
             raise ValueError("ViZDoom trace continuous Action is invalid")
@@ -1100,11 +1102,16 @@ def _action_meaning(
     continuous = action["continuous"]
     if not isinstance(continuous, list):
         raise ValueError("ViZDoom trace Action meaning is invalid")
+    controls: list[float] = []
+    for value in continuous:
+        if not isinstance(value, float):
+            raise ValueError("ViZDoom trace Action meaning is invalid")
+        controls.append(value)
     deltas = ",".join(
         f"{name.lower()}={value:g}"
         for name, value in zip(
             config.continuous_controls,
-            continuous,
+            controls,
             strict=True,
         )
     )

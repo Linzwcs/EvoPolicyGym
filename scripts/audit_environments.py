@@ -152,7 +152,7 @@ def commands_for(
                 ),
                 AuditCommand(
                     label="mypy",
-                    arguments=("uv", "run", "mypy"),
+                    arguments=("uv", "run", "mypy", "--no-incremental"),
                 ),
             )
         )

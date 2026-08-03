@@ -103,19 +103,27 @@ class ObstructedMazeTests(unittest.TestCase):
         legacy = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="2Dlhb-v0")).spec
         fixed = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="2Dlhb-v1")).spec
         parameters = legacy.environment_parameters
+        action_notes = parameters["action_notes"]
+        assert isinstance(action_notes, dict)
+        drop_note = action_notes["drop"]
+        natural_termination = parameters["natural_termination"]
+        generation_warning = parameters["generation_warning"]
+        assert isinstance(drop_note, str)
+        assert isinstance(natural_termination, str)
+        assert isinstance(generation_warning, str)
 
         self.assertEqual(parameters["target_object"], "blue_ball")
         self.assertEqual(parameters["door_blocker_object"], "green_ball")
         self.assertEqual(parameters["key_container_object"], "grey_box")
         self.assertEqual(parameters["locked_door_count"], 2)
         self.assertEqual(parameters["unlocked_door_count"], 1)
-        self.assertIn("required to relocate blockers", parameters["action_notes"]["drop"])
+        self.assertIn("required to relocate blockers", drop_note)
         self.assertIn(
             "picking up the blue mission ball",
-            parameters["natural_termination"],
+            natural_termination,
         )
         self.assertEqual(parameters["key_blocker_overlap_possible"], True)
-        self.assertIn("structurally unsolvable", parameters["generation_warning"])
+        self.assertIn("structurally unsolvable", generation_warning)
         self.assertEqual(fixed.environment_parameters["key_blocker_overlap_possible"], False)
         self.assertIsNone(fixed.environment_parameters["generation_warning"])
 
@@ -148,45 +156,52 @@ class ObstructedMazeTests(unittest.TestCase):
         benchmark = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="1Dlhb-v0"))
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
         steps = _run_actions(benchmark, episode, _BLOCKED_BOX_ACTIONS)
+        pickup_metrics = _step_metrics(steps[3])
+        relocation_metrics = _step_metrics(steps[6])
+        box_metrics = _step_metrics(steps[10])
+        key_metrics = _step_metrics(steps[11])
+        door_metrics = _step_metrics(steps[18])
 
-        self.assertEqual(steps[3].metrics["blocker_picked_up_this_step"], True)
-        self.assertEqual(steps[3].metrics["first_blocker_pickup_step"], 4)
-        self.assertEqual(steps[6].metrics["blocker_dropped_this_step"], True)
-        self.assertEqual(steps[6].metrics["blocker_relocated"], True)
-        self.assertEqual(steps[6].metrics["first_blocker_relocated_step"], 7)
-        self.assertEqual(steps[10].metrics["box_opened_this_step"], True)
-        self.assertEqual(steps[10].metrics["first_box_opened_step"], 11)
-        self.assertEqual(steps[11].metrics["key_picked_up_this_step"], True)
-        self.assertEqual(steps[11].metrics["first_key_pickup_step"], 12)
-        self.assertEqual(steps[18].metrics["locked_door_opened_this_step"], True)
-        self.assertEqual(steps[18].metrics["first_locked_door_opened_step"], 19)
+        self.assertEqual(pickup_metrics["blocker_picked_up_this_step"], True)
+        self.assertEqual(pickup_metrics["first_blocker_pickup_step"], 4)
+        self.assertEqual(relocation_metrics["blocker_dropped_this_step"], True)
+        self.assertEqual(relocation_metrics["blocker_relocated"], True)
+        self.assertEqual(relocation_metrics["first_blocker_relocated_step"], 7)
+        self.assertEqual(box_metrics["box_opened_this_step"], True)
+        self.assertEqual(box_metrics["first_box_opened_step"], 11)
+        self.assertEqual(key_metrics["key_picked_up_this_step"], True)
+        self.assertEqual(key_metrics["first_key_pickup_step"], 12)
+        self.assertEqual(door_metrics["locked_door_opened_this_step"], True)
+        self.assertEqual(door_metrics["first_locked_door_opened_step"], 19)
         self.assertFalse(steps[18].terminated)
 
         final = steps[-1]
+        final_metrics = _step_metrics(final)
         self.assertTrue(final.terminated)
         self.assertFalse(final.truncated)
         self.assertAlmostEqual(final.reward, 1.0 - 0.9 * 30 / 288)
-        self.assertEqual(final.metrics["target_picked_up_this_step"], True)
-        self.assertEqual(final.metrics["front_object_before_action"], "blue_ball")
-        self.assertEqual(final.metrics["carried_object"], "blue_ball")
-        self.assertEqual(final.metrics["success"], True)
-        self.assertEqual(final.metrics["terminal_reason"], "success")
+        self.assertEqual(final_metrics["target_picked_up_this_step"], True)
+        self.assertEqual(final_metrics["front_object_before_action"], "blue_ball")
+        self.assertEqual(final_metrics["carried_object"], "blue_ball")
+        self.assertEqual(final_metrics["success"], True)
+        self.assertEqual(final_metrics["terminal_reason"], "success")
 
     def test_target_ball_is_not_misreported_as_green_blocker(self) -> None:
         benchmark = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="1Dl-v0"))
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
         steps = _run_actions(benchmark, episode, _SIMPLE_ACTIONS)
         final = steps[-1]
+        final_metrics = _step_metrics(final)
 
         self.assertTrue(final.terminated)
-        self.assertEqual(final.metrics["target_picked_up_this_step"], True)
-        self.assertEqual(final.metrics["blocker_found"], False)
-        self.assertEqual(final.metrics["blocker_picked_up"], False)
-        self.assertEqual(final.metrics["blocker_relocated"], False)
-        self.assertEqual(final.metrics["box_found"], False)
-        self.assertEqual(final.metrics["box_opened"], False)
-        self.assertEqual(final.metrics["key_picked_up"], True)
-        self.assertEqual(final.metrics["locked_door_opened"], True)
+        self.assertEqual(final_metrics["target_picked_up_this_step"], True)
+        self.assertEqual(final_metrics["blocker_found"], False)
+        self.assertEqual(final_metrics["blocker_picked_up"], False)
+        self.assertEqual(final_metrics["blocker_relocated"], False)
+        self.assertEqual(final_metrics["box_found"], False)
+        self.assertEqual(final_metrics["box_opened"], False)
+        self.assertEqual(final_metrics["key_picked_up"], True)
+        self.assertEqual(final_metrics["locked_door_opened"], True)
 
     def test_target_pickup_with_full_hands_fails_without_termination(self) -> None:
         benchmark = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="1Dl-v0"))
@@ -194,32 +209,34 @@ class ObstructedMazeTests(unittest.TestCase):
         actions = (*_SIMPLE_ACTIONS[:12], 6, *_SIMPLE_ACTIONS[13:])
         steps = _run_actions(benchmark, episode, actions)
         final = steps[-1]
+        final_metrics = _step_metrics(final)
 
         self.assertFalse(final.terminated)
         self.assertFalse(final.truncated)
         self.assertEqual(final.reward, 0.0)
-        self.assertEqual(final.metrics["target_in_front_before_action"], True)
-        self.assertEqual(final.metrics["target_pickup_blocked_by_carried_object"], True)
-        self.assertEqual(final.metrics["target_pickup_blocked_count"], 1)
-        self.assertEqual(final.metrics["failed_pickup"], True)
-        self.assertEqual(final.metrics["carried_object"], "red_key")
-        self.assertEqual(final.metrics["task_stage"], "free_hands_for_target")
+        self.assertEqual(final_metrics["target_in_front_before_action"], True)
+        self.assertEqual(final_metrics["target_pickup_blocked_by_carried_object"], True)
+        self.assertEqual(final_metrics["target_pickup_blocked_count"], 1)
+        self.assertEqual(final_metrics["failed_pickup"], True)
+        self.assertEqual(final_metrics["carried_object"], "red_key")
+        self.assertEqual(final_metrics["task_stage"], "free_hands_for_target")
 
     def test_timeout_reports_horizon_and_unused_done_actions(self) -> None:
         benchmark = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="1Dl-v0"))
         episode = benchmark.episodes("validation", seed=5, count=1)[0]
         steps = _run_actions(benchmark, episode, (6,) * 288)
         final = steps[-1]
+        final_metrics = _step_metrics(final)
 
         self.assertFalse(final.terminated)
         self.assertTrue(final.truncated)
         self.assertEqual(final.reward, 0.0)
-        self.assertEqual(final.metrics["step_count"], 288)
-        self.assertEqual(final.metrics["remaining_steps"], 0)
-        self.assertEqual(final.metrics["done_action_count"], 288)
-        self.assertEqual(final.metrics["done_count"], 288)
-        self.assertEqual(final.metrics["terminal_reason"], "time_limit")
-        self.assertEqual(final.metrics["task_stage"], "time_limit")
+        self.assertEqual(final_metrics["step_count"], 288)
+        self.assertEqual(final_metrics["remaining_steps"], 0)
+        self.assertEqual(final_metrics["done_action_count"], 288)
+        self.assertEqual(final_metrics["done_count"], 288)
+        self.assertEqual(final_metrics["terminal_reason"], "time_limit")
+        self.assertEqual(final_metrics["task_stage"], "time_limit")
 
     def test_scenario_override_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -237,14 +254,16 @@ class ObstructedMazeTests(unittest.TestCase):
         )
         feedback = ObstructedMazeBenchmark().feedback((failed,))
         trace = feedback.artifacts[0].read_bytes()
+        content = feedback.content
+        assert isinstance(content, dict)
 
         self.assertEqual(feedback.score, 0.0)
         self.assertNotIn(b"environment_seed", trace)
         self.assertNotIn(b"policy_seed", trace)
         self.assertNotIn(b'"scenario"', trace)
         self.assertNotIn(b'"profile"', trace)
-        self.assertEqual(feedback.content["policy_failures"], 1)
-        self.assertIsNone(feedback.content["mean_box_open_event_count"])
+        self.assertEqual(content["policy_failures"], 1)
+        self.assertIsNone(content["mean_box_open_event_count"])
 
     def test_baseline_completes_public_progress_ladder(self) -> None:
         profiles = (
@@ -300,6 +319,12 @@ def _run_actions(
     finally:
         environment.close()
     return tuple(steps)
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

@@ -52,9 +52,15 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             spec.environment_parameters["turn_cap"],
             MAX_EPISODE_STEPS,
         )
-        self.assertIn("exactly 1 point", spec.environment_parameters["reward_semantics"])
-        self.assertIn("accepted or rejected", spec.environment_parameters["placement_atomicity"])
-        self.assertIn("private adventurer target", spec.environment_parameters["path_diagnostics"])
+        reward_semantics = spec.environment_parameters["reward_semantics"]
+        placement_atomicity = spec.environment_parameters["placement_atomicity"]
+        path_diagnostics = spec.environment_parameters["path_diagnostics"]
+        assert isinstance(reward_semantics, str)
+        assert isinstance(placement_atomicity, str)
+        assert isinstance(path_diagnostics, str)
+        self.assertIn("exactly 1 point", reward_semantics)
+        self.assertIn("accepted or rejected", placement_atomicity)
+        self.assertIn("private adventurer target", path_diagnostics)
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_specification_revision"],
@@ -274,15 +280,16 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         finally:
             placed_environment.close()
 
-        self.assertEqual(placed.metrics["placement_count_this_turn"], 1)
-        self.assertEqual(placed.metrics["placed_treants"], 1)
-        self.assertEqual(placed.metrics["submitted_placement_count"], 1)
-        self.assertEqual(placed.metrics["no_placement_this_turn"], False)
-        self.assertGreater(placed.metrics["newly_revealed_cell_count"], 0)
-        self.assertGreater(placed.metrics["revealed_cell_fraction"], 0.0)
-        self.assertGreater(placed.metrics["legal_candidate_cell_count"], 0)
-        self.assertGreaterEqual(placed.metrics["flower_path_length"], 0)
-        self.assertEqual(placed.metrics["score_so_far"], 1.0)
+        placed_metrics = _step_metrics(placed)
+        self.assertEqual(placed_metrics["placement_count_this_turn"], 1)
+        self.assertEqual(placed_metrics["placed_treants"], 1)
+        self.assertEqual(placed_metrics["submitted_placement_count"], 1)
+        self.assertEqual(placed_metrics["no_placement_this_turn"], False)
+        self.assertGreater(_number_metric(placed_metrics, "newly_revealed_cell_count"), 0)
+        self.assertGreater(_number_metric(placed_metrics, "revealed_cell_fraction"), 0.0)
+        self.assertGreater(_number_metric(placed_metrics, "legal_candidate_cell_count"), 0)
+        self.assertGreaterEqual(_number_metric(placed_metrics, "flower_path_length"), 0)
+        self.assertEqual(placed_metrics["score_so_far"], 1.0)
 
         empty_environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
         try:
@@ -290,9 +297,10 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             empty = empty_environment.step({"placements": []})
         finally:
             empty_environment.close()
-        self.assertEqual(empty.metrics["no_placement_this_turn"], True)
-        self.assertEqual(empty.metrics["no_placement_turn_count"], 1)
-        self.assertEqual(empty.metrics["mean_submitted_placements_per_turn"], 0.0)
+        empty_metrics = _step_metrics(empty)
+        self.assertEqual(empty_metrics["no_placement_this_turn"], True)
+        self.assertEqual(empty_metrics["no_placement_turn_count"], 1)
+        self.assertEqual(empty_metrics["mean_submitted_placements_per_turn"], 0.0)
 
     def test_feedback_penalizes_failure_and_keeps_identity_private(self) -> None:
         environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
@@ -350,6 +358,8 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         ]
         transitions = [document for document in documents if document["type"] == "transition"]
+        content = result.feedback.content
+        assert isinstance(content, dict)
         self.assertTrue(transitions)
         self.assertEqual(
             transitions[0]["action"],
@@ -359,8 +369,8 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         self.assertIsNone(transitions[0]["next_observation"]["initial"])
         self.assertIn("flower_path_length", transitions[0]["metrics"])
         self.assertIn("newly_revealed_cell_count", transitions[0]["metrics"])
-        self.assertEqual(result.feedback.content["mean_no_placement_turn_fraction"], 1.0)
-        self.assertEqual(result.feedback.content["placement_episode_rate"], 0.0)
+        self.assertEqual(content["mean_no_placement_turn_fraction"], 1.0)
+        self.assertEqual(content["placement_episode_rate"], 0.0)
 
     def test_feedback_bounds_long_transition_traces(self) -> None:
         environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
@@ -431,6 +441,18 @@ def _open_case() -> ForestCase:
         trees=frozenset(),
         first_target=(5, 10),
     )
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
 
 
 def _case_with(

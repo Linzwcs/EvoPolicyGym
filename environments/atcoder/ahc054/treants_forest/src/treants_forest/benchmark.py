@@ -6,6 +6,7 @@ import hashlib
 import json
 import statistics
 from collections.abc import Sequence
+from typing import cast
 
 from evopolicygym.authoring import (
     Artifact,
@@ -273,7 +274,7 @@ def _final_number(record: EpisodeRecord, name: str) -> float | int | None:
     value = metrics.get(name)
     if type(value) not in {int, float}:
         raise ValueError("Treant's Forest terminal metrics are invalid")
-    return value
+    return cast(float | int, value)
 
 
 def _mean_final_number(
@@ -301,12 +302,14 @@ def _mean_ratio(
 
 
 def _reached(record: EpisodeRecord, name: str) -> bool:
-    return any(
-        type(transition.step.metrics) is dict
-        and type(transition.step.metrics.get(name)) is int
-        and transition.step.metrics[name] > 0
-        for transition in record.transitions
-    )
+    return any(_positive_metric(transition.step.metrics, name) for transition in record.transitions)
+
+
+def _positive_metric(metrics: PolicyValue, name: str) -> bool:
+    if type(metrics) is not dict:
+        return False
+    value = metrics.get(name)
+    return type(value) is int and value > 0
 
 
 def _terminal_or_reached_flag(record: EpisodeRecord, name: str) -> bool:

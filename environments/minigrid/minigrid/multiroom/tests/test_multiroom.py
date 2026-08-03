@@ -42,7 +42,12 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
 
     def test_spec_explains_view_actions_reward_and_termination(self) -> None:
         spec = MultiRoomBenchmark(MultiRoomConfig(profile="N2-S4")).spec
-        image = spec.observation_space["fields"]["image"]
+        observation_space = spec.observation_space
+        assert isinstance(observation_space, dict)
+        fields = observation_space["fields"]
+        assert isinstance(fields, dict)
+        image = fields["image"]
+        assert isinstance(image, dict)
 
         self.assertEqual(image["axis_order"], ["view_x", "view_y", "channel"])
         self.assertEqual(
@@ -54,13 +59,17 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
             spec.environment_parameters["success_reward_formula"],
             "1 - 0.9*step_count/max_episode_steps",
         )
+        natural_termination = spec.environment_parameters["natural_termination"]
+        door_color_rule = spec.environment_parameters["door_color_rule"]
+        assert isinstance(natural_termination, str)
+        assert isinstance(door_color_rule, str)
         self.assertIn(
             "moving forward onto the final green goal",
-            spec.environment_parameters["natural_termination"],
+            natural_termination,
         )
         self.assertIn(
             "do not identify physical doors",
-            spec.environment_parameters["door_color_rule"],
+            door_color_rule,
         )
 
     def test_config_rejects_unsupported_or_ambiguous_profiles(self) -> None:
@@ -134,27 +143,30 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
         steps = _run_actions(benchmark, episode, (0, 2, 1, 5, 2, 2, 2))
 
         opened = steps[3]
+        opened_metrics = _step_metrics(opened)
         self.assertFalse(opened.terminated)
         self.assertEqual(opened.reward, 0.0)
-        self.assertEqual(opened.metrics["door_opened_this_step"], True)
-        self.assertEqual(opened.metrics["door_open_event_count"], 1)
-        self.assertEqual(opened.metrics["first_door_opened_step"], 4)
-        self.assertEqual(opened.metrics["goal_found"], True)
-        self.assertEqual(opened.metrics["goal_first_seen_step"], 4)
+        self.assertEqual(opened_metrics["door_opened_this_step"], True)
+        self.assertEqual(opened_metrics["door_open_event_count"], 1)
+        self.assertEqual(opened_metrics["first_door_opened_step"], 4)
+        self.assertEqual(opened_metrics["goal_found"], True)
+        self.assertEqual(opened_metrics["goal_first_seen_step"], 4)
 
         crossed = steps[4]
-        self.assertEqual(crossed.metrics["door_crossed_this_step"], True)
-        self.assertEqual(crossed.metrics["door_crossing_event_count"], 1)
+        crossed_metrics = _step_metrics(crossed)
+        self.assertEqual(crossed_metrics["door_crossed_this_step"], True)
+        self.assertEqual(crossed_metrics["door_crossing_event_count"], 1)
 
         final = steps[-1]
+        final_metrics = _step_metrics(final)
         self.assertTrue(final.terminated)
         self.assertFalse(final.truncated)
         self.assertAlmostEqual(final.reward, 1.0 - 0.9 * 7 / 40)
-        self.assertEqual(final.metrics["goal_in_front_before_action"], True)
-        self.assertEqual(final.metrics["success"], True)
-        self.assertEqual(final.metrics["terminal_reason"], "success")
-        self.assertEqual(final.metrics["task_stage"], "success")
-        self.assertEqual(final.metrics["remaining_steps"], 33)
+        self.assertEqual(final_metrics["goal_in_front_before_action"], True)
+        self.assertEqual(final_metrics["success"], True)
+        self.assertEqual(final_metrics["terminal_reason"], "success")
+        self.assertEqual(final_metrics["task_stage"], "success")
+        self.assertEqual(final_metrics["remaining_steps"], 33)
 
     def test_door_metrics_count_events_without_claiming_unique_doors(self) -> None:
         benchmark = MultiRoomBenchmark(MultiRoomConfig(profile="N2-S4"))
@@ -163,12 +175,14 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
 
         closed = steps[4]
         reopened = steps[5]
-        self.assertEqual(closed.metrics["door_closed_this_step"], True)
-        self.assertEqual(closed.metrics["door_close_event_count"], 1)
-        self.assertEqual(reopened.metrics["door_opened_this_step"], True)
-        self.assertEqual(reopened.metrics["door_open_event_count"], 2)
-        self.assertEqual(reopened.metrics["door_crossing_event_count"], 0)
-        self.assertNotIn("opened_doors", reopened.metrics)
+        closed_metrics = _step_metrics(closed)
+        reopened_metrics = _step_metrics(reopened)
+        self.assertEqual(closed_metrics["door_closed_this_step"], True)
+        self.assertEqual(closed_metrics["door_close_event_count"], 1)
+        self.assertEqual(reopened_metrics["door_opened_this_step"], True)
+        self.assertEqual(reopened_metrics["door_open_event_count"], 2)
+        self.assertEqual(reopened_metrics["door_crossing_event_count"], 0)
+        self.assertNotIn("opened_doors", reopened_metrics)
 
     def test_failed_interactions_and_timeout_are_diagnostic(self) -> None:
         benchmark = MultiRoomBenchmark(MultiRoomConfig(profile="N2-S4"))
@@ -177,24 +191,26 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
         try:
             environment.reset()
             first = environment.step(5)
-            self.assertEqual(first.metrics["failed_toggle"], True)
-            self.assertEqual(first.metrics["failed_toggle_count"], 1)
-            self.assertEqual(first.metrics["ineffective_action"], True)
+            first_metrics = _step_metrics(first)
+            self.assertEqual(first_metrics["failed_toggle"], True)
+            self.assertEqual(first_metrics["failed_toggle_count"], 1)
+            self.assertEqual(first_metrics["ineffective_action"], True)
             final = first
             for _ in range(39):
                 final = environment.step(6)
         finally:
             environment.close()
 
+        final_metrics = _step_metrics(final)
         self.assertFalse(final.terminated)
         self.assertTrue(final.truncated)
         self.assertEqual(final.reward, 0.0)
-        self.assertEqual(final.metrics["step_count"], 40)
-        self.assertEqual(final.metrics["remaining_steps"], 0)
-        self.assertEqual(final.metrics["unused_action_count"], 39)
-        self.assertEqual(final.metrics["done_count"], 39)
-        self.assertEqual(final.metrics["terminal_reason"], "time_limit")
-        self.assertEqual(final.metrics["task_stage"], "time_limit")
+        self.assertEqual(final_metrics["step_count"], 40)
+        self.assertEqual(final_metrics["remaining_steps"], 0)
+        self.assertEqual(final_metrics["unused_action_count"], 39)
+        self.assertEqual(final_metrics["done_count"], 39)
+        self.assertEqual(final_metrics["terminal_reason"], "time_limit")
+        self.assertEqual(final_metrics["task_stage"], "time_limit")
 
     def test_episode_scenario_cannot_override_benchmark_configuration(self) -> None:
         benchmark = MultiRoomBenchmark()
@@ -284,6 +300,12 @@ def _run_actions(
     finally:
         environment.close()
     return tuple(steps)
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

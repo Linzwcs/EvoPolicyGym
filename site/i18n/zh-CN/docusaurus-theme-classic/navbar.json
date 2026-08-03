@@ -15,6 +15,10 @@
     "message": "环境",
     "description": "Navbar item with label Environments"
   },
+  "item.label.Leaderboard": {
+    "message": "排行榜",
+    "description": "Navbar item with label Leaderboard"
+  },
   "item.label.Results": {
     "message": "结果",
     "description": "Navbar item with label Results"

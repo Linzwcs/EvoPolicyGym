@@ -11,8 +11,8 @@ published product documentation.
 - Public documentation follows code and representative tests. It does not
   invent a stable API ahead of them.
 - Core explanatory pages are bilingual Markdown managed by Docusaurus.
-- Data-heavy research views remain purpose-built React pages backed by explicit
-  datasets.
+- Data-heavy research views combine Markdown-owned editorial structure with
+  purpose-built React widgets backed by explicit datasets.
 - Environment authoring and benchmark results are separate surfaces.
 - Version controls appear only when they correspond to real snapshots.
 
@@ -39,8 +39,10 @@ kind of change:
 - keep Chinese Docs and Blog sources in the corresponding
   `i18n/zh-CN/docusaurus-plugin-content-*` directories;
 - keep release identity and other shared facts in `src/data/`;
-- keep large catalogs, score matrices, reruns, and generated evidence in typed
-  datasets with purpose-built views;
+- keep Leaderboard headings, prose, captions, links, and section order in its
+  versioned Markdown/MDX content package;
+- keep score matrices, reruns, and generated evidence in validated datasets,
+  with purpose-built views limited to dynamic presentation;
 - keep shared typography, spacing, navigation integration, article treatment,
   and responsive behavior in `src/css/` and `src/components/`.
 
@@ -94,9 +96,9 @@ For each future release:
 ## Environment section status
 
 The public boundary, lifecycle, conformance semantics, and Environment
-reference contracts are implementation-backed. The catalog covers 57
-independently installable Benchmark distributions and at least 208 named tasks
-or profiles across 11 upstream ecosystems. Parameterized collections and size
+reference contracts are implementation-backed. The catalog covers 59
+independently installable Benchmark distributions and at least 212 named tasks
+or profiles across 13 upstream ecosystems. Parameterized collections and size
 variants extend the concrete configuration surface beyond that named count.
 The typed catalog remains a compact inventory. Environment-specific
 explanation and media live in Markdown/MDX pages and remain grounded in the

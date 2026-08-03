@@ -152,6 +152,13 @@ For AI-assisted setup, SDK usage, provider integration, Benchmark authoring,
 and Run diagnostics, use the reusable
 [`evopolicygym` Agent Skill](skills/evopolicygym/).
 
+Large reproducible Feedback files may declare `retention="bulk"`. A Run
+applies `bulk_feedback_retention_bytes` across the Host record and Agent mirror,
+evicts only old bulk files, and always protects the newest submission. Compact
+Feedback, permanent Artifacts, and Agent-owned work under `workspace/analysis/`
+remain available. Host-only Validation and Assessment reports retain aggregate
+Benchmark Feedback content but never publish it back into the Agent Session.
+
 ## Benchmarks
 
 Benchmark distributions are independent packages built on the public
@@ -162,6 +169,7 @@ EvoPolicyGym authoring API.
 | [ARC Prize / ARC-AGI-3](environments/arcprize/arc_agi_3/) | All 25 version-pinned public interactive games plus custom collections |
 | [AtCoder AHC](environments/atcoder/) | AHC054, AHC057, and AHC058 |
 | [CodeChef Challenges](environments/codechef/) | WAREHOUS |
+| [Crafter](environments/crafter/) | Canonical achievement, long-horizon development, and survival-development profiles |
 | [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing |
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, Mountain Car, and Pendulum |
 | [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks |
@@ -170,6 +178,7 @@ EvoPolicyGym authoring API.
 | [HighwayEnv](environments/highway_env/) | All ten canonical single-agent tasks |
 | [Gymnasium-Robotics](environments/gymnasium_robotics/) | Fetch, Maze, Adroit, Shadow Hand, and FrankaKitchen profiles |
 | [MetaWorld](environments/metaworld/) | All 50 MT1 tasks, MT10, MT50, and custom collections |
+| [NLE](environments/nle/) | Linux-targeted NetHackScore-v0 with complete semantic trajectory Feedback |
 | [ALE](environments/ale/) | Redistributable Tetris profile |
 | [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios |
 | [Stable-Retro](environments/stable_retro/) | Redistributable Airstriker Level 1 profile |

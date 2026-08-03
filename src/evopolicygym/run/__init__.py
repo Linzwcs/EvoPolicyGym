@@ -61,6 +61,7 @@ class RunConfig:
     episode_budget: int = 1_000
     episode_pool_size: int | None = None
     max_episodes_per_submission: int | None = None
+    bulk_feedback_retention_bytes: int = 1024 * 1024 * 1024
     validation: ValidationConfig | None = None
     assessment: AssessmentConfig | None = None
     seed: int = 0
@@ -100,6 +101,13 @@ class RunConfig:
                     "max_episodes_per_submission cannot exceed "
                     "episode_pool_size"
                 )
+        if (
+            type(self.bulk_feedback_retention_bytes) is not int
+            or self.bulk_feedback_retention_bytes <= 0
+        ):
+            raise ValueError(
+                "bulk_feedback_retention_bytes must be a positive integer"
+            )
         if self.validation is not None:
             if type(self.validation) is not ValidationConfig:
                 raise TypeError("validation must be ValidationConfig or None")

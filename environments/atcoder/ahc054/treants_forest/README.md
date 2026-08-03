@@ -43,7 +43,13 @@ An empty list places no Treants and is always the safe baseline Action.
 The score is mean adventurer movement count, capped at 2,048 turns per Episode.
 Each valid turn earns one point; reaching the cap is a normal truncation and a
 Policy failure contributes zero. Feedback publishes aggregate outcomes and a
-bounded semantic `trace.jsonl` Artifact.
+bounded semantic `trace.jsonl` Artifact. Per-turn diagnostics include accepted
+placement count, reveal gain and coverage, remaining legal candidate cells,
+flower discovery, Manhattan and actual shortest-path distance to the public
+flower, path-length change, revisits, unique adventurer positions, remaining
+turns, and score so far. These values are derived from the public initial map
+and accepted Policy placements; the adventurer's private target is never
+reported.
 
 ## Development
 

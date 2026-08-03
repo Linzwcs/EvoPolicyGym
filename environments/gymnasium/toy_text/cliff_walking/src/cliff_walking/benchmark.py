@@ -24,6 +24,7 @@ _EPISODE_SEED_DOMAIN = b"evopolicygym-cliff-walking/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 8
 _FAILURE_RETURN = -100.0 * MAX_EPISODE_STEPS
+_ACTION_MEANINGS = ("up", "right", "down", "left")
 _MAP = (
     "............",
     "............",
@@ -90,6 +91,21 @@ class CliffWalkingBenchmark:
         score = statistics.fmean(returns)
         successes = sum(_successful(record) for record in records)
         failures = sum(record.policy_failure is not None for record in records)
+        cliff_falls = sum(
+            transition.step.reward == -100.0
+            for record in records
+            for transition in record.transitions
+        )
+        time_limits = sum(
+            bool(record.transitions and record.transitions[-1].step.truncated)
+            for record in records
+            if record.policy_failure is None
+        )
+        boundary_noops = sum(
+            _metric(transition.step.metrics, "event") == "boundary_noop"
+            for record in records
+            for transition in record.transitions
+        )
         mean_steps = statistics.fmean(record.steps for record in records)
         traced = records[:_MAX_TRACED_EPISODES]
         return Feedback(
@@ -103,6 +119,9 @@ class CliffWalkingBenchmark:
                 "mean_steps": mean_steps,
                 "episodes": len(records),
                 "successful_episodes": successes,
+                "cliff_falls": cliff_falls,
+                "time_limit_episodes": time_limits,
+                "boundary_noops": boundary_noops,
                 "policy_failures": failures,
                 "failure_return": _FAILURE_RETURN,
                 "traced_episodes": len(traced),
@@ -116,9 +135,19 @@ def _benchmark_spec(config: CliffWalkingConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
         id="gymnasium/CliffWalking-v1/mean-return-v1",
         description=(
-            "Cross a 4 by 12 grid from the lower-left start to the lower-right "
-            "goal without repeatedly falling from the intervening cliff. "
-            "Choose up, right, down, or left and maximize mean return."
+            "Cross the published 4x12 grid from start [3,0] to goal [3,11]. "
+            "Actions 0/1/2/3 request up/right/down/left; edge attempts stay in "
+            "place. Entering any cliff cell [3,1]-[3,10] rewards -100 and "
+            "immediately returns the same transition's observation to start "
+            "without terminating, so a live observation never reports a cliff "
+            "tile. Every other transition, including the goal transition, "
+            "rewards -1; reaching the goal terminates. "
+            + (
+                "The requested and two adjacent directions are sampled uniformly. "
+                if config.is_slippery
+                else "Movement is deterministic. "
+            )
+            + "The adapter truncates at 200 actions. Maximize mean Episode return."
         ),
         observation_space={
             "type": "object",
@@ -127,26 +156,34 @@ def _benchmark_spec(config: CliffWalkingConfig) -> BenchmarkSpec:
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 47,
+                    "meaning": "Row-major id equal to row * 12 + column.",
                 },
                 "row": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 3,
+                    "meaning": "Zero-based row increasing downward from the top edge.",
                 },
                 "column": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 11,
+                    "meaning": "Zero-based column increasing rightward.",
                 },
                 "tile": {
                     "type": "string",
-                    "values": ["start", "safe", "cliff", "goal"],
+                    "values": ["start", "safe", "goal"],
+                    "meaning": (
+                        "Map tile at the returned position. Cliff is intentionally "
+                        "absent: entering one atomically returns the observation to start."
+                    ),
                 },
             },
         },
         action_space={
             "type": "discrete",
             "values": [0, 1, 2, 3],
+            "component": "requested_direction",
             "meaning": {
                 "0": "move_up",
                 "1": "move_right",
@@ -170,6 +207,25 @@ def _benchmark_spec(config: CliffWalkingConfig) -> BenchmarkSpec:
         },
         environment_parameters={
             "is_slippery": config.is_slippery,
+            "rows": 4,
+            "columns": 12,
+            "map": list(_MAP),
+            "start_position": [3, 0],
+            "goal_position": [3, 11],
+            "cliff_positions": [[3, column] for column in range(1, 11)],
+            "state_encoding": "row_major_state_equals_row_times_12_plus_column",
+            "requested_direction_probability": (
+                1.0 / 3.0 if config.is_slippery else 1.0
+            ),
+            "each_adjacent_direction_probability": (
+                1.0 / 3.0 if config.is_slippery else 0.0
+            ),
+            "boundary_behavior": "stay_in_place",
+            "cliff_behavior": "reward_minus_100_and_return_to_start_without_termination",
+            "cliff_is_live_observation_tile": False,
+            "ordinary_and_goal_reward": -1.0,
+            "cliff_reward": -100.0,
+            "time_limit": MAX_EPISODE_STEPS,
         },
         max_episode_steps=MAX_EPISODE_STEPS,
         primary_metric="mean_return",
@@ -195,6 +251,12 @@ def _successful(record: EpisodeRecord) -> bool:
     )
 
 
+def _metric(metrics: PolicyValue, name: str) -> PolicyValue:
+    if type(metrics) is not dict:
+        return None
+    return metrics.get(name)
+
+
 def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
@@ -215,13 +277,22 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         else _FAILURE_RETURN
                     ),
                     "reached_goal": _successful(record),
+                    "terminal_outcome": (
+                        "policy_failure"
+                        if record.policy_failure is not None
+                        else "goal"
+                        if _successful(record)
+                        else "time_limit"
+                        if record.transitions and record.transitions[-1].step.truncated
+                        else "incomplete"
+                    ),
                     "failure": record.policy_failure,
                 }
             )
         )
         observation = _trace_observation(record.initial_observation)
         for step_index, transition in enumerate(record.transitions):
-            if type(transition.action) is not int:
+            if type(transition.action) is not int or not 0 <= transition.action < 4:
                 raise ValueError("CliffWalking trace Action is invalid")
             next_observation = _trace_observation(
                 transition.step.observation
@@ -234,10 +305,12 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "step_index": step_index,
                         "observation": observation,
                         "action": transition.action,
+                        "action_meaning": _ACTION_MEANINGS[transition.action],
                         "reward": transition.step.reward,
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
+                        "metrics": transition.step.metrics,
                     }
                 )
             )
@@ -264,7 +337,7 @@ def _trace_observation(
     if (
         type(observation["tile"]) is not str
         or observation["tile"]
-        not in {"start", "safe", "cliff", "goal"}
+        not in {"start", "safe", "goal"}
     ):
         raise ValueError("CliffWalking trace observation is invalid")
     return {

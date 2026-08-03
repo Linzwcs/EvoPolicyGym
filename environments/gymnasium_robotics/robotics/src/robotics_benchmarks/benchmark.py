@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import statistics
+import struct
 from collections.abc import Sequence
+from typing import cast
 
 from evopolicygym.authoring import (
     Artifact,
@@ -15,7 +18,7 @@ from evopolicygym.authoring import (
     EpisodeSpec,
     Feedback,
 )
-from evopolicygym.policy import PolicyValue
+from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import RoboticsConfig
 from .environment import RoboticsEnvironment
@@ -23,6 +26,8 @@ from .environment import RoboticsEnvironment
 _SEED_DOMAIN = b"evopolicygym-gymnasium-robotics/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 4
+_TRACE_PREFIX_STEPS = 128
+_TRACE_SUFFIX_STEPS = 32
 _KITCHEN_GOALS: dict[str, PolicyValue] = {
     "type": "object",
     "fields": {
@@ -66,8 +71,7 @@ class RoboticsBenchmark:
         if type(count) is not int or count <= 0:
             raise ValueError("count must be a positive integer")
         return tuple(
-            EpisodeSpec(environment_seed=_seed(split, seed, index))
-            for index in range(count)
+            EpisodeSpec(environment_seed=_seed(split, seed, index)) for index in range(count)
         )
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
@@ -84,6 +88,30 @@ class RoboticsBenchmark:
         successes = sum(_success(record) for record in records)
         score = successes / len(records)
         traced = records[:_MAX_TRACED_EPISODES]
+        trace, traced_transitions, omitted_transitions = _trace(
+            traced,
+            total_transitions=sum(record.steps for record in records),
+        )
+        final_metrics = tuple(
+            metrics for record in records if (metrics := _final_metrics(record)) is not None
+        )
+        successful = tuple(record for record in records if _success(record))
+        zero_action_fractions = tuple(
+            _required_int(metrics, "zero_action_count") / _required_int(metrics, "step_count")
+            for metrics in final_metrics
+        )
+        saturated_action_fractions = tuple(
+            _required_int(
+                metrics,
+                "cumulative_saturated_action_component_count",
+            )
+            / (_required_int(metrics, "step_count") * self._config.action_size)
+            for metrics in final_metrics
+        )
+        no_state_change_fractions = tuple(
+            _required_int(metrics, "no_state_change_count") / _required_int(metrics, "step_count")
+            for metrics in final_metrics
+        )
         return Feedback(
             score=score,
             content={
@@ -94,21 +122,89 @@ class RoboticsBenchmark:
                 ),
                 "success_rate": score,
                 "mean_return": statistics.fmean(
-                    r.total_reward if r.policy_failure is None else 0.0
-                    for r in records
+                    r.total_reward if r.policy_failure is None else 0.0 for r in records
                 ),
                 "mean_steps": statistics.fmean(r.steps for r in records),
+                "mean_steps_to_first_success": _mean_present(
+                    tuple(
+                        _required_int(metrics, "first_success_step")
+                        for metrics in final_metrics
+                        if _required_int(metrics, "first_success_step") >= 0
+                    )
+                ),
+                "mean_steps_on_success": (
+                    statistics.fmean(record.steps for record in successful) if successful else None
+                ),
+                "mean_initial_goal_distance": _mean_metric(
+                    final_metrics,
+                    "initial_goal_distance",
+                ),
+                "mean_final_goal_distance": _mean_metric(
+                    final_metrics,
+                    "goal_distance",
+                ),
+                "mean_best_goal_distance": _mean_metric(
+                    final_metrics,
+                    "best_goal_distance",
+                ),
+                "mean_goal_distance_improvement_from_initial": _mean_metric(
+                    final_metrics,
+                    "goal_distance_improvement_from_initial",
+                ),
+                "mean_final_goal_position_distance": _mean_metric(
+                    final_metrics,
+                    "goal_position_distance",
+                ),
+                "mean_final_goal_rotation_distance": _mean_metric(
+                    final_metrics,
+                    "goal_rotation_distance",
+                ),
+                "mean_successful_step_fraction": _mean_metric(
+                    final_metrics,
+                    "successful_step_fraction",
+                ),
+                "mean_success_lost_count": _mean_metric(
+                    final_metrics,
+                    "success_lost_count",
+                ),
+                "mean_action_l2_norm": _mean_metric(
+                    final_metrics,
+                    "mean_action_l2_norm",
+                ),
+                "mean_action_max_abs": _mean_metric(
+                    final_metrics,
+                    "mean_action_max_abs",
+                ),
+                "mean_saturated_action_component_fraction": _mean_present(
+                    saturated_action_fractions
+                ),
+                "mean_zero_action_fraction": _mean_present(zero_action_fractions),
+                "mean_state_motion_l2": _mean_metric(
+                    final_metrics,
+                    "mean_state_motion_l2",
+                ),
+                "mean_no_state_change_fraction": _mean_present(no_state_change_fractions),
+                "mean_completed_tasks": _mean_metric(
+                    final_metrics,
+                    "completed_tasks",
+                ),
+                "mean_task_completion_fraction": _mean_metric(
+                    final_metrics,
+                    "task_completion_fraction",
+                ),
                 "episodes": len(records),
                 "successful_episodes": successes,
                 "terminated_episodes": sum(_terminated(r) for r in records),
                 "truncated_episodes": sum(_truncated(r) for r in records),
-                "policy_failures": sum(
-                    r.policy_failure is not None for r in records
-                ),
+                "policy_failures": sum(r.policy_failure is not None for r in records),
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
+                "trace_prefix_steps": _TRACE_PREFIX_STEPS,
+                "trace_suffix_steps": _TRACE_SUFFIX_STEPS,
+                "traced_transitions": traced_transitions,
+                "trace_transitions_omitted": omitted_transitions,
             },
-            artifacts=(_trace(traced),),
+            artifacts=(trace,),
         )
 
 
@@ -134,7 +230,12 @@ def _spec(config: RoboticsConfig) -> BenchmarkSpec:
             "environment": config.environment_id,
             "provider": "Gymnasium-Robotics",
             "upstream_version": "1.4.2",
-            "reward_mode": "upstream default",
+            "reward_mode": _reward_mode(config),
+            "success_persistence": (
+                "Success is scored if any transition reports the upstream "
+                "success condition; most profiles continue until TimeLimit, "
+                "so current success and later regression are traced."
+            ),
         },
         environment_parameters={
             "profile": config.profile,
@@ -142,6 +243,18 @@ def _spec(config: RoboticsConfig) -> BenchmarkSpec:
             "continuous_actions": True,
             "action_size": config.action_size,
             "action_dtype": config.action_dtype,
+            "action_handling": (
+                "Every component must be a finite float in [-1,1]; invalid "
+                "Actions are rejected rather than clipped or repaired."
+            ),
+            "reward_semantics": _reward_semantics(config),
+            "success_condition": _success_condition(config),
+            "goal_diagnostics": (
+                "Distances are computed only from Policy-visible goal/state "
+                "tensors. Manipulation goal_distance is 10*position_error + "
+                "quaternion_angle; Adroit uses public task-specific state "
+                "components where an exact progress value is available."
+            ),
         },
         max_episode_steps=config.max_episode_steps,
         primary_metric="success_rate",
@@ -190,8 +303,7 @@ def _success(record: EpisodeRecord) -> bool:
     return bool(
         record.policy_failure is None
         and any(
-            type(item.step.metrics) is dict
-            and item.step.metrics.get("success") is True
+            type(item.step.metrics) is dict and item.step.metrics.get("success") is True
             for item in record.transitions
         )
     )
@@ -213,46 +325,221 @@ def _truncated(record: EpisodeRecord) -> bool:
     )
 
 
-def _trace(records: Sequence[EpisodeRecord]) -> Artifact:
+def _final_metrics(record: EpisodeRecord) -> dict[str, PolicyValue] | None:
+    if record.policy_failure is not None or not record.transitions:
+        return None
+    metrics = record.transitions[-1].step.metrics
+    if type(metrics) is not dict:
+        raise ValueError("Gymnasium-Robotics metrics are invalid")
+    required = {
+        "step_count",
+        "first_success_step",
+        "initial_goal_distance",
+        "goal_distance",
+        "best_goal_distance",
+        "goal_distance_improvement_from_initial",
+        "goal_position_distance",
+        "goal_rotation_distance",
+        "successful_step_fraction",
+        "success_lost_count",
+        "mean_action_l2_norm",
+        "mean_action_max_abs",
+        "cumulative_saturated_action_component_count",
+        "zero_action_count",
+        "mean_state_motion_l2",
+        "no_state_change_count",
+        "completed_tasks",
+        "task_completion_fraction",
+    }
+    if not required <= set(metrics):
+        raise ValueError("Gymnasium-Robotics metrics are incomplete")
+    return metrics
+
+
+def _required_int(metrics: dict[str, PolicyValue], name: str) -> int:
+    value = metrics[name]
+    if type(value) is not int:
+        raise ValueError(f"Gymnasium-Robotics {name} metric is invalid")
+    return value
+
+
+def _mean_metric(
+    metrics: Sequence[dict[str, PolicyValue]],
+    name: str,
+) -> float | None:
+    values = tuple(value for item in metrics if (value := item[name]) is not None)
+    if any(type(value) not in {int, float} for value in values):
+        raise ValueError(f"Gymnasium-Robotics {name} metric is invalid")
+    return _mean_present(tuple(float(cast(float | int, value)) for value in values))
+
+
+def _mean_present(values: Sequence[float | int]) -> float | None:
+    return statistics.fmean(values) if values else None
+
+
+def _reward_mode(config: RoboticsConfig) -> str:
+    if config.family == "adroit":
+        return "upstream dense shaping"
+    if config.family == "franka-kitchen":
+        return "newly completed task count"
+    return "upstream sparse goal reward"
+
+
+def _reward_semantics(config: RoboticsConfig) -> str:
+    if config.family in {"fetch", "shadow-hand", "shadow-hand-touch"}:
+        return "-1 until the current goal is achieved, then 0"
+    if config.family == "maze":
+        return "1 while within 0.45 of the goal, otherwise 0"
+    if config.family == "franka-kitchen":
+        return "number of newly completed kitchen tasks on this step"
+    return "profile-specific upstream dense shaping reward"
+
+
+def _success_condition(config: RoboticsConfig) -> PolicyValue:
+    if config.family == "fetch":
+        return {"euclidean_goal_distance_strictly_below": 0.05}
+    if config.family == "maze":
+        return {"euclidean_goal_distance_at_most": 0.45}
+    if config.profile == "hand-reach":
+        return {"euclidean_goal_distance_strictly_below": 0.01}
+    if config.profile.startswith("hand-manipulate-pen"):
+        return {
+            "position_distance_strictly_below": 0.05,
+            "rotation_angle_strictly_below": 0.1,
+            "z_rotation_ignored": True,
+        }
+    if config.family in {"shadow-hand", "shadow-hand-touch"}:
+        return {
+            "position_distance_strictly_below": 0.01,
+            "rotation_angle_strictly_below": 0.1,
+        }
+    if config.profile == "adroit-hand-door":
+        return {"door_hinge_angle_at_least": 1.35}
+    if config.profile == "adroit-hand-hammer":
+        return {"nail_to_goal_distance_strictly_below": 0.01}
+    if config.profile == "adroit-hand-pen":
+        return {
+            "position_distance_strictly_below": 0.075,
+            "orientation_similarity_strictly_above": 0.95,
+        }
+    if config.profile == "adroit-hand-relocate":
+        return {"object_goal_distance_strictly_below": 0.1}
+    return {"all_kitchen_tasks_completed": True}
+
+
+def _trace(
+    records: Sequence[EpisodeRecord],
+    *,
+    total_transitions: int,
+) -> tuple[Artifact, int, int]:
     lines: list[bytes] = []
+    traced_transitions = 0
     for episode_index, record in enumerate(records):
+        step_indices = _trace_step_indices(record.steps)
         lines.append(
             _json(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
-                    "status": (
-                        "completed"
-                        if record.policy_failure is None
-                        else "policy_failed"
-                    ),
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
                     "return": record.total_reward,
                     "success": _success(record),
                     "failure": record.policy_failure,
+                    "traced_steps": len(step_indices),
+                    "omitted_steps": record.steps - len(step_indices),
                 }
             )
         )
-        for step_index, transition in enumerate(record.transitions):
+        for step_index in step_indices:
+            transition = record.transitions[step_index]
+            observation = (
+                record.initial_observation
+                if step_index == 0
+                else record.transitions[step_index - 1].step.observation
+            )
             lines.append(
                 _json(
                     {
                         "type": "transition",
                         "episode_index": episode_index,
                         "step_index": step_index,
-                        "action": transition.action,
+                        "observation": _trace_value(observation),
+                        "action": _trace_value(transition.action),
                         "reward": transition.step.reward,
+                        "next_observation": _trace_value(transition.step.observation),
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
-                        "metrics": transition.step.metrics,
+                        "metrics": _trace_value(transition.step.metrics),
                     }
                 )
             )
-    return Artifact(
-        name="trace.jsonl",
-        media_type="application/x-ndjson",
-        content=b"".join(lines),
+            traced_transitions += 1
+    return (
+        Artifact(
+            name="trace.jsonl",
+            media_type="application/x-ndjson",
+            content=b"".join(lines),
+        ),
+        traced_transitions,
+        total_transitions - traced_transitions,
     )
+
+
+def _trace_step_indices(steps: int) -> tuple[int, ...]:
+    if steps <= _TRACE_PREFIX_STEPS + _TRACE_SUFFIX_STEPS:
+        return tuple(range(steps))
+    return tuple(range(_TRACE_PREFIX_STEPS)) + tuple(range(steps - _TRACE_SUFFIX_STEPS, steps))
+
+
+_TENSOR_FORMATS = {
+    "uint8": "B",
+    "uint16": "H",
+    "uint32": "I",
+    "uint64": "Q",
+    "int8": "b",
+    "int16": "h",
+    "int32": "i",
+    "int64": "q",
+    "float16": "e",
+    "float32": "f",
+    "float64": "d",
+}
+
+
+def _trace_value(value: PolicyValue) -> object:
+    if value is None or type(value) in {bool, int, float, str}:
+        return value
+    if type(value) is bytes:
+        return {
+            "$type": "bytes",
+            "base64": base64.b64encode(value).decode("ascii"),
+        }
+    if type(value) is TensorValue:
+        if value.dtype == "bool":
+            values: list[object] = [bool(item) for item in value.data]
+        else:
+            format_code = _TENSOR_FORMATS[value.dtype]
+            values = [
+                item[0]
+                for item in struct.iter_unpack(
+                    f"<{format_code}",
+                    value.data,
+                )
+            ]
+        return {
+            "$type": "tensor",
+            "dtype": value.dtype,
+            "shape": list(value.shape),
+            "values": values,
+        }
+    if type(value) is list:
+        return [_trace_value(item) for item in value]
+    if type(value) is tuple:
+        return [_trace_value(item) for item in value]
+    if type(value) is dict:
+        return {key: _trace_value(item) for key, item in value.items()}
+    raise TypeError(f"unsupported Robotics trace value: {type(value).__name__}")
 
 
 def _json(document: dict[str, object]) -> bytes:
@@ -269,4 +556,3 @@ def _json(document: dict[str, object]) -> bytes:
 
 
 __all__ = ["RoboticsBenchmark"]
-

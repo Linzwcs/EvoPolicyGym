@@ -11,6 +11,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -55,14 +56,35 @@ class BipedalWalkerBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(normal.spec.max_episode_steps, 1600)
         self.assertEqual(normal.spec.primary_metric, "mean_return")
+        self.assertFalse(normal.spec.environment_parameters["hardcore"])
+        self.assertTrue(hardcore.spec.environment_parameters["hardcore"])
         self.assertEqual(
-            normal.spec.environment_parameters,
-            {"hardcore": False},
+            normal.spec.environment_parameters["maximum_motor_torque"],
+            80.0,
         )
         self.assertEqual(
-            hardcore.spec.environment_parameters,
-            {"hardcore": True},
+            normal.spec.environment_parameters[
+                "motor_energy_penalty_per_absolute_action_component"
+            ],
+            0.028,
         )
+        self.assertIn("reward", normal.spec.description)
+        self.assertIsInstance(normal.spec.observation_space, dict)
+        assert isinstance(normal.spec.observation_space, dict)
+        fields = normal.spec.observation_space["fields"]
+        self.assertIsInstance(fields, dict)
+        assert isinstance(fields, dict)
+        hull_angle = fields["hull_angle"]
+        self.assertIsInstance(hull_angle, dict)
+        assert isinstance(hull_angle, dict)
+        self.assertEqual(hull_angle["unit"], "radians")
+        knee = fields["left_knee_angle"]
+        self.assertIsInstance(knee, dict)
+        assert isinstance(knee, dict)
+        knee_meaning = knee["meaning"]
+        self.assertIsInstance(knee_meaning, str)
+        assert isinstance(knee_meaning, str)
+        self.assertIn("plus 1 radian", knee_meaning)
         self.assertNotEqual(
             normal.spec.environment_digest,
             hardcore.spec.environment_digest,
@@ -161,6 +183,43 @@ class BipedalWalkerBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
+    def test_real_motor_command_reports_reward_and_actuator_semantics(self) -> None:
+        environment = BipedalWalkerBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            environment.reset()
+            result = environment.step([0.5, -0.5, 0.25, -0.25])
+        finally:
+            environment.close()
+
+        self.assertFalse(result.done)
+        metrics = _metrics(result)
+        self.assertAlmostEqual(
+            _float_metric(metrics, "requested_motor_energy_penalty"),
+            0.028 * 1.5,
+        )
+        self.assertAlmostEqual(
+            _float_metric(metrics, "charged_motor_energy_penalty"),
+            0.028 * 1.5,
+        )
+        self.assertAlmostEqual(
+            _float_metric(metrics, "reward_from_public_terms"),
+            result.reward,
+        )
+        target_speeds = _object_metric(
+            metrics,
+            "target_motor_speeds_radians_per_second",
+        )
+        self.assertEqual(target_speeds["left_hip"], 4.0)
+        self.assertEqual(target_speeds["left_knee"], -6.0)
+        maximum_torques = _object_metric(metrics, "maximum_motor_torques")
+        self.assertEqual(maximum_torques["left_hip"], 40.0)
+        self.assertEqual(maximum_torques["right_knee"], 20.0)
+        self.assertFalse(
+            _bool_metric(metrics, "reward_was_terminal_override")
+        )
+
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
     ) -> None:
@@ -244,6 +303,80 @@ class BipedalWalkerBenchmarkTests(unittest.TestCase):
             transitions[0]["action"],
             [0.0, 0.0, 0.0, 0.0],
         )
+        self.assertEqual(
+            set(transitions[0]["action_components"]),
+            {"left_hip", "left_knee", "right_hip", "right_knee"},
+        )
+        self.assertEqual(
+            transitions[-1]["metrics"]["terminal_reason"],
+            "fall_or_behind_start",
+        )
+        self.assertTrue(
+            transitions[-1]["metrics"]["reward_was_terminal_override"]
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(
+            result.feedback.content["fall_or_behind_start_episodes"],
+            1,
+        )
+        self.assertEqual(result.feedback.content["completed_courses"], 0)
+        self.assertEqual(
+            result.feedback.content[
+                "mean_episode_requested_motor_energy_penalty"
+            ],
+            0.0,
+        )
+
+    def test_reference_heuristic_completes_real_course_with_outcome(self) -> None:
+        benchmark = BipedalWalkerBenchmark()
+        completed_step: Step | None = None
+        outcomes: list[tuple[int, str]] = []
+        for environment_seed in (789, 20, 31, 32, 34, 44, 45, 68, 71, 75, 77, 79, 80, 82):
+            environment = benchmark.make_environment(
+                EpisodeSpec(environment_seed=environment_seed)
+            )
+            controller = BipedalWalkerHeuristics()
+            final_step: Step | None = None
+            try:
+                observation = environment.reset()
+                for _ in range(1600):
+                    assert isinstance(observation, dict)
+                    action: PolicyValue = [
+                        float(value)
+                        for value in controller.step_heuristic(  # type: ignore[no-untyped-call]
+                            _observation_vector(observation)
+                        )
+                    ]
+                    final_step = environment.step(action)
+                    observation = final_step.observation
+                    if final_step.done:
+                        break
+            finally:
+                environment.close()
+
+            self.assertIsNotNone(final_step)
+            assert final_step is not None
+            terminal_reason = _string_metric(_metrics(final_step), "terminal_reason")
+            outcomes.append((environment_seed, terminal_reason))
+            if terminal_reason == "course_complete":
+                completed_step = final_step
+                break
+
+        self.assertIsNotNone(completed_step, outcomes)
+        assert completed_step is not None
+        self.assertTrue(completed_step.terminated)
+        self.assertFalse(completed_step.truncated)
+        self.assertGreater(completed_step.reward, -100.0)
+        metrics = _metrics(completed_step)
+        self.assertEqual(
+            _string_metric(metrics, "terminal_reason"),
+            "course_complete",
+        )
+        self.assertGreater(
+            _float_metric(metrics, "maximum_relative_progress_coordinate"),
+            80.0,
+        )
 
     def test_reference_heuristic_improves_on_zero_torque(self) -> None:
         benchmark = BipedalWalkerBenchmark()
@@ -287,6 +420,43 @@ def _sample_observation() -> dict[str, PolicyValue]:
         "right_foot_contact": True,
         "lidar_ranges": [1.0] * 10,
     }
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _object_metric(
+    metrics: dict[str, PolicyValue],
+    name: str,
+) -> dict[str, PolicyValue]:
+    value = metrics.get(name)
+    if type(value) is not dict:
+        raise AssertionError(f"expected object metric {name}")
+    return value
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 def _rollout(

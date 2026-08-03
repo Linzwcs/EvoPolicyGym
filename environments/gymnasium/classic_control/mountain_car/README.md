@@ -7,7 +7,7 @@ EvoPolicyGym authoring SPI.
 The Benchmark contract is:
 
 - one semantic observation dictionary containing the car's finite `position`
-  and `velocity`;
+  and signed `velocity`, with units and meanings in the public specification;
 - three exact integer Actions: `0` accelerates left, `1` applies no
   acceleration, and `2` accelerates right;
 - one complete Gymnasium Episode with a 200-step hard horizon;
@@ -16,10 +16,22 @@ The Benchmark contract is:
 - `-200` return for a Policy failure, matching the minimum complete Episode
   return so invalid code cannot outperform a valid Policy.
 
-Gymnasium assigns `-1` to every step. Higher scores therefore mean reaching
-position `0.5` in fewer steps. The initial position is sampled from
-`[-0.6, -0.4]`, while the initial velocity is zero. The official task contract
-is documented in the
+Gymnasium assigns `-1` to every transition, including the successful one.
+Higher scores therefore mean reaching position `0.5` in fewer steps. The
+initial position is sampled from `[-0.6, -0.4]`, while initial velocity is zero.
+
+The complete public dynamics are also carried by `BenchmarkSpec`. For action
+`a` in `{0, 1, 2}`, the adapter checks Gymnasium against:
+
+```text
+velocity' = clip(velocity + (a - 1)*0.001 - cos(3*position)*0.0025,
+                 -0.07, 0.07)
+position' = clip(position + velocity', -1.2, 0.6)
+```
+
+Moving left into position `-1.2` resets velocity to zero. A successful Episode
+requires position at least `0.5` and nonnegative velocity. The official task
+contract is documented in the
 [Gymnasium Mountain Car reference](https://gymnasium.farama.org/environments/classic_control/mountain_car/).
 
 ## Public interface
@@ -50,10 +62,19 @@ the Gymnasium array order.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean Episode length, successful Episodes, Policy
-failures, and bounded trace coverage. The public `trace.jsonl` artifact retains
-at most eight Episodes. It contains the observations seen by the Policy,
-unmodified Actions, rewards, next observations, and termination flags.
+Feedback reports mean return, mean Episode length, success and time-limit
+counts, mean per-Episode minimum and maximum positions, the overall furthest
+position, closest remaining goal gap, Policy failures, and bounded trace
+coverage. These progress values distinguish a Policy that builds useful
+momentum from one that simply survives for the same `-200` return.
+
+The public `trace.jsonl` artifact retains at most eight Episodes. Every
+transition contains the observations seen by the Policy, unmodified Action and
+its meaning, reward, termination flags, and public transition metrics. Metrics
+include engine and gravity velocity increments, state deltas, direction
+reversals, left-wall collisions, terrain height, goal distance, running
+position extrema, remaining steps, and the terminal reason. Episode rows state
+the outcome and trajectory extrema.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

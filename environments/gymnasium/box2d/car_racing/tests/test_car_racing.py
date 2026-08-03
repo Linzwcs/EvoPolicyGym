@@ -1,22 +1,25 @@
 from __future__ import annotations
 
-import base64
+import io
 import json
 import math
 import statistics
 import unittest
-import zlib
 
+import numpy
 from evopolicygym import EvaluationConfig, evaluate
 from evopolicygym.authoring import (
     BenchmarkFixture,
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.policy import PolicyValue, TensorValue
+from PIL import Image, ImageSequence
 
 from car_racing import (
     CarRacingBenchmark,
@@ -229,23 +232,161 @@ class CarRacingBenchmarkTests(unittest.TestCase):
         feedback = benchmark.feedback((failed,))
 
         self.assertEqual(feedback.score, -1000.0)
-        self.assertEqual(len(feedback.artifacts), 1)
+        self.assertEqual(len(feedback.artifacts), 4)
         self.assertEqual(feedback.artifacts[0].name, "trace.jsonl")
-        self.assertNotIn(
-            b"environment_seed",
-            feedback.artifacts[0].read_bytes(),
+        public_bytes = json.dumps(feedback.content).encode("utf-8") + b"".join(
+            artifact.read_bytes() for artifact in feedback.artifacts
         )
-        self.assertNotIn(
-            b"policy_seed",
-            feedback.artifacts[0].read_bytes(),
-        )
+        self.assertNotIn(b"environment_seed", public_bytes)
+        self.assertNotIn(b"policy_seed", public_bytes)
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
         self.assertEqual(feedback.content["policy_failures"], 1)
         self.assertEqual(feedback.content["failure_return"], -1000.0)
+        self.assertEqual(feedback.content["traced_steps"], 0)
+        trace = json.loads(feedback.artifacts[0].read_bytes())
+        self.assertIsNone(trace["return"])
+        self.assertEqual(trace["scored_return"], -1000.0)
+
+    def test_feedback_publishes_bounded_visual_trace_and_progress(self) -> None:
+        progress_steps = {20, 50, 80, 110, 140, 170}
+        transitions = tuple(
+            Transition(
+                action=[0.0, 0.5, 0.0],
+                step=Step(
+                    observation=_frame(step_index + 1),
+                    reward=9.9 if step_index in progress_steps else -0.1,
+                    terminated=False,
+                    truncated=step_index == 199,
+                ),
+            )
+            for step_index in range(200)
+        )
+        record = EpisodeRecord(
+            episode=EpisodeSpec(environment_seed=11),
+            policy_seed=21,
+            initial_observation=_frame(0),
+            transitions=transitions,
+        )
+
+        feedback = CarRacingBenchmark().feedback((record,))
+
+        self.assertAlmostEqual(feedback.score, 40.0)
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["traced_steps"], 48)
+        self.assertEqual(feedback.content["trace_steps_omitted"], 152)
+        summaries = feedback.content["episode_summaries"]
+        self.assertIsInstance(summaries, list)
+        assert isinstance(summaries, list)
+        summary = summaries[0]
+        self.assertIsInstance(summary, dict)
+        assert isinstance(summary, dict)
+        self.assertEqual(summary["inferred_new_tile_events"], 6)
+        self.assertAlmostEqual(_number_metric(summary, "inferred_track_coverage"), 0.06)
         self.assertEqual(
-            feedback.content["trace_frame_encoding"],
-            "zlib+base64",
+            summary["control_summary"],
+            {
+                "mean_steering": 0.0,
+                "mean_absolute_steering": 0.0,
+                "mean_gas": 0.5,
+                "mean_brake": 0.0,
+                "simultaneous_gas_brake_steps": 0,
+            },
+        )
+
+        artifacts = {
+            artifact.name: artifact for artifact in feedback.artifacts
+        }
+        self.assertEqual(
+            set(artifacts),
+            {
+                "trace.jsonl",
+                "episode-000/observations.npz",
+                "episode-000/contact-sheet.png",
+                "episode-000/replay.gif",
+            },
+        )
+        documents = tuple(
+            json.loads(line)
+            for line in artifacts["trace.jsonl"].read_bytes().splitlines()
+        )
+        transition_documents = tuple(
+            document
+            for document in documents
+            if document["type"] == "transition"
+        )
+        self.assertEqual(len(transition_documents), 48)
+        self.assertTrue(
+            progress_steps.issubset(
+                document["step_index"] for document in transition_documents
+            )
+        )
+        self.assertEqual(
+            transition_documents[0]["action_meaning"],
+            "steering=0,gas=0.5,brake=0",
+        )
+        self.assertEqual(
+            transition_documents[0]["decision_observation"],
+            {
+                "artifact": "episode-000/observations.npz",
+                "array": "decision_frames",
+                "index": 0,
+            },
+        )
+        final_trace = next(
+            document
+            for document in transition_documents
+            if document["step_index"] == 199
+        )
+        self.assertAlmostEqual(final_trace["inferred_track_coverage"], 0.06)
+
+        with numpy.load(
+            io.BytesIO(artifacts["episode-000/observations.npz"].read_bytes()),
+            allow_pickle=False,
+        ) as frames:
+            self.assertEqual(frames["initial_frame"].shape, (96, 96, 3))
+            self.assertEqual(
+                frames["decision_frames"].shape,
+                (48, 96, 96, 3),
+            )
+            self.assertEqual(
+                frames["result_frames"].shape,
+                (48, 96, 96, 3),
+            )
+            self.assertIn(50, frames["step_indices"].tolist())
+            numpy.testing.assert_array_equal(
+                frames["decision_frames"][0],
+                frames["initial_frame"],
+            )
+
+        self.assertTrue(
+            artifacts["episode-000/contact-sheet.png"].read_bytes().startswith(
+                b"\x89PNG\r\n\x1a\n"
+            )
+        )
+        replay_content = artifacts["episode-000/replay.gif"].read_bytes()
+        self.assertTrue(replay_content.startswith(b"GIF89a"))
+        with Image.open(io.BytesIO(replay_content)) as replay:
+            self.assertEqual(replay.format, "GIF")
+            self.assertEqual(
+                sum(1 for _ in ImageSequence.Iterator(replay)),
+                24,
+            )
+            self.assertEqual(replay.size, (288, 316))
+        frame_artifacts = feedback.content["frame_artifacts"]
+        assert isinstance(frame_artifacts, list)
+        manifest = frame_artifacts[0]
+        assert isinstance(manifest, dict)
+        self.assertEqual(manifest["replay_frames"], 24)
+        self.assertEqual(manifest["replay_frames_omitted"], 25)
+        self.assertLess(
+            artifacts["episode-000/observations.npz"].size,
+            4 * 1024 * 1024,
+        )
+        self.assertLess(
+            artifacts["episode-000/replay.gif"].size,
+            3 * 1024 * 1024,
         )
 
     def test_baseline_publishes_losslessly_reconstructable_trace(
@@ -273,27 +414,38 @@ class CarRacingBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         self.assertLess(result.feedback.score, 0.0)
+        artifacts = {
+            artifact.name: artifact for artifact in result.feedback.artifacts
+        }
         documents = tuple(
             json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            for line in artifacts["trace.jsonl"].read_bytes().splitlines()
         )
         self.assertGreater(len(documents), 1)
         episode = documents[0]
         self.assertEqual(episode["type"], "episode")
-        frame = episode["initial_observation"]
-        self.assertEqual(frame["dtype"], "uint8")
-        self.assertEqual(frame["shape"], [96, 96, 3])
-        self.assertEqual(frame["encoding"], "zlib+base64")
-        reconstructed = zlib.decompress(
-            base64.b64decode(frame["data"], validate=True)
+        self.assertEqual(
+            episode["initial_observation"],
+            {
+                "artifact": "episode-000/observations.npz",
+                "array": "initial_frame",
+            },
         )
-        self.assertEqual(len(reconstructed), 96 * 96 * 3)
+        with numpy.load(
+            io.BytesIO(artifacts["episode-000/observations.npz"].read_bytes()),
+            allow_pickle=False,
+        ) as frames:
+            self.assertEqual(frames["initial_frame"].shape, (96, 96, 3))
+            self.assertLessEqual(frames["decision_frames"].shape[0], 48)
+            self.assertEqual(
+                frames["decision_frames"].shape,
+                frames["result_frames"].shape,
+            )
         transition = documents[1]
         self.assertEqual(transition["type"], "transition")
         self.assertEqual(transition["action"], [0.0, 0.5, 0.0])
-        self.assertIn("next_observation", transition)
+        self.assertIn("result_observation", transition)
+        self.assertIn("inferred_track_coverage", transition)
 
     def test_full_throttle_improves_on_half_throttle_baseline(self) -> None:
         benchmark = CarRacingBenchmark()
@@ -324,6 +476,21 @@ def _black_frame() -> TensorValue:
         dtype="uint8",
         shape=(96, 96, 3),
         data=bytes(96 * 96 * 3),
+    )
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
+
+
+def _frame(value: int) -> TensorValue:
+    color = bytes((value % 256, (value * 3) % 256, (value * 7) % 256))
+    return TensorValue(
+        dtype="uint8",
+        shape=(96, 96, 3),
+        data=color * (96 * 96),
     )
 
 

@@ -235,7 +235,9 @@ The rules are:
   the Host supplies an `AgentTask`, and the provider returns a validated
   `AgentInvocation`;
 - `run/_task.py` owns workspace, submit, finish, budget, and Benchmark
-  instructions, so provider implementations do not duplicate Kernel semantics;
+  instructions, including the normative rule that the Session submit command
+  is the Agent's only authorized Benchmark Environment interaction path, so
+  provider implementations do not duplicate Kernel semantics;
 - callers explicitly compose zero or more immutable `AgentSkill` snapshots
   into a Run; the Run retains each complete directory read-only at
   `workspace/skills/<name>/`, records its content digest, and never exposes a
@@ -338,7 +340,9 @@ and references the available aggregate reports.
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires
 cryptographically hidden Cases still needs future remote execution or
-whole-Run virtualization.
+whole-Run virtualization. The Agent task forbids direct local Environment
+interaction, but prompt compliance cannot enforce that boundary against a
+hostile or compromised process.
 
 ## Migration status
 

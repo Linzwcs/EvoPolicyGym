@@ -16,4 +16,3 @@ def baseline_program() -> Program:
 
 
 __all__ = ["baseline_program"]
-

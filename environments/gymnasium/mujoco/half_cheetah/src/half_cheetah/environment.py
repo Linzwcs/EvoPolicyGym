@@ -14,17 +14,17 @@ from numpy.typing import NDArray
 from .config import HalfCheetahConfig
 
 _BODY_FIELDS = (
-    "front_tip_z_position",
-    "front_tip_angle",
+    "torso_z_position",
+    "torso_pitch_angle",
     "back_thigh_angle",
     "back_shin_angle",
     "back_foot_angle",
     "front_thigh_angle",
     "front_shin_angle",
     "front_foot_angle",
-    "front_tip_x_velocity",
-    "front_tip_z_velocity",
-    "front_tip_angular_velocity",
+    "torso_x_velocity",
+    "torso_z_velocity",
+    "torso_pitch_angular_velocity",
     "back_thigh_angular_velocity",
     "back_shin_angular_velocity",
     "back_foot_angular_velocity",
@@ -32,6 +32,17 @@ _BODY_FIELDS = (
     "front_shin_angular_velocity",
     "front_foot_angular_velocity",
 )
+_ACTION_COMPONENTS = (
+    "back_thigh",
+    "back_shin",
+    "back_foot",
+    "front_thigh",
+    "front_shin",
+    "front_foot",
+)
+_ACTUATOR_GEARS = (120.0, 90.0, 60.0, 120.0, 60.0, 30.0)
+_MAX_EPISODE_STEPS = 1_000
+_MODEL_TIMESTEP_SECONDS = 0.01
 
 
 class HalfCheetahEnvironment:
@@ -57,6 +68,9 @@ class HalfCheetahEnvironment:
         self._exclude_positions = (
             config.exclude_current_positions_from_observation
         )
+        self._frame_skip = config.frame_skip
+        self._forward_reward_weight = config.forward_reward_weight
+        self._control_cost_weight = config.ctrl_cost_weight
         self._environment = cast(
             gymnasium.Env[object, object],
             gymnasium.make(
@@ -73,6 +87,20 @@ class HalfCheetahEnvironment:
         self._started = False
         self._done = False
         self._closed = False
+        self._steps = 0
+        self._initial_x_position: float | None = None
+        self._minimum_x_position = math.inf
+        self._maximum_x_position = -math.inf
+        self._minimum_x_velocity = math.inf
+        self._maximum_x_velocity = -math.inf
+        self._minimum_torso_z_position = math.inf
+        self._maximum_torso_z_position = -math.inf
+        self._maximum_absolute_torso_pitch = 0.0
+        self._forward_steps = 0
+        self._cumulative_forward_reward = 0.0
+        self._cumulative_control_reward = 0.0
+        self._cumulative_return = 0.0
+        self._cumulative_absolute_action = 0.0
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -94,23 +122,92 @@ class HalfCheetahEnvironment:
         if self._done:
             raise RuntimeError("Episode is already complete")
 
-        observation, reward, terminated, truncated, info = (
-            self._environment.step(_action(action))
+        applied_action = _action(action)
+        observation, reward, terminated, truncated, info = self._environment.step(
+            applied_action
         )
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError(
                 "HalfCheetah returned invalid termination flags"
             )
-        self._done = terminated or truncated
-        return Step(
-            observation=_observation(
-                observation,
-                exclude_positions=self._exclude_positions,
-            ),
-            reward=_number(reward, name="reward"),
+        public_observation = _observation(
+            observation,
+            exclude_positions=self._exclude_positions,
+        )
+        public_reward = _number(reward, name="reward")
+        provider_metrics = _provider_metrics(info)
+        self._steps += 1
+        seconds_per_step = self._frame_skip * _MODEL_TIMESTEP_SECONDS
+        if self._initial_x_position is None:
+            self._initial_x_position = (
+                provider_metrics["x_position"]
+                - provider_metrics["x_velocity"] * seconds_per_step
+            )
+            self._minimum_x_position = self._initial_x_position
+            self._maximum_x_position = self._initial_x_position
+        self._minimum_x_position = min(
+            self._minimum_x_position,
+            provider_metrics["x_position"],
+        )
+        self._maximum_x_position = max(
+            self._maximum_x_position,
+            provider_metrics["x_position"],
+        )
+        self._minimum_x_velocity = min(
+            self._minimum_x_velocity,
+            provider_metrics["x_velocity"],
+        )
+        self._maximum_x_velocity = max(
+            self._maximum_x_velocity,
+            provider_metrics["x_velocity"],
+        )
+        torso_z = _float_field(public_observation, "torso_z_position")
+        torso_pitch = _float_field(public_observation, "torso_pitch_angle")
+        self._minimum_torso_z_position = min(self._minimum_torso_z_position, torso_z)
+        self._maximum_torso_z_position = max(self._maximum_torso_z_position, torso_z)
+        self._maximum_absolute_torso_pitch = max(
+            self._maximum_absolute_torso_pitch,
+            abs(torso_pitch),
+        )
+        self._forward_steps += int(provider_metrics["x_velocity"] > 0.0)
+        self._cumulative_forward_reward += provider_metrics["reward_forward"]
+        self._cumulative_control_reward += provider_metrics["reward_control"]
+        self._cumulative_return += public_reward
+        self._cumulative_absolute_action += float(
+            numpy.sum(numpy.abs(applied_action))
+        )
+        metrics = _transition_metrics(
+            public_observation,
+            applied_action,
+            provider_metrics=provider_metrics,
+            reward=public_reward,
             terminated=terminated,
             truncated=truncated,
-            metrics=_metrics(info),
+            step_count=self._steps,
+            frame_skip=self._frame_skip,
+            forward_reward_weight=self._forward_reward_weight,
+            control_cost_weight=self._control_cost_weight,
+            initial_x_position=self._initial_x_position,
+            minimum_x_position=self._minimum_x_position,
+            maximum_x_position=self._maximum_x_position,
+            minimum_x_velocity=self._minimum_x_velocity,
+            maximum_x_velocity=self._maximum_x_velocity,
+            minimum_torso_z_position=self._minimum_torso_z_position,
+            maximum_torso_z_position=self._maximum_torso_z_position,
+            maximum_absolute_torso_pitch=self._maximum_absolute_torso_pitch,
+            forward_steps=self._forward_steps,
+            cumulative_forward_reward=self._cumulative_forward_reward,
+            cumulative_control_reward=self._cumulative_control_reward,
+            cumulative_return=self._cumulative_return,
+            cumulative_absolute_action=self._cumulative_absolute_action,
+        )
+        self._done = terminated or truncated
+        return Step(
+            observation=public_observation,
+            reward=public_reward,
+            terminated=terminated,
+            truncated=truncated,
+            metrics=metrics,
         )
 
     def close(self) -> None:
@@ -150,9 +247,9 @@ def _observation(
     offset = 0
     observation: dict[str, PolicyValue] = {}
     if not exclude_positions:
-        observation["front_tip_x_position"] = _number(
+        observation["torso_x_position"] = _number(
             value[0],
-            name="front tip x position",
+            name="torso x position",
         )
         offset = 1
     for name, item in zip(
@@ -164,7 +261,7 @@ def _observation(
     return observation
 
 
-def _metrics(value: object) -> dict[str, PolicyValue]:
+def _provider_metrics(value: object) -> dict[str, float]:
     if type(value) is not dict:
         raise RuntimeError("HalfCheetah returned invalid metrics")
     names = (
@@ -181,6 +278,143 @@ def _metrics(value: object) -> dict[str, PolicyValue]:
         ): _number(value[name], name=name.replace("_", " "))
         for name in names
     }
+
+
+def _transition_metrics(
+    observation: dict[str, PolicyValue],
+    action: NDArray[numpy.float32],
+    *,
+    provider_metrics: dict[str, float],
+    reward: float,
+    terminated: bool,
+    truncated: bool,
+    step_count: int,
+    frame_skip: int,
+    forward_reward_weight: float,
+    control_cost_weight: float,
+    initial_x_position: float,
+    minimum_x_position: float,
+    maximum_x_position: float,
+    minimum_x_velocity: float,
+    maximum_x_velocity: float,
+    minimum_torso_z_position: float,
+    maximum_torso_z_position: float,
+    maximum_absolute_torso_pitch: float,
+    forward_steps: int,
+    cumulative_forward_reward: float,
+    cumulative_control_reward: float,
+    cumulative_return: float,
+    cumulative_absolute_action: float,
+) -> dict[str, PolicyValue]:
+    reward_forward = provider_metrics["reward_forward"]
+    reward_control = provider_metrics["reward_control"]
+    if not math.isclose(
+        reward,
+        reward_forward + reward_control,
+        rel_tol=0.0,
+        abs_tol=1e-10,
+    ):
+        raise RuntimeError("HalfCheetah reward decomposition drifted")
+    expected_control_reward = -control_cost_weight * float(
+        numpy.sum(numpy.square(action))
+    )
+    if not math.isclose(
+        reward_control,
+        expected_control_reward,
+        rel_tol=0.0,
+        abs_tol=1e-7,
+    ):
+        raise RuntimeError("HalfCheetah control-cost semantics drifted")
+    if not math.isclose(
+        reward_forward,
+        forward_reward_weight * provider_metrics["x_velocity"],
+        rel_tol=0.0,
+        abs_tol=1e-10,
+    ):
+        raise RuntimeError("HalfCheetah forward-reward semantics drifted")
+    if terminated:
+        raise RuntimeError("HalfCheetah unexpectedly terminated")
+    if truncated != (step_count == _MAX_EPISODE_STEPS):
+        raise RuntimeError("HalfCheetah time-limit semantics drifted")
+    if "torso_x_position" in observation and not math.isclose(
+        _float_field(observation, "torso_x_position"),
+        provider_metrics["x_position"],
+        rel_tol=0.0,
+        abs_tol=1e-10,
+    ):
+        raise RuntimeError("HalfCheetah x-position observation drifted")
+    if not math.isclose(
+        cumulative_return,
+        cumulative_forward_reward + cumulative_control_reward,
+        rel_tol=0.0,
+        abs_tol=1e-8,
+    ):
+        raise RuntimeError("HalfCheetah cumulative reward decomposition drifted")
+    action_by_joint: dict[str, PolicyValue] = {}
+    gear_scaled_controls: dict[str, PolicyValue] = {}
+    for component, gear, item in zip(
+        _ACTION_COMPONENTS,
+        _ACTUATOR_GEARS,
+        action,
+        strict=True,
+    ):
+        value = float(item)
+        action_by_joint[component] = value
+        gear_scaled_controls[component] = value * gear
+    seconds_per_step = frame_skip * _MODEL_TIMESTEP_SECONDS
+    x_position = provider_metrics["x_position"]
+    net_displacement = x_position - initial_x_position
+    torso_pitch = _float_field(observation, "torso_pitch_angle")
+    return {
+        "step_count": step_count,
+        "remaining_steps": max(_MAX_EPISODE_STEPS - step_count, 0),
+        "seconds_per_step": seconds_per_step,
+        "simulated_seconds": step_count * seconds_per_step,
+        "requested_action_by_joint": action_by_joint,
+        "actuator_gear_scaled_controls": gear_scaled_controls,
+        "sum_squared_action": float(numpy.sum(numpy.square(action))),
+        "sum_absolute_action": float(numpy.sum(numpy.abs(action))),
+        "cumulative_absolute_action": cumulative_absolute_action,
+        "initial_x_position": initial_x_position,
+        "x_position": x_position,
+        "net_x_displacement": net_displacement,
+        "minimum_x_position": minimum_x_position,
+        "maximum_x_position": maximum_x_position,
+        "x_velocity": provider_metrics["x_velocity"],
+        "minimum_x_velocity": minimum_x_velocity,
+        "maximum_x_velocity": maximum_x_velocity,
+        "mean_x_velocity_from_displacement": (
+            net_displacement / (step_count * seconds_per_step)
+        ),
+        "forward_step_fraction": forward_steps / step_count,
+        "backward_or_stationary_step_fraction": 1.0 - forward_steps / step_count,
+        "torso_z_position": _float_field(observation, "torso_z_position"),
+        "minimum_torso_z_position": minimum_torso_z_position,
+        "maximum_torso_z_position": maximum_torso_z_position,
+        "torso_pitch_radians": torso_pitch,
+        "torso_pitch_degrees": math.degrees(torso_pitch),
+        "maximum_absolute_torso_pitch_radians": maximum_absolute_torso_pitch,
+        "torso_x_velocity": _float_field(observation, "torso_x_velocity"),
+        "torso_z_velocity": _float_field(observation, "torso_z_velocity"),
+        "torso_pitch_angular_velocity": _float_field(
+            observation,
+            "torso_pitch_angular_velocity",
+        ),
+        "reward_forward": reward_forward,
+        "reward_control": reward_control,
+        "reward_from_public_terms": reward_forward + reward_control,
+        "cumulative_reward_forward": cumulative_forward_reward,
+        "cumulative_reward_control": cumulative_control_reward,
+        "cumulative_return": cumulative_return,
+        "terminal_reason": "time_limit" if truncated else "none",
+    }
+
+
+def _float_field(observation: dict[str, PolicyValue], name: str) -> float:
+    value = observation.get(name)
+    if type(value) is not float:
+        raise RuntimeError(f"HalfCheetah returned invalid {name}")
+    return value
 
 
 def _number(value: object, *, name: str) -> float:

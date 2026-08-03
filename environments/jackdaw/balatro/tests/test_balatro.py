@@ -65,9 +65,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
                 "deck": "b_red",
                 "stake": 1,
                 "content_profile": "jackdaw-active-content-v1",
-                "engine_revision": (
-                    "c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg2"
-                ),
+                "engine_revision": ("c84dca9+aaf24f9+8e807df+8dd6616+a785574+epg2"),
             },
         )
 
@@ -404,6 +402,34 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertEqual(len(scoring_cards), 1)
         self.assertTrue(breakdown)
 
+        metrics = scored.metrics
+        assert isinstance(metrics, dict)
+        self.assertEqual(metrics["action_kind"], "play_hand")
+        self.assertEqual(metrics["phase_before"], "selecting_hand")
+        self.assertEqual(metrics["phase_after"], "selecting_hand")
+        self.assertEqual(metrics["selected_card_count"], 1)
+        self.assertEqual(metrics["last_hand_type"], "High Card")
+        self.assertEqual(metrics["last_hand_score"], total)
+        self.assertEqual(metrics["best_hand_score"], total)
+        self.assertEqual(metrics["cards_played"], 1)
+        self.assertEqual(
+            metrics["action_counts"],
+            {"play_hand": 1, "select_blind": 1},
+        )
+        self.assertEqual(metrics["hand_type_counts"], {"High Card": 1})
+        blind_progress = metrics["blind_progress_fraction"]
+        target_chips = metrics["blind_target_chips"]
+        blind_chips = metrics["blind_chips"]
+        assert isinstance(blind_progress, (int, float))
+        assert isinstance(target_chips, int) and not isinstance(target_chips, bool)
+        assert isinstance(blind_chips, int) and not isinstance(blind_chips, bool)
+        self.assertGreater(blind_progress, 0.0)
+        self.assertEqual(
+            metrics["chips_to_target"],
+            target_chips - blind_chips,
+        )
+        self.assertNotIn("seed", metrics)
+
     def test_feedback_penalizes_failure_and_keeps_seeds_private(self) -> None:
         benchmark = BalatroBenchmark()
         episode = EpisodeSpec(environment_seed=789)
@@ -437,8 +463,18 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["policy_failures"], 1)
         self.assertEqual(feedback.content["replay_episodes"], 1)
         self.assertEqual(feedback.content["replay_episodes_omitted"], 0)
-        self.assertNotIn("episode_diagnostics", feedback.content)
-        self.assertNotIn("action_counts", feedback.content)
+        self.assertEqual(feedback.content["action_counts"], {"select_blind": 1})
+        diagnostics = feedback.content["episode_diagnostics"]
+        assert isinstance(diagnostics, list)
+        self.assertEqual(len(diagnostics), 1)
+        diagnostic = diagnostics[0]
+        assert isinstance(diagnostic, dict)
+        self.assertEqual(diagnostic["status"], "policy_failed")
+        self.assertEqual(diagnostic["failure"], "invalid_action")
+        self.assertEqual(diagnostic["score"], 0)
+        self.assertEqual(diagnostic["final_phase"], "selecting_hand")
+        self.assertEqual(diagnostic["final_chips_to_target"], 300)
+        self.assertEqual(diagnostic["action_counts"], {"select_blind": 1})
 
     def test_feedback_bounds_complete_episode_replays(self) -> None:
         benchmark = BalatroBenchmark()
@@ -484,6 +520,57 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             documents[-1],
             {"type": "episodes_omitted", "count": omitted},
+        )
+
+    def test_feedback_keeps_replay_prefix_and_terminal_suffix(self) -> None:
+        benchmark = BalatroBenchmark()
+        episode = EpisodeSpec(environment_seed=789)
+        state: dict[str, PolicyValue] = {
+            "schema": "evopolicygym-balatro/observation-v1",
+            "phase": "blind_select",
+        }
+        transition = Transition(
+            action={"kind": "select_blind"},
+            step=Step(
+                observation=state,
+                reward=0.0,
+                terminated=False,
+            ),
+        )
+        failed = EpisodeRecord(
+            episode=episode,
+            policy_seed=321,
+            initial_observation=state,
+            transitions=(transition,) * 300,
+            policy_failure="invalid_action",
+        )
+
+        feedback = benchmark.feedback((failed,))
+
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["replay_transitions"], 256)
+        self.assertEqual(
+            feedback.content["replay_transitions_omitted"],
+            44,
+        )
+        documents = [json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()]
+        transitions = [document for document in documents if document["type"] == "transition"]
+        self.assertEqual(transitions[0]["step_index"], 0)
+        self.assertEqual(transitions[191]["step_index"], 191)
+        self.assertEqual(transitions[192]["step_index"], 236)
+        self.assertEqual(transitions[-1]["step_index"], 299)
+        self.assertEqual(documents[0]["replayed_transitions"], 256)
+        self.assertEqual(documents[0]["transitions_omitted"], 44)
+        self.assertEqual(
+            documents[-1],
+            {
+                "type": "transitions_omitted",
+                "episode_index": 0,
+                "count": 44,
+                "prefix_steps": 192,
+                "suffix_steps": 64,
+            },
         )
 
     def test_baseline_completes_and_publishes_replay(self) -> None:
@@ -535,17 +622,11 @@ class BalatroBenchmarkTests(unittest.TestCase):
         ):
             self.assertIn(field, transitions[0]["state"])
         played = next(
-            document
-            for document in transitions
-            if document["action"]["kind"] == "play_hand"
+            document for document in transitions if document["action"]["kind"] == "play_hand"
         )
         self.assertGreater(played["state"]["last_hand"]["total"], 0)
         self.assertTrue(played["state"]["last_hand"]["scoring_cards"])
-        cleared = next(
-            document
-            for document in transitions
-            if document["reward"] == 1.0
-        )
+        cleared = next(document for document in transitions if document["reward"] == 1.0)
         self.assertEqual(cleared["state"]["phase"], "round_eval")
         earnings = cleared["state"]["round_earnings"]
         self.assertGreater(earnings["blind_dollar_reward"], 0)
@@ -558,6 +639,41 @@ class BalatroBenchmarkTests(unittest.TestCase):
             + earnings["interest"]
             - earnings["rental_cost"],
         )
+        self.assertIsInstance(cleared["metrics"], dict)
+        self.assertEqual(cleared["metrics"]["blind_cleared_this_step"], True)
+        feedback_content = result.feedback.content
+        assert isinstance(feedback_content, dict)
+        self.assertEqual(
+            feedback_content["action_counts"],
+            {
+                "buy_card": 20,
+                "cash_out": 31,
+                "next_round": 31,
+                "play_hand": 99,
+                "select_blind": 35,
+            },
+        )
+        self.assertEqual(feedback_content["purchased_card_types"], {"Joker": 20})
+        hand_type_counts = feedback_content["hand_type_counts"]
+        assert isinstance(hand_type_counts, dict)
+        self.assertEqual(
+            sum(value for value in hand_type_counts.values() if isinstance(value, int)),
+            99,
+        )
+        mean_best_hand_score = feedback_content["mean_best_hand_score"]
+        total_purchase_cost = feedback_content["total_purchase_cost"]
+        assert isinstance(mean_best_hand_score, (int, float))
+        assert isinstance(total_purchase_cost, (int, float))
+        self.assertGreater(mean_best_hand_score, 0.0)
+        self.assertGreater(total_purchase_cost, 0.0)
+        diagnostics = feedback_content["episode_diagnostics"]
+        assert isinstance(diagnostics, list)
+        self.assertEqual(len(diagnostics), 4)
+        for item in diagnostics:
+            assert isinstance(item, dict)
+            chips_to_target = item["final_chips_to_target"]
+            assert isinstance(chips_to_target, int)
+            self.assertGreater(chips_to_target, 0)
 
 
 if __name__ == "__main__":

@@ -55,16 +55,40 @@ class ReacherBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters,
             {
                 "frame_skip": 2,
+                "model_timestep_seconds": 0.01,
+                "seconds_per_step": 0.02,
+                "actuator_gears": [200.0, 200.0],
                 "reward_dist_weight": 1.0,
                 "reward_control_weight": 1.0,
+                "reward_formula": (
+                    "-reward_dist_weight*fingertip_target_distance-"
+                    "reward_control_weight*sum(action^2)"
+                ),
+                "target_sampling": ("uniform x,y in [-0.2,0.2], reject radius >=0.2"),
+                "arm_geom_lengths_meters": [0.1, 0.1],
+                "fingertip_kinematic_offsets_meters": [0.1, 0.11],
+                "natural_termination": "none",
+                "time_limit": 50,
             },
         )
         self.assertEqual(
             configured.spec.environment_parameters,
             {
                 "frame_skip": 3,
+                "model_timestep_seconds": 0.01,
+                "seconds_per_step": 0.03,
+                "actuator_gears": [200.0, 200.0],
                 "reward_dist_weight": 2.0,
                 "reward_control_weight": 0.5,
+                "reward_formula": (
+                    "-reward_dist_weight*fingertip_target_distance-"
+                    "reward_control_weight*sum(action^2)"
+                ),
+                "target_sampling": ("uniform x,y in [-0.2,0.2], reject radius >=0.2"),
+                "arm_geom_lengths_meters": [0.1, 0.1],
+                "fingertip_kinematic_offsets_meters": [0.1, 0.11],
+                "natural_termination": "none",
+                "time_limit": 50,
             },
         )
         self.assertNotEqual(
@@ -93,9 +117,7 @@ class ReacherBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -124,23 +146,31 @@ class ReacherBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
             assert isinstance(observation, dict)
             self.assertEqual(set(observation), _OBSERVATION_FIELDS)
-            self.assertTrue(
-                all(type(value) is float for value in observation.values())
-            )
+            self.assertTrue(all(type(value) is float for value in observation.values()))
             step = environment.step([0.0, 0.0])
             self.assertIsInstance(step.metrics, dict)
             assert isinstance(step.metrics, dict)
-            self.assertEqual(
-                set(step.metrics),
-                {"reward_distance", "reward_control"},
+            self.assertTrue(
+                {
+                    "reward_distance",
+                    "reward_control",
+                    "fingertip_target_distance",
+                    "minimum_fingertip_target_distance",
+                    "closest_approach_step",
+                    "joint0_angle_radians",
+                    "joint1_relative_angle_radians",
+                    "gear_scaled_joint0_torque",
+                    "gear_scaled_joint1_torque",
+                    "step_count",
+                    "remaining_steps",
+                    "terminal_reason",
+                }.issubset(step.metrics),
             )
             reward_distance = step.metrics["reward_distance"]
             reward_control = step.metrics["reward_control"]
@@ -151,6 +181,21 @@ class ReacherBenchmarkTests(unittest.TestCase):
             self.assertAlmostEqual(
                 step.reward,
                 reward_distance + reward_control,
+            )
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 49)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.02)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+            controlled_step = environment.step([0.5, -0.25])
+            self.assertIsInstance(controlled_step.metrics, dict)
+            assert isinstance(controlled_step.metrics, dict)
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_joint0_torque"],
+                100.0,
+            )
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_joint1_torque"],
+                -50.0,
             )
         finally:
             environment.close()
@@ -186,9 +231,7 @@ class ReacherBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -261,16 +304,9 @@ class ReacherBenchmarkTests(unittest.TestCase):
         )
         self.assertLess(result.feedback.score, 0.0)
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertEqual(len(transitions), 50)
         self.assertEqual(
             set(transitions[0]["observation"]),
@@ -278,8 +314,16 @@ class ReacherBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(transitions[0]["action"], [0.0, 0.0])
         self.assertEqual(
-            set(transitions[0]["reward_terms"]),
-            {"reward_distance", "reward_control"},
+            transitions[0]["action_components"],
+            {"joint0_control": 0.0, "joint1_control": 0.0},
+        )
+        self.assertTrue(
+            {
+                "reward_distance",
+                "reward_control",
+                "fingertip_target_distance",
+                "closest_approach_step",
+            }.issubset(transitions[0]["metrics"]),
         )
 
     def test_inverse_kinematics_controller_improves_on_zero_torque(
@@ -291,20 +335,24 @@ class ReacherBenchmarkTests(unittest.TestCase):
             seed=17,
             count=8,
         )
-        zero_torque: list[float] = []
-        controlled: list[float] = []
+        zero_torque: list[tuple[float, float, float]] = []
+        controlled: list[tuple[float, float, float]] = []
 
         for episode in episodes:
-            zero_torque.append(
-                _rollout(benchmark, episode, controlled=False)
-            )
-            controlled.append(
-                _rollout(benchmark, episode, controlled=True)
-            )
+            zero_torque.append(_rollout(benchmark, episode, controlled=False))
+            controlled.append(_rollout(benchmark, episode, controlled=True))
 
         self.assertGreater(
-            statistics.fmean(controlled),
-            statistics.fmean(zero_torque),
+            statistics.fmean(item[0] for item in controlled),
+            statistics.fmean(item[0] for item in zero_torque),
+        )
+        self.assertLess(
+            statistics.fmean(item[1] for item in controlled),
+            statistics.fmean(item[1] for item in zero_torque),
+        )
+        self.assertLess(
+            statistics.fmean(item[2] for item in controlled),
+            statistics.fmean(item[2] for item in zero_torque),
         )
 
 
@@ -328,9 +376,10 @@ def _rollout(
     episode: EpisodeSpec,
     *,
     controlled: bool,
-) -> float:
+) -> tuple[float, float, float]:
     environment = benchmark.make_environment(episode)
     total = 0.0
+    final_metrics: dict[str, PolicyValue] | None = None
     try:
         observation = environment.reset()
         for _ in range(50):
@@ -343,11 +392,18 @@ def _rollout(
             result = environment.step(action)
             total += result.reward
             observation = result.observation
+            assert isinstance(result.metrics, dict)
+            final_metrics = result.metrics
             if result.done:
                 break
     finally:
         environment.close()
-    return total
+    assert final_metrics is not None
+    final_distance = final_metrics["fingertip_target_distance"]
+    minimum_distance = final_metrics["minimum_fingertip_target_distance"]
+    assert type(final_distance) is float
+    assert type(minimum_distance) is float
+    return total, final_distance, minimum_distance
 
 
 def _inverse_kinematics_action(
@@ -364,11 +420,9 @@ def _inverse_kinematics_action(
     target_x = values["target_x"]
     target_y = values["target_y"]
     link = 0.1
-    cos_desired1 = (
-        target_x * target_x
-        + target_y * target_y
-        - 2.0 * link * link
-    ) / (2.0 * link * link)
+    cos_desired1 = (target_x * target_x + target_y * target_y - 2.0 * link * link) / (
+        2.0 * link * link
+    )
     cos_desired1 = max(-1.0, min(1.0, cos_desired1))
     desired1 = math.acos(cos_desired1)
     desired0 = math.atan2(target_y, target_x) - math.atan2(
@@ -377,14 +431,8 @@ def _inverse_kinematics_action(
     )
     error0 = _wrapped_angle(desired0 - current0)
     error1 = _wrapped_angle(desired1 - current1)
-    action0 = (
-        0.12 * error0
-        - 0.015 * values["joint0_angular_velocity"]
-    )
-    action1 = (
-        0.12 * error1
-        - 0.015 * values["joint1_angular_velocity"]
-    )
+    action0 = 0.12 * error0 - 0.015 * values["joint0_angular_velocity"]
+    action1 = 0.12 * error1 - 0.015 * values["joint1_angular_velocity"]
     return [
         max(-1.0, min(1.0, action0)),
         max(-1.0, min(1.0, action1)),

@@ -97,6 +97,31 @@ class CodexIntegrationTests(unittest.TestCase):
             invocation.instructions,
         )
         self.assertIn(
+            "they are not an authorized Benchmark interface",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "The only authorized way to execute, query, or",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "Do not directly instantiate, import, call, clone, emulate",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "Environment interaction must consume Host-managed Episode budget",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "Session commands are synchronous",
+            invocation.instructions,
+        )
+        self.assertIn(
+            "Never start a second submit or",
+            invocation.instructions,
+        )
+        self.assertIn("finish concurrently", invocation.instructions)
+        self.assertIn(
             "You decide",
             invocation.instructions,
         )

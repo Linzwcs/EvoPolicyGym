@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -49,6 +50,25 @@ class MemoryBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters["random_length"],
             True,
         )
+        action_space = default.spec.action_space
+        self.assertIsInstance(action_space, dict)
+        assert isinstance(action_space, dict)
+        self.assertEqual(
+            action_space["values"],
+            [0, 1, 2],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["image_axis_order"],
+            ["view_x", "view_y", "channel"],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["direction_encoding"],
+            {"east": 0, "south": 1, "west": 2, "north": 3},
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["success_reward_formula"],
+            "1 - 0.9*step_count/max_episode_steps",
+        )
 
         exposed = default.spec.environment_parameters["object_encoding"]
         self.assertIsInstance(exposed, dict)
@@ -70,9 +90,7 @@ class MemoryBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -98,9 +116,7 @@ class MemoryBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -122,21 +138,52 @@ class MemoryBenchmarkTests(unittest.TestCase):
 
         invalid_actions: tuple[PolicyValue, ...] = (
             -1,
+            3,
+            4,
+            5,
+            6,
             7,
             True,
             2.0,
             [2],
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
                     environment.step(invalid)
             finally:
                 environment.close()
+
+    def test_step_feedback_exposes_visible_memory_evidence(self) -> None:
+        benchmark = MemoryBenchmark(MemoryConfig(profile="11x11"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=0))
+        try:
+            environment.reset()
+            step = environment.step(0)
+        finally:
+            environment.close()
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["step_count"], 1)
+        self.assertEqual(step.metrics["remaining_steps"], 604)
+        self.assertEqual(step.metrics["turn_left_count"], 1)
+        self.assertEqual(step.metrics["move_forward_count"], 0)
+        self.assertIn(
+            step.metrics["first_observed_green_object_type"],
+            {"none", "key", "ball", "key_and_ball"},
+        )
+        self.assertIn(
+            step.metrics["task_stage"],
+            {
+                "searching_for_first_green_object",
+                "one_green_object_type_observed",
+                "both_green_object_types_observed",
+            },
+        )
+        self.assertEqual(step.metrics["selected_object_type"], "none")
+        self.assertEqual(step.metrics["terminal_reason"], "none")
 
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
@@ -174,6 +221,54 @@ class MemoryBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["policy_failures"], 1)
         self.assertEqual(feedback.content["successful_episodes"], 0)
 
+    def test_real_wrong_target_reports_selected_object(self) -> None:
+        benchmark = MemoryBenchmark(MemoryConfig(profile="11x11"))
+        wrong = _run_episode(
+            benchmark,
+            (1, 1, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 2),
+        )
+        final = wrong.transitions[-1].step
+        self.assertTrue(final.terminated)
+        self.assertFalse(final.truncated)
+        self.assertEqual(final.reward, 0.0)
+        self.assertIsInstance(final.metrics, dict)
+        assert isinstance(final.metrics, dict)
+        self.assertEqual(final.metrics["wrong_target"], True)
+        self.assertEqual(final.metrics["selected_object_type"], "key")
+        self.assertEqual(final.metrics["decision_step"], 20)
+        self.assertEqual(final.metrics["terminal_reason"], "wrong_target")
+
+        feedback = benchmark.feedback((wrong,))
+        self.assertEqual(feedback.score, 0.0)
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["wrong_target_rate"], 1.0)
+        self.assertEqual(feedback.content["episodes_selected_key"], 1)
+        documents = tuple(
+            json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()
+        )
+        self.assertEqual(documents[0]["outcome"], "wrong_target")
+        self.assertEqual(documents[0]["selected_object_type"], "key")
+
+    def test_time_limit_is_not_a_wrong_target(self) -> None:
+        benchmark = MemoryBenchmark(MemoryConfig(profile="11x11"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step(0)
+            for _ in range(benchmark.spec.max_episode_steps - 1):
+                step = environment.step(0)
+        finally:
+            environment.close()
+        self.assertFalse(step.terminated)
+        self.assertTrue(step.truncated)
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["wrong_target"], False)
+        self.assertEqual(step.metrics["selected_object_type"], "none")
+        self.assertEqual(step.metrics["remaining_steps"], 0)
+        self.assertEqual(step.metrics["terminal_reason"], "time_limit")
+
     def test_baseline_solves_every_public_profile_and_publishes_trace(
         self,
     ) -> None:
@@ -206,15 +301,19 @@ class MemoryBenchmarkTests(unittest.TestCase):
                     benchmark.spec.environment_digest,
                 )
                 self.assertEqual(result.feedback.score, 1.0)
-                trace = result.feedback.artifacts[0]
-                documents = tuple(
-                    json.loads(line)
-                    for line in trace.read_bytes().splitlines()
+                self.assertIsInstance(result.feedback.content, dict)
+                assert isinstance(result.feedback.content, dict)
+                self.assertEqual(
+                    result.feedback.content["wrong_target_rate"],
+                    0.0,
                 )
+                self.assertIsNotNone(
+                    result.feedback.content["mean_decision_step"],
+                )
+                trace = result.feedback.artifacts[0]
+                documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())
                 transitions = tuple(
-                    document
-                    for document in documents
-                    if document["type"] == "transition"
+                    document for document in documents if document["type"] == "transition"
                 )
                 self.assertEqual(trace.name, "trace.jsonl")
                 self.assertEqual(
@@ -223,11 +322,30 @@ class MemoryBenchmarkTests(unittest.TestCase):
                 )
                 self.assertTrue(transitions)
                 self.assertTrue(
-                    all(
-                        "grid_rows" in item["next_observation"]
-                        for item in transitions
-                    )
+                    all("grid_rows" in item["next_observation"] for item in transitions)
                 )
+
+
+def _run_episode(
+    benchmark: MemoryBenchmark,
+    actions: tuple[int, ...],
+) -> EpisodeRecord:
+    episode = EpisodeSpec(environment_seed=0)
+    environment = benchmark.make_environment(episode)
+    transitions: list[Transition] = []
+    try:
+        initial_observation = environment.reset()
+        for action in actions:
+            step = environment.step(action)
+            transitions.append(Transition(action=action, step=step))
+    finally:
+        environment.close()
+    return EpisodeRecord(
+        episode=episode,
+        policy_seed=0,
+        initial_observation=initial_observation,
+        transitions=tuple(transitions),
+    )
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

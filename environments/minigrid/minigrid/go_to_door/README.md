@@ -8,6 +8,8 @@ The Policy receives the upstream `7 × 7 × 3` egocentric symbolic image,
 compass direction, and a natural-language mission identifying a colored door.
 It must explore the room, stand next to that door, and issue `done`; an
 incorrect completion ends the Episode with zero reward.
+Executing `toggle` also terminates immediately with zero reward; opening a door
+is not a completion mechanism.
 
 ## Install and test
 
@@ -36,11 +38,16 @@ Available profiles are `5x5`, `6x6`, and `8x8`. A profile is selected
 by the Benchmark Host before a Run, is included in the environment digest, and
 cannot be selected or changed by the Policy.
 
-Feedback reports success, whether the target was observed, and incorrect
-completions, together with return, step, truncation, and Policy-failure statistics.
-`trace.jsonl` contains a bounded semantic trace for at most four Episodes,
-retaining the first 128 and last 32 transitions of long Episodes. It contains
-no Episode seed, private Case identity, or Host path.
+The spec defines image axes and channels, view orientation, compass and
+symbolic encodings, exact reward, and both `toggle` and `done` termination
+rules. Feedback reports target discovery and first-seen step, visible and
+historically discovered door colors, whether the target door is visibly
+adjacent, which visible door was adjacent before completion, remaining
+horizon, observation novelty, ineffective Actions, and per-Action usage.
+Incorrect completion is separated into premature `toggle` and `done` from a
+wrong location. `trace.jsonl` contains a bounded semantic trace for at most
+four Episodes, retaining the first 128 and last 32 transitions of long
+Episodes. It contains no Episode seed, private Case identity, or Host path.
 
 The packaged baseline builds a relative map from public egocentric
 observations, parses the public mission, and shortest-path plans to the matching

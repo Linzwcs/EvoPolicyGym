@@ -105,10 +105,7 @@ def generate_case(seed: int) -> ForestCase:
     size = MIN_SIZE + random.below(MAX_SIZE - MIN_SIZE + 1)
     entrance = (0, size // 2)
     candidates = [
-        (row, column)
-        for row in range(size)
-        for column in range(size)
-        if (row, column) != entrance
+        (row, column) for row in range(size) for column in range(size) if (row, column) != entrance
     ]
     random.shuffle(candidates)
     target_tree_count = max(1, random.below(size * size // 6 + 1))
@@ -124,8 +121,7 @@ def generate_case(seed: int) -> ForestCase:
         (row, column)
         for row in range(size)
         for column in range(size)
-        if (row, column) not in trees
-        and _manhattan(entrance, (row, column)) >= 5
+        if (row, column) not in trees and _manhattan(entrance, (row, column)) >= 5
     ]
     flower = flower_candidates[random.below(len(flower_candidates))]
     target_order = list(candidates)
@@ -185,6 +181,40 @@ class ForestSimulation:
         return len(self._revealed)
 
     @property
+    def flower_revealed(self) -> bool:
+        return self._case.flower in self._revealed
+
+    @property
+    def legal_candidate_count(self) -> int:
+        """Return unseen non-tree, non-flower cells before connectivity checks."""
+
+        return sum(
+            (row, column) not in self._revealed
+            and (row, column) not in self._trees
+            and (row, column) != self._case.flower
+            for row in range(self._case.size)
+            for column in range(self._case.size)
+        )
+
+    @property
+    def flower_path_length(self) -> int:
+        """Return the actual current shortest path to the public flower."""
+
+        reachable = _reachable_empty(
+            self._case.size,
+            self._trees,
+            self._position,
+        )
+        if self._case.flower not in reachable:
+            raise RuntimeError("flower became unreachable")
+        distances = _actual_distances(
+            self._case.size,
+            self._trees,
+            self._position,
+        )
+        return distances[self._case.flower]
+
+    @property
     def placed_count(self) -> int:
         return len(self._placed_treants)
 
@@ -214,9 +244,7 @@ class ForestSimulation:
                 self._position[1] + column_delta,
             )
             distance = distances.get(candidate)
-            if distance is not None and (
-                next_distance is None or distance < next_distance
-            ):
+            if distance is not None and (next_distance is None or distance < next_distance):
                 next_position = candidate
                 next_distance = distance
         if next_position is None:
@@ -348,14 +376,34 @@ def _reachable_empty(
         row, column = queue.popleft()
         for row_delta, column_delta in _DIRECTIONS:
             candidate = (row + row_delta, column + column_delta)
-            if (
-                candidate not in reached
-                and candidate not in trees
-                and _in_bounds(candidate, size)
-            ):
+            if candidate not in reached and candidate not in trees and _in_bounds(candidate, size):
                 reached.add(candidate)
                 queue.append(candidate)
     return reached
+
+
+def _actual_distances(
+    size: int,
+    trees: set[Position] | frozenset[Position],
+    start: Position,
+) -> dict[Position, int]:
+    if start in trees:
+        return {}
+    distances = {start: 0}
+    queue: deque[Position] = deque((start,))
+    while queue:
+        row, column = queue.popleft()
+        next_distance = distances[(row, column)] + 1
+        for row_delta, column_delta in _DIRECTIONS:
+            candidate = (row + row_delta, column + column_delta)
+            if (
+                candidate not in distances
+                and candidate not in trees
+                and _in_bounds(candidate, size)
+            ):
+                distances[candidate] = next_distance
+                queue.append(candidate)
+    return distances
 
 
 def _in_bounds(cell: Position, size: int) -> bool:

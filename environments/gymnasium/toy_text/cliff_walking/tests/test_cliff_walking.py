@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -34,14 +35,21 @@ class CliffWalkingBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(dry.spec.max_episode_steps, 200)
         self.assertEqual(dry.spec.primary_metric, "mean_return")
+        self.assertEqual(dry.spec.environment_parameters["is_slippery"], False)
+        self.assertEqual(slippery.spec.environment_parameters["is_slippery"], True)
+        self.assertEqual(dry.spec.environment_parameters["start_position"], [3, 0])
+        self.assertEqual(dry.spec.environment_parameters["goal_position"], [3, 11])
+        self.assertEqual(len(_list_value(dry.spec.environment_parameters["cliff_positions"])), 10)
+        self.assertFalse(dry.spec.environment_parameters["cliff_is_live_observation_tile"])
         self.assertEqual(
-            dry.spec.environment_parameters,
-            {"is_slippery": False},
+            slippery.spec.environment_parameters["requested_direction_probability"],
+            1.0 / 3.0,
         )
-        self.assertEqual(
-            slippery.spec.environment_parameters,
-            {"is_slippery": True},
-        )
+        observation_space = _object_value(dry.spec.observation_space)
+        fields = _object_value(observation_space["fields"])
+        tile = _object_value(fields["tile"])
+        self.assertNotIn("cliff", _list_value(tile["values"]))
+        self.assertIn("atomically returns", _string_value(tile["meaning"]))
         self.assertNotEqual(
             dry.spec.environment_digest,
             slippery.spec.environment_digest,
@@ -113,6 +121,10 @@ class CliffWalkingBenchmarkTests(unittest.TestCase):
             assert isinstance(result.observation, dict)
             self.assertEqual(result.observation["tile"], "goal")
             self.assertEqual(total, -13.0)
+            metrics = _metrics(result)
+            self.assertEqual(_string_metric(metrics, "event"), "goal_reached")
+            self.assertEqual(_string_metric(metrics, "terminal_reason"), "goal_reached")
+            self.assertEqual(_float_metric(metrics, "sampled_branch_probability"), 1.0)
         finally:
             environment.close()
 
@@ -129,6 +141,26 @@ class CliffWalkingBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
+
+        environment = slippery.make_environment(EpisodeSpec(environment_seed=456))
+        try:
+            environment.reset()
+            slipped = environment.step(1)
+        finally:
+            environment.close()
+        slip_metrics = _metrics(slipped)
+        self.assertEqual(_string_metric(slip_metrics, "requested_direction"), "right")
+        self.assertAlmostEqual(
+            _float_metric(slip_metrics, "sampled_branch_probability"),
+            1.0 / 3.0,
+        )
+        self.assertAlmostEqual(
+            _float_metric(slip_metrics, "observable_outcome_probability"),
+            1.0 / 3.0,
+        )
+        possible = _string_list_metric(slip_metrics, "possible_sampled_directions")
+        self.assertEqual(len(possible), 1)
+        self.assertIn(possible[0], {"up", "right", "down"})
 
     def test_cliff_resets_to_start_and_actions_are_strict(self) -> None:
         benchmark = CliffWalkingBenchmark()
@@ -148,6 +180,17 @@ class CliffWalkingBenchmarkTests(unittest.TestCase):
                     "column": 0,
                     "tile": "start",
                 },
+            )
+            metrics = _metrics(result)
+            self.assertEqual(_string_metric(metrics, "event"), "cliff_fall")
+            self.assertEqual(
+                _string_metric(metrics, "observed_movement"),
+                "cliff_then_reset_to_start",
+            )
+            self.assertTrue(_bool_metric(metrics, "fell_from_cliff"))
+            self.assertEqual(
+                _string_list_metric(metrics, "possible_sampled_directions"),
+                ["right"],
             )
         finally:
             environment.close()
@@ -254,9 +297,69 @@ class CliffWalkingBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(len(transitions), 200)
         self.assertEqual(transitions[0]["action"], 1)
+        self.assertEqual(transitions[0]["action_meaning"], "right")
         self.assertEqual(transitions[0]["reward"], -100.0)
+        self.assertEqual(transitions[0]["metrics"]["event"], "cliff_fall")
         self.assertFalse(transitions[0]["truncated"])
         self.assertTrue(transitions[-1]["truncated"])
+        self.assertEqual(
+            transitions[-1]["metrics"]["terminal_reason"],
+            "time_limit",
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["cliff_falls"], 200)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 1)
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    return _string_value(metrics.get(name))
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
+
+
+def _string_list_metric(metrics: dict[str, PolicyValue], name: str) -> list[str]:
+    values = _list_value(metrics.get(name))
+    result: list[str] = []
+    for value in values:
+        result.append(_string_value(value))
+    return result
+
+
+def _object_value(value: PolicyValue) -> dict[str, PolicyValue]:
+    if type(value) is not dict:
+        raise AssertionError("expected object PolicyValue")
+    return value
+
+
+def _list_value(value: PolicyValue) -> list[PolicyValue]:
+    if type(value) is not list:
+        raise AssertionError("expected list PolicyValue")
+    return value
+
+
+def _string_value(value: PolicyValue) -> str:
+    if type(value) is not str:
+        raise AssertionError("expected string PolicyValue")
+    return value
 
 
 if __name__ == "__main__":

@@ -43,7 +43,14 @@ Strengthen one machine:
 
 The primary metric is mean `round(100_000 * log2(final_apples))`, and higher is
 better. A Policy failure contributes zero. Feedback publishes aggregate
-outcomes and a bounded semantic `trace.jsonl` Artifact.
+outcomes and a bounded semantic `trace.jsonl` Artifact. Since the upstream
+reward is zero until turn 500, each transition also reports purchase cost and
+post-purchase balance, production and net apple growth, current production
+rate, spend/production totals, the score if the Episode ended now, upgrade and
+wait frequencies, per-level and per-machine investment counts, and how many
+upgrades are currently affordable together with the cheapest choice. Feedback
+aggregates investment, production, waiting, and final affordability across
+Episodes.
 
 ## Development
 

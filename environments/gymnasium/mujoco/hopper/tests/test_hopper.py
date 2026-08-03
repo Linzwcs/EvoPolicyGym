@@ -20,24 +20,64 @@ from hopper import HopperBenchmark, HopperConfig, baseline_program
 
 _BODY_FIELDS = {
     "torso_z_position",
-    "torso_angle",
+    "torso_pitch_angle",
     "thigh_angle",
     "leg_angle",
     "foot_angle",
     "torso_x_velocity",
     "torso_z_velocity",
-    "torso_angular_velocity",
+    "torso_pitch_angular_velocity",
     "thigh_angular_velocity",
     "leg_angular_velocity",
     "foot_angular_velocity",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "seconds_per_step",
+    "simulated_seconds",
+    "requested_action_by_joint",
+    "actuator_gear_scaled_controls",
+    "sum_squared_action",
+    "sum_absolute_action",
+    "cumulative_absolute_action",
+    "initial_x_position",
     "x_position",
+    "net_x_displacement",
+    "minimum_x_position",
+    "maximum_x_position",
     "z_distance_from_origin",
     "x_velocity",
+    "minimum_x_velocity",
+    "maximum_x_velocity",
+    "mean_x_velocity_from_displacement",
+    "forward_step_fraction",
+    "torso_z_position",
+    "minimum_torso_z_position",
+    "torso_pitch_radians",
+    "torso_pitch_degrees",
+    "maximum_absolute_torso_pitch_radians",
+    "healthy",
+    "healthy_state",
+    "healthy_z",
+    "healthy_angle",
+    "failed_health_conditions",
+    "healthy_state_margin",
+    "healthy_z_margin",
+    "healthy_angle_margin",
+    "minimum_healthy_state_margin",
+    "minimum_healthy_z_margin",
+    "minimum_healthy_angle_margin",
+    "healthy_step_fraction",
     "reward_forward",
     "reward_control",
     "reward_survive",
+    "reward_from_public_terms",
+    "cumulative_reward_forward",
+    "cumulative_reward_control",
+    "cumulative_reward_survive",
+    "cumulative_return",
+    "terminal_reason",
 }
 
 
@@ -65,10 +105,24 @@ class HopperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(default.spec.max_episode_steps, 1000)
         self.assertEqual(default.spec.primary_metric, "mean_return")
+        self.assertIsInstance(default.spec.action_space, dict)
+        assert isinstance(default.spec.action_space, dict)
+        self.assertEqual(
+            default.spec.action_space["components"],
+            ["thigh", "leg", "foot"],
+        )
+        self.assertEqual(
+            default.spec.action_space["actuator_gears"],
+            [200.0, 200.0, 200.0],
+        )
         self.assertEqual(
             default.spec.environment_parameters,
             {
                 "frame_skip": 4,
+                "model_timestep_seconds": 0.002,
+                "seconds_per_step": 0.008,
+                "action_components": ["thigh", "leg", "foot"],
+                "actuator_gears": [200.0, 200.0, 200.0],
                 "forward_reward_weight": 1.0,
                 "ctrl_cost_weight": 0.001,
                 "healthy_reward": 1.0,
@@ -76,8 +130,18 @@ class HopperBenchmarkTests(unittest.TestCase):
                 "healthy_state_range": [-100.0, 100.0],
                 "healthy_z_range": [0.7, None],
                 "healthy_angle_range": [-0.2, 0.2],
+                "health_bounds": "strict_open_intervals",
+                "health_state_source": "unclipped_qpos[2:]+qvel",
+                "observation_velocity_clipping": [-10.0, 10.0],
                 "reset_noise_scale": 0.005,
                 "exclude_current_positions_from_observation": True,
+                "reward_formula": (
+                    "forward_reward_weight*x_velocity+"
+                    "healthy_reward_if_healthy-"
+                    "ctrl_cost_weight*sum(action^2)"
+                ),
+                "natural_termination": ("unhealthy when terminate_when_unhealthy is true"),
+                "time_limit": 1000,
             },
         )
         self.assertNotEqual(
@@ -129,9 +193,7 @@ class HopperBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -155,9 +217,7 @@ class HopperBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -177,6 +237,12 @@ class HopperBenchmarkTests(unittest.TestCase):
                 step.reward,
                 forward + control + survive,
             )
+            self.assertEqual(
+                step.metrics["requested_action_by_joint"],
+                {"thigh": 0.0, "leg": 0.0, "foot": 0.0},
+            )
+            self.assertEqual(step.metrics["seconds_per_step"], 0.008)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
         finally:
             environment.close()
             environment.close()
@@ -198,9 +264,7 @@ class HopperBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=456)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=456))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -209,6 +273,76 @@ class HopperBenchmarkTests(unittest.TestCase):
                 set(observation),
                 {"torso_x_position", *_BODY_FIELDS},
             )
+        finally:
+            environment.close()
+
+    def test_real_action_cost_and_actuator_gears_are_public(self) -> None:
+        benchmark = HopperBenchmark()
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=321))
+        try:
+            environment.reset()
+            step = environment.step([1.0, -0.5, 0.25])
+            assert isinstance(step.metrics, dict)
+            self.assertAlmostEqual(
+                _float(step.metrics["reward_control"]),
+                -0.001 * (1.0 + 0.25 + 0.0625),
+                places=7,
+            )
+            self.assertEqual(
+                step.metrics["actuator_gear_scaled_controls"],
+                {"thigh": 200.0, "leg": -100.0, "foot": 50.0},
+            )
+            self.assertTrue(step.metrics["healthy"])
+            self.assertEqual(step.metrics["failed_health_conditions"], [])
+        finally:
+            environment.close()
+
+    def test_narrow_height_range_reports_real_unhealthy_termination(
+        self,
+    ) -> None:
+        benchmark = HopperBenchmark(HopperConfig(healthy_z_range=(2.0, 3.0)))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step([0.0, 0.0, 0.0])
+            assert isinstance(step.metrics, dict)
+            self.assertTrue(step.terminated)
+            self.assertFalse(step.truncated)
+            self.assertFalse(step.metrics["healthy"])
+            self.assertFalse(step.metrics["healthy_z"])
+            failed_conditions = step.metrics["failed_health_conditions"]
+            self.assertIsInstance(failed_conditions, list)
+            assert isinstance(failed_conditions, list)
+            self.assertIn(
+                "torso_height",
+                failed_conditions,
+            )
+            self.assertLess(_float(step.metrics["healthy_z_margin"]), 0.0)
+            self.assertEqual(step.metrics["reward_survive"], 0.0)
+            self.assertEqual(step.metrics["terminal_reason"], "unhealthy")
+        finally:
+            environment.close()
+
+    def test_zero_torque_reaches_an_explained_real_outcome(self) -> None:
+        benchmark = HopperBenchmark()
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            final = None
+            for _ in range(1000):
+                final = environment.step([0.0, 0.0, 0.0])
+                if final.done:
+                    break
+            assert final is not None
+            assert isinstance(final.metrics, dict)
+            self.assertTrue(final.done)
+            self.assertIn(
+                final.metrics["terminal_reason"],
+                {"unhealthy", "time_limit", "unhealthy_and_time_limit"},
+            )
+            if final.terminated:
+                self.assertFalse(final.metrics["healthy"])
+                self.assertTrue(final.metrics["failed_health_conditions"])
         finally:
             environment.close()
 
@@ -223,9 +357,7 @@ class HopperBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -297,20 +429,28 @@ class HopperBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         self.assertLess(result.feedback.score, 3800.0)
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(
+            result.feedback.content["unhealthy_termination_episodes"],
+            1,
+        )
+        self.assertIsInstance(
+            result.feedback.content["mean_healthy_step_fraction"],
+            float,
+        )
+        self.assertIsInstance(
+            result.feedback.content["mean_net_x_displacement"],
+            float,
+        )
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
         episode = documents[0]
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertEqual(len(transitions), episode["steps"])
         self.assertGreater(len(transitions), 0)
+        self.assertEqual(episode["outcome"], "unhealthy")
         self.assertEqual(
             set(transitions[0]["observation"]),
             _BODY_FIELDS,
@@ -329,9 +469,7 @@ class HopperBenchmarkTests(unittest.TestCase):
         balance: list[float] = []
 
         for episode in episodes:
-            zero_torque.append(
-                _rollout(benchmark, episode, balance=False)
-            )
+            zero_torque.append(_rollout(benchmark, episode, balance=False))
             balance.append(_rollout(benchmark, episode, balance=True))
 
         self.assertGreater(
@@ -361,20 +499,15 @@ def _rollout(
                 action = [
                     _clip(
                         -2.0 * _float(observation["thigh_angle"])
-                        - 0.2
-                        * _float(
-                            observation["thigh_angular_velocity"]
-                        )
+                        - 0.2 * _float(observation["thigh_angular_velocity"])
                     ),
                     _clip(
                         -2.0 * _float(observation["leg_angle"])
-                        - 0.2
-                        * _float(observation["leg_angular_velocity"])
+                        - 0.2 * _float(observation["leg_angular_velocity"])
                     ),
                     _clip(
                         -2.0 * _float(observation["foot_angle"])
-                        - 0.2
-                        * _float(observation["foot_angular_velocity"])
+                        - 0.2 * _float(observation["foot_angular_velocity"])
                     ),
                 ]
             result = environment.step(action)

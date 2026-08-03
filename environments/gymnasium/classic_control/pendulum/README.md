@@ -7,7 +7,7 @@ authoring SPI.
 The Benchmark contract is:
 
 - one semantic observation dictionary containing `cos_theta`, `sin_theta`,
-  and `theta_angular_velocity`;
+  and `theta_angular_velocity`, with angle conventions and units in the spec;
 - one exact finite floating-point torque Action in `[-2.0, 2.0]`;
 - one complete Gymnasium Episode with a fixed 200-step horizon;
 - deterministic, split-scoped hidden environment seeds;
@@ -15,11 +15,20 @@ The Benchmark contract is:
 - `-3300` return for a Policy failure, below the approximately `-3254.72`
   theoretical minimum complete Episode return.
 
-The reward is the negative sum of squared normalized angle error, weighted
-angular velocity, and weighted torque. Zero is the maximum per-step reward.
-Unlike the other Classic Control tasks, Pendulum has no success termination;
-every normal Episode reaches the time limit. The official task contract is
-documented in the
+`theta = 0` is upright and `theta = ±π` is downward. A Policy reconstructs the
+normalized angle with `atan2(sin_theta, cos_theta)`. Reward uses the state
+before applying the action:
+
+```text
+reward = -(theta² + 0.1*angular_velocity² + 0.001*torque²)
+```
+
+The adapter also validates Gymnasium's semi-implicit Euler dynamics: gravity
+is `10 m/s²`, mass and length are both `1`, angular velocity is clipped to
+`±8 rad/s`, and each step advances `0.05 s`. Zero is the maximum per-step
+reward. Unlike the other Classic Control tasks, Pendulum has no success
+termination; every normal Episode reaches the 200-step time limit. The official
+task contract is documented in the
 [Gymnasium Pendulum reference](https://gymnasium.farama.org/environments/classic_control/pendulum/).
 
 ## Public interface
@@ -53,11 +62,19 @@ the Gymnasium array order.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean Episode length, completed and truncated
-Episodes, Policy failures, and bounded trace coverage. The public
-`trace.jsonl` artifact retains at most eight Episodes. It contains the
-observations seen by the Policy, unmodified scalar Actions, rewards, next
-observations, and termination flags.
+Feedback reports mean return, completion status, and separate mean Episode
+costs for angle, angular velocity, and torque. State diagnostics include mean
+and closest absolute angle error, fraction of samples in the upright half,
+mean absolute angular velocity, and mean absolute torque. These distinguish
+failure to swing up, failure to stabilize, and excessive control effort.
+
+The public `trace.jsonl` artifact retains at most eight Episodes. Every
+transition contains the Policy-visible observations, unmodified torque, reward,
+termination flags, and public transition metrics. Metrics expose the angle and
+velocity before and after the action, gravity and torque velocity increments,
+clipping, the three reward terms, cumulative costs and return, elapsed time,
+remaining steps, unit-circle error, and terminal reason. Episode rows summarize
+the same cost and stabilization diagnostics.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

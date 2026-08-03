@@ -7,6 +7,7 @@ import json
 import math
 import statistics
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from evopolicygym.authoring import (
     Artifact,
@@ -25,6 +26,8 @@ _EPISODE_SEED_DOMAIN = b"evopolicygym-reacher/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 8
 _MAX_EPISODE_STEPS = 50
+_MODEL_TIMESTEP_SECONDS = 0.01
+_ACTUATOR_GEAR = 200.0
 _OBSERVATION_FIELDS = (
     "joint0_cos",
     "joint1_cos",
@@ -37,6 +40,65 @@ _OBSERVATION_FIELDS = (
     "fingertip_target_x",
     "fingertip_target_y",
 )
+_METRIC_FIELDS = frozenset(
+    {
+        "step_count",
+        "remaining_steps",
+        "seconds_per_step",
+        "simulated_seconds",
+        "requested_joint0_control",
+        "requested_joint1_control",
+        "gear_scaled_joint0_torque",
+        "gear_scaled_joint1_torque",
+        "action_squared_norm",
+        "cumulative_action_squared_norm",
+        "mean_action_squared_norm",
+        "joint0_angle_radians",
+        "joint1_relative_angle_radians",
+        "joint0_unit_circle_error",
+        "joint1_unit_circle_error",
+        "joint0_angular_velocity",
+        "joint1_angular_velocity",
+        "maximum_absolute_joint0_angular_velocity",
+        "maximum_absolute_joint1_angular_velocity",
+        "target_x",
+        "target_y",
+        "target_radius",
+        "fingertip_x",
+        "fingertip_y",
+        "fingertip_target_delta_x",
+        "fingertip_target_delta_y",
+        "initial_fingertip_target_distance",
+        "fingertip_target_distance",
+        "minimum_fingertip_target_distance",
+        "maximum_fingertip_target_distance",
+        "fingertip_target_distance_reduction",
+        "closest_approach_step",
+        "reward_distance",
+        "reward_control",
+        "reward_from_public_terms",
+        "cumulative_reward_distance",
+        "cumulative_reward_control",
+        "cumulative_return",
+        "terminal_reason",
+    }
+)
+
+
+@dataclass(frozen=True)
+class _EpisodeDiagnostics:
+    initial_distance: float
+    final_distance: float
+    minimum_distance: float
+    maximum_distance: float
+    distance_reduction: float
+    closest_approach_step: int
+    maximum_absolute_joint0_angular_velocity: float
+    maximum_absolute_joint1_angular_velocity: float
+    mean_action_squared_norm: float
+    cumulative_reward_distance: float
+    cumulative_reward_control: float
+    outcome: str
 
 
 class ReacherBenchmark:
@@ -91,24 +153,19 @@ class ReacherBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
 
         returns = tuple(
-            (
-                record.total_reward
-                if record.policy_failure is None
-                else self._failure_return
-            )
+            (record.total_reward if record.policy_failure is None else self._failure_return)
             for record in records
         )
         score = statistics.fmean(returns)
         failures = sum(record.policy_failure is not None for record in records)
         mean_steps = statistics.fmean(record.steps for record in records)
-        distances = tuple(
-            _final_distance(record)
+        diagnostics = tuple(
+            _episode_diagnostics(record)
             for record in records
-            if record.policy_failure is None
+            if record.policy_failure is None and record.transitions
         )
-        mean_final_distance = (
-            statistics.fmean(distances) if distances else None
-        )
+        outcomes = tuple(_episode_outcome(record) for record in records)
+        mean_final_distance = _mean_or_none(tuple(item.final_distance for item in diagnostics))
         traced = records[:_MAX_TRACED_EPISODES]
         return Feedback(
             score=score,
@@ -120,7 +177,46 @@ class ReacherBenchmark:
                 ),
                 "mean_return": score,
                 "mean_steps": mean_steps,
+                "mean_initial_distance": _mean_or_none(
+                    tuple(item.initial_distance for item in diagnostics)
+                ),
                 "mean_final_distance": mean_final_distance,
+                "mean_episode_minimum_distance": _mean_or_none(
+                    tuple(item.minimum_distance for item in diagnostics)
+                ),
+                "mean_episode_maximum_distance": _mean_or_none(
+                    tuple(item.maximum_distance for item in diagnostics)
+                ),
+                "mean_final_distance_reduction": _mean_or_none(
+                    tuple(item.distance_reduction for item in diagnostics)
+                ),
+                "mean_closest_approach_step": _mean_or_none(
+                    tuple(float(item.closest_approach_step) for item in diagnostics)
+                ),
+                "mean_episode_maximum_absolute_joint0_angular_velocity": (
+                    _mean_or_none(
+                        tuple(item.maximum_absolute_joint0_angular_velocity for item in diagnostics)
+                    )
+                ),
+                "mean_episode_maximum_absolute_joint1_angular_velocity": (
+                    _mean_or_none(
+                        tuple(item.maximum_absolute_joint1_angular_velocity for item in diagnostics)
+                    )
+                ),
+                "mean_action_squared_norm": _mean_or_none(
+                    tuple(item.mean_action_squared_norm for item in diagnostics)
+                ),
+                "mean_episode_distance_reward": _mean_or_none(
+                    tuple(item.cumulative_reward_distance for item in diagnostics)
+                ),
+                "mean_episode_control_reward": _mean_or_none(
+                    tuple(item.cumulative_reward_control for item in diagnostics)
+                ),
+                "episodes_ending_closer_to_target": sum(
+                    item.distance_reduction > 0.0 for item in diagnostics
+                ),
+                "time_limit_episodes": outcomes.count("time_limit"),
+                "incomplete_episodes": outcomes.count("incomplete"),
                 "episodes": len(records),
                 "policy_failures": failures,
                 "failure_return": self._failure_return,
@@ -146,43 +242,70 @@ def _benchmark_spec(
             "type": "float",
             "minimum": -1.0,
             "maximum": 1.0,
+            "meaning": "Cosine of shoulder angle relative to the world x-axis.",
         },
         "joint1_cos": {
             "type": "float",
             "minimum": -1.0,
             "maximum": 1.0,
+            "meaning": "Cosine of elbow angle relative to link 1.",
         },
         "joint0_sin": {
             "type": "float",
             "minimum": -1.0,
             "maximum": 1.0,
+            "meaning": "Sine of shoulder angle relative to the world x-axis.",
         },
         "joint1_sin": {
             "type": "float",
             "minimum": -1.0,
             "maximum": 1.0,
+            "meaning": "Sine of elbow angle relative to link 1.",
         },
-        "target_x": {"type": "float", "unit": "meters"},
-        "target_y": {"type": "float", "unit": "meters"},
+        "target_x": {
+            "type": "float",
+            "unit": "meters",
+            "meaning": "Target world x-coordinate.",
+        },
+        "target_y": {
+            "type": "float",
+            "unit": "meters",
+            "meaning": "Target world y-coordinate.",
+        },
         "joint0_angular_velocity": {
             "type": "float",
             "unit": "radians_per_second",
+            "meaning": "Unclipped shoulder hinge qvel.",
         },
         "joint1_angular_velocity": {
             "type": "float",
             "unit": "radians_per_second",
+            "meaning": "Unclipped elbow hinge qvel relative to link 1.",
         },
-        "fingertip_target_x": {"type": "float", "unit": "meters"},
-        "fingertip_target_y": {"type": "float", "unit": "meters"},
+        "fingertip_target_x": {
+            "type": "float",
+            "unit": "meters",
+            "meaning": "fingertip_x - target_x.",
+        },
+        "fingertip_target_y": {
+            "type": "float",
+            "unit": "meters",
+            "meaning": "fingertip_y - target_y.",
+        },
     }
     return BenchmarkSpec(
         id="gymnasium/Reacher-v5/mean-return-v1",
         description=(
-            "Apply two joint torques to move a planar arm fingertip toward a "
-            "random target while minimizing control effort. Maximize mean "
-            "Episode return."
+            "Apply two actuator controls, each scaled by gear 200, to move a "
+            "two-link planar arm fingertip toward a target sampled inside a "
+            "0.2-meter disk while minimizing squared control effort."
         ),
-        observation_space={"type": "object", "fields": fields},
+        observation_space={
+            "type": "object",
+            "policy_carrier": "dict[str, float]",
+            "source_dtype": "float64",
+            "fields": fields,
+        },
         action_space={
             "type": "array",
             "shape": [2],
@@ -191,7 +314,13 @@ def _benchmark_spec(
                 "minimum": -1.0,
                 "maximum": 1.0,
             },
-            "components": ["joint0_torque", "joint1_torque"],
+            "policy_carrier": "list[float]",
+            "components": ["joint0_control", "joint1_control"],
+            "actuator_gears": [_ACTUATOR_GEAR, _ACTUATOR_GEAR],
+            "meaning": (
+                "Requested controls are multiplied by actuator gear 200; "
+                "they are not direct torques in newton-meters."
+            ),
         },
         metadata={
             "environment": "Reacher-v5",
@@ -202,8 +331,19 @@ def _benchmark_spec(
         },
         environment_parameters={
             "frame_skip": config.frame_skip,
+            "model_timestep_seconds": _MODEL_TIMESTEP_SECONDS,
+            "seconds_per_step": _MODEL_TIMESTEP_SECONDS * config.frame_skip,
+            "actuator_gears": [_ACTUATOR_GEAR, _ACTUATOR_GEAR],
             "reward_dist_weight": config.reward_dist_weight,
             "reward_control_weight": config.reward_control_weight,
+            "reward_formula": (
+                "-reward_dist_weight*fingertip_target_distance-reward_control_weight*sum(action^2)"
+            ),
+            "target_sampling": "uniform x,y in [-0.2,0.2], reject radius >=0.2",
+            "arm_geom_lengths_meters": [0.1, 0.1],
+            "fingertip_kinematic_offsets_meters": [0.1, 0.11],
+            "natural_termination": "none",
+            "time_limit": _MAX_EPISODE_STEPS,
         },
         max_episode_steps=_MAX_EPISODE_STEPS,
         primary_metric="mean_return",
@@ -229,17 +369,77 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
     return int.from_bytes(digest.digest()[:8], "big")
 
 
-def _final_distance(record: EpisodeRecord) -> float:
-    observation = (
-        record.transitions[-1].step.observation
-        if record.transitions
-        else record.initial_observation
+def _episode_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    metrics = _trace_metrics(record.transitions[-1].step.metrics)
+    reason = metrics["terminal_reason"]
+    if type(reason) is not str:
+        raise ValueError("Reacher terminal reason is invalid")
+    return reason if reason != "none" else "incomplete"
+
+
+def _episode_diagnostics(record: EpisodeRecord) -> _EpisodeDiagnostics:
+    if not record.transitions:
+        raise ValueError("Reacher diagnostics require a transition")
+    final = _trace_metrics(record.transitions[-1].step.metrics)
+    closest_approach_step = final.get("closest_approach_step")
+    if type(closest_approach_step) is not int:
+        raise ValueError("Reacher closest approach step is invalid")
+    return _EpisodeDiagnostics(
+        initial_distance=_float_metric(
+            final,
+            "initial_fingertip_target_distance",
+        ),
+        final_distance=_float_metric(final, "fingertip_target_distance"),
+        minimum_distance=_float_metric(
+            final,
+            "minimum_fingertip_target_distance",
+        ),
+        maximum_distance=_float_metric(
+            final,
+            "maximum_fingertip_target_distance",
+        ),
+        distance_reduction=_float_metric(
+            final,
+            "fingertip_target_distance_reduction",
+        ),
+        closest_approach_step=closest_approach_step,
+        maximum_absolute_joint0_angular_velocity=_float_metric(
+            final,
+            "maximum_absolute_joint0_angular_velocity",
+        ),
+        maximum_absolute_joint1_angular_velocity=_float_metric(
+            final,
+            "maximum_absolute_joint1_angular_velocity",
+        ),
+        mean_action_squared_norm=_float_metric(
+            final,
+            "mean_action_squared_norm",
+        ),
+        cumulative_reward_distance=_float_metric(
+            final,
+            "cumulative_reward_distance",
+        ),
+        cumulative_reward_control=_float_metric(
+            final,
+            "cumulative_reward_control",
+        ),
+        outcome=_episode_outcome(record),
     )
-    traced = _trace_observation(observation)
-    return math.hypot(
-        traced["fingertip_target_x"],
-        traced["fingertip_target_y"],
-    )
+
+
+def _float_metric(metrics: dict[str, object], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise ValueError(f"Reacher metric {name} is invalid")
+    return value
+
+
+def _mean_or_none(values: tuple[float, ...]) -> float | None:
+    return statistics.fmean(values) if values else None
 
 
 def _distance_summary(value: float | None) -> str:
@@ -253,26 +453,36 @@ def _trace_artifact(
 ) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
+        diagnostics = (
+            _episode_diagnostics(record)
+            if record.policy_failure is None and record.transitions
+            else None
+        )
         lines.append(
             _json_line(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
-                    "status": (
-                        "completed"
-                        if record.policy_failure is None
-                        else "policy_failed"
-                    ),
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
                     "return": (
-                        record.total_reward
-                        if record.policy_failure is None
-                        else failure_return
+                        record.total_reward if record.policy_failure is None else failure_return
+                    ),
+                    "outcome": _episode_outcome(record),
+                    "initial_distance": (
+                        diagnostics.initial_distance if diagnostics is not None else None
                     ),
                     "final_distance": (
-                        _final_distance(record)
-                        if record.policy_failure is None
-                        else None
+                        diagnostics.final_distance if diagnostics is not None else None
+                    ),
+                    "minimum_distance": (
+                        diagnostics.minimum_distance if diagnostics is not None else None
+                    ),
+                    "distance_reduction": (
+                        diagnostics.distance_reduction if diagnostics is not None else None
+                    ),
+                    "closest_approach_step": (
+                        diagnostics.closest_approach_step if diagnostics is not None else None
                     ),
                     "failure": record.policy_failure,
                 }
@@ -281,9 +491,7 @@ def _trace_artifact(
         observation = _trace_observation(record.initial_observation)
         for step_index, transition in enumerate(record.transitions):
             action = _trace_action(transition.action)
-            next_observation = _trace_observation(
-                transition.step.observation
-            )
+            next_observation = _trace_observation(transition.step.observation)
             lines.append(
                 _json_line(
                     {
@@ -292,10 +500,12 @@ def _trace_artifact(
                         "step_index": step_index,
                         "observation": observation,
                         "action": action,
+                        "action_components": {
+                            "joint0_control": action[0],
+                            "joint1_control": action[1],
+                        },
                         "reward": transition.step.reward,
-                        "reward_terms": _trace_metrics(
-                            transition.step.metrics
-                        ),
+                        "metrics": _trace_metrics(transition.step.metrics),
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
@@ -315,11 +525,7 @@ def _trace_action(action: PolicyValue) -> list[float]:
         raise ValueError("Reacher trace Action is invalid")
     traced: list[float] = []
     for value in action:
-        if (
-            type(value) is not float
-            or not math.isfinite(value)
-            or not -1.0 <= value <= 1.0
-        ):
+        if type(value) is not float or not math.isfinite(value) or not -1.0 <= value <= 1.0:
             raise ValueError("Reacher trace Action is invalid")
         traced.append(value)
     return traced
@@ -341,15 +547,19 @@ def _trace_observation(
     return traced
 
 
-def _trace_metrics(metrics: PolicyValue) -> dict[str, float]:
-    if type(metrics) is not dict:
+def _trace_metrics(metrics: PolicyValue) -> dict[str, object]:
+    if type(metrics) is not dict or set(metrics) != set(_METRIC_FIELDS):
         raise ValueError("Reacher trace metrics are invalid")
-    if set(metrics) != {"reward_distance", "reward_control"}:
-        raise ValueError("Reacher trace metrics are invalid")
-    traced: dict[str, float] = {}
-    for key in ("reward_distance", "reward_control"):
+    traced: dict[str, object] = {}
+    for key in _METRIC_FIELDS:
         value = metrics[key]
-        if type(value) is not float or not math.isfinite(value):
+        if key in {"step_count", "remaining_steps", "closest_approach_step"}:
+            if type(value) is not int:
+                raise ValueError("Reacher trace metrics are invalid")
+        elif key == "terminal_reason":
+            if type(value) is not str:
+                raise ValueError("Reacher trace metrics are invalid")
+        elif type(value) is not float or not math.isfinite(value):
             raise ValueError("Reacher trace metrics are invalid")
         traced[key] = value
     return traced

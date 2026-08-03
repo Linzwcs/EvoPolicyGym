@@ -7,8 +7,10 @@ navigation task.
 The Policy receives the upstream `7 × 7 × 3` egocentric symbolic image,
 compass direction, and fixed mission. It must reach the green goal while grey
 balls move locally before every action. The only valid actions are left,
-right, and forward; collisions end the Episode with reward `-1`. The primary
-score is collision-free Episode success rate.
+right, and forward. The upstream environment checks the cell ahead, moves the
+balls, then applies the Action; trying to move forward into any cell that was
+occupied by a non-goal object ends the Episode with reward `-1`. This includes
+both a grey ball and a wall. The primary score is Episode success rate.
 
 ## Install and test
 
@@ -41,11 +43,16 @@ Available profiles are `5x5-N2`, `5x5-N2-random`, `6x6-N3`,
 `6x6-N3-random`, `8x8-N4`, and `16x16-N8`. A profile is selected by the Host
 before a Run and contributes to the environment digest.
 
-Feedback reports success, goal discovery, and collision rate, together with
-return, step, truncation, and Policy-failure statistics. `trace.jsonl`
-contains a bounded semantic trace for at most four Episodes, retaining the
-first 128 and last 32 transitions of long Episodes. It contains no Episode
-seed, private Case identity, or Host path.
+The spec defines the image axes, channel order, view orientation, compass and
+symbolic encodings, obstacle update order, exact reward formula, and terminal
+conditions. Feedback separates ball collisions from wall collisions and
+records which Policy-visible object was ahead before every Action. It also
+reports first-seen steps for the goal and obstacles, obstacle exposure,
+remaining horizon, observation novelty, ineffective Actions, per-Action
+usage, success, timeout, and Policy failures. `trace.jsonl` contains a bounded
+semantic trace for at most four Episodes, retaining the first 128 and last 32
+transitions of long Episodes. It contains no Episode seed, private Case
+identity, or Host path.
 
 The packaged baseline builds a relative map from public observations and
 replans each step. It moves forward only when no currently visible obstacle
@@ -55,4 +62,3 @@ private environment state.
 Tests that use `ProcessExecution.unsafe()` run trusted packaged code only.
 That backend is a local process mechanism, not a sandbox and not suitable for
 hostile Programs.
-

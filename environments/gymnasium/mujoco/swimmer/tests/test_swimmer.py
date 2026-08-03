@@ -29,13 +29,28 @@ _BODY_FIELDS = {
     "rotor2_angular_velocity",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "seconds_per_step",
+    "requested_rotor1_control",
+    "requested_rotor2_control",
+    "gear_scaled_rotor1_torque",
+    "gear_scaled_rotor2_torque",
     "x_position",
     "y_position",
     "distance_from_origin",
-    "x_velocity",
-    "y_velocity",
+    "forward_displacement",
+    "lateral_displacement",
+    "path_length",
+    "step_average_x_velocity",
+    "step_average_y_velocity",
+    "observation_tip_x_velocity",
+    "observation_tip_y_velocity",
+    "backward_step_fraction",
     "reward_forward",
     "reward_control",
+    "cumulative_return",
+    "terminal_reason",
 }
 
 
@@ -62,10 +77,19 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             excluded.spec.environment_parameters,
             {
                 "frame_skip": 4,
+                "model_timestep_seconds": 0.01,
+                "seconds_per_step": 0.04,
+                "actuator_gears": [150.0, 150.0],
                 "forward_reward_weight": 1.0,
                 "ctrl_cost_weight": 0.0001,
+                "reward_formula": (
+                    "forward_reward_weight*((x_after-x_before)/seconds_per_step)-"
+                    "ctrl_cost_weight*sum(action^2)"
+                ),
                 "reset_noise_scale": 0.1,
                 "exclude_current_positions_from_observation": True,
+                "natural_termination": "none",
+                "time_limit": 1000,
             },
         )
         self.assertNotEqual(
@@ -111,9 +135,7 @@ class SwimmerBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -137,9 +159,7 @@ class SwimmerBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -148,21 +168,34 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             step = environment.step([0.0, 0.0])
             self.assertIsInstance(step.metrics, dict)
             assert isinstance(step.metrics, dict)
-            self.assertEqual(set(step.metrics), _METRIC_FIELDS)
+            self.assertTrue(_METRIC_FIELDS.issubset(step.metrics))
             forward = step.metrics["reward_forward"]
             control = step.metrics["reward_control"]
             assert type(forward) is float
             assert type(control) is float
             self.assertAlmostEqual(step.reward, forward + control)
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 999)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.04)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+            controlled_step = environment.step([0.5, -0.25])
+            self.assertIsInstance(controlled_step.metrics, dict)
+            assert isinstance(controlled_step.metrics, dict)
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_rotor1_torque"],
+                75.0,
+            )
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_rotor2_torque"],
+                -37.5,
+            )
         finally:
             environment.close()
             environment.close()
 
     def test_position_including_environment_conforms(self) -> None:
         benchmark = SwimmerBenchmark(
-            SwimmerConfig(
-                exclude_current_positions_from_observation=False
-            )
+            SwimmerConfig(exclude_current_positions_from_observation=False)
         )
         report = check_benchmark(
             benchmark,
@@ -174,9 +207,7 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=456)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=456))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -199,9 +230,7 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -216,9 +245,7 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             SwimmerBenchmark().make_environment(
                 EpisodeSpec(
                     environment_seed=1,
-                    scenario={
-                        "exclude_current_positions_from_observation": False
-                    },
+                    scenario={"exclude_current_positions_from_observation": False},
                 )
             )
 
@@ -276,23 +303,20 @@ class SwimmerBenchmarkTests(unittest.TestCase):
         )
         self.assertLess(result.feedback.score, 360.0)
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertEqual(len(transitions), 1000)
         self.assertEqual(
             set(transitions[0]["observation"]),
             _BODY_FIELDS,
         )
         self.assertEqual(transitions[0]["action"], [0.0, 0.0])
-        self.assertEqual(set(transitions[0]["metrics"]), _METRIC_FIELDS)
+        self.assertEqual(
+            transitions[0]["action_components"],
+            {"rotor1_control": 0.0, "rotor2_control": 0.0},
+        )
+        self.assertTrue(_METRIC_FIELDS.issubset(transitions[0]["metrics"]))
 
     def test_sinusoidal_gait_improves_on_zero_torque(self) -> None:
         benchmark = SwimmerBenchmark()
@@ -301,17 +325,22 @@ class SwimmerBenchmarkTests(unittest.TestCase):
             seed=17,
             count=8,
         )
-        zero_torque: list[float] = []
-        gait: list[float] = []
+        zero_torque: list[tuple[float, float]] = []
+        gait: list[tuple[float, float]] = []
 
         for episode in episodes:
             zero_torque.append(_rollout(benchmark, episode, gait=False))
             gait.append(_rollout(benchmark, episode, gait=True))
 
         self.assertGreater(
-            statistics.fmean(gait),
-            statistics.fmean(zero_torque),
+            statistics.fmean(item[0] for item in gait),
+            statistics.fmean(item[0] for item in zero_torque),
         )
+        self.assertGreater(
+            statistics.fmean(item[1] for item in gait),
+            statistics.fmean(item[1] for item in zero_torque),
+        )
+        self.assertTrue(all(item[1] > 0.0 for item in gait))
 
 
 def _sample_observation() -> dict[str, PolicyValue]:
@@ -323,9 +352,10 @@ def _rollout(
     episode: EpisodeSpec,
     *,
     gait: bool,
-) -> float:
+) -> tuple[float, float]:
     environment = benchmark.make_environment(episode)
     total = 0.0
+    final_metrics: dict[str, PolicyValue] | None = None
     try:
         environment.reset()
         for step_index in range(1000):
@@ -340,11 +370,16 @@ def _rollout(
                 action = [0.0, 0.0]
             result = environment.step(action)
             total += result.reward
+            assert isinstance(result.metrics, dict)
+            final_metrics = result.metrics
             if result.done:
                 break
     finally:
         environment.close()
-    return total
+    assert final_metrics is not None
+    forward_displacement = final_metrics["forward_displacement"]
+    assert type(forward_displacement) is float
+    return total, forward_displacement
 
 
 if __name__ == "__main__":

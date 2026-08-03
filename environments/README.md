@@ -61,6 +61,34 @@ public Feedback, baseline Program, lockfile, and tests.
 The taxonomy describes source ownership and dependency provenance. It does not
 change public Python imports, distribution names, or Benchmark IDs.
 
+## Audit every distribution
+
+Use the repository audit command to discover every leaf project while pruning
+virtual environments, build outputs, and vendored upstream projects:
+
+```console
+uv run python scripts/audit_environments.py --list
+uv run python scripts/audit_environments.py --level smoke --jobs 4
+uv run python scripts/audit_environments.py --level full --jobs 2
+```
+
+`smoke` performs a locked development sync and runs the distribution's test
+suite. Those tests own real reset/step, determinism, invalid-Action, Evaluation,
+and cleanup coverage appropriate to their upstream runtime. `full` mirrors the
+Environment CI contract by additionally running Ruff, strict mypy, and building
+the independent wheel and source distribution. Both levels continue across
+projects after a failure and return a nonzero status if any project fails.
+
+Use repository-relative shell-style patterns to audit a subset, or reuse
+already-synchronized virtual environments during rapid local checks:
+
+```console
+uv run python scripts/audit_environments.py \
+  --level smoke \
+  --skip-sync \
+  --project 'environments/gymnasium/classic_control/*'
+```
+
 The [integration ledger](STATUS.md) records every planned environment,
 including exact task/profile coverage and the environments deferred because a
 multi-agent, Trial, browser, runtime, or redistributable-asset boundary is

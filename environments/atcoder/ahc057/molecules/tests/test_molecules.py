@@ -10,6 +10,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     Transition,
     check_benchmark,
 )
@@ -44,17 +45,24 @@ class MoleculesBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.max_episode_steps, TURNS)
         self.assertEqual(spec.primary_metric, "mean_log_cost_score")
         self.assertEqual(spec.score_direction, "maximize")
+        self.assertEqual(spec.environment_parameters["generator"], GENERATOR_ID)
+        self.assertEqual(spec.environment_parameters["points"], POINTS)
+        self.assertEqual(spec.environment_parameters["turns"], TURNS)
+        self.assertEqual(spec.environment_parameters["space_size"], SPACE_SIZE)
         self.assertEqual(
-            spec.environment_parameters,
-            {
-                "generator": GENERATOR_ID,
-                "points": POINTS,
-                "turns": TURNS,
-                "space_size": SPACE_SIZE,
-                "target_components": TARGET_COMPONENTS,
-                "target_size": TARGET_SIZE,
-            },
+            spec.environment_parameters["target_components"],
+            TARGET_COMPONENTS,
         )
+        self.assertEqual(spec.environment_parameters["target_size"], TARGET_SIZE)
+        reward_semantics = spec.environment_parameters["reward_semantics"]
+        bond_atomicity = spec.environment_parameters["bond_atomicity"]
+        score_formula = spec.environment_parameters["score_formula"]
+        assert isinstance(reward_semantics, str)
+        assert isinstance(bond_atomicity, str)
+        assert isinstance(score_formula, str)
+        self.assertIn("0 for turns 1-999", reward_semantics)
+        self.assertIn("atomically", bond_atomicity)
+        self.assertIn("log2", score_formula)
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_tool_license"],
@@ -73,9 +81,7 @@ class MoleculesBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=12))
         repeated = tuple(benchmark.episodes("train", seed=7, count=12))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=12)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=12))
         test = tuple(benchmark.episodes("test", seed=7, count=12))
 
         self.assertEqual(train, repeated)
@@ -111,16 +117,10 @@ class MoleculesBenchmarkTests(unittest.TestCase):
             self.assertEqual(len(case.positions), POINTS)
             self.assertEqual(len(case.velocities), POINTS)
             self.assertTrue(
-                all(
-                    0 <= x < SPACE_SIZE and 0 <= y < SPACE_SIZE
-                    for x, y in case.positions
-                )
+                all(0 <= x < SPACE_SIZE and 0 <= y < SPACE_SIZE for x, y in case.positions)
             )
             self.assertTrue(
-                all(
-                    -100 <= vx <= 100 and -100 <= vy <= 100
-                    for vx, vy in case.velocities
-                )
+                all(-100 <= vx <= 100 and -100 <= vy <= 100 for vx, vy in case.velocities)
             )
 
     def test_bond_uses_toroidal_cost_and_momentum(self) -> None:
@@ -182,16 +182,12 @@ class MoleculesBenchmarkTests(unittest.TestCase):
 
     def test_final_score_matches_public_formula(self) -> None:
         expected = math.floor(
-            1_000_000
-            * math.log2(SPACE_SIZE * (POINTS - TARGET_COMPONENTS))
-            + 0.5
+            1_000_000 * math.log2(SPACE_SIZE * (POINTS - TARGET_COMPONENTS)) + 0.5
         )
         self.assertEqual(final_score(0), expected)
 
     def test_initial_observation_hides_case_identity(self) -> None:
-        environment = MoleculesEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = MoleculesEnvironment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
         finally:
@@ -246,9 +242,7 @@ class MoleculesBenchmarkTests(unittest.TestCase):
             {"bonds": [[0, 1], [1, 0]]},
         )
         for action in invalid_actions:
-            environment = MoleculesEnvironment(
-                EpisodeSpec(environment_seed=17)
-            )
+            environment = MoleculesEnvironment(EpisodeSpec(environment_seed=17))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction, msg=repr(action)):
@@ -280,6 +274,54 @@ class MoleculesBenchmarkTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             repeated_reset.reset()
         repeated_reset.close()
+
+    def test_real_incremental_and_complete_bonding_metrics_are_actionable(self) -> None:
+        incremental = MoleculesEnvironment(EpisodeSpec(environment_seed=123))
+        try:
+            incremental.reset()
+            first = incremental.step({"bonds": [[0, 1]]})
+            waited = incremental.step({"bonds": []})
+        finally:
+            incremental.close()
+
+        first_metrics = _step_metrics(first)
+        waited_metrics = _step_metrics(waited)
+        self.assertEqual(first.reward, 0.0)
+        self.assertEqual(first_metrics["bond_count_this_turn"], 1)
+        self.assertEqual(first_metrics["components"], POINTS - 1)
+        self.assertEqual(
+            first_metrics["required_bonds_remaining"],
+            POINTS - 1 - TARGET_COMPONENTS,
+        )
+        self.assertEqual(first_metrics["total_bonds"], 1)
+        self.assertEqual(first_metrics["bond_completion_fraction"], 1 / 290)
+        self.assertEqual(first_metrics["singleton_component_count"], 298)
+        self.assertEqual(first_metrics["largest_component_size"], 2)
+        self.assertEqual(sum(_int_list_metric(first_metrics, "component_size_histogram")), 299)
+        self.assertGreater(_number_metric(first_metrics, "action_cost_per_bond"), 0.0)
+        self.assertGreater(
+            _number_metric(first_metrics, "score_upper_bound_if_no_further_cost"), 0
+        )
+        self.assertEqual(waited_metrics["bond_action_this_turn"], False)
+        self.assertEqual(waited_metrics["empty_bond_action_count"], 1)
+        self.assertEqual(waited_metrics["empty_bond_action_fraction"], 0.5)
+
+        complete = MoleculesEnvironment(EpisodeSpec(environment_seed=123))
+        try:
+            complete.reset()
+            grouped = complete.step({"bonds": [list(bond) for bond in _baseline_bonds()]})
+        finally:
+            complete.close()
+        grouped_metrics = _step_metrics(grouped)
+        self.assertEqual(grouped_metrics["components"], TARGET_COMPONENTS)
+        self.assertEqual(grouped_metrics["required_bonds_remaining"], 0)
+        self.assertEqual(grouped_metrics["target_size_component_count"], 10)
+        self.assertEqual(grouped_metrics["target_partition_ready"], True)
+        self.assertEqual(grouped_metrics["target_partition_first_ready_turn"], 1)
+        self.assertEqual(
+            grouped_metrics["component_size_histogram"],
+            [0] * 29 + [10],
+        )
 
     def test_feedback_publishes_bounded_bond_trace(self) -> None:
         episode = EpisodeSpec(environment_seed=123)
@@ -330,7 +372,24 @@ class MoleculesBenchmarkTests(unittest.TestCase):
         documents = [json.loads(line) for line in trace.splitlines()]
         self.assertEqual(documents[0]["status"], "completed")
         self.assertEqual(documents[1]["type"], "bond_event")
+        self.assertEqual(documents[1]["bond_count"], POINTS - TARGET_COMPONENTS)
+        self.assertEqual(documents[1]["required_bonds_remaining"], 0)
+        self.assertEqual(documents[1]["target_partition_ready"], True)
+        self.assertEqual(
+            documents[1]["score_upper_bound_if_no_further_cost"],
+            documents[0]["score"],
+        )
         self.assertEqual(documents[-1]["status"], "policy_failed")
+        self.assertEqual(feedback.content["mean_total_bonds"], 290.0)
+        self.assertEqual(feedback.content["mean_bond_action_count"], 1.0)
+        self.assertEqual(
+            feedback.content["mean_empty_bond_action_fraction"],
+            0.999,
+        )
+        self.assertEqual(
+            feedback.content["mean_target_partition_first_ready_turn"],
+            1.0,
+        )
 
     def test_baseline_program_completes_direct_evaluation(self) -> None:
         benchmark = MoleculesBenchmark()
@@ -362,6 +421,29 @@ def _baseline_bonds() -> tuple[tuple[int, int], ...]:
         for group_start in range(0, POINTS, TARGET_SIZE)
         for point in range(group_start + 1, group_start + TARGET_SIZE)
     )
+
+
+def _step_metrics(step: Step) -> dict[str, PolicyValue]:
+    metrics = step.metrics
+    assert isinstance(metrics, dict)
+    return metrics
+
+
+def _number_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics[name]
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return float(value)
+
+
+def _int_list_metric(metrics: dict[str, PolicyValue], name: str) -> list[int]:
+    value = metrics[name]
+    assert isinstance(value, list)
+    assert all(isinstance(item, int) and not isinstance(item, bool) for item in value)
+    return [
+        item
+        for item in value
+        if isinstance(item, int) and not isinstance(item, bool)
+    ]
 
 
 def _simple_case() -> MoleculesCase:

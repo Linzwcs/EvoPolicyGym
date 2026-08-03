@@ -15,6 +15,7 @@ from .config import TaxiConfig
 
 _ACTIONS = frozenset({0, 1, 2, 3, 4, 5})
 _LANDMARK_NAMES = ("red", "green", "yellow", "blue")
+_ACTION_MEANINGS = ("south", "north", "east", "west", "pickup", "dropoff")
 
 
 class TaxiEnvironment:
@@ -37,6 +38,7 @@ class TaxiEnvironment:
             )
 
         self._seed = episode.environment_seed
+        self._config = config
         self._environment = cast(
             gymnasium.Env[object, int],
             gymnasium.make(
@@ -50,6 +52,8 @@ class TaxiEnvironment:
         self._started = False
         self._done = False
         self._closed = False
+        self._observation: dict[str, PolicyValue] | None = None
+        self._steps = 0
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -57,8 +61,10 @@ class TaxiEnvironment:
         if self._started:
             raise RuntimeError("Environment can be reset only once")
         state, info = self._environment.reset(seed=self._seed)
+        observation = _observation(state, info)
+        self._observation = observation
         self._started = True
-        return _observation(state, info)
+        return observation
 
     def step(self, action: PolicyValue) -> Step:
         if self._closed:
@@ -70,17 +76,36 @@ class TaxiEnvironment:
         if type(action) is not int or action not in _ACTIONS:
             raise InvalidAction()
 
+        previous_observation = self._observation
+        if previous_observation is None:
+            raise RuntimeError("Taxi observation is unavailable")
         state, reward, terminated, truncated, info = self._environment.step(
             action
         )
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError("Taxi returned invalid termination flags")
-        self._done = terminated or truncated
-        return Step(
-            observation=_observation(state, info),
-            reward=_reward(reward),
+        next_observation = _observation(state, info)
+        public_reward = _reward(reward)
+        self._steps += 1
+        metrics = _transition_metrics(
+            previous_observation,
+            next_observation,
+            action,
+            reward=public_reward,
             terminated=terminated,
             truncated=truncated,
+            sampled_branch_probability=_transition_probability(info),
+            config=self._config,
+            step_count=self._steps,
+        )
+        self._observation = next_observation
+        self._done = terminated or truncated
+        return Step(
+            observation=next_observation,
+            reward=public_reward,
+            terminated=terminated,
+            truncated=truncated,
+            metrics=metrics,
         )
 
     def close(self) -> None:
@@ -167,7 +192,142 @@ def _reward(value: object) -> float:
     reward = float(cast(int | float, value))
     if not math.isfinite(reward):
         raise RuntimeError("Taxi returned a non-finite reward")
+    if reward not in {-10.0, -1.0, 20.0}:
+        raise RuntimeError("Taxi returned an unknown reward")
     return reward
+
+
+def _transition_probability(info: object) -> float:
+    if not isinstance(info, Mapping) or "prob" not in info:
+        raise RuntimeError("Taxi omitted transition probability")
+    value = info["prob"]
+    if isinstance(value, bool):
+        raise RuntimeError("Taxi returned an invalid transition probability")
+    try:
+        probability = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise RuntimeError("Taxi returned an invalid transition probability") from None
+    if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+        raise RuntimeError("Taxi returned an invalid transition probability")
+    return probability
+
+
+def _transition_metrics(
+    previous: dict[str, PolicyValue],
+    current: dict[str, PolicyValue],
+    action: int,
+    *,
+    reward: float,
+    terminated: bool,
+    truncated: bool,
+    sampled_branch_probability: float,
+    config: TaxiConfig,
+    step_count: int,
+) -> dict[str, PolicyValue]:
+    previous_row = _integer_field(previous, "taxi_row")
+    previous_column = _integer_field(previous, "taxi_column")
+    current_row = _integer_field(current, "taxi_row")
+    current_column = _integer_field(current, "taxi_column")
+    previous_passenger = _string_field(previous, "passenger_location")
+    current_passenger = _string_field(current, "passenger_location")
+    previous_destination = _string_field(previous, "destination")
+    current_destination = _string_field(current, "destination")
+    legal_actions = previous.get("legal_actions")
+    if type(legal_actions) is not list:
+        raise RuntimeError("Taxi returned invalid advisory Actions")
+
+    expected_probabilities: tuple[float, ...] = (1.0,)
+    if config.is_rainy and action < 4:
+        expected_probabilities = (
+            config.rainy_probability,
+            (1.0 - config.rainy_probability) / 2.0,
+        )
+    if not any(
+        math.isclose(
+            sampled_branch_probability,
+            expected,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+        for expected in expected_probabilities
+    ):
+        raise RuntimeError("Taxi transition probability drifted")
+
+    row_delta = current_row - previous_row
+    column_delta = current_column - previous_column
+    movement_by_delta = {
+        (0, 0): "stayed",
+        (1, 0): "south",
+        (-1, 0): "north",
+        (0, 1): "east",
+        (0, -1): "west",
+    }
+    observed_movement = movement_by_delta.get((row_delta, column_delta))
+    if observed_movement is None:
+        raise RuntimeError("Taxi returned a non-adjacent movement")
+
+    event: str
+    if action < 4:
+        event = "movement" if observed_movement != "stayed" else "movement_noop"
+    elif action == 4:
+        event = (
+            "pickup"
+            if previous_passenger != "in_taxi" and current_passenger == "in_taxi"
+            else "illegal_pickup"
+        )
+    elif terminated:
+        event = "successful_dropoff"
+    elif previous_passenger == "in_taxi" and current_passenger != "in_taxi":
+        event = "wrong_landmark_dropoff"
+    else:
+        event = "illegal_dropoff"
+
+    if event.startswith("illegal_") and reward != -10.0:
+        raise RuntimeError("Taxi illegal Action reward drifted")
+    if event == "successful_dropoff" and reward != 20.0:
+        raise RuntimeError("Taxi delivery reward drifted")
+    if event not in {"illegal_pickup", "illegal_dropoff", "successful_dropoff"} and reward != -1.0:
+        raise RuntimeError("Taxi ordinary reward drifted")
+
+    metrics: dict[str, PolicyValue] = {
+        "step_count": step_count,
+        "requested_action": _ACTION_MEANINGS[action],
+        "action_was_listed_as_state_changing": action in legal_actions,
+        "event": event,
+        "observed_movement": observed_movement,
+        "taxi_position_changed": observed_movement != "stayed",
+        "passenger_location_changed": previous_passenger != current_passenger,
+        "destination_changed": previous_destination != current_destination,
+        "sampled_branch_probability": sampled_branch_probability,
+        "state_changed": _integer_field(previous, "state") != _integer_field(current, "state"),
+    }
+    if previous_destination != current_destination:
+        metrics["previous_destination"] = previous_destination
+        metrics["new_destination"] = current_destination
+    reasons: list[str] = []
+    if terminated:
+        if event != "successful_dropoff":
+            raise RuntimeError("Taxi terminated without successful delivery")
+        reasons.append("passenger_delivered")
+    if truncated:
+        reasons.append("time_limit")
+    if reasons:
+        metrics["terminal_reason"] = "+".join(reasons)
+    return metrics
+
+
+def _integer_field(observation: dict[str, PolicyValue], name: str) -> int:
+    value = observation.get(name)
+    if type(value) is not int:
+        raise RuntimeError(f"Taxi returned invalid {name}")
+    return value
+
+
+def _string_field(observation: dict[str, PolicyValue], name: str) -> str:
+    value = observation.get(name)
+    if type(value) is not str:
+        raise RuntimeError(f"Taxi returned invalid {name}")
+    return value
 
 
 __all__ = ["TaxiEnvironment"]

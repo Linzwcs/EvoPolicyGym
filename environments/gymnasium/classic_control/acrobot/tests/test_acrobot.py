@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -49,6 +50,25 @@ class AcrobotBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(spec.action_space["values"], [0, 1, 2])
         self.assertEqual(spec.metadata["failure_return"], -500.0)
+        self.assertIn("-cos(theta1)-cos(theta1+theta2)", spec.description)
+        self.assertEqual(spec.environment_parameters["seconds_per_step"], 0.2)
+        self.assertEqual(
+            spec.environment_parameters["available_torques_newton_meters"],
+            [-1.0, 0.0, 1.0],
+        )
+        self.assertEqual(
+            spec.environment_parameters[
+                "target_height_strictly_greater_than_meters"
+            ],
+            1.0,
+        )
+        theta_2 = fields["cos_theta_2"]
+        self.assertIsInstance(theta_2, dict)
+        assert isinstance(theta_2, dict)
+        theta_2_meaning = theta_2["meaning"]
+        self.assertIsInstance(theta_2_meaning, str)
+        assert isinstance(theta_2_meaning, str)
+        self.assertIn("relative to link 1", theta_2_meaning)
 
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = AcrobotBenchmark()
@@ -101,6 +121,54 @@ class AcrobotBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
                 environment.close()
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(environment_seed=123, scenario={"dynamics": "nips"})
+            )
+
+    def test_real_energy_pumping_reaches_target_with_explicit_progress(self) -> None:
+        environment = AcrobotBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            observation = environment.reset()
+            for _ in range(500):
+                self.assertIsInstance(observation, dict)
+                assert isinstance(observation, dict)
+                angular_velocity = observation["theta_2_angular_velocity"]
+                if type(angular_velocity) is not float:
+                    raise AssertionError("expected angular velocity")
+                result = environment.step(2 if angular_velocity >= 0.0 else 0)
+                observation = result.observation
+                if result.done:
+                    break
+        finally:
+            environment.close()
+        self.assertTrue(result.terminated)
+        self.assertFalse(result.truncated)
+        self.assertEqual(result.reward, 0.0)
+        metrics = _metrics(result)
+        self.assertEqual(
+            _string_metric(metrics, "terminal_reason"),
+            "target_height_reached",
+        )
+        self.assertGreater(
+            _float_metric(metrics, "free_end_vertical_height_meters"),
+            1.0,
+        )
+        self.assertGreater(
+            _float_metric(metrics, "target_height_margin_meters"),
+            0.0,
+        )
+        self.assertEqual(
+            _float_metric(metrics, "height_remaining_to_target_meters"),
+            0.0,
+        )
+        self.assertTrue(
+            _bool_metric(metrics, "target_reached_from_public_observation")
+        )
+        self.assertLess(_int_metric(metrics, "step_count"), 500)
 
     def test_feedback_uses_explicit_failure_floor_and_keeps_identity_private(
         self,
@@ -183,8 +251,51 @@ class AcrobotBenchmarkTests(unittest.TestCase):
             },
         )
         self.assertEqual(transitions[0]["action"], 1)
+        self.assertEqual(transitions[0]["action_meaning"], "zero_torque")
         self.assertEqual(transitions[0]["reward"], -1.0)
         self.assertEqual(len(transitions[0]["next_observation"]), 6)
+        self.assertEqual(transitions[-1]["metrics"]["terminal_reason"], "time_limit")
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 2)
+        maximum_height = result.feedback.content["maximum_tip_height_meters"]
+        self.assertIsInstance(maximum_height, float)
+        assert isinstance(maximum_height, float)
+        self.assertLess(maximum_height, 1.0)
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _int_metric(metrics: dict[str, PolicyValue], name: str) -> int:
+    value = metrics.get(name)
+    if type(value) is not int:
+        raise AssertionError(f"expected integer metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 if __name__ == "__main__":

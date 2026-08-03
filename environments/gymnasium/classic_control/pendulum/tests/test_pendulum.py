@@ -10,6 +10,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -49,6 +50,17 @@ class PendulumBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.action_space["minimum"], -2.0)
         self.assertEqual(spec.action_space["maximum"], 2.0)
         self.assertEqual(spec.metadata["failure_return"], -3300.0)
+        self.assertIn("state before the action", spec.description)
+        self.assertEqual(spec.observation_space["source_dtype"], "float32")
+        self.assertEqual(spec.environment_parameters["seconds_per_step"], 0.05)
+        self.assertEqual(
+            spec.environment_parameters["natural_termination"],
+            "none",
+        )
+        velocity = fields["theta_angular_velocity"]
+        self.assertIsInstance(velocity, dict)
+        assert isinstance(velocity, dict)
+        self.assertEqual(velocity["unit"], "radians_per_second")
 
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = PendulumBenchmark()
@@ -103,6 +115,48 @@ class PendulumBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
                 environment.close()
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(environment_seed=123, scenario={"gravity": 9.81})
+            )
+
+    def test_real_torque_reports_dynamics_and_reward_decomposition(self) -> None:
+        environment = PendulumBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            observation = environment.reset()
+            assert isinstance(observation, dict)
+            cosine = observation["cos_theta"]
+            sine = observation["sin_theta"]
+            velocity = observation["theta_angular_velocity"]
+            assert type(cosine) is float
+            assert type(sine) is float
+            assert type(velocity) is float
+            angle = math.atan2(sine, cosine)
+            expected_cost = angle**2 + 0.1 * velocity**2 + 0.001 * 0.5**2
+            result = environment.step(0.5)
+        finally:
+            environment.close()
+
+        self.assertAlmostEqual(result.reward, -expected_cost, places=5)
+        metrics = _metrics(result)
+        self.assertEqual(
+            _float_metric(metrics, "requested_torque_newton_meters"),
+            0.5,
+        )
+        self.assertAlmostEqual(_float_metric(metrics, "angle_cost"), angle**2)
+        self.assertAlmostEqual(
+            _float_metric(metrics, "angular_velocity_cost"),
+            0.1 * velocity**2,
+        )
+        self.assertAlmostEqual(_float_metric(metrics, "torque_cost"), 0.00025)
+        self.assertAlmostEqual(
+            _float_metric(metrics, "reward_from_public_terms"),
+            result.reward,
+            places=5,
+        )
 
     def test_feedback_uses_explicit_failure_floor_and_keeps_identity_private(
         self,
@@ -183,6 +237,10 @@ class PendulumBenchmarkTests(unittest.TestCase):
             },
         )
         self.assertEqual(transitions[0]["action"], 0.0)
+        self.assertEqual(
+            transitions[0]["action_meaning"],
+            "signed_torque_newton_meters",
+        )
         self.assertLessEqual(transitions[0]["reward"], 0.0)
         self.assertEqual(
             set(transitions[0]["next_observation"]),
@@ -192,6 +250,21 @@ class PendulumBenchmarkTests(unittest.TestCase):
                 "theta_angular_velocity",
             },
         )
+        self.assertEqual(transitions[-1]["metrics"]["terminal_reason"], "time_limit")
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["truncated_episodes"], 2)
+        self.assertEqual(result.feedback.content["incomplete_episodes"], 0)
+        self.assertEqual(result.feedback.content["mean_episode_torque_cost"], 0.0)
+        angle_cost = result.feedback.content["mean_episode_angle_cost"]
+        velocity_cost = result.feedback.content[
+            "mean_episode_angular_velocity_cost"
+        ]
+        self.assertIsInstance(angle_cost, float)
+        self.assertIsInstance(velocity_cost, float)
+        assert isinstance(angle_cost, float)
+        assert isinstance(velocity_cost, float)
+        self.assertAlmostEqual(angle_cost + velocity_cost, -result.feedback.score, places=3)
 
     def test_energy_shaping_strategy_improves_on_the_baseline(self) -> None:
         benchmark = PendulumBenchmark()
@@ -224,6 +297,16 @@ class PendulumBenchmarkTests(unittest.TestCase):
                     if result.terminated or result.truncated:
                         self.assertFalse(result.terminated)
                         self.assertTrue(result.truncated)
+                        metrics = _metrics(result)
+                        self.assertEqual(
+                            _string_metric(metrics, "terminal_reason"),
+                            "time_limit",
+                        )
+                        self.assertAlmostEqual(
+                            _float_metric(metrics, "cumulative_return"),
+                            total_reward,
+                            places=8,
+                        )
                         break
             finally:
                 environment.close()
@@ -231,6 +314,26 @@ class PendulumBenchmarkTests(unittest.TestCase):
 
         self.assertEqual(len(returns), 10)
         self.assertGreater(sum(returns) / len(returns), -650.0)
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
 
 
 if __name__ == "__main__":

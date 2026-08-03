@@ -1,11 +1,13 @@
-"""MiniGrid WFC with deterministic plans and safety traces."""
+"""MiniGrid WFC with deterministic plans and actionable navigation traces."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
 import statistics
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from evopolicygym.authoring import (
     Artifact,
@@ -22,6 +24,9 @@ from .environment import WFCEnvironment
 
 _SEED_DOMAIN = b"evopolicygym-minigrid-wfc/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
+_TRACE_PREFIX_STEPS = 128
+_TRACE_SUFFIX_STEPS = 32
+_MISSION = "traverse the maze to get to the goal"
 _OBJECTS = (
     "unseen",
     "empty",
@@ -47,7 +52,77 @@ _ACTIONS: dict[str, PolicyValue] = {
     "5": "toggle",
     "6": "done",
 }
-_METRICS = {"goal_found", "success"}
+_ACTION_NAMES = tuple(str(_ACTIONS[str(index)]) for index in range(7))
+_LABEL_METRICS = frozenset(
+    {"front_object", "front_object_before_action", "task_stage", "terminal_reason"}
+)
+_BOOL_METRICS = frozenset(
+    {
+        "goal_visible",
+        "goal_found",
+        "goal_in_front",
+        "goal_in_front_before_action",
+        "forward_attempt",
+        "move_succeeded",
+        "blocked_forward",
+        "unused_action",
+        "observation_novel",
+        "ineffective_action",
+        "success",
+    }
+)
+_INT_METRICS = frozenset(
+    {
+        "step_count",
+        "remaining_steps",
+        "visible_wall_count",
+        "visible_walkable_count",
+        "visible_unseen_count",
+        "newly_revealed_cell_count",
+        "known_cell_count",
+        "known_walkable_cell_count",
+        "known_wall_cell_count",
+        "known_frontier_count",
+        "last_map_expansion_step",
+        "steps_since_map_expansion",
+        "blocked_forward_count",
+        "unused_action_count",
+        "unique_observation_count",
+        *(f"{name}_count" for name in _ACTION_NAMES),
+    }
+)
+_MILESTONE_INT_METRICS = frozenset({"goal_first_seen_step", "known_goal_distance"})
+_FLOAT_METRICS = frozenset(
+    {
+        "known_map_fraction",
+        "observation_novelty_step_fraction",
+        "ineffective_action_fraction",
+        "success_reward_at_this_step",
+        "cumulative_return",
+    }
+)
+_METRICS = _LABEL_METRICS | _BOOL_METRICS | _INT_METRICS | _MILESTONE_INT_METRICS | _FLOAT_METRICS
+_MILESTONES = ("goal_found", "blocked_forward", "unused_action")
+
+
+@dataclass(frozen=True)
+class _EpisodeDiagnostics:
+    goal_first_seen_step: int
+    known_cell_count: int
+    known_walkable_cell_count: int
+    known_wall_cell_count: int
+    known_frontier_count: int
+    known_goal_distance: int
+    known_map_fraction: float
+    steps_since_map_expansion: int
+    blocked_forward_count: int
+    unused_action_count: int
+    unique_observation_count: int
+    observation_novelty_step_fraction: float
+    ineffective_action_fraction: float
+    action_counts: tuple[int, ...]
+    task_stage: str
+    outcome: str
 
 
 class WFCBenchmark:
@@ -79,8 +154,7 @@ class WFCBenchmark:
         if type(count) is not int or count <= 0:
             raise ValueError("count must be a positive integer")
         return tuple(
-            EpisodeSpec(environment_seed=_seed(split, seed, index))
-            for index in range(count)
+            EpisodeSpec(environment_seed=_seed(split, seed, index)) for index in range(count)
         )
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
@@ -92,44 +166,82 @@ class WFCBenchmark:
             raise ValueError("episodes must be non-empty")
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
-        successes = sum(_success(record) for record in records)
+        successful = tuple(record for record in records if _success(record))
+        successes = len(successful)
         score = successes / len(records)
-        goal_found = sum(_reached(r, "goal_found") for r in records)
-        traced = records[:4]
-        return Feedback(
-            score=score,
-            content={
-                "summary": (
-                    f"Reached the goal in {successes}/{len(records)} Episodes "
-                    f"({score:.3f} success rate)."
-                ),
-                "success_rate": score,
-                "goal_found_rate": goal_found / len(records),
-                "mean_return": statistics.fmean(
-                    r.total_reward if r.policy_failure is None else 0.0
-                    for r in records
-                ),
-                "mean_steps": statistics.fmean(r.steps for r in records),
-                "episodes": len(records),
-                "successful_episodes": successes,
-                "truncated_episodes": sum(_truncated(r) for r in records),
-                "policy_failures": sum(
-                    r.policy_failure is not None for r in records
-                ),
-                "traced_episodes": len(traced),
-                "trace_episodes_omitted": len(records) - len(traced),
-            },
-            artifacts=(_trace(traced),),
+        milestones = {
+            name: sum(_reached(record, name) for record in records) for name in _MILESTONES
+        }
+        diagnostics = tuple(
+            _episode_diagnostics(record)
+            for record in records
+            if record.policy_failure is None and record.transitions
         )
+        traced = records[:4]
+        content: dict[str, PolicyValue] = {
+            "summary": (
+                f"Reached the generated goal in {successes}/{len(records)} "
+                f"Episodes ({score:.3f} success rate)."
+            ),
+            "success_rate": score,
+            "goal_found_rate": milestones["goal_found"] / len(records),
+            "mean_return": statistics.fmean(
+                record.total_reward if record.policy_failure is None else 0.0 for record in records
+            ),
+            "mean_steps": statistics.fmean(record.steps for record in records),
+            "mean_steps_on_success": (
+                statistics.fmean(record.steps for record in successful) if successful else None
+            ),
+            "mean_goal_first_seen_step": _mean_milestone(
+                tuple(item.goal_first_seen_step for item in diagnostics)
+            ),
+            "mean_known_cell_count": _mean_int(diagnostics, "known_cell_count"),
+            "mean_known_walkable_cell_count": _mean_int(diagnostics, "known_walkable_cell_count"),
+            "mean_known_wall_cell_count": _mean_int(diagnostics, "known_wall_cell_count"),
+            "mean_known_frontier_count": _mean_int(diagnostics, "known_frontier_count"),
+            "mean_known_goal_distance_at_end": _mean_milestone(
+                tuple(item.known_goal_distance for item in diagnostics)
+            ),
+            "mean_known_map_fraction": _mean_float(diagnostics, "known_map_fraction"),
+            "mean_steps_since_map_expansion": _mean_int(diagnostics, "steps_since_map_expansion"),
+            "mean_blocked_forward_count": _mean_int(diagnostics, "blocked_forward_count"),
+            "mean_unused_action_count": _mean_int(diagnostics, "unused_action_count"),
+            "mean_unique_observation_count": _mean_int(diagnostics, "unique_observation_count"),
+            "mean_observation_novelty_step_fraction": _mean_float(
+                diagnostics, "observation_novelty_step_fraction"
+            ),
+            "mean_ineffective_action_fraction": _mean_float(
+                diagnostics, "ineffective_action_fraction"
+            ),
+            "episodes": len(records),
+            "successful_episodes": successes,
+            "goal_found_episodes": milestones["goal_found"],
+            "blocked_forward_episodes": milestones["blocked_forward"],
+            "unused_action_episodes": milestones["unused_action"],
+            "truncated_episodes": sum(_truncated(record) for record in records),
+            "policy_failures": sum(record.policy_failure is not None for record in records),
+            "traced_episodes": len(traced),
+            "trace_episodes_omitted": len(records) - len(traced),
+            "trace_prefix_steps": _TRACE_PREFIX_STEPS,
+            "trace_suffix_steps": _TRACE_SUFFIX_STEPS,
+        }
+        for action_index, name in enumerate(_ACTION_NAMES):
+            content[f"mean_{name}_fraction"] = _mean_or_none(
+                tuple(
+                    item.action_counts[action_index] / sum(item.action_counts)
+                    for item in diagnostics
+                )
+            )
+        return Feedback(score=score, content=content, artifacts=(_trace(traced),))
 
 
 def _spec(config: WFCConfig) -> BenchmarkSpec:
-    mission = "traverse the maze to get to the goal"
     return BenchmarkSpec(
         id="minigrid/WFC-v0/success-rate-v1",
         description=(
-            "Navigate a Wave Function Collapse level generated from the "
-            "selected public preset and reach its random goal."
+            "Generate a fresh Wave Function Collapse level from the selected "
+            "public pattern preset, navigate its connected component, and "
+            "reach the random green goal."
         ),
         observation_space={
             "type": "object",
@@ -138,13 +250,26 @@ def _spec(config: WFCConfig) -> BenchmarkSpec:
                     "type": "tensor",
                     "dtype": "uint8",
                     "shape": [7, 7, 3],
+                    "layout": "XYC",
+                    "channels": ["object", "color", "state"],
+                    "axis_order": ["view_x", "view_y", "channel"],
+                    "meaning": (
+                        "Agent-centric view: agent at (3,6), forward decreases "
+                        "view_y, and right increases view_x."
+                    ),
                 },
                 "direction": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 3,
+                    "meaning": {
+                        "0": "east",
+                        "1": "south",
+                        "2": "west",
+                        "3": "north",
+                    },
                 },
-                "mission": {"type": "string", "constant": mission},
+                "mission": {"type": "string", "constant": _MISSION},
             },
         },
         action_space={
@@ -160,21 +285,39 @@ def _spec(config: WFCConfig) -> BenchmarkSpec:
         },
         environment_parameters={
             "profile": config.profile,
+            "generation_class": config.generation_class,
             "size": config.size,
+            "procedurally_generated_each_episode": True,
+            "pattern_source": "packaged preset PNG",
             "ensure_connected": True,
+            "connectivity_rule": (
+                "retain the largest generated navigable component, then place "
+                "the start and goal randomly inside it"
+            ),
+            "wfc_attempt_limit_per_reset": 1000,
+            "deterministic_generation_reset_retries": 8,
             "upstream_default_max_episode_steps": config.size * 20,
+            "benchmark_time_limit": config.max_episode_steps,
             "view_size": 7,
             "agent_view_position": [3, 6],
-            "mission": mission,
-            "object_encoding": {
-                name: code for code, name in enumerate(_OBJECTS)
+            "view_forward_direction": "decreasing view_y",
+            "view_right_direction": "increasing view_x",
+            "image_axis_order": ["view_x", "view_y", "channel"],
+            "image_channel_order": ["object", "color", "state"],
+            "direction_encoding": {
+                "east": 0,
+                "south": 1,
+                "west": 2,
+                "north": 3,
             },
-            "color_encoding": {
-                name: code for code, name in enumerate(_COLORS)
-            },
-            "state_encoding": {
-                name: code for code, name in enumerate(_STATES)
-            },
+            "mission": _MISSION,
+            "object_encoding": {name: code for code, name in enumerate(_OBJECTS)},
+            "color_encoding": {name: code for code, name in enumerate(_COLORS)},
+            "state_encoding": {name: code for code, name in enumerate(_STATES)},
+            "unused_actions": [3, 4, 5, 6],
+            "success_reward_formula": "1 - 0.9*step_count/max_episode_steps",
+            "non_success_reward": 0.0,
+            "natural_termination": ("moving forward onto the green goal terminates with success"),
         },
         max_episode_steps=config.max_episode_steps,
         primary_metric="success_rate",
@@ -211,48 +354,102 @@ def _truncated(record: EpisodeRecord) -> bool:
 
 def _reached(record: EpisodeRecord, name: str) -> bool:
     return any(
-        type(item.step.metrics) is dict
-        and item.step.metrics.get(name) is True
+        type(item.step.metrics) is dict and item.step.metrics.get(name) is True
         for item in record.transitions
     )
+
+
+def _episode_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    final = _trace_metrics(record.transitions[-1].step.metrics)
+    reason = _string_metric(final, "terminal_reason")
+    return reason if reason != "none" else "incomplete"
+
+
+def _episode_diagnostics(record: EpisodeRecord) -> _EpisodeDiagnostics:
+    if not record.transitions:
+        raise ValueError("MiniGrid WFC diagnostics require a transition")
+    final = _trace_metrics(record.transitions[-1].step.metrics)
+    return _EpisodeDiagnostics(
+        goal_first_seen_step=_int_metric(final, "goal_first_seen_step"),
+        known_cell_count=_int_metric(final, "known_cell_count"),
+        known_walkable_cell_count=_int_metric(final, "known_walkable_cell_count"),
+        known_wall_cell_count=_int_metric(final, "known_wall_cell_count"),
+        known_frontier_count=_int_metric(final, "known_frontier_count"),
+        known_goal_distance=_int_metric(final, "known_goal_distance"),
+        known_map_fraction=_float_metric(final, "known_map_fraction"),
+        steps_since_map_expansion=_int_metric(final, "steps_since_map_expansion"),
+        blocked_forward_count=_int_metric(final, "blocked_forward_count"),
+        unused_action_count=_int_metric(final, "unused_action_count"),
+        unique_observation_count=_int_metric(final, "unique_observation_count"),
+        observation_novelty_step_fraction=_float_metric(final, "observation_novelty_step_fraction"),
+        ineffective_action_fraction=_float_metric(final, "ineffective_action_fraction"),
+        action_counts=tuple(_int_metric(final, f"{name}_count") for name in _ACTION_NAMES),
+        task_stage=_string_metric(final, "task_stage"),
+        outcome=_episode_outcome(record),
+    )
+
+
+def _mean_int(
+    diagnostics: tuple[_EpisodeDiagnostics, ...],
+    field: str,
+) -> float | None:
+    return _mean_or_none(tuple(float(getattr(item, field)) for item in diagnostics))
+
+
+def _mean_float(
+    diagnostics: tuple[_EpisodeDiagnostics, ...],
+    field: str,
+) -> float | None:
+    return _mean_or_none(tuple(float(getattr(item, field)) for item in diagnostics))
+
+
+def _mean_or_none(values: tuple[float, ...]) -> float | None:
+    return statistics.fmean(values) if values else None
+
+
+def _mean_milestone(values: tuple[int, ...]) -> float | None:
+    reached = tuple(value for value in values if value >= 0)
+    return statistics.fmean(reached) if reached else None
 
 
 def _trace(records: Sequence[EpisodeRecord]) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
+        diagnostics = (
+            _episode_diagnostics(record)
+            if record.policy_failure is None and record.transitions
+            else None
+        )
+        indices = _trace_indices(record.steps)
         lines.append(
             _json(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
-                    "return": (
-                        record.total_reward
-                        if record.policy_failure is None
-                        else 0.0
-                    ),
+                    "return": (record.total_reward if record.policy_failure is None else 0.0),
+                    "goal_found": _reached(record, "goal_found"),
+                    "known_cell_count": diagnostics.known_cell_count if diagnostics else 0,
+                    "known_map_fraction": (diagnostics.known_map_fraction if diagnostics else 0.0),
+                    "outcome": _episode_outcome(record),
                     "success": _success(record),
+                    "truncated": _truncated(record),
                     "failure": record.policy_failure,
-                    "initial_observation": _trace_observation(
-                        record.initial_observation
-                    ),
+                    "initial_observation": _trace_observation(record.initial_observation),
+                    "traced_steps": len(indices),
+                    "omitted_steps": record.steps - len(indices),
                 }
             )
-        )
-        indices = (
-            tuple(range(record.steps))
-            if record.steps <= 160
-            else (*range(128), *range(record.steps - 32, record.steps))
         )
         for index in indices:
             item = record.transitions[index]
             if type(item.action) is not int or not 0 <= item.action <= 6:
                 raise ValueError("MiniGrid WFC trace Action is invalid")
-            if (
-                type(item.step.metrics) is not dict
-                or set(item.step.metrics) != _METRICS
-            ):
-                raise ValueError("MiniGrid WFC trace metrics are invalid")
             lines.append(
                 _json(
                     {
@@ -262,12 +459,10 @@ def _trace(records: Sequence[EpisodeRecord]) -> Artifact:
                         "action": item.action,
                         "action_meaning": _ACTIONS[str(item.action)],
                         "reward": item.step.reward,
-                        "next_observation": _trace_observation(
-                            item.step.observation
-                        ),
+                        "next_observation": _trace_observation(item.step.observation),
                         "terminated": item.step.terminated,
                         "truncated": item.step.truncated,
-                        "metrics": item.step.metrics,
+                        "metrics": _trace_metrics(item.step.metrics),
                     }
                 )
             )
@@ -278,32 +473,110 @@ def _trace(records: Sequence[EpisodeRecord]) -> Artifact:
     )
 
 
+def _trace_indices(step_count: int) -> tuple[int, ...]:
+    if step_count <= _TRACE_PREFIX_STEPS + _TRACE_SUFFIX_STEPS:
+        return tuple(range(step_count))
+    return (
+        *range(_TRACE_PREFIX_STEPS),
+        *range(step_count - _TRACE_SUFFIX_STEPS, step_count),
+    )
+
+
+def _trace_metrics(metrics: PolicyValue) -> dict[str, PolicyValue]:
+    if type(metrics) is not dict or set(metrics) != _METRICS:
+        raise ValueError("MiniGrid WFC trace metrics are invalid")
+    for name in _LABEL_METRICS:
+        if type(metrics[name]) is not str:
+            raise ValueError("MiniGrid WFC trace metrics are invalid")
+    for name in _BOOL_METRICS:
+        if type(metrics[name]) is not bool:
+            raise ValueError("MiniGrid WFC trace metrics are invalid")
+    for name in _INT_METRICS:
+        value = metrics[name]
+        if type(value) is not int or value < 0:
+            raise ValueError("MiniGrid WFC trace metrics are invalid")
+    for name in _MILESTONE_INT_METRICS:
+        value = metrics[name]
+        if type(value) is not int or value < -1:
+            raise ValueError("MiniGrid WFC trace metrics are invalid")
+    for name in _FLOAT_METRICS:
+        value = metrics[name]
+        if type(value) is not float or not math.isfinite(value):
+            raise ValueError("MiniGrid WFC trace metrics are invalid")
+    known_map_fraction = metrics["known_map_fraction"]
+    if type(known_map_fraction) is not float or not 0.0 <= known_map_fraction <= 1.0:
+        raise ValueError("MiniGrid WFC trace metrics are invalid")
+    return dict(metrics)
+
+
+def _int_metric(metrics: dict[str, PolicyValue], name: str) -> int:
+    value = metrics.get(name)
+    if type(value) is not int:
+        raise ValueError(f"MiniGrid WFC metric {name} is invalid")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float or not math.isfinite(value):
+        raise ValueError(f"MiniGrid WFC metric {name} is invalid")
+    return value
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise ValueError(f"MiniGrid WFC metric {name} is invalid")
+    return value
+
+
 def _trace_observation(value: PolicyValue) -> dict[str, PolicyValue]:
-    if type(value) is not dict:
+    if type(value) is not dict or set(value) != {"image", "direction", "mission"}:
         raise ValueError("MiniGrid WFC trace observation is invalid")
-    image = value.get("image")
-    direction = value.get("direction")
-    mission = value.get("mission")
+    image = value["image"]
+    direction = value["direction"]
+    mission = value["mission"]
     if (
         type(image) is not TensorValue
+        or image.dtype != "uint8"
         or image.shape != (7, 7, 3)
         or len(image.data) != 147
         or type(direction) is not int
+        or not 0 <= direction <= 3
         or type(mission) is not str
+        or mission != _MISSION
     ):
         raise ValueError("MiniGrid WFC trace observation is invalid")
     rows: list[PolicyValue] = []
+    visible_objects: list[PolicyValue] = []
     for y in range(7):
-        rows.append(
-            "".join(
-                _SYMBOLS[image.data[(x * 7 + y) * 3]]
-                for x in range(7)
-            )
-        )
+        row: list[str] = []
+        for x in range(7):
+            offset = (x * 7 + y) * 3
+            object_code, color_code, state_code = image.data[offset : offset + 3]
+            if (
+                object_code >= len(_OBJECTS)
+                or color_code >= len(_COLORS)
+                or state_code >= len(_STATES)
+            ):
+                raise ValueError("MiniGrid WFC trace image codes are invalid")
+            row.append(_SYMBOLS[object_code])
+            if object_code not in {0, 1}:
+                visible_objects.append(
+                    {
+                        "x": x,
+                        "y": y,
+                        "object": _OBJECTS[object_code],
+                        "color": _COLORS[color_code],
+                        "state": _STATES[state_code],
+                    }
+                )
+        rows.append("".join(row))
     return {
         "direction": direction,
         "mission": mission,
         "grid_rows": rows,
+        "visible_objects": visible_objects,
     }
 
 
@@ -312,11 +585,12 @@ def _json(document: dict[str, object]) -> bytes:
         json.dumps(
             document,
             allow_nan=False,
+            ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
         )
         + "\n"
-    ).encode()
+    ).encode("utf-8", errors="strict")
 
 
 __all__ = ["WFCBenchmark"]

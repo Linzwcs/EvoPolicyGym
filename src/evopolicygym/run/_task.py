@@ -114,8 +114,9 @@ browsers, curl, wget, remote APIs, package registries, Git remotes, or any
 other network-capable mechanism. Do not retrieve or consult external game
 descriptions, source code, solutions, Action traces, replays, datasets, or
 prior results. Derive every improvement only from the files made available in
-this workspace, installed local libraries, and Host-published evaluation
-Feedback.
+this workspace and Host-published evaluation Feedback. Installed local
+libraries may be used only as Program dependencies or as static tools over
+authorized workspace files; they are not an authorized Benchmark interface.
 
 Your working directory is the workspace root. The only submitted Program is:
 
@@ -138,9 +139,23 @@ The Host publishes authorized evaluation data under:
 
     feedback/
 
-Do not modify feedback/. Evaluate the current Program with:
+Do not modify feedback/. The only authorized way to execute, query, or
+otherwise interact with the Benchmark Environment is the Session command
+below. Do not directly instantiate, import, call, clone, emulate, simulate,
+step, or probe the Benchmark Environment through installed libraries,
+Benchmark implementations, environment providers, source files, ROMs, data,
+assets, executables, or any other local mechanism. Do not inspect Benchmark
+implementation files or Host-private Run data outside this workspace. Every
+Environment interaction must consume Host-managed Episode budget through:
 
     evopolicygym-session submit program --episodes "{_selector_example(pool_size)}"
+
+Session commands are synchronous and can remain silent while Episodes run.
+Wait for each `evopolicygym-session` command to return before reading its
+Feedback or issuing any other Session command. Never start a second submit or
+finish concurrently, inspect the control socket, or terminate a Session command
+because feedback/latest.json has not appeared yet; that absence is expected
+while evaluation is still in progress.
 
 The available Run-local training Episode indices are 0 through
 {pool_size - 1}. A singleton like "7" selects one index; START:END is a

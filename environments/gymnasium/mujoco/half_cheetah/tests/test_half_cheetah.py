@@ -11,6 +11,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -23,17 +24,17 @@ from half_cheetah import (
 )
 
 _BODY_FIELDS = {
-    "front_tip_z_position",
-    "front_tip_angle",
+    "torso_z_position",
+    "torso_pitch_angle",
     "back_thigh_angle",
     "back_shin_angle",
     "back_foot_angle",
     "front_thigh_angle",
     "front_shin_angle",
     "front_foot_angle",
-    "front_tip_x_velocity",
-    "front_tip_z_velocity",
-    "front_tip_angular_velocity",
+    "torso_x_velocity",
+    "torso_z_velocity",
+    "torso_pitch_angular_velocity",
     "back_thigh_angular_velocity",
     "back_shin_angular_velocity",
     "back_foot_angular_velocity",
@@ -42,10 +43,42 @@ _BODY_FIELDS = {
     "front_foot_angular_velocity",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "seconds_per_step",
+    "simulated_seconds",
+    "requested_action_by_joint",
+    "actuator_gear_scaled_controls",
+    "sum_squared_action",
+    "sum_absolute_action",
+    "cumulative_absolute_action",
+    "initial_x_position",
     "x_position",
+    "net_x_displacement",
+    "minimum_x_position",
+    "maximum_x_position",
     "x_velocity",
+    "minimum_x_velocity",
+    "maximum_x_velocity",
+    "mean_x_velocity_from_displacement",
+    "forward_step_fraction",
+    "backward_or_stationary_step_fraction",
+    "torso_z_position",
+    "minimum_torso_z_position",
+    "maximum_torso_z_position",
+    "torso_pitch_radians",
+    "torso_pitch_degrees",
+    "maximum_absolute_torso_pitch_radians",
+    "torso_x_velocity",
+    "torso_z_velocity",
+    "torso_pitch_angular_velocity",
     "reward_forward",
     "reward_control",
+    "reward_from_public_terms",
+    "cumulative_reward_forward",
+    "cumulative_reward_control",
+    "cumulative_return",
+    "terminal_reason",
 }
 _GAIT_PHASES = (2.67, 2.33, 2.62, 0.74, 4.99, 5.26)
 _GAIT_OFFSETS = (-0.09, -0.08, 0.15, -0.19, 0.01, -0.02)
@@ -70,15 +103,16 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(excluded.spec.max_episode_steps, 1000)
         self.assertEqual(excluded.spec.primary_metric, "mean_return")
+        parameters = excluded.spec.environment_parameters
+        self.assertEqual(parameters["frame_skip"], 5)
+        self.assertEqual(parameters["seconds_per_step"], 0.05)
+        self.assertEqual(parameters["forward_reward_weight"], 1.0)
+        self.assertEqual(parameters["ctrl_cost_weight"], 0.1)
+        self.assertEqual(parameters["reset_noise_scale"], 0.1)
+        self.assertTrue(parameters["exclude_current_positions_from_observation"])
         self.assertEqual(
-            excluded.spec.environment_parameters,
-            {
-                "frame_skip": 5,
-                "forward_reward_weight": 1.0,
-                "ctrl_cost_weight": 0.1,
-                "reset_noise_scale": 0.1,
-                "exclude_current_positions_from_observation": True,
-            },
+            parameters["actuator_gears"],
+            [120.0, 90.0, 60.0, 120.0, 60.0, 30.0],
         )
         self.assertNotEqual(
             excluded.spec.environment_digest,
@@ -97,7 +131,21 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(excluded_fields), _BODY_FIELDS)
         self.assertEqual(
             set(included_fields),
-            {"front_tip_x_position", *_BODY_FIELDS},
+            {"torso_x_position", *_BODY_FIELDS},
+        )
+        self.assertEqual(excluded.spec.observation_space["source_dtype"], "float64")
+        self.assertIsInstance(excluded.spec.action_space, dict)
+        assert isinstance(excluded.spec.action_space, dict)
+        self.assertEqual(
+            excluded.spec.action_space["components"],
+            [
+                "back_thigh",
+                "back_shin",
+                "back_foot",
+                "front_thigh",
+                "front_shin",
+                "front_foot",
+            ],
         )
 
     def test_config_rejects_invalid_values(self) -> None:
@@ -169,6 +217,15 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
             assert type(forward) is float
             assert type(control) is float
             self.assertAlmostEqual(step.reward, forward + control)
+            metrics = _metrics(step)
+            self.assertEqual(
+                _string_metric(metrics, "terminal_reason"),
+                "none",
+            )
+            self.assertEqual(
+                _float_metric(metrics, "reward_from_public_terms"),
+                step.reward,
+            )
         finally:
             environment.close()
             environment.close()
@@ -198,10 +255,36 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
             assert isinstance(observation, dict)
             self.assertEqual(
                 set(observation),
-                {"front_tip_x_position", *_BODY_FIELDS},
+                {"torso_x_position", *_BODY_FIELDS},
             )
         finally:
             environment.close()
+
+    def test_real_action_reports_joint_gears_and_control_cost(self) -> None:
+        environment = HalfCheetahBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        action: PolicyValue = [0.5, -0.5, 0.25, -0.25, 0.75, -0.75]
+        try:
+            environment.reset()
+            result = environment.step(action)
+        finally:
+            environment.close()
+
+        metrics = _metrics(result)
+        self.assertAlmostEqual(_float_metric(metrics, "sum_squared_action"), 1.75)
+        self.assertAlmostEqual(_float_metric(metrics, "reward_control"), -0.175)
+        gear_controls = _object_metric(metrics, "actuator_gear_scaled_controls")
+        self.assertEqual(gear_controls["back_thigh"], 60.0)
+        self.assertEqual(gear_controls["back_shin"], -45.0)
+        self.assertEqual(gear_controls["front_foot"], -22.5)
+        self.assertAlmostEqual(
+            result.reward,
+            _float_metric(metrics, "reward_forward")
+            + _float_metric(metrics, "reward_control"),
+        )
+        self.assertFalse(result.terminated)
+        self.assertFalse(result.truncated)
 
     def test_environment_requires_six_exact_bounded_floats(self) -> None:
         benchmark = HalfCheetahBenchmark()
@@ -308,6 +391,17 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(transitions[0]["action"], [0.0] * 6)
         self.assertEqual(set(transitions[0]["metrics"]), _METRIC_FIELDS)
+        self.assertEqual(
+            transitions[-1]["metrics"]["terminal_reason"],
+            "time_limit",
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 1)
+        self.assertEqual(
+            result.feedback.content["mean_episode_control_reward"],
+            0.0,
+        )
 
     def test_periodic_gait_improves_on_zero_torque(self) -> None:
         benchmark = HalfCheetahBenchmark()
@@ -331,6 +425,36 @@ class HalfCheetahBenchmarkTests(unittest.TestCase):
 
 def _sample_observation() -> dict[str, PolicyValue]:
     return {field: 0.0 for field in _BODY_FIELDS}
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _object_metric(
+    metrics: dict[str, PolicyValue],
+    name: str,
+) -> dict[str, PolicyValue]:
+    value = metrics.get(name)
+    if type(value) is not dict:
+        raise AssertionError(f"expected object metric {name}")
+    return value
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
 
 
 def _rollout(

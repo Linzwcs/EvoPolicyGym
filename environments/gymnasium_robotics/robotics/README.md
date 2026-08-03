@@ -19,9 +19,20 @@ benchmark = RoboticsBenchmark(
 )
 ```
 
-The primary metric is success rate. Mean return, termination counts, and a
-bounded public transition trace are also published. FrankaKitchen traces expose
-only task-completion counts, never Host paths, seeds, or simulator internals.
+The primary metric is success rate: an Episode counts as solved if the upstream
+success condition is reached on any step. Most profiles continue after success,
+so current success, first success, successful-step fraction, and later loss of
+the goal are reported separately. Goal-conditioned profiles expose current,
+initial, and best goal errors plus per-step improvement. Adroit profiles retain
+their upstream dense shaping and add public-state task progress where the
+observation supports it. Control diagnostics report action magnitude,
+saturation, zero-action rate, and state motion. FrankaKitchen reports completed,
+newly completed, and remaining public task names as well as completion fraction.
+
+Each traced transition contains the Policy-visible observation, Action, reward,
+next observation, and public metrics. Episodes longer than 160 steps retain the
+first 128 and final 32 steps, with retained and omitted counts reported
+explicitly. No Host paths, seeds, simulator objects, or other private identity
+enter Feedback.
 Multi-agent MaMuJoCo environments intentionally remain outside this
 single-Policy ABI.
-

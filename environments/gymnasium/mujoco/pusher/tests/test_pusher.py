@@ -66,18 +66,48 @@ class PusherBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters,
             {
                 "frame_skip": 5,
+                "model_timestep_seconds": 0.01,
+                "seconds_per_step": 0.05,
+                "actuator_gears": [1.0] * 7,
                 "reward_near_weight": 0.5,
                 "reward_dist_weight": 1.0,
                 "reward_control_weight": 0.1,
+                "reward_formula": (
+                    "-reward_dist_weight*object_goal_distance-"
+                    "reward_near_weight*fingertip_object_distance-"
+                    "reward_control_weight*sum(action^2)"
+                ),
+                "object_initial_xy_ranges": {
+                    "x": [-0.3, 0.0],
+                    "y": [-0.2, 0.2],
+                },
+                "minimum_initial_object_goal_planar_distance": 0.17,
+                "natural_termination": "none",
+                "time_limit": 100,
             },
         )
         self.assertEqual(
             configured.spec.environment_parameters,
             {
                 "frame_skip": 4,
+                "model_timestep_seconds": 0.01,
+                "seconds_per_step": 0.04,
+                "actuator_gears": [1.0] * 7,
                 "reward_near_weight": 0.25,
                 "reward_dist_weight": 2.0,
                 "reward_control_weight": 2.0,
+                "reward_formula": (
+                    "-reward_dist_weight*object_goal_distance-"
+                    "reward_near_weight*fingertip_object_distance-"
+                    "reward_control_weight*sum(action^2)"
+                ),
+                "object_initial_xy_ranges": {
+                    "x": [-0.3, 0.0],
+                    "y": [-0.2, 0.2],
+                },
+                "minimum_initial_object_goal_planar_distance": 0.17,
+                "natural_termination": "none",
+                "time_limit": 100,
             },
         )
         self.assertNotEqual(
@@ -106,9 +136,7 @@ class PusherBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -137,34 +165,45 @@ class PusherBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
             assert isinstance(observation, dict)
             self.assertEqual(set(observation), _OBSERVATION_FIELDS)
-            self.assertTrue(
-                all(type(value) is float for value in observation.values())
-            )
+            self.assertTrue(all(type(value) is float for value in observation.values()))
             step = environment.step([0.0] * 7)
             self.assertIsInstance(step.metrics, dict)
             assert isinstance(step.metrics, dict)
-            self.assertEqual(
-                set(step.metrics),
+            self.assertTrue(
                 {
                     "reward_distance",
                     "reward_control",
                     "reward_near",
-                },
+                    "object_goal_distance",
+                    "fingertip_object_distance",
+                    "object_displacement",
+                    "object_goal_distance_reduction",
+                    "step_count",
+                    "remaining_steps",
+                    "terminal_reason",
+                }.issubset(step.metrics),
             )
             terms: list[float] = []
-            for value in step.metrics.values():
+            for name in (
+                "reward_distance",
+                "reward_control",
+                "reward_near",
+            ):
+                value = step.metrics[name]
                 self.assertIs(type(value), float)
                 assert type(value) is float
                 terms.append(value)
             self.assertAlmostEqual(step.reward, sum(terms))
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 99)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.05)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
         finally:
             environment.close()
             environment.close()
@@ -202,9 +241,7 @@ class PusherBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -279,17 +316,18 @@ class PusherBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         self.assertLess(result.feedback.score, 0.0)
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        mean_reduction = result.feedback.content["mean_object_goal_distance_reduction"]
+        mean_displacement = result.feedback.content["mean_episode_maximum_object_displacement"]
+        assert type(mean_reduction) is float
+        assert type(mean_displacement) is float
+        self.assertAlmostEqual(mean_reduction, 0.0)
+        self.assertAlmostEqual(mean_displacement, 0.0)
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertEqual(len(transitions), 100)
         self.assertEqual(
             set(transitions[0]["observation"]),
@@ -297,36 +335,44 @@ class PusherBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(transitions[0]["action"], [0.0] * 7)
         self.assertEqual(
-            set(transitions[0]["reward_terms"]),
+            set(transitions[0]["action_components"]),
+            {f"{name}_torque" for name in _JOINT_NAMES},
+        )
+        self.assertTrue(
             {
                 "reward_distance",
                 "reward_control",
                 "reward_near",
-            },
+                "object_goal_distance",
+                "fingertip_object_distance",
+                "object_displacement",
+            }.issubset(transitions[0]["metrics"]),
         )
 
-    def test_shoulder_lift_signal_improves_on_zero_torque(self) -> None:
+    def test_feedback_distinguishes_reaching_from_actual_pushing(self) -> None:
         benchmark = PusherBenchmark()
         episodes = benchmark.episodes(
             "validation",
             seed=17,
             count=8,
         )
-        zero_torque: list[float] = []
-        shoulder_lift: list[float] = []
+        zero_torque: list[tuple[float, float, float, float]] = []
+        shoulder_lift: list[tuple[float, float, float, float]] = []
 
         for episode in episodes:
-            zero_torque.append(
-                _rollout(benchmark, episode, lift=False)
-            )
-            shoulder_lift.append(
-                _rollout(benchmark, episode, lift=True)
-            )
+            zero_torque.append(_rollout(benchmark, episode, lift=False))
+            shoulder_lift.append(_rollout(benchmark, episode, lift=True))
 
         self.assertGreater(
-            statistics.fmean(shoulder_lift),
-            statistics.fmean(zero_torque),
+            statistics.fmean(item[0] for item in shoulder_lift),
+            statistics.fmean(item[0] for item in zero_torque),
         )
+        self.assertLess(
+            statistics.fmean(item[3] for item in shoulder_lift),
+            statistics.fmean(item[3] for item in zero_torque),
+        )
+        self.assertTrue(all(abs(item[1]) < 1e-12 for item in shoulder_lift))
+        self.assertTrue(all(abs(item[2]) < 1e-12 for item in shoulder_lift))
 
 
 def _sample_observation() -> dict[str, PolicyValue]:
@@ -355,24 +401,37 @@ def _rollout(
     episode: EpisodeSpec,
     *,
     lift: bool,
-) -> float:
+) -> tuple[float, float, float, float]:
     environment = benchmark.make_environment(episode)
     total = 0.0
+    final_metrics: dict[str, PolicyValue] | None = None
     try:
         environment.reset()
         action: PolicyValue = (
-            [0.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0]
-            if lift
-            else [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0] if lift else [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
         for _ in range(100):
             result = environment.step(action)
             total += result.reward
+            assert isinstance(result.metrics, dict)
+            final_metrics = result.metrics
             if result.done:
                 break
     finally:
         environment.close()
-    return total
+    assert final_metrics is not None
+    distance_reduction = final_metrics["object_goal_distance_reduction"]
+    maximum_displacement = final_metrics["maximum_object_displacement"]
+    minimum_fingertip_distance = final_metrics["minimum_fingertip_object_distance"]
+    assert type(distance_reduction) is float
+    assert type(maximum_displacement) is float
+    assert type(minimum_fingertip_distance) is float
+    return (
+        total,
+        distance_reduction,
+        maximum_displacement,
+        minimum_fingertip_distance,
+    )
 
 
 if __name__ == "__main__":

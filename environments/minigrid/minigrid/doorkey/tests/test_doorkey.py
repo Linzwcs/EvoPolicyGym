@@ -46,6 +46,18 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters["profile"],
             "8x8",
         )
+        self.assertEqual(
+            default.spec.environment_parameters["image_channel_order"],
+            ["object", "color", "state"],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["direction_encoding"],
+            {"east": 0, "south": 1, "west": 2, "north": 3},
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["success_reward_formula"],
+            "1 - 0.9*step_count/max_episode_steps",
+        )
 
         exposed = default.spec.environment_parameters["state_encoding"]
         self.assertIsInstance(exposed, dict)
@@ -67,9 +79,7 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -95,9 +105,7 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -125,15 +133,34 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
             [2],
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
                     environment.step(invalid)
             finally:
                 environment.close()
+
+    def test_step_feedback_exposes_task_funnel_and_exploration(self) -> None:
+        benchmark = DoorKeyBenchmark(DoorKeyConfig(profile="5x5"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step(6)
+            self.assertIsInstance(step.metrics, dict)
+            assert isinstance(step.metrics, dict)
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 249)
+            self.assertEqual(step.metrics["done_count"], 1)
+            self.assertEqual(step.metrics["ineffective_action"], True)
+            self.assertEqual(step.metrics["unique_observation_count"], 1)
+            self.assertIn(step.metrics["key_first_seen_step"], {-1, 0})
+            self.assertIn(step.metrics["door_first_seen_step"], {-1, 0})
+            self.assertEqual(step.metrics["key_pickup_step"], -1)
+            self.assertEqual(step.metrics["door_open_step"], -1)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+        finally:
+            environment.close()
 
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
@@ -209,15 +236,26 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
                     result.feedback.content["door_open_rate"],
                     1.0,
                 )
-                trace = result.feedback.artifacts[0]
-                documents = tuple(
-                    json.loads(line)
-                    for line in trace.read_bytes().splitlines()
+                self.assertEqual(
+                    result.feedback.content["key_found_rate"],
+                    1.0,
                 )
+                self.assertEqual(
+                    result.feedback.content["goal_found_rate"],
+                    1.0,
+                )
+                self.assertEqual(
+                    result.feedback.content["episodes_stalled_before_key_pickup"],
+                    0,
+                )
+                self.assertEqual(
+                    result.feedback.content["episodes_stalled_before_door_open"],
+                    0,
+                )
+                trace = result.feedback.artifacts[0]
+                documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())
                 transitions = tuple(
-                    document
-                    for document in documents
-                    if document["type"] == "transition"
+                    document for document in documents if document["type"] == "transition"
                 )
                 self.assertEqual(trace.name, "trace.jsonl")
                 self.assertEqual(
@@ -226,10 +264,7 @@ class DoorKeyBenchmarkTests(unittest.TestCase):
                 )
                 self.assertTrue(transitions)
                 self.assertTrue(
-                    all(
-                        "grid_rows" in item["next_observation"]
-                        for item in transitions
-                    )
+                    all("grid_rows" in item["next_observation"] for item in transitions)
                 )
 
 

@@ -6,8 +6,8 @@ title: "Benchmark authoring"
 navTitle: "Benchmark authoring"
 description: "The public authoring SPI for independently distributed EvoPolicyGym Benchmarks and Environments."
 lead: "A Benchmark owns deterministic Episode planning, fresh Environments, strict Action semantics, scoring, Feedback, and conformance evidence."
-index: D6
-order: 6
+index: D8
+order: 8
 docsVersion: v0.3
 status: draft
 ---
@@ -233,5 +233,6 @@ and
 ## Next
 
 - [Environment collection →](/environments/)
-- [Evaluation and Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [Execution and safety →](./runtime.md)

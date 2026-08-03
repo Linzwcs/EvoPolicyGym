@@ -6,8 +6,8 @@ title: "Benchmark 编写"
 navTitle: "Benchmark 编写"
 description: "用于独立分发 EvoPolicyGym Benchmark 与 Environment 的公共 authoring SPI。"
 lead: "Benchmark 拥有确定性 Episode 规划、全新 Environment、严格 Action 语义、评分、Feedback 与 conformance 证据。"
-index: D6
-order: 6
+index: D8
+order: 8
 docsVersion: v0.3
 status: draft
 ---
@@ -228,5 +228,6 @@ Conformance 检查结构兼容性、确定性重放、返回的 Step values、te
 ## 下一步
 
 - [环境目录 →](/environments/)
-- [Evaluation 与 Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [执行与安全 →](./runtime.md)

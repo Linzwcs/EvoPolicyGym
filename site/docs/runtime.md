@@ -6,8 +6,8 @@ title: "Execution and safety"
 navTitle: "Execution and safety"
 description: "ProcessExecution lifecycle guarantees, failure ownership, and isolation limits."
 lead: "Fresh Episode lifecycle separation is implemented. Hostile-code containment is not."
-index: D5
-order: 5
+index: D7
+order: 7
 docsVersion: v0.3
 status: draft
 ---
@@ -89,6 +89,7 @@ Use local process execution only when:
 
 ## Next
 
-- [Evaluation and Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [Benchmark authoring →](./authoring.md)
 - [Core concepts →](./concepts.md)

@@ -5,15 +5,15 @@ const sidebars: SidebarsConfig = {
     "index",
     {
       type: "category",
-      label: "Start",
+      label: "Introduction",
       collapsed: false,
       items: ["getting-started", "concepts"],
     },
     {
       type: "category",
-      label: "Core reference",
+      label: "API",
       collapsed: false,
-      items: ["policy", "evaluation", "runtime"],
+      items: ["programs", "policy", "evaluation", "runs", "runtime"],
     },
     {
       type: "category",

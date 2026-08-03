@@ -1,38 +1,44 @@
 ---
-title: NLE NetHack experiment
-description: How coding agents used bounded raw NLE trajectories to diagnose behavior, rewrite executable Policies, and face held-out NetHack assessment.
-slug: nethack
-pagination_next: null
-pagination_prev: null
+locale: en
+page: nethack-policy-evolution
+title: "Into the dungeon: autonomous Policy evolution in NetHack"
+description: "How coding agents used bounded raw NLE trajectories to diagnose behavior, rewrite executable Policies, and face held-out NetHack assessment."
+lead: "Coding agents turned complete Policy-visible NetHack trajectories into executable strategies for navigation, obstacle handling, and dungeon progress."
+publishedAt: "2026-08-03"
+date: "2026-08-03"
+authors: [evopolicygym]
+tags:
+  - Benchmark
+  - NetHack
+  - Experiment
+  - Policy Evolution
+status: published
 ---
 
-import {Localized} from '@site/src/components/Localized';
+We gave coding agents a NetHack Environment, an executable baseline, and
+complete Policy-visible raw trajectories. Their task was not to describe a
+strategy, but to write one that could survive held-out evaluation on its own.
 
-# <Localized en="Into the dungeon: autonomous Policy evolution in NetHack" zh="深入地下城：在 NetHack 中自主演化 Policy" />
+<!-- truncate -->
 
-<Localized
-  en="We gave coding agents a NetHack Environment, an executable baseline, and complete Policy-visible raw trajectories. Their task was not to describe a strategy, but to write one that could survive held-out evaluation on its own."
-  zh="我们向 Coding Agent 提供 NetHack Environment、一个可执行 baseline，以及完整的 Policy 可见原始轨迹。它们的任务不是描述一套策略，而是写出一套能够独立接受 held-out 评测的策略。"
-/>
+## A dungeon for policy engineers
 
-## <Localized en="A dungeon for policy engineers" zh="为 Policy 工程师准备的地下城" />
+NetHack is partially observable, procedurally generated, and long-horizon. A
+useful Policy must navigate rooms and corridors, respond to messages, manage
+hunger and inventory, fight or avoid creatures, handle interaction prompts,
+and find routes to deeper dungeon levels.
 
-<Localized
-  en="NetHack is partially observable, procedurally generated, and long-horizon. A useful Policy must navigate rooms and corridors, respond to messages, manage hunger and inventory, fight or avoid creatures, handle interaction prompts, and find routes to deeper dungeon levels."
-  zh="NetHack 具有部分可观测、程序生成和长时程等特征。一个有效的 Policy 不仅需要探索房间与走廊，还需要理解消息、管理饥饿与背包、战斗或避开生物、处理交互提示，并找到通往地下城更深处的道路。"
-/>
-
-<Localized
-  en="Many failures are not clean crashes. A Policy may walk into one boulder for thousands of turns, repeatedly try to cross iron bars, oscillate between two tiles, or stand on a staircase without using it. The experiment tests whether a coding agent can turn that execution evidence into a better strategy system."
-  zh="很多失败并不会表现为程序崩溃。Policy 可能连续数千步撞击同一块巨石，反复尝试穿过铁栏，在两个格子之间振荡，或者站在楼梯上却不知道如何使用它。本实验检验 Coding Agent 能否将这些执行证据转化为更好的策略系统。"
-/>
+Many failures are not clean crashes. A Policy may walk into one boulder for
+thousands of turns, repeatedly try to cross iron bars, oscillate between two
+tiles, or stand on a staircase without using it. The experiment tests whether
+a coding agent can turn that execution evidence into a better strategy system.
 
 The independently installable distribution integrates NLE 1.3.0
 `NetHackScore-v0`, backed by NetHack 3.6.7. Learning is retained as executable
 source code—map memory, movement rules, obstacle handling, state estimation,
 and exploration strategy—not as changing model weights.
 
-## <Localized en="Raw evidence, chosen analysis" zh="原始证据与自主分析" />
+## Raw evidence, chosen analysis
 
 Every Policy receives the same bounded semantic state: a 21 × 79 terminal map,
 glyphs and colors, named status values, the current message, inventory entries,
@@ -63,7 +69,7 @@ rewrite map memory, routing, and Action rules
 submit another immutable Program
 ```
 
-## <Localized en="Experiment protocol" zh="实验协议" />
+## Experiment protocol
 
 Three GPT-5.6 model variants ran through Codex under the same Benchmark
 configuration. The optional NetHack optimization Skill was disabled.
@@ -92,7 +98,7 @@ feedback loop.
 > 128 training Episodes; Terra used 68 and Luna used 40 before voluntarily
 > finishing. These results are not a strictly resource-matched model leaderboard.
 
-## <Localized en="Held-out results" zh="Held-out 实验结果" />
+## Held-out results
 
 The primary score is mean shaped NLE return over 256 Assessment Episodes. It
 combines NLE game-score deltas with a constant -0.01 penalty for every frozen
@@ -110,7 +116,18 @@ the measurements describe early-game survival, exploration, and progress—not
 complete NetHack mastery. Sol was strongest in these Runs, but the result is
 not yet a general claim about the three models.
 
-## <Localized en="From stuck loops to dungeon progress" zh="从行为循环到地下城推进" />
+## One complete Policy Run
+
+![Complete semantic replay of a NetHack training Episode from Sol's selected
+Policy. The replay covers all 1,269 Policy steps, reaches dungeon depth 11 and
+a maximum game score of 860, and ends in death.](/images/blog/nle-sol-policy-training-replay.gif)
+
+*Submission 000008, training Episode 16. This complete replay shows an
+Agent-written Policy acting autonomously from the first observation to the end
+of the Episode. It is a representative training trajectory, not part of the
+held-out Assessment results above.*
+
+## From stuck loops to dungeon progress
 
 **Luna — obstacle memory.** Luna found a baseline Episode dominated by walking
 into a boulder and another with 1,470 attempts to cross iron bars. It added
@@ -131,7 +148,7 @@ Each idea had to leave the Agent transcript and survive in code that
 independently receives observations and returns Actions. The Program is the
 durable result of the Run.
 
-## <Localized en="Findings and boundaries" zh="实验发现与边界" />
+## Findings and boundaries
 
 - Complete semantic trajectories supported useful Policy engineering without
   an Environment-authored replay interface.
@@ -139,8 +156,10 @@ durable result of the Run.
   different aspects of behavior; the primary score ranks candidates while the
   diagnostics explain them.
 - Private Validation matters because bounded public training batches are noisy.
-- Coding-agent search is stochastic. A separate Terra Run under the same
-  Environment configuration scored 49.464 rather than 80.237.
+- With a short training allowance of at most 128 Episodes, coding-agent search
+  may produce score variation because of randomness. A separate Terra Run
+  under the same Environment configuration scored 49.464, compared with
+  80.237 in this Run.
 
 The distribution pins the simulator version, derives split-scoped hidden seeds
 deterministically, gives every Episode a fresh Environment, disables bones
@@ -151,4 +170,8 @@ This is an initial experiment with one Benchmark configuration and one primary
 Run per model lane. Repeated Runs, multiple Host seeds, and enforced equal
 budget consumption are needed before making strong model comparisons.
 
-[Benchmark source](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/nle/nethack) · [Evaluation and Runs](/docs/evaluation/) · [Policy boundary](/docs/policy/)
+## Code and notes
+
+- [NLE NetHack Benchmark](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/nle/nethack)
+- [Evaluation and Runs](/docs/evaluation/)
+- [Policy boundary](/docs/policy/)

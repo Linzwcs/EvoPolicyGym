@@ -7,6 +7,14 @@ import {formatScore, showcase} from "../lib/showcase";
 
 const notes = [
   {
+    date: "2026-08-03",
+    path: "/blog/nethack-policy-evolution/",
+    titleEn: "Into the dungeon: autonomous Policy evolution in NetHack",
+    titleZh: "深入地下城：在 NetHack 中自主演化 Policy",
+    tagEn: "Experiment",
+    tagZh: "实验",
+  },
+  {
     date: "2026-07-29",
     path: "/blog/balatro-policy-evolution/",
     titleEn: "Teaching a Coding Agent to write a Balatro policy system",

@@ -6,8 +6,8 @@ title: "执行与安全"
 navTitle: "执行与安全"
 description: "ProcessExecution 生命周期保证、故障归属与隔离限制。"
 lead: "全新 Episode 生命周期分离已经实现；恶意代码 containment 尚未实现。"
-index: D5
-order: 5
+index: D7
+order: 7
 docsVersion: v0.3
 status: draft
 ---
@@ -85,6 +85,7 @@ execution profile。
 
 ## 下一步
 
-- [Evaluation 与 Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [Benchmark 编写 →](./authoring.md)
 - [核心概念 →](./concepts.md)

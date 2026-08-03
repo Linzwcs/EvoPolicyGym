@@ -6,8 +6,8 @@ title: "Policy ABI"
 navTitle: "Policy ABI"
 description: "The policy/v2 entry point, PolicyContext, PolicyValue carriers, state lifecycle, and failure semantics."
 lead: "One fixed factory, one action method, and a bounded value surface visible to submitted code."
-index: D3
-order: 3
+index: D4
+order: 4
 docsVersion: v0.3
 status: draft
 ---
@@ -141,6 +141,7 @@ Trusted Environment and execution faults remain separate and abort Evaluation.
 
 ## Next
 
-- [Evaluation and Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [Execution and safety →](./runtime.md)
 - [Read `policy.py` source ↗](https://github.com/Linzwcs/EvoPolicyGym/blob/main/src/evopolicygym/policy.py)

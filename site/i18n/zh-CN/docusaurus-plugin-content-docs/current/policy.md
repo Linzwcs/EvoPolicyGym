@@ -6,8 +6,8 @@ title: "Policy ABI"
 navTitle: "Policy ABI"
 description: "policy/v2 entry point、PolicyContext、PolicyValue carrier、状态生命周期与故障语义。"
 lead: "一个固定 factory、一个动作方法，以及提交代码可见的有界值表面。"
-index: D3
-order: 3
+index: D4
+order: 4
 docsVersion: v0.3
 status: draft
 ---
@@ -136,6 +136,7 @@ Policy failure 发生后，evaluator 不会再次调用 `Environment.step()`。
 
 ## 下一步
 
-- [Evaluation 与 Runs →](./evaluation.md)
+- [Evaluation →](./evaluation.md)
+- [Coding Agent Runs →](./runs.md)
 - [执行与安全 →](./runtime.md)
 - [阅读 `policy.py` 源码 ↗](https://github.com/Linzwcs/EvoPolicyGym/blob/main/src/evopolicygym/policy.py)

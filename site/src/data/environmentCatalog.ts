@@ -521,9 +521,9 @@ export const environmentCollections: EnvironmentCollection[] = [
     },
     score: { en: "Mean shaped NLE return", zh: "NLE shaped return 平均值" },
     sourcePath: "environments/nle/nethack",
-    referencePath: "environments/nle/nethack/",
+    referencePath: "blog/nethack-policy-evolution/",
     items: [
-      { name: "NetHackScore-v0", path: "environments/nle/nethack/" },
+      { name: "NetHackScore-v0", path: "blog/nethack-policy-evolution/" },
     ],
   },
   {

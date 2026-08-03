@@ -152,7 +152,19 @@ export default function EnvironmentCatalogPage() {
                     <div className="catalog-actions">
                       {collection.referencePath ? (
                         <Link to={`/${collection.referencePath}`}>
-                          <Localized en="Open reference" zh="打开参考" /> →
+                          <Localized
+                            en={
+                              collection.referencePath.startsWith("blog/")
+                                ? "Read article"
+                                : "Open reference"
+                            }
+                            zh={
+                              collection.referencePath.startsWith("blog/")
+                                ? "阅读文章"
+                                : "打开参考"
+                            }
+                          />{" "}
+                          →
                         </Link>
                       ) : (
                         <a

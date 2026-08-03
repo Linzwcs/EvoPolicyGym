@@ -7,10 +7,11 @@ from pathlib import Path
 
 from ...errors import AgentRunError
 from ...results import AssessmentResult, ValidationResult
+from .._json import encode_public_json_value
 from .writer import write_json_atomic
 
-_VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v1"
-_ASSESSMENT_REPORT_SCHEMA = "evopolicygym/assessment-report/v1"
+_VALIDATION_REPORT_SCHEMA = "evopolicygym/validation-report/v2"
+_ASSESSMENT_REPORT_SCHEMA = "evopolicygym/assessment-report/v2"
 
 
 def write_validation_report(
@@ -38,6 +39,9 @@ def write_validation_report(
                     "score": candidate.score,
                     "episodes": candidate.episodes,
                     "policy_failures": candidate.policy_failures,
+                    "feedback_content": encode_public_json_value(
+                        candidate.feedback_content
+                    ),
                 }
                 for candidate in validation.candidates
             ],
@@ -73,6 +77,9 @@ def write_assessment_report(
             "score_direction": assessment.score_direction,
             "score": assessment.score,
             "policy_failures": assessment.policy_failures,
+            "feedback_content": encode_public_json_value(
+                assessment.feedback_content
+            ),
         },
         error_message="Assessment record could not be committed",
     )

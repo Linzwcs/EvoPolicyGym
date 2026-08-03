@@ -1,0 +1,2 @@
+# Local experiment harnesses are caller-owned and not part of the distribution.
+.local/

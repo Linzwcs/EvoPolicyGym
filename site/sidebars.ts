@@ -6,16 +6,19 @@ const sidebars: SidebarsConfig = {
     {
       type: "category",
       label: "Start",
+      collapsed: false,
       items: ["getting-started", "concepts"],
     },
     {
       type: "category",
       label: "Core reference",
+      collapsed: false,
       items: ["policy", "evaluation", "runtime"],
     },
     {
       type: "category",
       label: "Extend",
+      collapsed: false,
       items: ["authoring"],
     },
   ],

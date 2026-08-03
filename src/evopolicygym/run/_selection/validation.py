@@ -175,6 +175,7 @@ class CandidateSelector:
                 score=evaluated.feedback.score,
                 episodes=len(evaluated.episodes),
                 policy_failures=policy_failures,
+                feedback_content=evaluated.feedback.content,
             )
             aggregate.append(result)
             self._recorder.record_event(

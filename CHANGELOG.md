@@ -2,11 +2,19 @@
 
 ## Unreleased
 
+- Added Crafter and Linux-targeted NLE NetHack Benchmark distributions,
+  complete reversible training trajectories, and the NLE held-out experiment
+  reference page.
+- Added Benchmark-declared permanent/bulk Artifact retention, synchronized
+  oldest-first eviction in Host and Agent views, complete-newest protection,
+  Agent-owned `workspace/analysis/`, and `run-record/v7`.
+- Retained Benchmark-defined aggregate Feedback content in Host-only
+  Validation and Assessment reports without exposing Artifacts to the Agent.
 - Renamed the reusable general-purpose Agent Skill from `use-evopolicygym` to
   `evopolicygym`, refocused it on caller-side Host and public SDK workflows,
   and split its setup, Evaluation, Run, provider, authoring, and diagnostic
   guidance for progressive loading.
-- Expanded CI to test and build all 57 first-party Benchmark distributions,
+- Expanded CI to test and build all 59 first-party Benchmark distributions,
   including the Gymnasium Classic Control, Toy Text, Box2D, and MuJoCo suites
   plus Balatro, and added a repository test that rejects unlisted Environment
   projects.

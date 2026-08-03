@@ -161,6 +161,7 @@ jobs:
           - environments/atcoder/ahc057/molecules
           - environments/atcoder/ahc058/apple_incremental_game
           - environments/codechef/june18/warehouseman
+          - environments/crafter/crafter
           - environments/gymnasium/box2d/bipedal_walker
           - environments/gymnasium/box2d/car_racing
           - environments/gymnasium/box2d/lunar_lander
@@ -189,6 +190,7 @@ jobs:
           - environments/jumanji/jumanji
           - environments/metaworld/metaworld
           - environments/minigrid/babyai
+          - environments/nle/nethack
           - environments/stable_retro/airstriker
           - environments/vizdoom/vizdoom
     steps:

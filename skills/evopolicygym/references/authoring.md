@@ -78,9 +78,13 @@ Feedback(
 ```
 
 The scalar score is required. Content and Artifact schemas belong to the
-Benchmark. One Artifact is limited to 16 MiB; one Feedback contains at most 64
-Artifacts and 64 MiB total. Bound traces independently of requested Episode
-count while keeping aggregate scoring based on every record.
+Benchmark. One Artifact is limited to 16 MiB; one Feedback contains at most
+1,024 Artifacts and 16 GiB total. Long evidence may be marked with
+`retention="bulk"`; compact scores, manifests, and ordinary Artifacts remain
+permanent. A Run may evict only old bulk Artifact files, oldest submission
+first, from both the Host record and Agent workspace. The newest submission's
+bulk Feedback is protected even if it temporarily exceeds the configured
+capacity.
 
 Keep Coding Agent Skills outside the Benchmark distribution contract.
 Benchmark authors may document compatible Skills, but `BenchmarkSpec` does not

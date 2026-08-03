@@ -17,6 +17,7 @@ class RunDirectoryPaths:
     workspace: Path
     skills: Path
     program: Path
+    analysis: Path
     feedback: Path
     initial: Path
     submissions: Path
@@ -36,6 +37,7 @@ class RunDirectoryPaths:
             workspace=workspace,
             skills=workspace / "skills",
             program=workspace / "program",
+            analysis=workspace / "analysis",
             feedback=workspace / "feedback",
             initial=root / "initial",
             submissions=root / "submissions",
@@ -76,6 +78,7 @@ def prepare_run_directory(
     paths = RunDirectoryPaths.under(root)
     for directory in (
         paths.workspace,
+        paths.analysis,
         paths.feedback,
         paths.initial,
         paths.submissions,

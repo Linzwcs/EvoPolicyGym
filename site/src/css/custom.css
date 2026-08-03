@@ -6112,7 +6112,6 @@ body {
 
 .epg-button,
 .home-demo-tile strong,
-.home-note h3,
 .environment-domain-title h3,
 .catalog-identity h2,
 .leaderboard-paper-figure > header h3,
@@ -6154,6 +6153,7 @@ body {
 
 .epg-navbar-version,
 .footer__bottom,
+.home-note h3,
 .home-demo-caption,
 .home-note time,
 .home-note > span,

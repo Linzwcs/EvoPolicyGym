@@ -3,7 +3,6 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import Layout from "@theme/Layout";
 import {Localized} from "../components/Localized";
 import {paperMeta} from "../data/project";
-import {formatScore, showcase} from "../lib/showcase";
 
 const notes = [
   {
@@ -32,19 +31,44 @@ const notes = [
   },
 ];
 
+const featuredRuns = [
+  {
+    id: "balatro-sol",
+    kind: "balatro",
+    path: "/blog/balatro-policy-evolution/",
+    media: "images/blog/balatro-sol-winning-replay.gif",
+    titleEn: "Balatro",
+    titleZh: "小丑牌",
+    metaEn: "Sol final Policy · score 1021",
+    metaZh: "Sol 最终 Policy · 得分 1021",
+    alt: "Sol-authored Balatro Policy completing a held-out run with score 1021",
+  },
+  {
+    id: "crafter-deep-iron",
+    kind: "crafter",
+    path: "/environments/",
+    media: "images/home/crafter-deep-iron-combat.gif",
+    titleEn: "Crafter · Deep iron combat",
+    titleZh: "Crafter · 深层铁矿战斗",
+    metaEn: "Development submission 15 · Episode 10",
+    metaZh: "开发 Submission 15 · Episode 10",
+    alt: "Agent-authored Crafter Policy navigating a deep-iron combat development episode",
+  },
+  {
+    id: "nethack-sol",
+    kind: "nethack",
+    path: "/blog/nethack-policy-evolution/",
+    media: "images/blog/nle-sol-policy-training-replay.gif",
+    titleEn: "NetHack · Sol Policy",
+    titleZh: "NetHack · Sol Policy",
+    metaEn: "1,269 steps · dungeon depth 11",
+    metaZh: "1,269 steps · 地下城深度 11",
+    alt: "Sol-authored NetHack Policy completing a 1,269-step training episode at dungeon depth 11",
+  },
+];
+
 export default function HomePage() {
   const mediaBaseUrl = useBaseUrl("/");
-  const featuredClips = [
-    ["gpt_5_5", "minigrid_doorkey"],
-    ["claude_opus_4_7", "bipedal"],
-    ["deepseek_v4_pro", "parking"],
-    ["claude_opus_4_7", "fetch_push"],
-  ].flatMap(([modelSlug, environmentId]) => {
-    const clip = showcase.clips.find(
-      (candidate) => candidate.model_slug === modelSlug && candidate.env_id === environmentId,
-    );
-    return clip ? [clip] : [];
-  });
 
   return (
     <Layout
@@ -87,20 +111,22 @@ export default function HomePage() {
 
           <div className="home-hero-demo">
             <div className="home-demo-grid">
-              {featuredClips.map((clip) => (
+              {featuredRuns.map((run, index) => (
                 <Link
-                  key={clip.id}
-                  className="home-demo-tile"
-                  to={`/results/environments/${clip.env_id}/`}
-                  aria-label={`Open the ${clip.env_display} held-out rerun record`}
+                  key={run.id}
+                  className={`home-demo-tile home-demo-tile--${run.kind}`}
+                  to={run.path}
+                  aria-label={`Open the ${run.titleEn} experiment record`}
                 >
                   <img
-                    src={`${mediaBaseUrl}${clip.media}`}
-                    alt={`${clip.model_display}-authored Policy running in the ${clip.env_display} environment`}
+                    src={`${mediaBaseUrl}${run.media}`}
+                    alt={run.alt}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
                   />
                   <span>
-                    <strong>{clip.env_display}</strong>
-                    <small>{clip.model_display} · {formatScore(clip.score)}</small>
+                    <strong><Localized en={run.titleEn} zh={run.titleZh} /></strong>
+                    <small><Localized en={run.metaEn} zh={run.metaZh} /></small>
                   </span>
                 </Link>
               ))}
@@ -108,12 +134,12 @@ export default function HomePage() {
             <div className="home-demo-caption">
               <span>
                 <Localized
-                  en="Four selected Policies · original-Environment reruns"
-                  zh="四个选中 Policy · 原始 Environment 重跑"
+                  en="Three autonomous Policies · real experiment replays"
+                  zh="三个自主 Policy · 真实实验回放"
                 />
               </span>
-              <Link to="/results/core16/">
-                <Localized en="Open archive" zh="打开档案" /> →
+              <Link to="/blog/">
+                <Localized en="Open experiments" zh="查看实验" /> →
               </Link>
             </div>
           </div>

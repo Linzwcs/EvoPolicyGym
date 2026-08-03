@@ -23,7 +23,8 @@ The default matches the Gymnasium 1.3.0 `Blackjack-v1` registration.
 `BenchmarkSpec.environment_parameters`; they contribute to
 `environment_digest` and are delivered to every Policy. When `sab=True`,
 Gymnasium ignores the `natural` bonus and applies the Sutton-and-Barto natural
-rule.
+rule. The public parameters also include the exact card-value distribution,
+ace semantics, dealer threshold, payouts, initial card counts, and horizon.
 
 ## Contract
 
@@ -51,20 +52,29 @@ Face cards each have value 10. The dealer draws until reaching at least 17.
 A win returns `+1`, a draw `0`, and a loss `-1`. When `sab=False` and
 `natural=True`, a winning natural pays `+1.5`.
 
+The terminal observation after a hit can contain player sums 22-31. Feedback
+classifies a hit as `hit_continue` or `hit_bust` and reports every card value
+consistent with the visible before/after state. This is derived only from the
+public sum and usable-ace flag; dealer hole cards and dealer final hands remain
+private.
+
 The scalar Benchmark score is mean terminal reward. Blackjack has high
 per-hand variance, so useful comparisons should evaluate many Episodes.
 Policy failure receives `-1`, equal to the minimum complete hand return.
 
 Gymnasium defines no TimeLimit for this environment. The Benchmark declares a
-32-action safety horizon; valid hit/stick play terminates naturally well
-before it.
+32-action safety horizon and the adapter enforces it, although positive card
+values make valid hit/stick play terminate naturally well before it.
 
 ## Feedback and trace
 
 Feedback reports mean reward, mean actions per hand, wins, draws, losses,
-Policy failures, and bounded trace coverage. `trace.jsonl` retains at most 32
-complete hands with every semantic observation seen by the Policy, unmodified
-Actions, rewards, and termination flags.
+initial player naturals, hit/stick event counts, incomplete hands, Policy
+failures, and bounded trace coverage. `trace.jsonl` retains at most 32 complete
+hands with every semantic observation seen by the Policy, named unmodified
+Actions, rewards, termination flags, player-sum and usable-ace changes,
+publicly inferable drawn-card values, event classification, and terminal
+reason.
 
 Environment seeds, Policy seeds, Host paths, credentials, dealer hole cards,
 and private runtime evidence are never published.

@@ -21,7 +21,9 @@ benchmark = CliffWalkingBenchmark(
 `CliffWalkingConfig.is_slippery` is published through
 `BenchmarkSpec.environment_parameters`, contributes to `environment_digest`,
 and is delivered to every Policy. In slippery mode, the requested direction
-and its two adjacent directions each occur with probability `1/3`.
+and its two adjacent directions each occur with probability `1/3`. The full
+map, start, goal, cliff coordinates, state encoding, edge behavior, rewards,
+and horizon are also public environment parameters.
 
 ## Contract
 
@@ -41,6 +43,11 @@ An ordinary step returns `-1`. Entering any cliff cell returns `-100` and
 places the player back at the start without terminating. Reaching the goal
 returns `-1` and terminates the Episode.
 
+The cliff landing and return to start are atomic: the live observation never
+contains `tile="cliff"`. A `-100` transition reports an explicit `cliff_fall`
+event and `cliff_then_reset_to_start` movement in feedback, avoiding the false
+appearance of an unexplained no-op at the start.
+
 Gymnasium 1.3.0 does not register a TimeLimit for CliffWalking. This Benchmark
 adds an explicit 200-step horizon in its adapter and returns a normal truncated
 step when the horizon is reached. This makes non-progressing but valid Policies
@@ -51,10 +58,13 @@ equal to the minimum 200-step complete return.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean steps, successful goal reaches, Policy
-failures, and bounded trace coverage. `trace.jsonl` retains at most eight
-Episodes with complete semantic observations, unmodified Actions, rewards,
-and termination flags.
+Feedback reports mean return, mean steps, successful goal reaches, cliff falls,
+boundary no-ops, time limits, Policy failures, and bounded trace coverage.
+`trace.jsonl` retains at most eight Episodes with complete semantic
+observations, named unmodified Actions, rewards, termination flags, requested
+and observed movement, event classification, sampled branch probability,
+possible sampled directions, total probability of the observed outcome, step
+count, and terminal reason.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

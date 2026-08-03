@@ -13,11 +13,27 @@ The package contains:
 - tests for deterministic replay, invalid Actions, Feedback privacy, trace
   publication, and direct Evaluation.
 
+## Contract
+
+The live observation is a four-element Python-float list containing cart
+position (m), cart velocity (m/s), pole angle from upright (rad), and pole
+angular velocity (rad/s). Gymnasium produces the values as `float32`; the
+adapter converts them to exact Python `float` carriers without claiming extra
+source precision.
+
+Action `0` applies 10 N left and Action `1` applies 10 N right. Dynamics use a
+0.02-second explicit-Euler step. Every transition, including a failing one,
+rewards `+1`, so return equals survived steps. Absolute cart position above
+2.4 m or pole angle above 12 degrees terminates; surviving 500 steps truncates
+successfully. Physics constants, initial-state sampling, units, thresholds,
+reward, and horizon are public environment parameters.
+
 ## Feedback
 
 The score is mean Episode return. A Policy failure contributes zero return.
-Feedback also contains a compact summary and one public `trace.jsonl` Artifact.
-At most eight Episodes are traced so publication remains bounded.
+Feedback also reports mean steps, time-limit successes, cart-limit and
+pole-angle-limit terminations, plus one public `trace.jsonl` Artifact. At most
+eight Episodes are traced so publication remains bounded.
 
 Each trace begins with an Episode record followed by zero or more transition
 records. A transition contains:
@@ -25,7 +41,10 @@ records. A transition contains:
 - the observation received by the Policy;
 - the unmodified Action;
 - reward and next observation;
-- termination and truncation flags.
+- termination and truncation flags;
+- named action and applied force;
+- elapsed simulation time, threshold margins, angle in radians and degrees,
+  balance flags, survival fraction, and exact terminal reason.
 
 Environment seeds, Policy seeds, scenarios, Host paths, private metrics, and
 runtime evidence are never published.

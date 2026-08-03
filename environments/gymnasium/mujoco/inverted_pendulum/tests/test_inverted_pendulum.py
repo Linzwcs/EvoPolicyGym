@@ -48,11 +48,33 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
         self.assertEqual(default.spec.primary_metric, "mean_return")
         self.assertEqual(
             default.spec.environment_parameters,
-            {"frame_skip": 2, "reset_noise_scale": 0.01},
+            {
+                "frame_skip": 2,
+                "model_timestep_seconds": 0.02,
+                "seconds_per_step": 0.04,
+                "actuator_gear": 100.0,
+                "termination_angle_radians": 0.2,
+                "termination_rule": "abs(pole_angle) > 0.2",
+                "reward_formula": "1.0 if not terminated else 0.0",
+                "observation_clipping": "none",
+                "reset_noise_scale": 0.01,
+                "time_limit": 1000,
+            },
         )
         self.assertEqual(
             configured.spec.environment_parameters,
-            {"frame_skip": 3, "reset_noise_scale": 0.05},
+            {
+                "frame_skip": 3,
+                "model_timestep_seconds": 0.02,
+                "seconds_per_step": 0.06,
+                "actuator_gear": 100.0,
+                "termination_angle_radians": 0.2,
+                "termination_rule": "abs(pole_angle) > 0.2",
+                "reward_formula": "1.0 if not terminated else 0.0",
+                "observation_clipping": "none",
+                "reset_noise_scale": 0.05,
+                "time_limit": 1000,
+            },
         )
         self.assertNotEqual(
             default.spec.environment_digest,
@@ -78,9 +100,7 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -106,20 +126,28 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
             assert isinstance(observation, dict)
             self.assertEqual(set(observation), _OBSERVATION_FIELDS)
-            self.assertTrue(
-                all(type(value) is float for value in observation.values())
-            )
+            self.assertTrue(all(type(value) is float for value in observation.values()))
             step = environment.step([0.0])
-            self.assertEqual(step.metrics, {"reward_survive": 1.0})
             self.assertEqual(step.reward, 1.0)
+            self.assertIsInstance(step.metrics, dict)
+            assert isinstance(step.metrics, dict)
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 999)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.04)
+            self.assertEqual(step.metrics["requested_cart_control"], 0.0)
+            self.assertEqual(
+                step.metrics["actuator_gear_scaled_cart_force"],
+                0.0,
+            )
+            self.assertEqual(step.metrics["reward_survive"], 1.0)
+            self.assertEqual(step.metrics["healthy"], True)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
         finally:
             environment.close()
             environment.close()
@@ -154,9 +182,7 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -174,6 +200,41 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
                     scenario={"frame_skip": 3},
                 )
             )
+
+    def test_maximum_control_exposes_fall_threshold_and_force_scaling(
+        self,
+    ) -> None:
+        environment = InvertedPendulumBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            environment.reset()
+            final = None
+            for _ in range(1000):
+                final = environment.step([3.0])
+                if final.done:
+                    break
+            self.assertIsNotNone(final)
+            assert final is not None
+            self.assertTrue(final.terminated)
+            self.assertFalse(final.truncated)
+            self.assertEqual(final.reward, 0.0)
+            self.assertIsInstance(final.metrics, dict)
+            assert isinstance(final.metrics, dict)
+            self.assertEqual(
+                final.metrics["actuator_gear_scaled_cart_force"],
+                300.0,
+            )
+            pole_angle = final.metrics["pole_angle_radians"]
+            angle_margin = final.metrics["pole_angle_margin_radians"]
+            assert type(pole_angle) is float
+            assert type(angle_margin) is float
+            self.assertGreater(abs(pole_angle), 0.2)
+            self.assertLess(angle_margin, 0.0)
+            self.assertEqual(final.metrics["healthy"], False)
+            self.assertEqual(final.metrics["terminal_reason"], "fallen")
+        finally:
+            environment.close()
 
     def test_feedback_uses_failure_floor_and_keeps_identity_private(
         self,
@@ -229,17 +290,16 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
         )
         self.assertGreater(result.feedback.score, 0.0)
         self.assertLess(result.feedback.score, 950.0)
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["fallen_episodes"], 1)
+        mean_margin = result.feedback.content["mean_episode_minimum_pole_angle_margin_radians"]
+        assert type(mean_margin) is float
+        self.assertLess(mean_margin, 0.0)
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertTrue(transitions)
         self.assertEqual(
             set(transitions[0]["observation"]),
@@ -247,8 +307,13 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(transitions[0]["action"], [0.0])
         self.assertEqual(
-            transitions[0]["reward_terms"],
-            {"reward_survive": 1.0},
+            transitions[0]["action_components"],
+            {"cart_control": 0.0},
+        )
+        self.assertEqual(transitions[0]["metrics"]["step_count"], 1)
+        self.assertEqual(
+            transitions[0]["metrics"]["reward_survive"],
+            1.0,
         )
 
     def test_linear_feedback_balances_full_horizon(self) -> None:
@@ -262,12 +327,8 @@ class InvertedPendulumBenchmarkTests(unittest.TestCase):
         controlled: list[float] = []
 
         for episode in episodes:
-            zero_force.append(
-                _rollout(benchmark, episode, controlled=False)
-            )
-            controlled.append(
-                _rollout(benchmark, episode, controlled=True)
-            )
+            zero_force.append(_rollout(benchmark, episode, controlled=False))
+            controlled.append(_rollout(benchmark, episode, controlled=True))
 
         self.assertEqual(controlled, [1000.0] * len(controlled))
         self.assertGreater(
@@ -297,11 +358,7 @@ def _rollout(
         observation = environment.reset()
         for _ in range(1000):
             assert isinstance(observation, dict)
-            action: PolicyValue = (
-                _feedback_action(observation)
-                if controlled
-                else [0.0]
-            )
+            action: PolicyValue = _feedback_action(observation) if controlled else [0.0]
             result = environment.step(action)
             total += result.reward
             observation = result.observation

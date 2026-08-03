@@ -15,7 +15,16 @@ boundary only as bounded values and canonical tensors. Most profiles use a
 strict discrete action. Deathmatch uses a strict object containing one discrete
 binary-button selection and three continuous delta controls.
 
-The primary metric is mean return. Feedback includes a bounded transition trace
-without frames, seeds, paths, or WAD identity. Commercial Doom/Doom2 map
-registrations are intentionally excluded because their WADs do not ship with
-ViZDoom. FreeDoom campaign maps can be added as a separate suite if desired.
+The primary metric is mean return. Feedback includes bounded per-Episode
+summaries and a diagnostic trace covering at most 32 steps in each of four
+Episodes. Long Episodes retain their first and last steps, bounded samples of
+reward and game-variable-change events, and an even timeline sample. Selected
+screen frames, game variables, and optional audio are stored losslessly in
+compressed NPZ artifacts; optional notifications remain inline. PNG contact
+sheets and bounded animated GIF replays expose the visual trajectory, action
+meaning, reward, and primary game variables. Omitted Episodes, steps, and replay
+frames are reported explicitly, without seeds, paths, or WAD identity.
+
+Commercial Doom/Doom2 map registrations are intentionally excluded because
+their WADs do not ship with ViZDoom. FreeDoom campaign maps can be added as a
+separate suite if desired.

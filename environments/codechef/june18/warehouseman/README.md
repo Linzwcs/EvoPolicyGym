@@ -44,7 +44,13 @@ The Action is the complete instruction string using the official
 The primary metric is mean official normalized cost and lower is better. A
 Policy failure contributes the bounded sentinel cost 1,000,000. Feedback
 publishes aggregate cost and bounded semantic diagnostics; it does not publish
-arrival permutations, Environment seeds, or raw instruction strings.
+arrival permutations, Environment seeds, or raw instruction strings. Because
+the Environment executes one complete Action atomically, diagnostics are
+post-execution rather than Policy observations: they decompose character cost
+into movement, mandatory pickup/storage/retrieval/drop handling, and internal
+relocation cycles; report per-shipment cost, instruction-budget use, and the
+gap from the six-character-per-shipment handling lower bound; and verify that
+all operation counts exactly reconstruct the submitted string length.
 
 The packaged baseline is deliberately simple but complete across the full
 published 6–20 row and column range. It stores shipments from far to near along

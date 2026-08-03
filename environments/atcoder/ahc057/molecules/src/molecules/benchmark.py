@@ -83,9 +83,7 @@ _SPEC = BenchmarkSpec(
         "provider": "AtCoder",
         "contest": "AtCoder Heuristic Contest 057",
         "task": "AHC057 A",
-        "upstream_specification": (
-            "https://atcoder.jp/contests/ahc057/tasks/ahc057_a"
-        ),
+        "upstream_specification": ("https://atcoder.jp/contests/ahc057/tasks/ahc057_a"),
         "upstream_specification_revision": "2025-11-29",
         "upstream_tool_archive_revision": "BJTm8xSg",
         "upstream_tool_license": "not declared; not redistributed",
@@ -102,6 +100,17 @@ _SPEC = BenchmarkSpec(
         "space_size": SPACE_SIZE,
         "target_components": TARGET_COMPONENTS,
         "target_size": TARGET_SIZE,
+        "reward_semantics": (
+            "Reward is 0 for turns 1-999 and the complete official score is "
+            "emitted exactly once on the mandatory 1000th turn."
+        ),
+        "bond_atomicity": (
+            "Every submitted bond list is validated and applied atomically; "
+            "cycles, oversize components, and invalid final partitions are rejected."
+        ),
+        "score_formula": (
+            "round(1_000_000*log2(space_size*(points-target_components)/(total_cost+1)))"
+        ),
     },
     max_episode_steps=TURNS,
     primary_metric="mean_log_cost_score",
@@ -163,8 +172,31 @@ class MoleculesBenchmark:
                     f"{completed}/{len(records)} target partitions completed."
                 ),
                 "mean_log_cost_score": score,
-                "mean_total_cost": (
-                    statistics.fmean(costs) if costs else None
+                "mean_total_cost": (statistics.fmean(costs) if costs else None),
+                "mean_total_bonds": _mean_final_number(
+                    records,
+                    "total_bonds",
+                ),
+                "mean_cost_per_bond": _mean_final_number(
+                    records,
+                    "mean_cost_per_bond",
+                ),
+                "mean_maximum_bond_cost": _mean_final_number(
+                    records,
+                    "maximum_bond_cost",
+                ),
+                "mean_bond_action_count": _mean_final_number(
+                    records,
+                    "bond_action_count",
+                ),
+                "mean_empty_bond_action_fraction": _mean_final_number(
+                    records,
+                    "empty_bond_action_fraction",
+                ),
+                "mean_target_partition_first_ready_turn": _mean_final_number(
+                    records,
+                    "target_partition_first_ready_turn",
+                    exclude_negative=True,
                 ),
                 "episodes": len(records),
                 "completed": completed,
@@ -195,10 +227,7 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
 def _episode_score(record: EpisodeRecord) -> float:
     if record.policy_failure is not None:
         return 0.0
-    if (
-        len(record.transitions) != TURNS
-        or not record.transitions[-1].step.terminated
-    ):
+    if len(record.transitions) != TURNS or not record.transitions[-1].step.terminated:
         raise ValueError("completed Molecules Episode evidence is invalid")
     return float(_final_integer(record, "final_score"))
 
@@ -215,31 +244,55 @@ def _final_integer(record: EpisodeRecord, name: str) -> int:
     return value
 
 
+def _final_number(
+    record: EpisodeRecord,
+    name: str,
+) -> float | int | None:
+    if record.policy_failure is not None or not record.transitions:
+        return None
+    metrics = record.transitions[-1].step.metrics
+    if type(metrics) is not dict:
+        raise ValueError("Molecules terminal metrics are invalid")
+    value = metrics.get(name)
+    if value is None:
+        return None
+    if type(value) not in {int, float}:
+        raise ValueError("Molecules terminal metrics are invalid")
+    return value
+
+
+def _mean_final_number(
+    records: Sequence[EpisodeRecord],
+    name: str,
+    *,
+    exclude_negative: bool = False,
+) -> float | None:
+    values = tuple(
+        value
+        for record in records
+        if (value := _final_number(record, name)) is not None
+        and (not exclude_negative or value >= 0)
+    )
+    return statistics.fmean(values) if values else None
+
+
 def _trace_artifact(
     records: Sequence[EpisodeRecord],
 ) -> tuple[Artifact, int, int]:
     lines: list[bytes] = []
     bond_events = 0
-    total_bond_events = sum(
-        _record_bond_events(record) for record in records
-    )
+    total_bond_events = sum(_record_bond_events(record) for record in records)
     for episode_index, record in enumerate(records[:_MAX_TRACED_EPISODES]):
         lines.append(
             _json_line(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
-                    "status": (
-                        "completed"
-                        if record.policy_failure is None
-                        else "policy_failed"
-                    ),
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
                     "score": _episode_score(record),
                     "failure": record.policy_failure,
-                    "initial_observation": _trace_initial(
-                        record.initial_observation
-                    ),
+                    "initial_observation": _trace_initial(record.initial_observation),
                 }
             )
         )
@@ -262,7 +315,18 @@ def _trace_artifact(
                         "bonds": bonds,
                         "next_state": observation,
                         "action_cost": metrics.get("action_cost"),
+                        "bond_count": metrics.get("bond_count_this_turn"),
+                        "action_cost_per_bond": metrics.get("action_cost_per_bond"),
+                        "minimum_bond_cost": metrics.get("minimum_bond_cost_this_turn"),
+                        "maximum_bond_cost": metrics.get("maximum_bond_cost_this_turn"),
                         "total_cost": metrics.get("total_cost"),
+                        "mean_cost_per_bond": metrics.get("mean_cost_per_bond"),
+                        "score_upper_bound_if_no_further_cost": metrics.get(
+                            "score_upper_bound_if_no_further_cost"
+                        ),
+                        "required_bonds_remaining": metrics.get("required_bonds_remaining"),
+                        "component_size_histogram": metrics.get("component_size_histogram"),
+                        "target_partition_ready": metrics.get("target_partition_ready"),
                     }
                 )
             )
@@ -326,9 +390,7 @@ def _trace_state(observation: PolicyValue) -> PolicyValue:
         "turn": copy_policy_value(observation["turn"]),
         "positions": copy_policy_value(observation["positions"]),
         "components": copy_policy_value(observation["components"]),
-        "component_count": copy_policy_value(
-            observation["component_count"]
-        ),
+        "component_count": copy_policy_value(observation["component_count"]),
         "total_cost": copy_policy_value(observation["total_cost"]),
         "initial": None,
     }

@@ -42,26 +42,47 @@ plus four optional semantic objects: 130 body-inertia values, 78 center-of-mass
 velocity values, 17 actuator-force values, and 78 external-force values. These
 objects preserve all 348 default Gymnasium values while grouping them by body
 or joint. Each inclusion flag removes its corresponding object; disabling
-position exclusion adds torso x/y.
+position exclusion adds root-qpos torso x/y. The scalar torso quaternion is in
+`w,x,y,z` order. The actuator-force object follows generalized-state order,
+whose first entries are `abdomen_z, abdomen_y, abdomen_x`; this intentionally
+differs from Action order.
 
 An Action is an exact 17-float list containing abdomen, hip, knee, shoulder,
-and elbow torques, each in `[-0.4, 0.4]`. Integers, tuples, non-finite values,
-and out-of-range values are rejected rather than converted or clipped.
+and elbow controls, each in `[-0.4, 0.4]`. Action order begins
+`abdomen_y, abdomen_z, abdomen_x`. Official actuator gears are published for
+every component: most abdomen/hip axes use `100`, hip-y uses `300`, knees use
+`200`, and all shoulder/elbow actuators use `25`. Integers, tuples, non-finite
+values, and out-of-range values are rejected rather than converted or clipped.
 
-Reward combines weighted forward velocity and the healthy reward, then
-subtracts control and contact costs. By default, an unhealthy Humanoid
-terminates; otherwise the Episode truncates after 1000 steps. The scalar
-Benchmark score is mean Episode return.
+Reward combines whole-body center-of-mass x velocity and the healthy reward,
+then subtracts squared-control and clamped external-contact costs. The
+`x_position`/`y_position` diagnostics are root qpos, while forward reward uses
+whole-body center-of-mass displacement; feedback labels this distinction. The
+model timestep is `0.003` seconds and default frame skip `5` makes each Policy
+step `0.015` simulated seconds. Health requires root torso z to be strictly
+inside the configured open interval; an unhealthy step receives no healthy
+reward. By default it terminates; otherwise the Episode truncates after 1000
+steps. The scalar Benchmark score is mean Episode return.
 
 Policy failure receives a configuration-scaled negative return. The packaged
 baseline applies zero torque and is intentionally weak.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean steps, final x position, Policy failures,
-and bounded trace coverage. `trace.jsonl` retains at most four Episodes with
-complete nested Policy observations, exact Actions, tendon state, public
-kinematics, reward terms, and termination flags.
+Feedback reports mean return and steps; root x/y displacement and extrema;
+center-of-mass velocity, speed, and forward-step fraction; torso height,
+quaternion-derived tilt, health margins and health fraction; action use and
+gear-scaled controls; actuator, tendon, and external-force diagnostics when
+their source observations are enabled; full reward decomposition; explicit
+outcome counts; Policy failures; and bounded trace coverage. `trace.jsonl`
+retains at most four Episodes and at most 100 transitions per retained Episode.
+Long Episodes are sampled uniformly with the first and final transition
+included; shorter Episodes remain complete. Every retained transition contains
+complete nested observations, named Actions, current and cumulative
+diagnostics, and terminal reason. Episode rows and Feedback publish the real
+step count, sampling mode, retained transition count, and omitted transition
+count. Disabled optional observations stay unavailable in diagnostics rather
+than being leaked back to the Policy through feedback.
 
 Environment seeds, Policy seeds, Host paths, credentials, model paths, and
 private runtime evidence are never published.

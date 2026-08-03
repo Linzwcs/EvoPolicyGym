@@ -7,6 +7,7 @@ import json
 import math
 import statistics
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from evopolicygym.authoring import (
     Artifact,
@@ -26,17 +27,17 @@ _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 4
 _MAX_EPISODE_STEPS = 1_000
 _BODY_FIELDS = (
-    "front_tip_z_position",
-    "front_tip_angle",
+    "torso_z_position",
+    "torso_pitch_angle",
     "back_thigh_angle",
     "back_shin_angle",
     "back_foot_angle",
     "front_thigh_angle",
     "front_shin_angle",
     "front_foot_angle",
-    "front_tip_x_velocity",
-    "front_tip_z_velocity",
-    "front_tip_angular_velocity",
+    "torso_x_velocity",
+    "torso_z_velocity",
+    "torso_pitch_angular_velocity",
     "back_thigh_angular_velocity",
     "back_shin_angular_velocity",
     "back_foot_angular_velocity",
@@ -44,12 +45,75 @@ _BODY_FIELDS = (
     "front_shin_angular_velocity",
     "front_foot_angular_velocity",
 )
-_METRIC_FIELDS = (
-    "x_position",
-    "x_velocity",
-    "reward_forward",
-    "reward_control",
+_ACTION_COMPONENTS = (
+    "back_thigh",
+    "back_shin",
+    "back_foot",
+    "front_thigh",
+    "front_shin",
+    "front_foot",
 )
+_ACTUATOR_GEARS = (120.0, 90.0, 60.0, 120.0, 60.0, 30.0)
+_METRIC_FIELDS = frozenset(
+    {
+        "step_count",
+        "remaining_steps",
+        "seconds_per_step",
+        "simulated_seconds",
+        "requested_action_by_joint",
+        "actuator_gear_scaled_controls",
+        "sum_squared_action",
+        "sum_absolute_action",
+        "cumulative_absolute_action",
+        "initial_x_position",
+        "x_position",
+        "net_x_displacement",
+        "minimum_x_position",
+        "maximum_x_position",
+        "x_velocity",
+        "minimum_x_velocity",
+        "maximum_x_velocity",
+        "mean_x_velocity_from_displacement",
+        "forward_step_fraction",
+        "backward_or_stationary_step_fraction",
+        "torso_z_position",
+        "minimum_torso_z_position",
+        "maximum_torso_z_position",
+        "torso_pitch_radians",
+        "torso_pitch_degrees",
+        "maximum_absolute_torso_pitch_radians",
+        "torso_x_velocity",
+        "torso_z_velocity",
+        "torso_pitch_angular_velocity",
+        "reward_forward",
+        "reward_control",
+        "reward_from_public_terms",
+        "cumulative_reward_forward",
+        "cumulative_reward_control",
+        "cumulative_return",
+        "terminal_reason",
+    }
+)
+
+
+@dataclass(frozen=True)
+class _EpisodeDiagnostics:
+    initial_x_position: float
+    final_x_position: float
+    net_x_displacement: float
+    minimum_x_position: float
+    maximum_x_position: float
+    mean_x_velocity: float
+    minimum_x_velocity: float
+    maximum_x_velocity: float
+    forward_step_fraction: float
+    minimum_torso_z_position: float
+    maximum_torso_z_position: float
+    maximum_absolute_torso_pitch_radians: float
+    mean_absolute_action: float
+    cumulative_reward_forward: float
+    cumulative_reward_control: float
+    outcome: str
 
 
 class HalfCheetahBenchmark:
@@ -115,16 +179,15 @@ class HalfCheetahBenchmark:
         score = statistics.fmean(returns)
         failures = sum(record.policy_failure is not None for record in records)
         mean_steps = statistics.fmean(record.steps for record in records)
-        final_positions = tuple(
-            _final_x_position(record)
+        diagnostics = tuple(
+            _episode_diagnostics(record)
             for record in records
             if record.policy_failure is None and record.transitions
         )
-        mean_final_x = (
-            statistics.fmean(final_positions)
-            if final_positions
-            else None
+        mean_final_x = _mean_or_none(
+            tuple(item.final_x_position for item in diagnostics)
         )
+        outcomes = tuple(_episode_outcome(record) for record in records)
         traced = records[:_MAX_TRACED_EPISODES]
         return Feedback(
             score=score,
@@ -137,6 +200,53 @@ class HalfCheetahBenchmark:
                 "mean_return": score,
                 "mean_steps": mean_steps,
                 "mean_final_x_position": mean_final_x,
+                "mean_initial_x_position": _mean_or_none(
+                    tuple(item.initial_x_position for item in diagnostics)
+                ),
+                "mean_net_x_displacement": _mean_or_none(
+                    tuple(item.net_x_displacement for item in diagnostics)
+                ),
+                "mean_episode_minimum_x_position": _mean_or_none(
+                    tuple(item.minimum_x_position for item in diagnostics)
+                ),
+                "mean_episode_maximum_x_position": _mean_or_none(
+                    tuple(item.maximum_x_position for item in diagnostics)
+                ),
+                "mean_x_velocity": _mean_or_none(
+                    tuple(item.mean_x_velocity for item in diagnostics)
+                ),
+                "mean_episode_minimum_x_velocity": _mean_or_none(
+                    tuple(item.minimum_x_velocity for item in diagnostics)
+                ),
+                "mean_episode_maximum_x_velocity": _mean_or_none(
+                    tuple(item.maximum_x_velocity for item in diagnostics)
+                ),
+                "mean_forward_step_fraction": _mean_or_none(
+                    tuple(item.forward_step_fraction for item in diagnostics)
+                ),
+                "mean_episode_minimum_torso_z_position": _mean_or_none(
+                    tuple(item.minimum_torso_z_position for item in diagnostics)
+                ),
+                "mean_episode_maximum_torso_z_position": _mean_or_none(
+                    tuple(item.maximum_torso_z_position for item in diagnostics)
+                ),
+                "mean_episode_maximum_absolute_torso_pitch_radians": _mean_or_none(
+                    tuple(
+                        item.maximum_absolute_torso_pitch_radians
+                        for item in diagnostics
+                    )
+                ),
+                "mean_absolute_action": _mean_or_none(
+                    tuple(item.mean_absolute_action for item in diagnostics)
+                ),
+                "mean_episode_forward_reward": _mean_or_none(
+                    tuple(item.cumulative_reward_forward for item in diagnostics)
+                ),
+                "mean_episode_control_reward": _mean_or_none(
+                    tuple(item.cumulative_reward_control for item in diagnostics)
+                ),
+                "time_limit_episodes": outcomes.count("time_limit"),
+                "incomplete_episodes": outcomes.count("incomplete"),
                 "episodes": len(records),
                 "policy_failures": failures,
                 "failure_return": self._failure_return,
@@ -160,31 +270,29 @@ def _benchmark_spec(
 ) -> BenchmarkSpec:
     fields: dict[str, PolicyValue] = {}
     if not config.exclude_current_positions_from_observation:
-        fields["front_tip_x_position"] = {
+        fields["torso_x_position"] = {
             "type": "float",
             "unit": "meters",
+            "meaning": "Global torso root x position; positive x is forward.",
         }
     for name in _BODY_FIELDS:
-        if name == "front_tip_z_position":
-            unit = "meters"
-        elif name in {
-            "front_tip_x_velocity",
-            "front_tip_z_velocity",
-        }:
-            unit = "meters_per_second"
-        elif name.endswith("_angular_velocity"):
-            unit = "radians_per_second"
-        else:
-            unit = "radians"
-        fields[name] = {"type": "float", "unit": unit}
+        fields[name] = _body_field_space(name)
     return BenchmarkSpec(
         id="gymnasium/HalfCheetah-v5/mean-return-v1",
         description=(
-            "Coordinate six leg torques to propel a planar HalfCheetah in "
-            "the positive x direction while minimizing control effort. "
-            "Maximize mean Episode return."
+            "Coordinate six bounded joint controls to propel a planar "
+            "HalfCheetah in positive x. Reward is "
+            "forward_reward_weight*x_velocity - ctrl_cost_weight*sum(action^2). "
+            "The six actuator gears are 120,90,60,120,60,30 for back "
+            "thigh/shin/foot then front thigh/shin/foot. HalfCheetah never "
+            "terminates naturally and truncates at 1000 steps. Maximize mean return."
         ),
-        observation_space={"type": "object", "fields": fields},
+        observation_space={
+            "type": "object",
+            "policy_carrier": "dict[str, float]",
+            "source_dtype": "float64",
+            "fields": fields,
+        },
         action_space={
             "type": "array",
             "shape": [6],
@@ -193,14 +301,10 @@ def _benchmark_spec(
                 "minimum": -1.0,
                 "maximum": 1.0,
             },
-            "components": [
-                "back_thigh_torque",
-                "back_shin_torque",
-                "back_foot_torque",
-                "front_thigh_torque",
-                "front_shin_torque",
-                "front_foot_torque",
-            ],
+            "policy_carrier": "list[float]",
+            "components": list(_ACTION_COMPONENTS),
+            "actuator_gears": list(_ACTUATOR_GEARS),
+            "meaning": "Controls are applied in back thigh/shin/foot, then front thigh/shin/foot order.",
         },
         metadata={
             "environment": "HalfCheetah-v5",
@@ -211,12 +315,21 @@ def _benchmark_spec(
         },
         environment_parameters={
             "frame_skip": config.frame_skip,
+            "model_timestep_seconds": 0.01,
+            "seconds_per_step": 0.01 * config.frame_skip,
+            "action_components": list(_ACTION_COMPONENTS),
+            "actuator_gears": list(_ACTUATOR_GEARS),
             "forward_reward_weight": config.forward_reward_weight,
             "ctrl_cost_weight": config.ctrl_cost_weight,
             "reset_noise_scale": config.reset_noise_scale,
             "exclude_current_positions_from_observation": (
                 config.exclude_current_positions_from_observation
             ),
+            "reward_formula": (
+                "forward_reward_weight*x_velocity-ctrl_cost_weight*sum(action^2)"
+            ),
+            "natural_termination": "none",
+            "time_limit": _MAX_EPISODE_STEPS,
         },
         max_episode_steps=_MAX_EPISODE_STEPS,
         primary_metric="mean_return",
@@ -228,8 +341,35 @@ def _observation_fields(config: HalfCheetahConfig) -> tuple[str, ...]:
     return (
         _BODY_FIELDS
         if config.exclude_current_positions_from_observation
-        else ("front_tip_x_position", *_BODY_FIELDS)
+        else ("torso_x_position", *_BODY_FIELDS)
     )
+
+
+def _body_field_space(name: str) -> dict[str, PolicyValue]:
+    readable_name = name.replace("_", " ")
+    if name == "torso_z_position":
+        return {
+            "type": "float",
+            "unit": "meters",
+            "meaning": "Global torso root z position.",
+        }
+    if name in {"torso_x_velocity", "torso_z_velocity"}:
+        return {
+            "type": "float",
+            "unit": "meters_per_second",
+            "meaning": f"{readable_name.capitalize()} from root qvel.",
+        }
+    if name.endswith("_angular_velocity"):
+        return {
+            "type": "float",
+            "unit": "radians_per_second",
+            "meaning": f"{readable_name.capitalize()} from qvel.",
+        }
+    return {
+        "type": "float",
+        "unit": "radians",
+        "meaning": f"{readable_name.capitalize()} from qpos.",
+    }
 
 
 def _failure_return(config: HalfCheetahConfig) -> float:
@@ -251,9 +391,87 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
 
 
 def _final_x_position(record: EpisodeRecord) -> float:
-    metrics = record.transitions[-1].step.metrics
-    traced = _trace_metrics(metrics)
-    return traced["x_position"]
+    return _episode_diagnostics(record).final_x_position
+
+
+def _episode_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    metrics = _trace_metrics(record.transitions[-1].step.metrics)
+    reason = metrics["terminal_reason"]
+    if type(reason) is not str:
+        raise ValueError("HalfCheetah trace terminal reason is invalid")
+    return reason if reason != "none" else "incomplete"
+
+
+def _episode_diagnostics(record: EpisodeRecord) -> _EpisodeDiagnostics:
+    if not record.transitions:
+        raise ValueError("HalfCheetah diagnostics require a transition")
+    metrics = tuple(
+        _trace_metrics(transition.step.metrics)
+        for transition in record.transitions
+    )
+    final = metrics[-1]
+    return _EpisodeDiagnostics(
+        initial_x_position=_float_metric(final, "initial_x_position"),
+        final_x_position=_float_metric(final, "x_position"),
+        net_x_displacement=_float_metric(final, "net_x_displacement"),
+        minimum_x_position=min(
+            _float_metric(item, "x_position") for item in metrics
+        ),
+        maximum_x_position=max(
+            _float_metric(item, "x_position") for item in metrics
+        ),
+        mean_x_velocity=statistics.fmean(
+            _float_metric(item, "x_velocity") for item in metrics
+        ),
+        minimum_x_velocity=min(
+            _float_metric(item, "x_velocity") for item in metrics
+        ),
+        maximum_x_velocity=max(
+            _float_metric(item, "x_velocity") for item in metrics
+        ),
+        forward_step_fraction=statistics.fmean(
+            1.0 if _float_metric(item, "x_velocity") > 0.0 else 0.0
+            for item in metrics
+        ),
+        minimum_torso_z_position=min(
+            _float_metric(item, "torso_z_position") for item in metrics
+        ),
+        maximum_torso_z_position=max(
+            _float_metric(item, "torso_z_position") for item in metrics
+        ),
+        maximum_absolute_torso_pitch_radians=max(
+            abs(_float_metric(item, "torso_pitch_radians")) for item in metrics
+        ),
+        mean_absolute_action=statistics.fmean(
+            abs(value)
+            for transition in record.transitions
+            for value in _trace_action(transition.action)
+        ),
+        cumulative_reward_forward=_float_metric(
+            final,
+            "cumulative_reward_forward",
+        ),
+        cumulative_reward_control=_float_metric(
+            final,
+            "cumulative_reward_control",
+        ),
+        outcome=_episode_outcome(record),
+    )
+
+
+def _mean_or_none(values: tuple[float, ...]) -> float | None:
+    return statistics.fmean(values) if values else None
+
+
+def _float_metric(metrics: dict[str, object], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise ValueError(f"HalfCheetah trace metric {name} is invalid")
+    return value
 
 
 def _position_summary(value: float | None) -> str:
@@ -268,6 +486,11 @@ def _trace_artifact(
 ) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
+        diagnostics = (
+            _episode_diagnostics(record)
+            if record.policy_failure is None and record.transitions
+            else None
+        )
         lines.append(
             _json_line(
                 {
@@ -285,9 +508,49 @@ def _trace_artifact(
                         else failure_return
                     ),
                     "final_x_position": (
-                        _final_x_position(record)
-                        if record.policy_failure is None
-                        and record.transitions
+                        diagnostics.final_x_position
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "outcome": _episode_outcome(record),
+                    "initial_x_position": (
+                        diagnostics.initial_x_position
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "net_x_displacement": (
+                        diagnostics.net_x_displacement
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "minimum_x_position": (
+                        diagnostics.minimum_x_position
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "maximum_x_position": (
+                        diagnostics.maximum_x_position
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "mean_x_velocity": (
+                        diagnostics.mean_x_velocity
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "forward_step_fraction": (
+                        diagnostics.forward_step_fraction
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "maximum_absolute_torso_pitch_radians": (
+                        diagnostics.maximum_absolute_torso_pitch_radians
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "mean_absolute_action": (
+                        diagnostics.mean_absolute_action
+                        if diagnostics is not None
                         else None
                     ),
                     "failure": record.policy_failure,
@@ -312,6 +575,9 @@ def _trace_artifact(
                         "step_index": step_index,
                         "observation": observation,
                         "action": action,
+                        "action_components": dict(
+                            zip(_ACTION_COMPONENTS, action, strict=True)
+                        ),
                         "reward": transition.step.reward,
                         "metrics": _trace_metrics(
                             transition.step.metrics
@@ -361,13 +627,25 @@ def _trace_observation(
     return traced
 
 
-def _trace_metrics(metrics: PolicyValue) -> dict[str, float]:
+def _trace_metrics(metrics: PolicyValue) -> dict[str, object]:
     if type(metrics) is not dict or set(metrics) != set(_METRIC_FIELDS):
         raise ValueError("HalfCheetah trace metrics are invalid")
-    traced: dict[str, float] = {}
+    traced: dict[str, object] = {}
     for key in _METRIC_FIELDS:
         value = metrics[key]
-        if type(value) is not float or not math.isfinite(value):
+        if key in {"step_count", "remaining_steps"}:
+            if type(value) is not int:
+                raise ValueError("HalfCheetah trace metrics are invalid")
+        elif key == "terminal_reason":
+            if type(value) is not str:
+                raise ValueError("HalfCheetah trace metrics are invalid")
+        elif key in {"requested_action_by_joint", "actuator_gear_scaled_controls"}:
+            if type(value) is not dict or set(value) != set(_ACTION_COMPONENTS):
+                raise ValueError("HalfCheetah trace metrics are invalid")
+            for item in value.values():
+                if type(item) is not float or not math.isfinite(item):
+                    raise ValueError("HalfCheetah trace metrics are invalid")
+        elif type(value) is not float or not math.isfinite(value):
             raise ValueError("HalfCheetah trace metrics are invalid")
         traced[key] = value
     return traced

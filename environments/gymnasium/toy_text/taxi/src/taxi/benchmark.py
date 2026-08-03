@@ -24,6 +24,7 @@ _EPISODE_SEED_DOMAIN = b"evopolicygym-taxi/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 8
 _FAILURE_RETURN = -2_000.0
+_ACTION_MEANINGS = ("south", "north", "east", "west", "pickup", "dropoff")
 _MAP = (
     "+---------+",
     "|R: | : :G|",
@@ -98,6 +99,23 @@ class TaxiBenchmark:
         )
         successes = sum(_successful(record) for record in records)
         failures = sum(record.policy_failure is not None for record in records)
+        event_counts: dict[str, PolicyValue] = {
+            event: _event_count(records, event)
+            for event in (
+                "pickup",
+                "successful_dropoff",
+                "wrong_landmark_dropoff",
+                "illegal_pickup",
+                "illegal_dropoff",
+                "movement_noop",
+            )
+        }
+        destination_changes = sum(
+            _metric(transition.step.metrics, "destination_changed") is True
+            for record in records
+            for transition in record.transitions
+        )
+        time_limits = sum(_terminal_outcome(record) == "time_limit" for record in records)
         score = statistics.fmean(returns)
         mean_steps = statistics.fmean(record.steps for record in records)
         traced = records[:_MAX_TRACED_EPISODES]
@@ -112,6 +130,9 @@ class TaxiBenchmark:
                 "mean_steps": mean_steps,
                 "episodes": len(records),
                 "successful_episodes": successes,
+                "time_limit_episodes": time_limits,
+                "event_counts": event_counts,
+                "destination_changes": destination_changes,
                 "policy_failures": failures,
                 "failure_return": _FAILURE_RETURN,
                 "traced_episodes": len(traced),
@@ -125,9 +146,31 @@ def _benchmark_spec(config: TaxiConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
         id="gymnasium/Taxi-v4/mean-return-v1",
         description=(
-            "Navigate a taxi to a passenger, pick them up, and deliver them "
-            "to the requested landmark within 200 steps. Choose among four "
-            "movement Actions, pickup, and dropoff. Maximize mean return."
+            "On the published 5x5 walled grid, navigate the taxi to the passenger, "
+            "pick them up, and deliver them to the requested landmark within 200 "
+            "steps. Actions 0-5 request south, north, east, west, pickup, and "
+            "dropoff. Every ordinary movement, wall no-op, valid pickup, and "
+            "dropoff at a wrong landmark rewards -1; the wrong-landmark dropoff "
+            "unloads the passenger there. Pickup away from the passenger or "
+            "dropoff away from any landmark rewards -10 without changing state. "
+            "Correct delivery rewards 20 and terminates. The observation's "
+            "legal_actions list is advisory: it identifies Actions expected to "
+            "change state, but all six integer Actions remain accepted. "
+            + (
+                f"Movement is rainy: the requested direction has probability "
+                f"{config.rainy_probability}, and each lateral direction has "
+                f"probability {(1.0 - config.rainy_probability) / 2.0}. "
+                if config.is_rainy
+                else "Movement is deterministic. "
+            )
+            + (
+                f"At reset, probability {config.fickle_probability} schedules one "
+                "destination change on the first successful taxi movement after "
+                "the first pickup. "
+                if config.fickle_passenger
+                else "The passenger's destination is fixed. "
+            )
+            + "Maximize mean Episode return."
         ),
         observation_space={
             "type": "object",
@@ -136,16 +179,22 @@ def _benchmark_spec(config: TaxiConfig) -> BenchmarkSpec:
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 499,
+                    "meaning": (
+                        "Encoded as (((taxi_row * 5 + taxi_column) * 5 + "
+                        "passenger_index) * 4 + destination_index)."
+                    ),
                 },
                 "taxi_row": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 4,
+                    "meaning": "Zero-based taxi row, increasing southward.",
                 },
                 "taxi_column": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 4,
+                    "meaning": "Zero-based taxi column, increasing eastward.",
                 },
                 "passenger_location": {
                     "type": "string",
@@ -156,10 +205,18 @@ def _benchmark_spec(config: TaxiConfig) -> BenchmarkSpec:
                         "blue",
                         "in_taxi",
                     ],
+                    "meaning": (
+                        "Current passenger location; changes to in_taxi after a "
+                        "valid pickup and to a landmark after any valid dropoff."
+                    ),
                 },
                 "destination": {
                     "type": "string",
                     "values": ["red", "green", "yellow", "blue"],
+                    "meaning": (
+                        "Current requested delivery landmark; it can change once "
+                        "under the configured fickle-passenger dynamics."
+                    ),
                 },
                 "legal_actions": {
                     "type": "array",
@@ -168,12 +225,21 @@ def _benchmark_spec(config: TaxiConfig) -> BenchmarkSpec:
                         "minimum": 0,
                         "maximum": 5,
                     },
+                    "meaning": (
+                        "Advisory Gymnasium mask decoded as indices expected to "
+                        "change the encoded state. Unlisted Actions are still in "
+                        "the accepted Action domain and receive upstream no-op or "
+                        "illegal-action rewards."
+                    ),
                 },
             },
         },
         action_space={
             "type": "discrete",
             "values": [0, 1, 2, 3, 4, 5],
+            "component": "requested_action",
+            "masked": False,
+            "advisory_action_field": "legal_actions",
             "meaning": {
                 "0": "move_south",
                 "1": "move_north",
@@ -201,6 +267,48 @@ def _benchmark_spec(config: TaxiConfig) -> BenchmarkSpec:
             "fickle_passenger": config.fickle_passenger,
             "rainy_probability": config.rainy_probability,
             "fickle_probability": config.fickle_probability,
+            "rows": 5,
+            "columns": 5,
+            "encoded_state_count": 500,
+            "reachable_state_count": 404,
+            "uniform_initial_state_count": 300,
+            "map": list(_MAP),
+            "landmarks": _LANDMARKS,
+            "map_encoding": (
+                "each interior ':' permits east-west passage; '|' is a vertical wall; "
+                "north-south movement has no interior walls"
+            ),
+            "state_encoding": (
+                "(((taxi_row*5+taxi_column)*5+passenger_index)*4+destination_index)"
+            ),
+            "passenger_indices": {
+                "red": 0,
+                "green": 1,
+                "yellow": 2,
+                "blue": 3,
+                "in_taxi": 4,
+            },
+            "destination_indices": {
+                "red": 0,
+                "green": 1,
+                "yellow": 2,
+                "blue": 3,
+            },
+            "requested_movement_probability": (
+                config.rainy_probability if config.is_rainy else 1.0
+            ),
+            "each_lateral_movement_probability": (
+                (1.0 - config.rainy_probability) / 2.0 if config.is_rainy else 0.0
+            ),
+            "fickle_change_trigger": (
+                "first_successful_taxi_movement_after_first_pickup"
+            ),
+            "legal_actions_is_enforced_mask": False,
+            "reward_schedule": {
+                "ordinary_or_wrong_landmark_dropoff": -1.0,
+                "successful_dropoff": 20.0,
+                "illegal_pickup_or_dropoff": -10.0,
+            },
         },
         max_episode_steps=200,
         primary_metric="mean_return",
@@ -227,6 +335,33 @@ def _successful(record: EpisodeRecord) -> bool:
     )
 
 
+def _terminal_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    final = record.transitions[-1].step
+    if _successful(record):
+        return "passenger_delivered"
+    if final.truncated:
+        return "time_limit"
+    return "incomplete"
+
+
+def _metric(metrics: PolicyValue, name: str) -> PolicyValue:
+    if type(metrics) is not dict:
+        return None
+    return metrics.get(name)
+
+
+def _event_count(records: Sequence[EpisodeRecord], event: str) -> int:
+    return sum(
+        _metric(transition.step.metrics, "event") == event
+        for record in records
+        for transition in record.transitions
+    )
+
+
 def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
@@ -247,13 +382,14 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         else _FAILURE_RETURN
                     ),
                     "passenger_delivered": _successful(record),
+                    "terminal_outcome": _terminal_outcome(record),
                     "failure": record.policy_failure,
                 }
             )
         )
         observation = _trace_observation(record.initial_observation)
         for step_index, transition in enumerate(record.transitions):
-            if type(transition.action) is not int:
+            if type(transition.action) is not int or not 0 <= transition.action < 6:
                 raise ValueError("Taxi trace Action is invalid")
             next_observation = _trace_observation(
                 transition.step.observation
@@ -266,10 +402,12 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "step_index": step_index,
                         "observation": observation,
                         "action": transition.action,
+                        "action_meaning": _ACTION_MEANINGS[transition.action],
                         "reward": transition.step.reward,
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
+                        "metrics": transition.step.metrics,
                     }
                 )
             )

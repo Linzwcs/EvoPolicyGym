@@ -47,16 +47,18 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.max_episode_steps, TURNS)
         self.assertEqual(spec.primary_metric, "mean_log2_score")
         self.assertEqual(spec.score_direction, "maximize")
+        self.assertEqual(spec.environment_parameters["generator"], GENERATOR_ID)
+        self.assertEqual(spec.environment_parameters["machine_ids"], MACHINE_IDS)
+        self.assertEqual(spec.environment_parameters["levels"], LEVELS)
+        self.assertEqual(spec.environment_parameters["turns"], TURNS)
         self.assertEqual(
-            spec.environment_parameters,
-            {
-                "generator": GENERATOR_ID,
-                "machine_ids": MACHINE_IDS,
-                "levels": LEVELS,
-                "turns": TURNS,
-                "initial_apples": INITIAL_APPLES,
-            },
+            spec.environment_parameters["initial_apples"],
+            INITIAL_APPLES,
         )
+        self.assertIn("levels 0, 1, 2, 3", spec.environment_parameters["turn_order"])
+        self.assertIn("0 for turns 1-499", spec.environment_parameters["reward_semantics"])
+        self.assertIn("log2", spec.environment_parameters["score_formula"])
+        self.assertIn("never clipped", spec.environment_parameters["invalid_upgrade_semantics"])
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_tool_license"],
@@ -75,9 +77,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=12))
         repeated = tuple(benchmark.episodes("train", seed=7, count=12))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=12)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=12))
         test = tuple(benchmark.episodes("test", seed=7, count=12))
 
         self.assertEqual(train, repeated)
@@ -125,9 +125,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             self.assertEqual(case.capacities, tuple(sorted(case.capacities)))
             self.assertTrue(all(1 <= value <= 100 for value in case.capacities))
             self.assertEqual(len(case.costs), LEVELS)
-            self.assertTrue(
-                all(len(row) == MACHINE_IDS for row in case.costs)
-            )
+            self.assertTrue(all(len(row) == MACHINE_IDS for row in case.costs))
             self.assertEqual(case.costs[0][0], 1)
 
     def test_simulation_uses_level_order_and_exact_costs(self) -> None:
@@ -163,9 +161,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
         self.assertEqual(final_score(8), 300_000)
 
     def test_initial_observation_hides_case_identity(self) -> None:
-        environment = AppleIncrementalGameEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = AppleIncrementalGameEnvironment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
         finally:
@@ -210,9 +206,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             {"upgrade": [0, MACHINE_IDS]},
         )
         for action in invalid_actions:
-            environment = AppleIncrementalGameEnvironment(
-                EpisodeSpec(environment_seed=17)
-            )
+            environment = AppleIncrementalGameEnvironment(EpisodeSpec(environment_seed=17))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction, msg=repr(action)):
@@ -220,9 +214,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
 
-        environment = AppleIncrementalGameEnvironment(
-            EpisodeSpec(environment_seed=17)
-        )
+        environment = AppleIncrementalGameEnvironment(EpisodeSpec(environment_seed=17))
         try:
             environment.reset()
             with self.assertRaises(InvalidAction):
@@ -259,6 +251,40 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             repeated_reset.reset()
         repeated_reset.close()
 
+    def test_real_upgrade_and_wait_turns_report_economic_diagnostics(self) -> None:
+        environment = AppleIncrementalGameEnvironment(EpisodeSpec(environment_seed=17))
+        try:
+            environment.reset()
+            upgraded = environment.step({"upgrade": [0, 0]})
+            waited = environment.step(None)
+        finally:
+            environment.close()
+
+        self.assertEqual(upgraded.reward, 0.0)
+        self.assertEqual(upgraded.metrics["upgrade_made_this_turn"], True)
+        self.assertEqual(upgraded.metrics["upgrade_level"], 0)
+        self.assertEqual(upgraded.metrics["upgrade_machine_id"], 0)
+        self.assertEqual(upgraded.metrics["upgrade_cost"], 1)
+        self.assertEqual(upgraded.metrics["apples_before_action"], 1)
+        self.assertEqual(upgraded.metrics["apples_after_purchase"], 0)
+        self.assertEqual(upgraded.metrics["production_this_turn"], 1)
+        self.assertEqual(upgraded.metrics["apple_net_change_this_turn"], 0)
+        self.assertEqual(upgraded.metrics["level_zero_production_rate"], 1)
+        self.assertEqual(upgraded.metrics["total_spent"], 1)
+        self.assertEqual(upgraded.metrics["total_produced"], 1)
+        self.assertEqual(upgraded.metrics["score_if_ended_now"], 0)
+        self.assertEqual(upgraded.metrics["upgrade_counts_by_level"], [1, 0, 0, 0])
+        self.assertEqual(upgraded.metrics["power_totals_by_level"], [1, 0, 0, 0])
+
+        self.assertEqual(waited.metrics["wait_action_this_turn"], True)
+        self.assertEqual(waited.metrics["production_this_turn"], 1)
+        self.assertEqual(waited.metrics["apple_net_change_this_turn"], 1)
+        self.assertEqual(waited.metrics["apples"], 2)
+        self.assertEqual(waited.metrics["wait_turn_count"], 1)
+        self.assertEqual(waited.metrics["wait_turn_fraction"], 0.5)
+        self.assertEqual(waited.metrics["cheapest_affordable_upgrade_cost"], 2)
+        self.assertGreaterEqual(waited.metrics["affordable_upgrade_count"], 1)
+
     def test_feedback_publishes_trace_and_penalizes_failure(self) -> None:
         episode = EpisodeSpec(environment_seed=123)
         environment = AppleIncrementalGameEnvironment(episode)
@@ -292,9 +318,7 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             policy_failure="invalid_action",
         )
 
-        feedback = AppleIncrementalGameBenchmark().feedback(
-            (completed, failed)
-        )
+        feedback = AppleIncrementalGameBenchmark().feedback((completed, failed))
 
         self.assertGreater(feedback.score, 0.0)
         self.assertIsInstance(feedback.content, dict)
@@ -312,6 +336,18 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             sum(document["type"] == "transition" for document in documents),
             TURNS,
         )
+        first_transition = documents[1]
+        self.assertEqual(first_transition["metrics"]["upgrade_cost"], 1)
+        self.assertEqual(first_transition["metrics"]["production_this_turn"], 1)
+        self.assertEqual(
+            first_transition["metrics"]["upgrade_counts_by_level"],
+            [1, 0, 0, 0],
+        )
+        self.assertEqual(feedback.content["mean_total_spent"], 1.0)
+        self.assertEqual(feedback.content["mean_total_produced"], 500.0)
+        self.assertEqual(feedback.content["mean_wait_turn_fraction"], 0.998)
+        self.assertEqual(feedback.content["mean_level_0_upgrade_count"], 1.0)
+        self.assertEqual(feedback.content["mean_level_1_upgrade_count"], 0.0)
 
     def test_baseline_program_completes_direct_evaluation(self) -> None:
         benchmark = AppleIncrementalGameBenchmark()
@@ -333,21 +369,14 @@ class AppleIncrementalGameBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         self.assertGreater(result.feedback.score, 0.0)
-        self.assertTrue(
-            all(episode.status == "completed" for episode in result.episodes)
-        )
-        self.assertTrue(
-            all(episode.steps == TURNS for episode in result.episodes)
-        )
+        self.assertTrue(all(episode.status == "completed" for episode in result.episodes))
+        self.assertTrue(all(episode.steps == TURNS for episode in result.episodes))
 
 
 def _simple_case(*, cost: int = 1) -> AppleCase:
     capacities = tuple(range(1, MACHINE_IDS + 1))
     costs = tuple(
-        tuple(
-            1 if level == 0 and machine_id == 0 else cost
-            for machine_id in range(MACHINE_IDS)
-        )
+        tuple(1 if level == 0 and machine_id == 0 else cost for machine_id in range(MACHINE_IDS))
         for level in range(LEVELS)
     )
     return AppleCase(capacities, costs)

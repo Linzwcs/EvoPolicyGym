@@ -10,6 +10,8 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -58,6 +60,17 @@ class FrozenLakeBenchmarkTests(unittest.TestCase):
                 ],
                 "is_slippery": False,
                 "success_rate": 1.0 / 3.0,
+                "rows": 4,
+                "columns": 4,
+                "start_position": [0, 0],
+                "goal_position": [3, 3],
+                "hole_positions": [[1, 1], [1, 3], [2, 3], [3, 0]],
+                "state_encoding": (
+                    "row_major_state_equals_row_times_columns_plus_column"
+                ),
+                "boundary_behavior": "stay_in_place",
+                "requested_direction_probability": 1.0,
+                "each_perpendicular_direction_probability": 0.0,
                 "reward_schedule": {
                     "goal": 1.0,
                     "hole": 0.0,
@@ -144,6 +157,15 @@ class FrozenLakeBenchmarkTests(unittest.TestCase):
             self.assertTrue(result.terminated)
             self.assertFalse(result.truncated)
             self.assertEqual(result.reward, 1.0)
+            result_metrics = _metrics(result)
+            self.assertEqual(_string_metric(result_metrics, "terminal_reason"), "goal")
+            self.assertEqual(_string_metric(result_metrics, "requested_direction"), "right")
+            self.assertEqual(_string_metric(result_metrics, "observed_movement"), "right")
+            self.assertEqual(_float_metric(result_metrics, "sampled_branch_probability"), 1.0)
+            self.assertEqual(
+                _float_metric(result_metrics, "observable_outcome_probability"),
+                1.0,
+            )
             self.assertIsInstance(result.observation, dict)
             assert isinstance(result.observation, dict)
             self.assertEqual(result.observation["tile"], "G")
@@ -168,6 +190,128 @@ class FrozenLakeBenchmarkTests(unittest.TestCase):
                     environment.step(invalid)
             finally:
                 environment.close()
+
+    def test_real_slip_hole_and_time_limit_feedback_are_explained(self) -> None:
+        slippery = FrozenLakeBenchmark()
+        slippery_environment = slippery.make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            slippery_environment.reset()
+            slipped = slippery_environment.step(0)
+        finally:
+            slippery_environment.close()
+        slipped_metrics = _metrics(slipped)
+        self.assertEqual(_string_metric(slipped_metrics, "requested_direction"), "left")
+        observed_movement = _string_metric(slipped_metrics, "observed_movement")
+        self.assertIn(observed_movement, {"stayed", "down"})
+        self.assertAlmostEqual(
+            _float_metric(slipped_metrics, "sampled_branch_probability"),
+            1.0 / 3.0,
+        )
+        if observed_movement == "stayed":
+            self.assertEqual(
+                _string_list_metric(slipped_metrics, "possible_sampled_directions"),
+                ["up", "left"],
+            )
+            self.assertAlmostEqual(
+                _float_metric(slipped_metrics, "observable_outcome_probability"),
+                2.0 / 3.0,
+            )
+        else:
+            self.assertEqual(
+                _string_list_metric(slipped_metrics, "possible_sampled_directions"),
+                ["down"],
+            )
+            self.assertAlmostEqual(
+                _float_metric(slipped_metrics, "observable_outcome_probability"),
+                1.0 / 3.0,
+            )
+
+        benchmark = FrozenLakeBenchmark(FrozenLakeConfig(is_slippery=False))
+        hole_episode = EpisodeSpec(environment_seed=10)
+        environment = benchmark.make_environment(hole_episode)
+        try:
+            hole_initial = environment.reset()
+            first = environment.step(1)
+            hole = environment.step(2)
+        finally:
+            environment.close()
+        self.assertFalse(first.done)
+        self.assertTrue(hole.terminated)
+        self.assertFalse(hole.truncated)
+        self.assertEqual(hole.reward, 0.0)
+        self.assertIsInstance(hole.observation, dict)
+        assert isinstance(hole.observation, dict)
+        self.assertEqual(hole.observation["tile"], "H")
+        self.assertEqual(_string_metric(_metrics(hole), "terminal_reason"), "hole")
+        hole_record = EpisodeRecord(
+            episode=hole_episode,
+            policy_seed=20,
+            initial_observation=hole_initial,
+            transitions=(
+                Transition(action=1, step=first),
+                Transition(action=2, step=hole),
+            ),
+        )
+
+        timeout_episode = EpisodeSpec(environment_seed=11)
+        environment = benchmark.make_environment(timeout_episode)
+        try:
+            timeout_initial = environment.reset()
+            timeout_transitions: list[Transition] = []
+            for _ in range(benchmark.spec.max_episode_steps):
+                timeout = environment.step(0)
+                timeout_transitions.append(Transition(action=0, step=timeout))
+        finally:
+            environment.close()
+        self.assertFalse(timeout.terminated)
+        self.assertTrue(timeout.truncated)
+        self.assertEqual(timeout.reward, 0.0)
+        timeout_metrics = _metrics(timeout)
+        self.assertEqual(_string_metric(timeout_metrics, "terminal_reason"), "time_limit")
+        self.assertEqual(_int_metric(timeout_metrics, "step_count"), 100)
+        timeout_record = EpisodeRecord(
+            episode=timeout_episode,
+            policy_seed=21,
+            initial_observation=timeout_initial,
+            transitions=tuple(timeout_transitions),
+        )
+
+        feedback = benchmark.feedback((hole_record, timeout_record))
+        self.assertEqual(feedback.score, 0.0)
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["hole_episodes"], 1)
+        self.assertEqual(feedback.content["time_limit_episodes"], 1)
+        self.assertEqual(
+            feedback.content["terminal_outcomes"],
+            {
+                "goal": 0,
+                "hole": 1,
+                "time_limit": 1,
+                "policy_failure": 0,
+                "incomplete": 0,
+            },
+        )
+        trace = [
+            json.loads(line)
+            for line in feedback.artifacts[0].content.splitlines()
+        ]
+        episodes = [document for document in trace if document["type"] == "episode"]
+        self.assertEqual(
+            [document["terminal_outcome"] for document in episodes],
+            ["hole", "time_limit"],
+        )
+        transitions = [
+            document for document in trace if document["type"] == "transition"
+        ]
+        self.assertEqual(transitions[0]["action_meaning"], "down")
+        self.assertEqual(transitions[1]["metrics"]["terminal_reason"], "hole")
+        self.assertEqual(
+            transitions[-1]["metrics"]["terminal_reason"],
+            "time_limit",
+        )
 
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
@@ -268,6 +412,45 @@ class FrozenLakeBenchmarkTests(unittest.TestCase):
             set(transitions[0]["next_observation"]),
             {"state", "row", "column", "tile"},
         )
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], key: str) -> str:
+    value = metrics.get(key)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {key}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], key: str) -> float:
+    value = metrics.get(key)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {key}")
+    return value
+
+
+def _int_metric(metrics: dict[str, PolicyValue], key: str) -> int:
+    value = metrics.get(key)
+    if type(value) is not int:
+        raise AssertionError(f"expected integer metric {key}")
+    return value
+
+
+def _string_list_metric(metrics: dict[str, PolicyValue], key: str) -> list[str]:
+    value = metrics.get(key)
+    if type(value) is not list or any(type(item) is not str for item in value):
+        raise AssertionError(f"expected string-list metric {key}")
+    result: list[str] = []
+    for item in value:
+        if type(item) is not str:
+            raise AssertionError(f"expected string-list metric {key}")
+        result.append(item)
+    return result
 
 
 if __name__ == "__main__":

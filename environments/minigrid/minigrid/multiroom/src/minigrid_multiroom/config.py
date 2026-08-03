@@ -60,4 +60,3 @@ class MultiRoomConfig:
 
 
 __all__ = ["MultiRoomConfig"]
-

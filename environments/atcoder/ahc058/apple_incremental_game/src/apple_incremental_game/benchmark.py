@@ -82,9 +82,7 @@ _SPEC = BenchmarkSpec(
         "provider": "AtCoder",
         "contest": "AtCoder Heuristic Contest 058",
         "task": "AHC058 A",
-        "upstream_specification": (
-            "https://atcoder.jp/contests/ahc058/tasks/ahc058_a"
-        ),
+        "upstream_specification": ("https://atcoder.jp/contests/ahc058/tasks/ahc058_a"),
         "upstream_specification_revision": "2025-12-14",
         "upstream_tool_archive_revision": "UpvAVdx6",
         "upstream_tool_license": "not declared; not redistributed",
@@ -104,6 +102,18 @@ _SPEC = BenchmarkSpec(
         "levels": LEVELS,
         "turns": TURNS,
         "initial_apples": INITIAL_APPLES,
+        "turn_order": (
+            "Optional upgrade purchase, then production processes levels 0, 1, 2, 3 in order."
+        ),
+        "reward_semantics": (
+            "Reward is 0 for turns 1-499 and the complete log2 score is "
+            "emitted exactly once on turn 500."
+        ),
+        "score_formula": "round(100_000*log2(final_apples))",
+        "invalid_upgrade_semantics": (
+            "Unaffordable or out-of-range upgrades are rejected as invalid "
+            "Actions and are never clipped, repaired, or converted to waits."
+        ),
     },
     max_episode_steps=TURNS,
     primary_metric="mean_log2_score",
@@ -152,34 +162,55 @@ class AppleIncrementalGameBenchmark:
         score = statistics.fmean(scores)
         completed = sum(record.policy_failure is None for record in records)
         final_apples = tuple(
-            _final_integer(record, "apples")
-            for record in records
-            if record.policy_failure is None
+            _final_integer(record, "apples") for record in records if record.policy_failure is None
         )
         upgrades = tuple(
             _final_integer(record, "total_upgrades")
             for record in records
             if record.policy_failure is None
         )
-        trace, traced_episodes, traced_transitions, omitted_transitions = (
-            _trace_artifact(records)
-        )
+        trace, traced_episodes, traced_transitions, omitted_transitions = _trace_artifact(records)
         return Feedback(
             score=score,
             content={
                 "summary": (
-                    f"Mean log2 score {score:.3f}; "
-                    f"{completed}/{len(records)} Episodes completed."
+                    f"Mean log2 score {score:.3f}; {completed}/{len(records)} Episodes completed."
                 ),
                 "mean_log2_score": score,
-                "mean_final_apples": (
-                    statistics.fmean(final_apples)
-                    if final_apples
-                    else None
+                "mean_final_apples": (statistics.fmean(final_apples) if final_apples else None),
+                "mean_total_upgrades": (statistics.fmean(upgrades) if upgrades else None),
+                "mean_total_spent": _mean_final_number(
+                    records,
+                    "total_spent",
                 ),
-                "mean_total_upgrades": (
-                    statistics.fmean(upgrades) if upgrades else None
+                "mean_total_produced": _mean_final_number(
+                    records,
+                    "total_produced",
                 ),
+                "mean_final_level_zero_production_rate": _mean_final_number(
+                    records,
+                    "level_zero_production_rate",
+                ),
+                "mean_peak_turn_production": _mean_final_number(
+                    records,
+                    "peak_turn_production",
+                ),
+                "mean_wait_turn_fraction": _mean_final_number(
+                    records,
+                    "wait_turn_fraction",
+                ),
+                "mean_final_affordable_upgrade_count": _mean_final_number(
+                    records,
+                    "affordable_upgrade_count",
+                ),
+                **{
+                    f"mean_level_{level}_upgrade_count": _mean_final_list_item(
+                        records,
+                        "upgrade_counts_by_level",
+                        level,
+                    )
+                    for level in range(LEVELS)
+                },
                 "episodes": len(records),
                 "completed": completed,
                 "policy_failures": len(records) - completed,
@@ -206,10 +237,7 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
 def _episode_score(record: EpisodeRecord) -> float:
     if record.policy_failure is not None:
         return 0.0
-    if (
-        len(record.transitions) != TURNS
-        or not record.transitions[-1].step.terminated
-    ):
+    if len(record.transitions) != TURNS or not record.transitions[-1].step.terminated:
         raise ValueError("completed Apple Incremental Episode evidence is invalid")
     return float(_final_integer(record, "final_score"))
 
@@ -226,6 +254,56 @@ def _final_integer(record: EpisodeRecord, name: str) -> int:
     return value
 
 
+def _final_number(
+    record: EpisodeRecord,
+    name: str,
+) -> int | float | None:
+    if record.policy_failure is not None or not record.transitions:
+        return None
+    metrics = record.transitions[-1].step.metrics
+    if type(metrics) is not dict:
+        raise ValueError("Apple Incremental terminal metrics are invalid")
+    value = metrics.get(name)
+    if value is None:
+        return None
+    if type(value) not in {int, float}:
+        raise ValueError("Apple Incremental terminal metrics are invalid")
+    return value
+
+
+def _mean_final_number(
+    records: Sequence[EpisodeRecord],
+    name: str,
+) -> float | None:
+    values = tuple(
+        value for record in records if (value := _final_number(record, name)) is not None
+    )
+    return statistics.fmean(values) if values else None
+
+
+def _mean_final_list_item(
+    records: Sequence[EpisodeRecord],
+    name: str,
+    index: int,
+) -> float | None:
+    values: list[int] = []
+    for record in records:
+        if record.policy_failure is not None or not record.transitions:
+            continue
+        metrics = record.transitions[-1].step.metrics
+        if type(metrics) is not dict:
+            raise ValueError("Apple Incremental terminal metrics are invalid")
+        value = metrics.get(name)
+        if (
+            type(value) is not list
+            or len(value) != LEVELS
+            or any(type(item) is not int for item in value)
+        ):
+            raise ValueError("Apple Incremental terminal metrics are invalid")
+        values.append(value[index])
+    return statistics.fmean(values) if values else None
+
+
 def _trace_artifact(
     records: Sequence[EpisodeRecord],
 ) -> tuple[Artifact, int, int, int]:
@@ -240,11 +318,7 @@ def _trace_artifact(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
-                    "status": (
-                        "completed"
-                        if record.policy_failure is None
-                        else "policy_failed"
-                    ),
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
                     "score": _episode_score(record),
                     "failure": record.policy_failure,
@@ -255,9 +329,7 @@ def _trace_artifact(
         for step_index, transition in enumerate(record.transitions):
             if traced_transitions >= _MAX_TRACED_TRANSITIONS:
                 break
-            next_observation = _trace_observation(
-                transition.step.observation
-            )
+            next_observation = _trace_observation(transition.step.observation)
             lines.append(
                 _json_line(
                     {
@@ -269,6 +341,7 @@ def _trace_artifact(
                         "reward": transition.step.reward,
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
+                        "metrics": _trace_metrics(transition.step.metrics),
                     }
                 )
             )
@@ -323,19 +396,20 @@ def _trace_observation(observation: PolicyValue) -> PolicyValue:
         ):
             raise ValueError("Apple Incremental trace observation is invalid")
         for row in matrix:
-            if type(row) is not list or any(
-                type(value) is not int for value in row
-            ):
-                raise ValueError(
-                    "Apple Incremental trace observation is invalid"
-                )
+            if type(row) is not list or any(type(value) is not int for value in row):
+                raise ValueError("Apple Incremental trace observation is invalid")
     initial = observation["initial"]
     if initial is not None and (
-        type(initial) is not dict
-        or set(initial) != {"capacities", "costs"}
+        type(initial) is not dict or set(initial) != {"capacities", "costs"}
     ):
         raise ValueError("Apple Incremental trace observation is invalid")
     return copy_policy_value(observation)
+
+
+def _trace_metrics(metrics: PolicyValue) -> PolicyValue:
+    if type(metrics) is not dict:
+        raise ValueError("Apple Incremental trace metrics are invalid")
+    return copy_policy_value(metrics)
 
 
 def _json_line(document: dict[str, object]) -> bytes:

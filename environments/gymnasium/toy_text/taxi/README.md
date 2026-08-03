@@ -26,8 +26,10 @@ to `environment_digest`, and are delivered to every Policy in
 
 In rainy mode, a movement follows the requested direction with
 `rainy_probability`; the remaining probability is split between the two
-lateral directions. With a fickle passenger, an Episode may change the
-destination once after pickup according to `fickle_probability`.
+lateral directions. A requested move blocked by a wall or boundary leaves the
+taxi in place without lateral drift. With a fickle passenger, reset samples
+with `fickle_probability` whether to change the destination once, on the first
+successful taxi movement after the first pickup.
 
 ## Contract
 
@@ -53,23 +55,30 @@ The six exact integer Actions are:
 - `4`: pick up the passenger;
 - `5`: drop off the passenger.
 
-`legal_actions` is the public Gymnasium action mask returned by `reset()` and
-`step()`. It describes actions that are physically or contextually available;
-Actions outside the Benchmark's integer domain are never clipped, cast, or
-replaced.
+`legal_actions` is the public Gymnasium advisory mask returned by `reset()` and
+`step()`. It lists Actions expected to change the encoded state; it is not an
+enforced legality mask. All six integer Actions are accepted. An unlisted wall
+movement executes as a `-1` no-op, while an unlisted illegal pickup or dropoff
+executes with reward `-10`. Values outside the six-Action integer domain are
+never clipped, cast, or replaced.
 
 Every ordinary step and valid pickup costs `-1`. Successful delivery returns
-`+20` and terminates the Episode. An illegal pickup or dropoff returns `-10`.
+`+20` and terminates the Episode. Dropping an onboard passenger at a wrong
+landmark unloads them there and costs the ordinary `-1`; pickup away from the
+passenger or dropoff away from a landmark returns `-10` without changing state.
 The scalar score is mean Episode return over the requested split. A Policy
 failure receives `-2000`, the minimum 200-step complete return.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean steps, successful deliveries, Policy
-failures, and bounded trace coverage. The public `trace.jsonl` artifact retains
+Feedback reports mean return, mean steps, successful deliveries, time limits,
+Policy failures, pickup/dropoff/illegal/no-op event counts, observed destination
+changes, and bounded trace coverage. The public `trace.jsonl` artifact retains
 at most eight Episodes and includes the complete semantic observations seen by
-the Policy, unmodified Actions, rewards, next observations, and termination
-flags.
+the Policy, named unmodified Actions, rewards, next observations, termination
+flags, advisory-mask membership, event classification, observed movement,
+sampled rainy-branch probability, state-component changes, step count, and
+terminal reason.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

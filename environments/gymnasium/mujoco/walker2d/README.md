@@ -23,7 +23,7 @@ benchmark = Walker2dBenchmark(
 )
 ```
 
-All listed parameters are published through
+All listed parameters plus cadence, actuator gears, reward formula, velocity clipping, and horizon are published through
 `BenchmarkSpec.environment_parameters`, contribute to `environment_digest`,
 and are delivered to every Policy. Gymnasium's official
 `walker2d_v5.xml` model is fixed. Custom XML paths and rendering/camera
@@ -31,30 +31,44 @@ settings are Host-owned and never cross the Policy boundary.
 
 ## Contract
 
-The default Policy observation contains seventeen named floats: torso height
+The default Policy observation contains seventeen named `float64`-derived values: torso height
 and angle, six right/left leg joint angles, torso x/z velocity, and seven
-angular velocities. With
+angular velocities. All nine velocities are clipped to `[-10, 10]`. With
 `exclude_current_positions_from_observation=False`, `torso_x_position` is
 prepended.
 
-An Action is an exact six-float list containing the right and left thigh, leg,
-and foot torques, each in `[-1.0, 1.0]`. Integers, tuples, non-finite values,
-and out-of-range values are rejected rather than converted or clipped.
+An Action is an exact six-float list containing right and left thigh, leg, and
+foot actuator controls, each in `[-1.0, 1.0]`. All official actuators apply
+gear `100`, so controls are not direct torques in newton-meters. Feedback
+reports both requested and gear-scaled values. Integers, tuples, non-finite
+values, and out-of-range values are rejected rather than converted or clipped.
 
-Reward combines weighted forward x velocity and the healthy reward, then
-subtracts weighted squared control magnitude. By default, an unhealthy walker
-terminates; otherwise the Episode truncates after 1000 steps. The scalar
-Benchmark score is mean Episode return.
+The model timestep is `0.002` seconds; default `frame_skip=4` advances `0.008`
+simulated seconds per Policy step. Forward reward uses the unclipped
+step-average x velocity `(x_after-x_before)/seconds_per_step`, not the clipped
+next-observation velocity. A walker is healthy only when height and torso angle
+are strictly inside both configured open intervals; boundary equality is
+unhealthy. Healthy reward is zero on an unhealthy step. By default, an
+unhealthy walker terminates; otherwise it can continue until truncation at
+1000 steps. The scalar score is mean Episode return.
 
 Policy failure receives a configuration-scaled return no greater than `-1000`.
 The packaged baseline applies zero torque and is intentionally weak.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean steps, final x position, Policy failures,
-and bounded trace coverage. `trace.jsonl` retains at most four Episodes with
-complete Policy observations, exact Actions, public kinematic metrics, reward
-terms, and termination flags.
+Feedback reports forward displacement, x-velocity extrema and backward-step
+fraction; torso-height and angle extrema; minimum margins to both health
+boundaries; unhealthy and velocity-clipping fractions; action effort;
+cumulative forward, control, and survival rewards; exact fall-reason counts;
+Policy failures; and bounded trace coverage.
+
+`trace.jsonl` retains at most four Episodes with complete Policy observations,
+exact named controls, gear-scaled torques, timing, start/current/running x
+positions, clipped-versus-reward velocity, health bounds and margins, reward
+decomposition, cumulative return, and explicit terminal reason. Position
+metrics remain public when current x is excluded from the observation,
+matching the existing Gymnasium `info` contract.
 
 Environment seeds, Policy seeds, Host paths, credentials, model paths, and
 private runtime evidence are never published.

@@ -11,6 +11,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -71,15 +72,49 @@ _CONTACT_COMPONENTS = {
     "force_z",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "seconds_per_step",
+    "simulated_seconds",
+    "requested_action_by_joint",
+    "actuator_gear_scaled_controls",
+    "sum_squared_action",
+    "sum_absolute_action",
+    "cumulative_absolute_action",
     "x_position",
     "y_position",
     "distance_from_origin",
     "x_velocity",
     "y_velocity",
+    "speed_in_horizontal_plane",
+    "minimum_x_position",
+    "maximum_x_position",
+    "torso_z_position",
+    "healthy",
+    "healthy_z_lower_bound",
+    "healthy_z_upper_bound",
+    "healthy_z_margin",
+    "minimum_healthy_z_margin",
+    "healthy_step_fraction",
+    "torso_tilt_radians",
+    "torso_tilt_degrees",
+    "maximum_torso_tilt_radians",
+    "quaternion_norm_error",
+    "contact_forces_in_observation",
+    "sum_squared_clipped_contact_force_components",
+    "maximum_contact_body_norm",
+    "maximum_contact_body",
     "reward_forward",
     "reward_control",
     "reward_contact",
     "reward_survive",
+    "reward_from_public_terms",
+    "cumulative_reward_forward",
+    "cumulative_reward_control",
+    "cumulative_reward_contact",
+    "cumulative_reward_survive",
+    "cumulative_return",
+    "terminal_reason",
 }
 _BIAS_ACTION = [-0.017, 0.022, 0.014, -0.013, 0.018, 0.022, -0.012, 0.002]
 
@@ -110,23 +145,22 @@ class AntBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(default.spec.max_episode_steps, 1000)
         self.assertEqual(default.spec.primary_metric, "mean_return")
-        self.assertEqual(
-            default.spec.environment_parameters,
-            {
-                "frame_skip": 5,
-                "forward_reward_weight": 1.0,
-                "ctrl_cost_weight": 0.5,
-                "contact_cost_weight": 0.0005,
-                "healthy_reward": 1.0,
-                "main_body": 1,
-                "terminate_when_unhealthy": True,
-                "healthy_z_range": [0.2, 1.0],
-                "contact_force_range": [-1.0, 1.0],
-                "reset_noise_scale": 0.1,
-                "exclude_current_positions_from_observation": True,
-                "include_cfrc_ext_in_observation": True,
-            },
-        )
+        parameters = default.spec.environment_parameters
+        self.assertEqual(parameters["frame_skip"], 5)
+        self.assertEqual(parameters["seconds_per_step"], 0.05)
+        self.assertEqual(parameters["actuator_gear"], 150.0)
+        self.assertEqual(parameters["forward_reward_weight"], 1.0)
+        self.assertEqual(parameters["ctrl_cost_weight"], 0.5)
+        self.assertEqual(parameters["contact_cost_weight"], 0.0005)
+        self.assertEqual(parameters["healthy_reward"], 1.0)
+        self.assertEqual(parameters["main_body"], 1)
+        self.assertEqual(parameters["main_body_name"], "torso")
+        self.assertTrue(parameters["terminate_when_unhealthy"])
+        self.assertEqual(parameters["healthy_z_range"], [0.2, 1.0])
+        self.assertEqual(parameters["contact_force_range"], [-1.0, 1.0])
+        self.assertEqual(parameters["reset_noise_scale"], 0.1)
+        self.assertTrue(parameters["exclude_current_positions_from_observation"])
+        self.assertTrue(parameters["include_cfrc_ext_in_observation"])
         self.assertNotEqual(
             default.spec.environment_digest,
             configured.spec.environment_digest,
@@ -148,6 +182,22 @@ class AntBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             set(configured_fields),
             {"torso_x_position", "torso_y_position", *_BODY_FIELDS},
+        )
+        self.assertEqual(default.spec.observation_space["source_dtype"], "float64")
+        self.assertIsInstance(default.spec.action_space, dict)
+        assert isinstance(default.spec.action_space, dict)
+        self.assertEqual(
+            default.spec.action_space["components"],
+            [
+                "back_right_hip",
+                "back_right_ankle",
+                "front_left_hip",
+                "front_left_ankle",
+                "front_right_hip",
+                "front_right_ankle",
+                "back_left_hip",
+                "back_left_ankle",
+            ],
         )
 
     def test_config_rejects_invalid_values(self) -> None:
@@ -249,6 +299,33 @@ class AntBenchmarkTests(unittest.TestCase):
                 step.reward,
                 forward + control + contact + survive,
             )
+            metrics = _metrics(step)
+            self.assertTrue(_bool_metric(metrics, "healthy"))
+            self.assertEqual(
+                _string_metric(metrics, "terminal_reason"),
+                "none",
+            )
+            self.assertEqual(
+                _float_metric(metrics, "reward_from_public_terms"),
+                step.reward,
+            )
+            action_by_joint = _object_metric(
+                metrics,
+                "requested_action_by_joint",
+            )
+            self.assertEqual(
+                set(action_by_joint),
+                {
+                    "back_right_hip",
+                    "back_right_ankle",
+                    "front_left_hip",
+                    "front_left_ankle",
+                    "front_right_hip",
+                    "front_right_ankle",
+                    "back_left_hip",
+                    "back_left_ankle",
+                },
+            )
         finally:
             environment.close()
             environment.close()
@@ -283,6 +360,70 @@ class AntBenchmarkTests(unittest.TestCase):
             )
         finally:
             environment.close()
+
+    def test_real_action_reports_control_contact_and_actuator_terms(self) -> None:
+        environment = AntBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        action: PolicyValue = [0.5, -0.5, 0.25, -0.25, 0.75, -0.75, 1.0, -1.0]
+        try:
+            environment.reset()
+            result = environment.step(action)
+        finally:
+            environment.close()
+
+        metrics = _metrics(result)
+        expected_squared_action = 0.25 + 0.25 + 0.0625 + 0.0625 + 0.5625 + 0.5625 + 1.0 + 1.0
+        self.assertAlmostEqual(
+            _float_metric(metrics, "sum_squared_action"),
+            expected_squared_action,
+        )
+        self.assertAlmostEqual(
+            _float_metric(metrics, "reward_control"),
+            -0.5 * expected_squared_action,
+        )
+        gear_controls = _object_metric(metrics, "actuator_gear_scaled_controls")
+        self.assertEqual(gear_controls["back_right_hip"], 75.0)
+        self.assertEqual(gear_controls["back_left_ankle"], -150.0)
+        self.assertAlmostEqual(
+            result.reward,
+            _float_metric(metrics, "reward_forward")
+            + _float_metric(metrics, "reward_control")
+            + _float_metric(metrics, "reward_contact")
+            + _float_metric(metrics, "reward_survive"),
+        )
+        self.assertGreaterEqual(
+            _float_metric(
+                metrics,
+                "sum_squared_clipped_contact_force_components",
+            ),
+            0.0,
+        )
+
+    def test_real_unhealthy_state_terminates_with_explicit_reason(self) -> None:
+        benchmark = AntBenchmark(
+            AntConfig(
+                healthy_z_range=(0.0, 0.1),
+                include_cfrc_ext_in_observation=False,
+            )
+        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            result = environment.step([0.0] * 8)
+        finally:
+            environment.close()
+
+        self.assertTrue(result.terminated)
+        self.assertFalse(result.truncated)
+        metrics = _metrics(result)
+        self.assertFalse(_bool_metric(metrics, "healthy"))
+        self.assertEqual(
+            _string_metric(metrics, "terminal_reason"),
+            "unhealthy",
+        )
+        self.assertLess(_float_metric(metrics, "healthy_z_margin"), 0.0)
+        self.assertEqual(_float_metric(metrics, "reward_survive"), 0.0)
 
     def test_environment_requires_eight_exact_bounded_floats(self) -> None:
         benchmark = AntBenchmark()
@@ -356,7 +497,7 @@ class AntBenchmarkTests(unittest.TestCase):
             execution=ProcessExecution.unsafe(),
             config=EvaluationConfig(
                 split="validation",
-                episodes=1,
+                episodes=4,
                 seed=5,
                 episode_timeout_seconds=30,
             ),
@@ -393,6 +534,28 @@ class AntBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(transitions[0]["action"], [0.0] * 8)
         self.assertEqual(set(transitions[0]["metrics"]), _METRIC_FIELDS)
+        self.assertEqual(
+            transitions[-1]["metrics"]["terminal_reason"],
+            "time_limit",
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 4)
+        self.assertEqual(
+            result.feedback.content["unhealthy_termination_episodes"],
+            0,
+        )
+        self.assertEqual(
+            result.feedback.content["mean_episode_control_reward"],
+            0.0,
+        )
+        self.assertEqual(
+            result.feedback.content["mean_healthy_step_fraction"],
+            1.0,
+        )
+
+        self.assertEqual(result.feedback.content["traced_episodes"], 1)
+        self.assertEqual(result.feedback.content["trace_episodes_omitted"], 3)
 
     def test_small_torque_bias_improves_on_zero_torque(self) -> None:
         benchmark = AntBenchmark()
@@ -423,6 +586,43 @@ def _sample_observation() -> dict[str, PolicyValue]:
         for body in _CONTACT_BODIES
     }
     return observation
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _object_metric(
+    metrics: dict[str, PolicyValue],
+    name: str,
+) -> dict[str, PolicyValue]:
+    value = metrics.get(name)
+    if type(value) is not dict:
+        raise AssertionError(f"expected object metric {name}")
+    return value
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 def _rollout(

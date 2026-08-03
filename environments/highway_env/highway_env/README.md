@@ -19,8 +19,23 @@ from highway_benchmarks import HighwayBenchmark, HighwayConfig
 benchmark = HighwayBenchmark(HighwayConfig(profile="roundabout"))
 ```
 
-The primary metric is mean Episode return. Feedback also publishes a bounded
-transition trace containing public actions, rewards, termination flags, and
-public simulator metrics. Environment seeds and Host identities are never
-published.
+The primary metric is mean Episode return. Feedback publishes per-Episode
+action/control and speed summaries, crash and success steps, and a diagnostic
+trace covering at most 48 steps in each of four Episodes. Long Episodes retain
+their first and last steps, bounded crash/success/terminal events, and an even
+timeline sample.
 
+Every selected observation is stored losslessly in a compressed NPZ artifact.
+The trace references exact decision and result arrays and adds a bounded,
+profile-specific semantic view:
+
+- Kinematics profiles label ego and nearby-vehicle features;
+- Time-to-Collision profiles report collision-cost and earliest-risk indices;
+- Parking reports achieved/desired goals and position, velocity, and heading
+  errors;
+- Racetrack reports occupancy and on-road grid statistics;
+- Lane Keeping reports state, derivative, reference state, and tracking error.
+
+The public Benchmark specification now declares the exact shapes, dtypes,
+features, axes, and profile-specific Action meanings. Omitted Episodes and
+steps are explicit. Environment seeds and Host identities are never published.

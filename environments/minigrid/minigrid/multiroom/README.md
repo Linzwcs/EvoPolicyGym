@@ -9,6 +9,13 @@ compass direction, and fixed mission. It must discover a chain of rooms, open
 the connecting doors, and reach the green goal in the final room. The primary
 score is Episode success rate.
 
+The image uses `image[view_x, view_y, channel]`: the agent is at `(3, 6)`,
+forward decreases `view_y`, and right increases `view_x`. Actions `3`
+(`pick_up`), `4` (`drop`), and `6` (`done`) are unused. Opening or crossing a
+door is intermediate; only moving forward onto the final green goal naturally
+terminates the Episode. Success reward is
+`1 - 0.9 * step_count / max_episode_steps`; all other rewards are zero.
+
 ## Install and test
 
 From the EvoPolicyGym repository root:
@@ -41,8 +48,12 @@ Available profiles are `N2-S4`, `N4-S5`, `N4-S5-v0-legacy-N6`, and
 says four rooms but whose configuration actually generates six. A profile is
 Host-selected before a Run and contributes to the environment digest.
 
-Feedback reports success, final-goal discovery, and opened-door counts,
-together with return, step, truncation, and Policy-failure statistics.
+Feedback reports success, door and final-goal discovery steps, door-open,
+door-close, and door-crossing event counts, failed toggles, blocked forward
+moves, unused actions, observation novelty, ineffective actions, action mix,
+return, truncation, and Policy failures. Door values deliberately count events,
+not unique physical doors: only adjacent door colors are guaranteed to differ,
+so a color cannot safely serve as a door identity from public observations.
 `trace.jsonl` contains a bounded semantic trace for at most four Episodes,
 retaining the first 128 and last 32 transitions of long Episodes. It contains
 no Episode seed, private Case identity, or Host path.
@@ -54,4 +65,3 @@ consumes no private environment state.
 Tests that use `ProcessExecution.unsafe()` run trusted packaged code only.
 That backend is a local process mechanism, not a sandbox and not suitable for
 hostile Programs.
-

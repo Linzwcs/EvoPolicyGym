@@ -11,9 +11,11 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
+from evopolicygym.policy import PolicyValue
 
 from cartpole import CartPoleBenchmark, baseline_program
 
@@ -32,6 +34,25 @@ def make_policy(context):
 
 
 class CartPoleBenchmarkTests(unittest.TestCase):
+    def test_spec_publishes_units_limits_dynamics_and_reward(self) -> None:
+        spec = CartPoleBenchmark().spec
+        self.assertIn("return therefore equals survived steps", spec.description)
+        observation_space = _object_value(spec.observation_space)
+        self.assertEqual(observation_space["policy_carrier"], "list[float]")
+        self.assertEqual(observation_space["source_dtype"], "float32")
+        meanings = _object_value(observation_space["component_meanings"])
+        self.assertIn("meters per second", _string_value(meanings["cart_velocity"]))
+        self.assertIn("radians per second", _string_value(meanings["pole_angular_velocity"]))
+        parameters = spec.environment_parameters
+        self.assertEqual(parameters["cart_position_limit_meters"], 2.4)
+        self.assertAlmostEqual(
+            _float_value(parameters["pole_angle_limit_radians"]),
+            0.20943951023931953,
+        )
+        self.assertEqual(parameters["force_magnitude_newtons"], 10.0)
+        self.assertEqual(parameters["seconds_per_step"], 0.02)
+        self.assertEqual(parameters["reward_per_step_including_termination"], 1.0)
+
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = CartPoleBenchmark()
 
@@ -75,6 +96,36 @@ class CartPoleBenchmarkTests(unittest.TestCase):
         finally:
             environment.close()
             environment.close()
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(environment_seed=123, scenario={"low": -0.1})
+            )
+
+    def test_real_failure_feedback_reports_crossed_limit_and_margins(self) -> None:
+        environment = CartPoleBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            environment.reset()
+            for _ in range(500):
+                result = environment.step(0)
+                if result.done:
+                    break
+        finally:
+            environment.close()
+        self.assertTrue(result.terminated)
+        self.assertFalse(result.truncated)
+        self.assertEqual(result.reward, 1.0)
+        metrics = _metrics(result)
+        reason = _string_metric(metrics, "terminal_reason")
+        self.assertTrue(
+            "cart_position_limit" in reason or "pole_angle_limit" in reason
+        )
+        self.assertGreater(_int_metric(metrics, "step_count"), 0)
+        self.assertLess(_float_metric(metrics, "survival_fraction"), 1.0)
+        self.assertFalse(_bool_metric(metrics, "balanced_within_limits"))
+        self.assertIn(_string_metric(metrics, "requested_action"), {"push_left", "push_right"})
 
     def test_feedback_penalizes_failure_and_keeps_identity_private(self) -> None:
         benchmark = CartPoleBenchmark()
@@ -130,8 +181,22 @@ class CartPoleBenchmarkTests(unittest.TestCase):
         self.assertTrue(transitions)
         self.assertEqual(len(transitions[0]["observation"]), 4)
         self.assertIn(transitions[0]["action"], {0, 1})
+        self.assertIn(transitions[0]["action_meaning"], {"push_left", "push_right"})
         self.assertEqual(transitions[0]["reward"], 1.0)
         self.assertEqual(len(transitions[0]["next_observation"]), 4)
+        self.assertIn(
+            transitions[-1]["metrics"]["terminal_reason"],
+            {"cart_position_limit", "pole_angle_limit", "cart_position_limit+pole_angle_limit"},
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        cart_limits = _int_value(
+            result.feedback.content["cart_position_limit_episodes"]
+        )
+        pole_limits = _int_value(
+            result.feedback.content["pole_angle_limit_episodes"]
+        )
+        self.assertGreaterEqual(cart_limits + pole_limits, 2)
 
     def test_simple_heuristic_improves_on_the_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -155,7 +220,57 @@ class CartPoleBenchmarkTests(unittest.TestCase):
                 ),
             )
 
-        self.assertGreater(result.feedback.score, 50.0)
+        self.assertEqual(result.feedback.score, 500.0)
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_successes"], 3)
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    return _object_value(step.metrics)
+
+
+def _object_value(value: PolicyValue) -> dict[str, PolicyValue]:
+    if type(value) is not dict:
+        raise AssertionError("expected object PolicyValue")
+    return value
+
+
+def _string_value(value: PolicyValue) -> str:
+    if type(value) is not str:
+        raise AssertionError("expected string PolicyValue")
+    return value
+
+
+def _float_value(value: PolicyValue) -> float:
+    if type(value) is not float:
+        raise AssertionError("expected float PolicyValue")
+    return value
+
+
+def _int_value(value: PolicyValue) -> int:
+    if type(value) is not int:
+        raise AssertionError("expected integer PolicyValue")
+    return value
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    return _string_value(metrics.get(name))
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    return _float_value(metrics.get(name))
+
+
+def _int_metric(metrics: dict[str, PolicyValue], name: str) -> int:
+    return _int_value(metrics.get(name))
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 if __name__ == "__main__":

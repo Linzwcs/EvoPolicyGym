@@ -30,6 +30,19 @@ WFC_PROFILES = (
 )
 _PROFILE_SET = frozenset(WFC_PROFILES)
 _SIZES = frozenset({15, 25})
+_DEFAULT_PROFILES = frozenset(
+    {
+        "MazeSimple",
+        "DungeonMazeScaled",
+        "RoomsFabric",
+        "ObstaclesBlackdots",
+        "ObstaclesAngular",
+        "ObstaclesHogs3",
+    }
+)
+_INCONSISTENT_PROFILES = frozenset(
+    {"ObstaclesHogs2", "MazeKnot", "MazeWall", "RoomsOffice", "Skew2"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +66,16 @@ class WFCConfig:
     @property
     def max_episode_steps(self) -> int:
         return 4 * self.size**2
+
+    @property
+    def generation_class(self) -> str:
+        """Return the upstream preset's expected generation-cost class."""
+
+        if self.profile in _DEFAULT_PROFILES:
+            return "default"
+        if self.profile in _INCONSISTENT_PROFILES:
+            return "inconsistent"
+        return "slow"
 
 
 __all__ = ["WFC_PROFILES", "WFCConfig"]

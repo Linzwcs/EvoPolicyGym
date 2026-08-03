@@ -10,6 +10,8 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -37,13 +39,23 @@ class BlackjackBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(standard.spec.max_episode_steps, 32)
         self.assertEqual(standard.spec.primary_metric, "mean_reward")
-        self.assertEqual(
-            standard.spec.environment_parameters,
-            {
-                "natural": False,
-                "sab": True,
-            },
-        )
+        parameters = standard.spec.environment_parameters
+        self.assertEqual(parameters["natural"], False)
+        self.assertEqual(parameters["sab"], True)
+        self.assertEqual(parameters["effective_natural_bonus"], 1.0)
+        self.assertEqual(parameters["dealer_sticks_at"], 17)
+        self.assertEqual(parameters["bust_above"], 21)
+        self.assertEqual(parameters["time_limit"], 32)
+        probabilities = _object_value(parameters["card_value_probabilities"])
+        self.assertAlmostEqual(_float_value(probabilities["1"]), 1.0 / 13.0)
+        self.assertAlmostEqual(_float_value(probabilities["10"]), 4.0 / 13.0)
+        observation_space = _object_value(standard.spec.observation_space)
+        fields = _object_value(observation_space["fields"])
+        player_sum = _object_value(fields["player_sum"])
+        dealer_showing = _object_value(fields["dealer_showing"])
+        self.assertEqual(player_sum["minimum"], 4)
+        self.assertIn("terminal observation after a bust", _string_value(player_sum["meaning"]))
+        self.assertIn("hole card stays private", _string_value(dealer_showing["meaning"]))
         self.assertNotEqual(
             standard.spec.environment_digest,
             casino.spec.environment_digest,
@@ -135,6 +147,74 @@ class BlackjackBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
 
+    def test_real_hits_bust_and_natural_payout_are_explained(self) -> None:
+        benchmark = BlackjackBenchmark()
+        episode = EpisodeSpec(environment_seed=0)
+        environment = benchmark.make_environment(episode)
+        try:
+            initial = environment.reset()
+            transitions: list[Transition] = []
+            while True:
+                step = environment.step(1)
+                transitions.append(Transition(action=1, step=step))
+                if step.done:
+                    break
+        finally:
+            environment.close()
+        self.assertEqual(len(transitions), 4)
+        inferred_cards = [
+            _int_list_metric(_metrics(transition.step), "possible_drawn_card_values")
+            for transition in transitions
+        ]
+        self.assertEqual(inferred_cards, [[1], [1], [3], [10]])
+        self.assertEqual(
+            [_string_metric(_metrics(transition.step), "event") for transition in transitions],
+            ["hit_continue", "hit_continue", "hit_continue", "hit_bust"],
+        )
+        self.assertTrue(_bool_metric(_metrics(transitions[-1].step), "player_bust"))
+        self.assertEqual(
+            _string_metric(_metrics(transitions[-1].step), "terminal_reason"),
+            "hit_bust",
+        )
+        feedback = benchmark.feedback(
+            (
+                EpisodeRecord(
+                    episode=episode,
+                    policy_seed=10,
+                    initial_observation=initial,
+                    transitions=tuple(transitions),
+                ),
+            )
+        )
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        event_counts = feedback.content["event_counts"]
+        self.assertIsInstance(event_counts, dict)
+        assert isinstance(event_counts, dict)
+        self.assertEqual(event_counts["hit_continue"], 3)
+        self.assertEqual(event_counts["hit_bust"], 1)
+
+        casino = BlackjackBenchmark(BlackjackConfig(natural=True, sab=False))
+        natural_episode = EpisodeSpec(environment_seed=5)
+        environment = casino.make_environment(natural_episode)
+        try:
+            natural_initial = environment.reset()
+            natural = environment.step(0)
+        finally:
+            environment.close()
+        self.assertEqual(
+            natural_initial,
+            {"player_sum": 21, "dealer_showing": 9, "usable_ace": True},
+        )
+        self.assertEqual(natural.reward, 1.5)
+        natural_metrics = _metrics(natural)
+        self.assertTrue(_bool_metric(natural_metrics, "initial_player_natural"))
+        self.assertEqual(_string_metric(natural_metrics, "event"), "stick_natural_win")
+        self.assertEqual(
+            _string_metric(natural_metrics, "terminal_reason"),
+            "stick_natural_win",
+        )
+
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
     ) -> None:
@@ -222,7 +302,13 @@ class BlackjackBenchmarkTests(unittest.TestCase):
             {"player_sum", "dealer_showing", "usable_ace"},
         )
         self.assertEqual(transitions[0]["action"], 0)
+        self.assertEqual(transitions[0]["action_meaning"], "stick")
         self.assertIn(transitions[0]["reward"], {-1.0, 0.0, 1.0})
+        self.assertIn(
+            transitions[0]["metrics"]["event"],
+            {"stick_win", "stick_draw", "stick_loss"},
+        )
+        self.assertNotIn("dealer_hole", trace.read_bytes().decode("utf-8"))
 
     def test_threshold_strategy_improves_on_always_stick(self) -> None:
         benchmark = BlackjackBenchmark()
@@ -265,6 +351,53 @@ class BlackjackBenchmarkTests(unittest.TestCase):
             statistics.fmean(threshold),
             statistics.fmean(always_stick),
         )
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    return _string_value(metrics.get(name))
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
+
+
+def _int_list_metric(metrics: dict[str, PolicyValue], name: str) -> list[int]:
+    value = metrics.get(name)
+    if type(value) is not list:
+        raise AssertionError(f"expected list metric {name}")
+    result: list[int] = []
+    for item in value:
+        if type(item) is not int:
+            raise AssertionError(f"expected integer-list metric {name}")
+        result.append(item)
+    return result
+
+
+def _object_value(value: PolicyValue) -> dict[str, PolicyValue]:
+    if type(value) is not dict:
+        raise AssertionError("expected object PolicyValue")
+    return value
+
+
+def _string_value(value: PolicyValue) -> str:
+    if type(value) is not str:
+        raise AssertionError("expected string PolicyValue")
+    return value
+
+
+def _float_value(value: PolicyValue) -> float:
+    if type(value) is not float:
+        raise AssertionError("expected float PolicyValue")
+    return value
 
 
 if __name__ == "__main__":

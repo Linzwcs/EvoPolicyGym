@@ -37,7 +37,14 @@ out-of-range points, and impossible final partitions are rejected.
 The primary metric is mean official logarithmic cost score and higher is
 better. A Policy failure contributes zero. Feedback publishes aggregate
 outcomes and a bounded semantic trace containing the initial public point set
-and selected bond events.
+and selected bond events. Because the upstream reward is zero until the final
+turn, every step also reports bond count and per-bond cost, cumulative and
+maximum costs, remaining required merges, merge-completion fraction, component
+size histogram, singleton and completed-size component counts, whether the
+mandatory 10-by-30 partition is already ready, and the score upper bound if no
+additional cost were incurred. Feedback aggregates bonding frequency, cost per
+bond, empty-turn fraction, and the first turn on which a valid final partition
+was formed.
 
 The packaged baseline bonds consecutive blocks of 30 points on turn zero. It
 is intentionally weak but completes the full official task for every Case.

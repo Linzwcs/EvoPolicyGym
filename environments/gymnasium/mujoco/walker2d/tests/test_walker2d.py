@@ -38,12 +38,26 @@ _BODY_FIELDS = {
     "left_foot_angular_velocity",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "seconds_per_step",
+    "requested_right_thigh_control",
+    "gear_scaled_right_thigh_torque",
     "x_position",
-    "z_distance_from_origin",
-    "x_velocity",
+    "forward_displacement",
+    "step_average_x_velocity",
+    "observation_torso_x_velocity",
+    "torso_z_position",
+    "height_health_margin",
+    "torso_angle_radians",
+    "angle_health_margin",
+    "healthy",
+    "velocity_observation_at_clip_limit",
     "reward_forward",
     "reward_control",
     "reward_survive",
+    "cumulative_return",
+    "terminal_reason",
 }
 _ANGLE_FIELDS = (
     "right_thigh_angle",
@@ -90,14 +104,24 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters,
             {
                 "frame_skip": 4,
+                "model_timestep_seconds": 0.002,
+                "seconds_per_step": 0.008,
+                "actuator_gears": [100.0] * 6,
                 "forward_reward_weight": 1.0,
                 "ctrl_cost_weight": 0.001,
                 "healthy_reward": 1.0,
+                "reward_formula": (
+                    "forward_reward_weight*((x_after-x_before)/seconds_per_step)+"
+                    "healthy_reward_if_strictly_healthy-ctrl_cost_weight*sum(action^2)"
+                ),
                 "terminate_when_unhealthy": True,
                 "healthy_z_range": [0.8, 2.0],
                 "healthy_angle_range": [-1.0, 1.0],
+                "healthy_bounds_inclusive": False,
+                "observation_velocity_clipping": [-10.0, 10.0],
                 "reset_noise_scale": 0.005,
                 "exclude_current_positions_from_observation": True,
+                "time_limit": 1000,
             },
         )
         self.assertNotEqual(
@@ -147,9 +171,7 @@ class Walker2dBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -176,9 +198,7 @@ class Walker2dBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -187,7 +207,7 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             step = environment.step([0.0] * 6)
             self.assertIsInstance(step.metrics, dict)
             assert isinstance(step.metrics, dict)
-            self.assertEqual(set(step.metrics), _METRIC_FIELDS)
+            self.assertTrue(_METRIC_FIELDS.issubset(step.metrics))
             forward = step.metrics["reward_forward"]
             control = step.metrics["reward_control"]
             survive = step.metrics["reward_survive"]
@@ -198,15 +218,29 @@ class Walker2dBenchmarkTests(unittest.TestCase):
                 step.reward,
                 forward + control + survive,
             )
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 999)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.008)
+            self.assertEqual(step.metrics["healthy"], True)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+            controlled_step = environment.step([0.5, -0.5, 0.25, -0.25, 0.75, -0.75])
+            self.assertIsInstance(controlled_step.metrics, dict)
+            assert isinstance(controlled_step.metrics, dict)
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_right_thigh_torque"],
+                50.0,
+            )
+            self.assertEqual(
+                controlled_step.metrics["gear_scaled_left_foot_torque"],
+                -75.0,
+            )
         finally:
             environment.close()
             environment.close()
 
     def test_position_including_environment_conforms(self) -> None:
         benchmark = Walker2dBenchmark(
-            Walker2dConfig(
-                exclude_current_positions_from_observation=False
-            )
+            Walker2dConfig(exclude_current_positions_from_observation=False)
         )
         report = check_benchmark(
             benchmark,
@@ -218,9 +252,7 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=456)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=456))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -229,6 +261,30 @@ class Walker2dBenchmarkTests(unittest.TestCase):
                 set(observation),
                 {"torso_x_position", *_BODY_FIELDS},
             )
+        finally:
+            environment.close()
+
+    def test_unhealthy_walker_can_continue_without_survival_reward(
+        self,
+    ) -> None:
+        benchmark = Walker2dBenchmark(Walker2dConfig(terminate_when_unhealthy=False))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            unhealthy = None
+            for _ in range(300):
+                step = environment.step([0.0] * 6)
+                assert isinstance(step.metrics, dict)
+                if step.metrics["healthy"] is False:
+                    unhealthy = step
+                    break
+            self.assertIsNotNone(unhealthy)
+            assert unhealthy is not None
+            self.assertFalse(unhealthy.terminated)
+            self.assertFalse(unhealthy.truncated)
+            assert isinstance(unhealthy.metrics, dict)
+            self.assertEqual(unhealthy.metrics["reward_survive"], 0.0)
+            self.assertEqual(unhealthy.metrics["terminal_reason"], "none")
         finally:
             environment.close()
 
@@ -243,9 +299,7 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -317,17 +371,10 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
         episode = documents[0]
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
-        )
+        transitions = tuple(document for document in documents if document["type"] == "transition")
         self.assertEqual(len(transitions), episode["steps"])
         self.assertGreater(len(transitions), 0)
         self.assertEqual(
@@ -335,7 +382,11 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             _BODY_FIELDS,
         )
         self.assertEqual(transitions[0]["action"], [0.0] * 6)
-        self.assertEqual(set(transitions[0]["metrics"]), _METRIC_FIELDS)
+        self.assertEqual(
+            set(transitions[0]["action_components"]),
+            {f"{name.removesuffix('_angle')}_control" for name in _ANGLE_FIELDS},
+        )
+        self.assertTrue(_METRIC_FIELDS.issubset(transitions[0]["metrics"]))
 
     def test_balance_controller_improves_on_zero_torque(self) -> None:
         benchmark = Walker2dBenchmark()
@@ -344,18 +395,24 @@ class Walker2dBenchmarkTests(unittest.TestCase):
             seed=17,
             count=8,
         )
-        zero_torque: list[float] = []
-        balance: list[float] = []
+        zero_torque: list[tuple[float, int, float]] = []
+        balance: list[tuple[float, int, float]] = []
 
         for episode in episodes:
-            zero_torque.append(
-                _rollout(benchmark, episode, balance=False)
-            )
+            zero_torque.append(_rollout(benchmark, episode, balance=False))
             balance.append(_rollout(benchmark, episode, balance=True))
 
         self.assertGreater(
-            statistics.fmean(balance),
-            statistics.fmean(zero_torque),
+            statistics.fmean(item[0] for item in balance),
+            statistics.fmean(item[0] for item in zero_torque),
+        )
+        self.assertGreater(
+            statistics.fmean(item[1] for item in balance),
+            statistics.fmean(item[1] for item in zero_torque),
+        )
+        self.assertGreater(
+            statistics.fmean(item[2] for item in balance),
+            statistics.fmean(item[2] for item in zero_torque),
         )
 
 
@@ -368,9 +425,10 @@ def _rollout(
     episode: EpisodeSpec,
     *,
     balance: bool,
-) -> float:
+) -> tuple[float, int, float]:
     environment = benchmark.make_environment(episode)
     total = 0.0
+    final_metrics: dict[str, PolicyValue] | None = None
     try:
         observation = environment.reset()
         for _ in range(1000):
@@ -378,10 +436,7 @@ def _rollout(
             if balance:
                 assert isinstance(observation, dict)
                 action_values = [
-                    _clip(
-                        -3.0 * _float(observation[angle])
-                        - _float(observation[velocity])
-                    )
+                    _clip(-3.0 * _float(observation[angle]) - _float(observation[velocity]))
                     for angle, velocity in zip(
                         _ANGLE_FIELDS,
                         _VELOCITY_FIELDS,
@@ -390,25 +445,27 @@ def _rollout(
                 ]
                 torso_correction = _clip_to(
                     -2.0 * _float(observation["torso_angle"])
-                    - 0.3
-                    * _float(observation["torso_angular_velocity"]),
+                    - 0.3 * _float(observation["torso_angular_velocity"]),
                     bound=0.5,
                 )
-                action_values[0] = _clip(
-                    action_values[0] + torso_correction
-                )
-                action_values[3] = _clip(
-                    action_values[3] + torso_correction
-                )
+                action_values[0] = _clip(action_values[0] + torso_correction)
+                action_values[3] = _clip(action_values[3] + torso_correction)
                 action = _policy_action(action_values)
             result = environment.step(action)
             total += result.reward
             observation = result.observation
+            assert isinstance(result.metrics, dict)
+            final_metrics = result.metrics
             if result.done:
                 break
     finally:
         environment.close()
-    return total
+    assert final_metrics is not None
+    steps = final_metrics["step_count"]
+    forward_displacement = final_metrics["forward_displacement"]
+    assert type(steps) is int
+    assert type(forward_displacement) is float
+    return total, steps, forward_displacement
 
 
 def _float(value: PolicyValue) -> float:

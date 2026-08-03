@@ -50,6 +50,10 @@ flowchart LR
 The Agent can edit the Program, inspect public Feedback, and submit or finish
 through its scoped Session client. The Host owns the Episode pool, budget,
 Evaluation lifecycle, private final selection, and retained evidence.
+The Host task declares `evopolicygym-session submit` as the Agent's only
+authorized Benchmark Environment interaction path; directly running a local
+Benchmark implementation, environment provider, simulator, ROM, or equivalent
+mechanism is forbidden and does not constitute a budgeted experiment.
 
 ### Active experimentation under a budget
 
@@ -102,7 +106,8 @@ one.
 
 > `ProcessExecution` is not a sandbox. Policy and Agent processes run with the
 > authority of the current operating-system user; use it only with trusted
-> code.
+> code. Its Agent instructions prohibit out-of-Session Environment interaction,
+> but this is a normative prompt rule rather than an isolation guarantee.
 
 ## Run a coding agent
 

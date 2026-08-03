@@ -10,6 +10,7 @@ dependencies = [
     "evopolicygym==0.3.*",
     "ale-py==0.12.0",
     "gymnasium>=1.2.3,<2",
+    "pillow>=12.1.1,<13",
 ]
 
 [build-system]

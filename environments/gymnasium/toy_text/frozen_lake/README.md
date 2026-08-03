@@ -46,10 +46,14 @@ The Policy observation is semantic rather than a bare Gymnasium integer:
 }
 ```
 
+`state` is the row-major id `row * columns + column`; row zero is the top and
+column zero is the left. The full map, start, goal, hole coordinates, state
+encoding, and boundary behavior are public environment parameters.
+
 Actions are exact integers: `0` moves left, `1` down, `2` right, and `3` up.
 When the lake is slippery, the requested direction succeeds with
 `success_rate`; each adjacent direction receives half of the remaining
-probability.
+probability. A move beyond the map edge stays in place.
 
 Reaching the goal returns `1` and terminates the Episode. Frozen tiles and
 holes return `0`; a hole terminates the Episode. The scalar Benchmark score is
@@ -62,10 +66,14 @@ seeds.
 
 ## Feedback and trace
 
-Feedback reports success rate, mean return, mean steps, Policy failures, and
-bounded trace coverage. The public `trace.jsonl` artifact retains at most eight
-Episodes and includes semantic observations, Actions, rewards, next
-observations, and termination flags.
+Feedback reports success rate, mean return, mean steps, hole, time-limit, and
+Policy-failure counts, plus bounded trace coverage. The public `trace.jsonl`
+artifact retains at most eight Episodes and includes semantic observations,
+named Actions, rewards, next observations, termination flags, and each sampled
+transition's requested direction, observed movement, sampled-branch
+probability, total probability of the observable outcome, possible sampled
+directions when boundaries make them ambiguous, step count, and terminal
+reason.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

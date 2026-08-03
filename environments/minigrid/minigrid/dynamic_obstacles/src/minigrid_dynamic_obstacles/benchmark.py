@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import statistics
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from evopolicygym.authoring import (
     Artifact,
@@ -20,9 +22,7 @@ from evopolicygym.policy import PolicyValue, TensorValue
 from .config import DynamicObstaclesConfig
 from .environment import DynamicObstaclesEnvironment
 
-_EPISODE_SEED_DOMAIN = (
-    b"evopolicygym-minigrid-dynamic-obstacles/episode-seed/v1\0"
-)
+_EPISODE_SEED_DOMAIN = b"evopolicygym-minigrid-dynamic-obstacles/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 4
 _TRACE_PREFIX_STEPS = 128
@@ -49,7 +49,52 @@ _ACTION_MEANING: dict[str, PolicyValue] = {
     "1": "turn_right",
     "2": "move_forward",
 }
-_METRIC_FIELDS = {"goal_found", "collision", "success"}
+_ACTION_NAMES = tuple(str(_ACTION_MEANING[str(index)]) for index in range(3))
+_METRIC_FIELDS = frozenset(
+    {
+        "step_count",
+        "remaining_steps",
+        "goal_visible",
+        "goal_found",
+        "goal_first_seen_step",
+        "obstacle_visible",
+        "obstacle_found",
+        "obstacle_first_seen_step",
+        "visible_obstacle_count",
+        "max_visible_obstacle_count",
+        "obstacle_exposure_step_fraction",
+        "front_object_before_action",
+        "observation_novel",
+        "unique_observation_count",
+        "observation_novelty_step_fraction",
+        "ineffective_action",
+        "ineffective_action_fraction",
+        "success_reward_at_this_step",
+        "cumulative_return",
+        "collision",
+        "collision_step",
+        "obstacle_collision",
+        "wall_collision",
+        "blocked_by",
+        "success",
+        "terminal_reason",
+        *(f"{name}_count" for name in _ACTION_NAMES),
+    }
+)
+
+
+@dataclass(frozen=True)
+class _EpisodeDiagnostics:
+    goal_first_seen_step: int
+    obstacle_first_seen_step: int
+    collision_step: int
+    unique_observation_count: int
+    max_visible_obstacle_count: int
+    obstacle_exposure_step_fraction: float
+    observation_novelty_step_fraction: float
+    ineffective_action_fraction: float
+    action_counts: tuple[int, ...]
+    outcome: str
 
 
 class DynamicObstaclesBenchmark:
@@ -107,45 +152,96 @@ class DynamicObstaclesBenchmark:
         successes = len(successful)
         score = successes / len(records)
         found_goals = _milestone_count(records, "goal_found")
+        found_obstacles = _milestone_count(records, "obstacle_found")
         collisions = _milestone_count(records, "collision")
+        obstacle_collisions = _milestone_count(
+            records,
+            "obstacle_collision",
+        )
+        wall_collisions = _milestone_count(records, "wall_collision")
         mean_return = statistics.fmean(
-            record.total_reward if record.policy_failure is None else 0.0
-            for record in records
+            record.total_reward if record.policy_failure is None else 0.0 for record in records
         )
         mean_steps = statistics.fmean(record.steps for record in records)
         mean_success_steps: PolicyValue = (
-            statistics.fmean(record.steps for record in successful)
-            if successful
-            else None
+            statistics.fmean(record.steps for record in successful) if successful else None
         )
         failures = sum(record.policy_failure is not None for record in records)
         truncations = sum(_truncated(record) for record in records)
+        diagnostics = tuple(
+            _episode_diagnostics(record)
+            for record in records
+            if record.policy_failure is None and record.transitions
+        )
         traced = records[:_MAX_TRACED_EPISODES]
+        content: dict[str, PolicyValue] = {
+            "summary": (
+                f"Reached the goal in {successes}/{len(records)} Episodes "
+                f"({score:.3f} success rate); {collisions} made a blocked "
+                f"forward move ({obstacle_collisions} into a moving ball, "
+                f"{wall_collisions} into a wall)."
+            ),
+            "success_rate": score,
+            "goal_found_rate": found_goals / len(records),
+            "obstacle_found_rate": found_obstacles / len(records),
+            "collision_rate": collisions / len(records),
+            "obstacle_collision_rate": obstacle_collisions / len(records),
+            "wall_collision_rate": wall_collisions / len(records),
+            "mean_return": mean_return,
+            "mean_steps": mean_steps,
+            "mean_steps_on_success": mean_success_steps,
+            "mean_goal_first_seen_step": _mean_milestone(
+                tuple(item.goal_first_seen_step for item in diagnostics)
+            ),
+            "mean_obstacle_first_seen_step": _mean_milestone(
+                tuple(item.obstacle_first_seen_step for item in diagnostics)
+            ),
+            "mean_collision_step": _mean_milestone(
+                tuple(item.collision_step for item in diagnostics)
+            ),
+            "mean_unique_observation_count": _mean_or_none(
+                tuple(float(item.unique_observation_count) for item in diagnostics)
+            ),
+            "mean_max_visible_obstacle_count": _mean_or_none(
+                tuple(float(item.max_visible_obstacle_count) for item in diagnostics)
+            ),
+            "mean_obstacle_exposure_step_fraction": _mean_or_none(
+                tuple(item.obstacle_exposure_step_fraction for item in diagnostics)
+            ),
+            "mean_observation_novelty_step_fraction": _mean_or_none(
+                tuple(item.observation_novelty_step_fraction for item in diagnostics)
+            ),
+            "mean_ineffective_action_fraction": _mean_or_none(
+                tuple(item.ineffective_action_fraction for item in diagnostics)
+            ),
+            "episodes_goal_found_but_not_reached": sum(
+                _reached_milestone(record, "goal_found") and not _successful(record)
+                for record in records
+            ),
+            "episodes": len(records),
+            "successful_episodes": successes,
+            "goal_found_episodes": found_goals,
+            "obstacle_found_episodes": found_obstacles,
+            "collision_episodes": collisions,
+            "obstacle_collision_episodes": obstacle_collisions,
+            "wall_collision_episodes": wall_collisions,
+            "truncated_episodes": truncations,
+            "policy_failures": failures,
+            "traced_episodes": len(traced),
+            "trace_episodes_omitted": len(records) - len(traced),
+            "trace_prefix_steps": _TRACE_PREFIX_STEPS,
+            "trace_suffix_steps": _TRACE_SUFFIX_STEPS,
+        }
+        for action_index, name in enumerate(_ACTION_NAMES):
+            content[f"mean_{name}_fraction"] = _mean_or_none(
+                tuple(
+                    item.action_counts[action_index] / sum(item.action_counts)
+                    for item in diagnostics
+                )
+            )
         return Feedback(
             score=score,
-            content={
-                "summary": (
-                    f"Reached the goal without collision in {successes}/"
-                    f"{len(records)} Episodes ({score:.3f} success rate); "
-                    f"{collisions} Episodes collided with an obstacle."
-                ),
-                "success_rate": score,
-                "goal_found_rate": found_goals / len(records),
-                "collision_rate": collisions / len(records),
-                "mean_return": mean_return,
-                "mean_steps": mean_steps,
-                "mean_steps_on_success": mean_success_steps,
-                "episodes": len(records),
-                "successful_episodes": successes,
-                "goal_found_episodes": found_goals,
-                "collision_episodes": collisions,
-                "truncated_episodes": truncations,
-                "policy_failures": failures,
-                "traced_episodes": len(traced),
-                "trace_episodes_omitted": len(records) - len(traced),
-                "trace_prefix_steps": _TRACE_PREFIX_STEPS,
-                "trace_suffix_steps": _TRACE_SUFFIX_STEPS,
-            },
+            content=content,
             artifacts=(_trace_artifact(traced),),
         )
 
@@ -155,8 +251,9 @@ def _benchmark_spec(config: DynamicObstaclesConfig) -> BenchmarkSpec:
         id="minigrid/DynamicObstacles-v0/success-rate-v1",
         description=(
             "Reach the green goal in a partially observable room while grey "
-            "balls move locally before every action. Avoid collision and "
-            "maximize success rate."
+            "balls move locally after the front cell is checked and before "
+            "the action is applied. A forward attempt into a currently "
+            "occupied non-goal cell, including a wall, terminates with -1."
         ),
         observation_space={
             "type": "object",
@@ -167,6 +264,11 @@ def _benchmark_spec(config: DynamicObstaclesConfig) -> BenchmarkSpec:
                     "shape": [7, 7, 3],
                     "layout": "XYC",
                     "channels": ["object", "color", "state"],
+                    "axis_order": ["view_x", "view_y", "channel"],
+                    "meaning": (
+                        "Agent-centric view: agent at (3,6), forward decreases "
+                        "view_y, and right increases view_x."
+                    ),
                 },
                 "direction": {
                     "type": "integer",
@@ -203,26 +305,34 @@ def _benchmark_spec(config: DynamicObstaclesConfig) -> BenchmarkSpec:
             "random_start": config.random_start,
             "view_size": 7,
             "agent_view_position": [3, 6],
+            "view_forward_direction": "decreasing view_y",
+            "view_right_direction": "increasing view_x",
+            "image_axis_order": ["view_x", "view_y", "channel"],
+            "image_channel_order": ["object", "color", "state"],
+            "direction_encoding": {
+                "east": 0,
+                "south": 1,
+                "west": 2,
+                "north": 3,
+            },
             "mission": _MISSION,
             "obstacle_object": "grey ball",
             "obstacle_motion": (
-                "before every agent action, each ball attempts to move to a "
+                "the cell directly ahead is checked first; then, before the "
+                "agent action is applied, each ball attempts to move to a "
                 "free cell within its local 3x3 neighborhood"
             ),
-            "object_encoding": {
-                name: code for code, name in enumerate(_OBJECT_NAMES)
-            },
-            "color_encoding": {
-                name: code for code, name in enumerate(_COLOR_NAMES)
-            },
-            "state_encoding": {
-                name: code for code, name in enumerate(_STATE_NAMES)
-            },
-            "reward": (
-                "positive discounted reward for reaching the goal, -1 for "
-                "attempting to move into an occupied non-goal cell, zero for "
-                "timeout"
+            "object_encoding": {name: code for code, name in enumerate(_OBJECT_NAMES)},
+            "color_encoding": {name: code for code, name in enumerate(_COLOR_NAMES)},
+            "state_encoding": {name: code for code, name in enumerate(_STATE_NAMES)},
+            "success_reward_formula": ("1 - 0.9*step_count/max_episode_steps"),
+            "collision_reward": -1.0,
+            "non_terminal_reward": 0.0,
+            "natural_termination": (
+                "enter goal cell, or attempt forward into a cell that was "
+                "occupied by a non-goal object before obstacle motion"
             ),
+            "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
         primary_metric="success_rate",
@@ -272,26 +382,94 @@ def _reached_milestone(record: EpisodeRecord, name: str) -> bool:
     return False
 
 
+def _episode_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    metrics = _trace_metrics(record.transitions[-1].step.metrics)
+    reason = metrics["terminal_reason"]
+    if type(reason) is not str:
+        raise ValueError("MiniGrid DynamicObstacles terminal reason is invalid")
+    return reason if reason != "none" else "incomplete"
+
+
+def _episode_diagnostics(record: EpisodeRecord) -> _EpisodeDiagnostics:
+    if not record.transitions:
+        raise ValueError("MiniGrid DynamicObstacles diagnostics require a transition")
+    final = _trace_metrics(record.transitions[-1].step.metrics)
+    return _EpisodeDiagnostics(
+        goal_first_seen_step=_int_metric(final, "goal_first_seen_step"),
+        obstacle_first_seen_step=_int_metric(
+            final,
+            "obstacle_first_seen_step",
+        ),
+        collision_step=_int_metric(final, "collision_step"),
+        unique_observation_count=_int_metric(
+            final,
+            "unique_observation_count",
+        ),
+        max_visible_obstacle_count=_int_metric(
+            final,
+            "max_visible_obstacle_count",
+        ),
+        obstacle_exposure_step_fraction=_float_metric(
+            final,
+            "obstacle_exposure_step_fraction",
+        ),
+        observation_novelty_step_fraction=_float_metric(
+            final,
+            "observation_novelty_step_fraction",
+        ),
+        ineffective_action_fraction=_float_metric(
+            final,
+            "ineffective_action_fraction",
+        ),
+        action_counts=tuple(_int_metric(final, f"{name}_count") for name in _ACTION_NAMES),
+        outcome=_episode_outcome(record),
+    )
+
+
+def _int_metric(metrics: dict[str, PolicyValue], name: str) -> int:
+    value = metrics.get(name)
+    if type(value) is not int:
+        raise ValueError(f"MiniGrid DynamicObstacles metric {name} is invalid")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float or not math.isfinite(value):
+        raise ValueError(f"MiniGrid DynamicObstacles metric {name} is invalid")
+    return value
+
+
+def _mean_or_none(values: tuple[float, ...]) -> float | None:
+    return statistics.fmean(values) if values else None
+
+
+def _mean_milestone(values: tuple[int, ...]) -> float | None:
+    reached = tuple(value for value in values if value >= 0)
+    return statistics.fmean(reached) if reached else None
+
+
 def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
     lines: list[bytes] = []
     for episode_index, record in enumerate(records):
         selected_steps = _trace_indices(record.steps)
+        diagnostics = (
+            _episode_diagnostics(record)
+            if record.policy_failure is None and record.transitions
+            else None
+        )
         lines.append(
             _json_line(
                 {
                     "type": "episode",
                     "episode_index": episode_index,
-                    "status": (
-                        "completed"
-                        if record.policy_failure is None
-                        else "policy_failed"
-                    ),
+                    "status": ("completed" if record.policy_failure is None else "policy_failed"),
                     "steps": record.steps,
-                    "return": (
-                        record.total_reward
-                        if record.policy_failure is None
-                        else 0.0
-                    ),
+                    "return": (record.total_reward if record.policy_failure is None else 0.0),
                     "goal_found": _reached_milestone(
                         record,
                         "goal_found",
@@ -300,12 +478,41 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         record,
                         "collision",
                     ),
+                    "obstacle_collision": _reached_milestone(
+                        record,
+                        "obstacle_collision",
+                    ),
+                    "wall_collision": _reached_milestone(
+                        record,
+                        "wall_collision",
+                    ),
                     "success": _successful(record),
+                    "outcome": (
+                        diagnostics.outcome if diagnostics is not None else _episode_outcome(record)
+                    ),
+                    "goal_first_seen_step": (
+                        diagnostics.goal_first_seen_step if diagnostics is not None else None
+                    ),
+                    "obstacle_first_seen_step": (
+                        diagnostics.obstacle_first_seen_step if diagnostics is not None else None
+                    ),
+                    "collision_step": (
+                        diagnostics.collision_step if diagnostics is not None else None
+                    ),
+                    "unique_observation_count": (
+                        diagnostics.unique_observation_count if diagnostics is not None else None
+                    ),
+                    "obstacle_exposure_step_fraction": (
+                        diagnostics.obstacle_exposure_step_fraction
+                        if diagnostics is not None
+                        else None
+                    ),
+                    "ineffective_action_fraction": (
+                        diagnostics.ineffective_action_fraction if diagnostics is not None else None
+                    ),
                     "truncated": _truncated(record),
                     "failure": record.policy_failure,
-                    "initial_observation": _trace_observation(
-                        record.initial_observation
-                    ),
+                    "initial_observation": _trace_observation(record.initial_observation),
                     "traced_steps": len(selected_steps),
                     "omitted_steps": record.steps - len(selected_steps),
                 }
@@ -314,9 +521,7 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
         for step_index in selected_steps:
             transition = record.transitions[step_index]
             if type(transition.action) is not int or not 0 <= transition.action <= 2:
-                raise ValueError(
-                    "MiniGrid DynamicObstacles trace Action is invalid"
-                )
+                raise ValueError("MiniGrid DynamicObstacles trace Action is invalid")
             lines.append(
                 _json_line(
                     {
@@ -324,18 +529,12 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "episode_index": episode_index,
                         "step_index": step_index,
                         "action": transition.action,
-                        "action_meaning": _ACTION_MEANING[
-                            str(transition.action)
-                        ],
+                        "action_meaning": _ACTION_MEANING[str(transition.action)],
                         "reward": transition.step.reward,
-                        "next_observation": _trace_observation(
-                            transition.step.observation
-                        ),
+                        "next_observation": _trace_observation(transition.step.observation),
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
-                        "metrics": _trace_metrics(
-                            transition.step.metrics
-                        ),
+                        "metrics": _trace_metrics(transition.step.metrics),
                     }
                 )
             )
@@ -356,15 +555,52 @@ def _trace_indices(step_count: int) -> tuple[int, ...]:
 
 
 def _trace_metrics(metrics: PolicyValue) -> dict[str, PolicyValue]:
-    if (
-        type(metrics) is not dict
-        or set(metrics) != _METRIC_FIELDS
-        or any(type(value) is not bool for value in metrics.values())
-    ):
-        raise ValueError(
-            "MiniGrid DynamicObstacles trace metrics are invalid"
-        )
-    return dict(metrics)
+    if type(metrics) is not dict or set(metrics) != set(_METRIC_FIELDS):
+        raise ValueError("MiniGrid DynamicObstacles trace metrics are invalid")
+    boolean_fields = {
+        "goal_visible",
+        "goal_found",
+        "obstacle_visible",
+        "obstacle_found",
+        "observation_novel",
+        "ineffective_action",
+        "collision",
+        "obstacle_collision",
+        "wall_collision",
+        "success",
+    }
+    integer_fields = {
+        "step_count",
+        "remaining_steps",
+        "goal_first_seen_step",
+        "obstacle_first_seen_step",
+        "visible_obstacle_count",
+        "max_visible_obstacle_count",
+        "unique_observation_count",
+        "collision_step",
+        *(f"{name}_count" for name in _ACTION_NAMES),
+    }
+    string_fields = {
+        "front_object_before_action",
+        "blocked_by",
+        "terminal_reason",
+    }
+    traced: dict[str, PolicyValue] = {}
+    for key in _METRIC_FIELDS:
+        value = metrics[key]
+        if key in boolean_fields:
+            if type(value) is not bool:
+                raise ValueError("MiniGrid DynamicObstacles trace metrics are invalid")
+        elif key in integer_fields:
+            if type(value) is not int:
+                raise ValueError("MiniGrid DynamicObstacles trace metrics are invalid")
+        elif key in string_fields:
+            if type(value) is not str:
+                raise ValueError("MiniGrid DynamicObstacles trace metrics are invalid")
+        elif type(value) is not float or not math.isfinite(value):
+            raise ValueError("MiniGrid DynamicObstacles trace metrics are invalid")
+        traced[key] = value
+    return traced
 
 
 def _trace_observation(
@@ -375,9 +611,7 @@ def _trace_observation(
         "direction",
         "mission",
     }:
-        raise ValueError(
-            "MiniGrid DynamicObstacles trace observation is invalid"
-        )
+        raise ValueError("MiniGrid DynamicObstacles trace observation is invalid")
     image = observation["image"]
     direction = observation["direction"]
     mission = observation["mission"]
@@ -389,13 +623,9 @@ def _trace_observation(
     ):
         raise ValueError("MiniGrid DynamicObstacles trace image is invalid")
     if type(direction) is not int or not 0 <= direction <= 3:
-        raise ValueError(
-            "MiniGrid DynamicObstacles trace direction is invalid"
-        )
+        raise ValueError("MiniGrid DynamicObstacles trace direction is invalid")
     if type(mission) is not str or mission != _MISSION:
-        raise ValueError(
-            "MiniGrid DynamicObstacles trace mission is invalid"
-        )
+        raise ValueError("MiniGrid DynamicObstacles trace mission is invalid")
 
     rows: list[PolicyValue] = []
     visible_objects: list[PolicyValue] = []
@@ -409,9 +639,7 @@ def _trace_observation(
                 or color_code >= len(_COLOR_NAMES)
                 or state_code >= len(_STATE_NAMES)
             ):
-                raise ValueError(
-                    "MiniGrid DynamicObstacles trace image codes are invalid"
-                )
+                raise ValueError("MiniGrid DynamicObstacles trace image codes are invalid")
             row.append(_OBJECT_SYMBOLS[object_code])
             if object_code not in {0, 1}:
                 visible_objects.append(

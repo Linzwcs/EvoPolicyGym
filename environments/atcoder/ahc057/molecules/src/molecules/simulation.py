@@ -34,26 +34,20 @@ class MoleculesCase:
     velocities: tuple[tuple[int, int], ...]
 
     def __post_init__(self) -> None:
-        if (
-            len(self.positions) != POINTS
-            or any(
-                type(x) is not int
-                or type(y) is not int
-                or not 0 <= x < SPACE_SIZE
-                or not 0 <= y < SPACE_SIZE
-                for x, y in self.positions
-            )
+        if len(self.positions) != POINTS or any(
+            type(x) is not int
+            or type(y) is not int
+            or not 0 <= x < SPACE_SIZE
+            or not 0 <= y < SPACE_SIZE
+            for x, y in self.positions
         ):
             raise ValueError("positions are invalid")
-        if (
-            len(self.velocities) != POINTS
-            or any(
-                type(vx) is not int
-                or type(vy) is not int
-                or not MIN_VELOCITY <= vx <= MAX_VELOCITY
-                or not MIN_VELOCITY <= vy <= MAX_VELOCITY
-                for vx, vy in self.velocities
-            )
+        if len(self.velocities) != POINTS or any(
+            type(vx) is not int
+            or type(vy) is not int
+            or not MIN_VELOCITY <= vx <= MAX_VELOCITY
+            or not MIN_VELOCITY <= vy <= MAX_VELOCITY
+            for vx, vy in self.velocities
         ):
             raise ValueError("velocities are invalid")
 
@@ -102,10 +96,8 @@ def generate_case(seed: int) -> MoleculesCase:
         )
         velocities.append(
             (
-                MIN_VELOCITY
-                + random.below(MAX_VELOCITY - MIN_VELOCITY + 1),
-                MIN_VELOCITY
-                + random.below(MAX_VELOCITY - MIN_VELOCITY + 1),
+                MIN_VELOCITY + random.below(MAX_VELOCITY - MIN_VELOCITY + 1),
+                MIN_VELOCITY + random.below(MAX_VELOCITY - MIN_VELOCITY + 1),
             )
         )
     return MoleculesCase(tuple(positions), tuple(velocities))
@@ -136,14 +128,10 @@ class MoleculesSimulation:
     def __init__(self, case: MoleculesCase) -> None:
         if type(case) is not MoleculesCase:
             raise TypeError("case must be MoleculesCase")
-        self._positions = [
-            (float(x), float(y)) for x, y in case.positions
-        ]
+        self._positions = [(float(x), float(y)) for x, y in case.positions]
         self._parent = list(range(POINTS))
         self._size = [1] * POINTS
-        self._component_velocities = [
-            (float(vx), float(vy)) for vx, vy in case.velocities
-        ]
+        self._component_velocities = [(float(vx), float(vy)) for vx, vy in case.velocities]
         self._turn = 0
         self._total_cost = 0
         self._total_bonds = 0
@@ -154,10 +142,7 @@ class MoleculesSimulation:
 
     @property
     def velocities(self) -> tuple[Velocity, ...]:
-        return tuple(
-            self._component_velocities[self._find(index)]
-            for index in range(POINTS)
-        )
+        return tuple(self._component_velocities[self._find(index)] for index in range(POINTS))
 
     @property
     def component_labels(self) -> tuple[int, ...]:
@@ -169,18 +154,12 @@ class MoleculesSimulation:
 
     @property
     def component_count(self) -> int:
-        return sum(
-            self._find(index) == index for index in range(POINTS)
-        )
+        return sum(self._find(index) == index for index in range(POINTS))
 
     @property
     def component_sizes(self) -> tuple[int, ...]:
         return tuple(
-            sorted(
-                self._size[index]
-                for index in range(POINTS)
-                if self._find(index) == index
-            )
+            sorted(self._size[index] for index in range(POINTS) if self._find(index) == index)
         )
 
     @property
@@ -194,6 +173,18 @@ class MoleculesSimulation:
     @property
     def total_bonds(self) -> int:
         return self._total_bonds
+
+    @property
+    def component_size_histogram(self) -> tuple[int, ...]:
+        sizes = self.component_sizes
+        return tuple(sizes.count(size) for size in range(1, TARGET_SIZE + 1))
+
+    def bond_costs(self, bonds: tuple[Bond, ...]) -> tuple[int, ...]:
+        """Return public toroidal costs at the current positions."""
+
+        return tuple(
+            _bond_cost(self._positions[first], self._positions[second]) for first, second in bonds
+        )
 
     @property
     def done(self) -> bool:
@@ -232,16 +223,8 @@ class MoleculesSimulation:
             if combined_size > TARGET_SIZE:
                 raise InvalidBond()
             combined_velocity = (
-                (
-                    size_a * velocity_a[0]
-                    + size_b * velocity_b[0]
-                )
-                / combined_size,
-                (
-                    size_a * velocity_a[1]
-                    + size_b * velocity_b[1]
-                )
-                / combined_size,
+                (size_a * velocity_a[0] + size_b * velocity_b[0]) / combined_size,
+                (size_a * velocity_a[1] + size_b * velocity_b[1]) / combined_size,
             )
             parent[root_b] = root_a
             sizes[root_a] = combined_size
@@ -253,8 +236,7 @@ class MoleculesSimulation:
             raise InvalidBond()
         if self._turn == TURNS - 1 and (
             len(roots) != TARGET_COMPONENTS
-            or sorted(sizes[root] for root in roots)
-            != [TARGET_SIZE] * TARGET_COMPONENTS
+            or sorted(sizes[root] for root in roots) != [TARGET_SIZE] * TARGET_COMPONENTS
         ):
             raise InvalidBond()
 
@@ -285,9 +267,7 @@ def _bond_cost(first: Position, second: Position) -> int:
     delta_y = abs(first[1] - second[1])
     toroidal_x = min(SPACE_SIZE - delta_x, delta_x)
     toroidal_y = min(SPACE_SIZE - delta_y, delta_y)
-    distance = math.sqrt(
-        toroidal_x * toroidal_x + toroidal_y * toroidal_y
-    )
+    distance = math.sqrt(toroidal_x * toroidal_x + toroidal_y * toroidal_y)
     return math.floor(distance + 0.5)
 
 

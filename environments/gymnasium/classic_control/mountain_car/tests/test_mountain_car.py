@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -39,6 +40,20 @@ class MountainCarBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(fields), {"position", "velocity"})
         self.assertEqual(spec.action_space["values"], [0, 1, 2])
         self.assertEqual(spec.metadata["failure_return"], -200.0)
+        self.assertIn("-0.0025*cos(3*position)", spec.description)
+        self.assertEqual(spec.observation_space["source_dtype"], "float32")
+        self.assertEqual(
+            spec.environment_parameters["engine_velocity_increment_per_action_unit"],
+            0.001,
+        )
+        self.assertEqual(
+            spec.environment_parameters["goal_position_minimum"],
+            0.5,
+        )
+        velocity = fields["velocity"]
+        self.assertIsInstance(velocity, dict)
+        assert isinstance(velocity, dict)
+        self.assertEqual(velocity["unit"], "track_position_per_step")
 
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = MountainCarBenchmark()
@@ -91,6 +106,59 @@ class MountainCarBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
                 environment.close()
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(environment_seed=123, scenario={"goal_position": 0.4})
+            )
+
+    def test_real_left_acceleration_reports_wall_collision(self) -> None:
+        environment = MountainCarBenchmark().make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        collision: Step | None = None
+        try:
+            observation = environment.reset()
+            committed_to_left_wall = False
+            for _ in range(200):
+                assert isinstance(observation, dict)
+                position = observation["position"]
+                velocity = observation["velocity"]
+                assert type(position) is float
+                assert type(velocity) is float
+                if position >= 0.0:
+                    committed_to_left_wall = True
+                action = (
+                    0
+                    if committed_to_left_wall
+                    else 2
+                    if velocity >= 0.0
+                    else 0
+                )
+                result = environment.step(action)
+                observation = result.observation
+                metrics = _metrics(result)
+                if _bool_metric(metrics, "left_wall_collision"):
+                    collision = result
+                    break
+                if result.done:
+                    break
+        finally:
+            environment.close()
+
+        self.assertIsNotNone(collision)
+        assert collision is not None
+        collision_metrics = _metrics(collision)
+        self.assertAlmostEqual(
+            _float_metric(collision_metrics, "position_after"),
+            -1.2,
+            places=5,
+        )
+        self.assertEqual(_float_metric(collision_metrics, "velocity_after"), 0.0)
+        self.assertEqual(
+            _string_metric(collision_metrics, "requested_action"),
+            "accelerate_left",
+        )
 
     def test_feedback_uses_explicit_failure_floor_and_keeps_identity_private(
         self,
@@ -165,11 +233,24 @@ class MountainCarBenchmarkTests(unittest.TestCase):
             {"position", "velocity"},
         )
         self.assertEqual(transitions[0]["action"], 1)
+        self.assertEqual(transitions[0]["action_meaning"], "coast")
         self.assertEqual(transitions[0]["reward"], -1.0)
         self.assertEqual(
             set(transitions[0]["next_observation"]),
             {"position", "velocity"},
         )
+        self.assertEqual(transitions[-1]["metrics"]["terminal_reason"], "time_limit")
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 2)
+        maximum_position = result.feedback.content["maximum_position_reached"]
+        self.assertIsInstance(maximum_position, float)
+        assert isinstance(maximum_position, float)
+        self.assertLess(maximum_position, 0.5)
+        closest_gap = result.feedback.content["mean_closest_goal_position_gap"]
+        self.assertIsInstance(closest_gap, float)
+        assert isinstance(closest_gap, float)
+        self.assertGreater(closest_gap, 0.0)
 
     def test_velocity_direction_strategy_improves_on_the_baseline(
         self,
@@ -191,12 +272,53 @@ class MountainCarBenchmarkTests(unittest.TestCase):
                     if result.terminated or result.truncated:
                         steps_to_goal.append(step_index)
                         self.assertTrue(result.terminated)
+                        metrics = _metrics(result)
+                        self.assertTrue(_bool_metric(metrics, "goal_reached"))
+                        self.assertEqual(
+                            _string_metric(metrics, "terminal_reason"),
+                            "goal_reached",
+                        )
+                        self.assertEqual(
+                            _float_metric(metrics, "distance_to_goal_position"),
+                            0.0,
+                        )
+                        self.assertGreaterEqual(
+                            _float_metric(metrics, "episode_maximum_position"),
+                            0.5,
+                        )
                         break
             finally:
                 environment.close()
 
         self.assertEqual(len(steps_to_goal), 10)
         self.assertLess(sum(steps_to_goal) / len(steps_to_goal), 130.0)
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 if __name__ == "__main__":

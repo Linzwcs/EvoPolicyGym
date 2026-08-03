@@ -23,6 +23,7 @@ from .environment import FrozenLakeEnvironment
 _EPISODE_SEED_DOMAIN = b"evopolicygym-frozen-lake/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
 _MAX_TRACED_EPISODES = 8
+_ACTION_MEANINGS = ("left", "down", "right", "up")
 
 
 class FrozenLakeBenchmark:
@@ -84,6 +85,10 @@ class FrozenLakeBenchmark:
         )
         mean_steps = statistics.fmean(record.steps for record in records)
         failures = sum(record.policy_failure is not None for record in records)
+        terminal_outcomes: dict[str, PolicyValue] = {
+            outcome: sum(_terminal_outcome(record) == outcome for record in records)
+            for outcome in ("goal", "hole", "time_limit", "policy_failure", "incomplete")
+        }
         traced = records[:_MAX_TRACED_EPISODES]
         return Feedback(
             score=score,
@@ -97,6 +102,9 @@ class FrozenLakeBenchmark:
                 "mean_steps": mean_steps,
                 "episodes": len(records),
                 "successful_episodes": successes,
+                "hole_episodes": terminal_outcomes["hole"],
+                "time_limit_episodes": terminal_outcomes["time_limit"],
+                "terminal_outcomes": terminal_outcomes,
                 "policy_failures": failures,
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
@@ -108,12 +116,25 @@ class FrozenLakeBenchmark:
 def _benchmark_spec(config: FrozenLakeConfig) -> BenchmarkSpec:
     rows = len(config.layout)
     columns = len(config.layout[0])
+    tile_positions: dict[str, list[PolicyValue]] = {
+        tile: _tile_positions(config.layout, tile)
+        for tile in ("S", "H", "G")
+    }
     return BenchmarkSpec(
         id="gymnasium/FrozenLake-v1/success-rate-v1",
         description=(
-            f"Navigate the standard {config.map_name} FrozenLake map without "
-            "falling into a hole. Choose 0, 1, 2, or 3 to move left, down, "
-            "right, or up. Maximize goal-reaching rate."
+            f"Navigate the published standard {config.map_name} FrozenLake map "
+            "from S to G without entering H. State indices are row-major. Choose "
+            "0, 1, 2, or 3 to request left, down, right, or up; attempts beyond "
+            "an edge stay in place. "
+            + (
+                f"The requested direction occurs with probability {config.success_rate}; "
+                "each perpendicular direction receives half the remaining probability. "
+                if config.is_slippery
+                else "Movement is deterministic. "
+            )
+            + "Entering G rewards 1 and terminates; entering H rewards 0 and "
+            "terminates; every other move rewards 0. Maximize goal-reaching rate."
         ),
         observation_space={
             "type": "object",
@@ -122,26 +143,31 @@ def _benchmark_spec(config: FrozenLakeConfig) -> BenchmarkSpec:
                     "type": "integer",
                     "minimum": 0,
                     "maximum": rows * columns - 1,
+                    "meaning": "Row-major state id equal to row * columns + column.",
                 },
                 "row": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": rows - 1,
+                    "meaning": "Zero-based row, increasing downward from the top edge.",
                 },
                 "column": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": columns - 1,
+                    "meaning": "Zero-based column, increasing rightward from the left edge.",
                 },
                 "tile": {
                     "type": "string",
                     "values": ["S", "F", "H", "G"],
+                    "meaning": "S=start, F=safe frozen tile, H=terminal hole, G=terminal goal.",
                 },
             },
         },
         action_space={
             "type": "discrete",
             "values": [0, 1, 2, 3],
+            "component": "requested_direction",
             "meaning": {
                 "0": "move_left",
                 "1": "move_down",
@@ -162,6 +188,19 @@ def _benchmark_spec(config: FrozenLakeConfig) -> BenchmarkSpec:
             "map": list(config.layout),
             "is_slippery": config.is_slippery,
             "success_rate": config.success_rate,
+            "rows": rows,
+            "columns": columns,
+            "start_position": tile_positions["S"][0],
+            "goal_position": tile_positions["G"][0],
+            "hole_positions": tile_positions["H"],
+            "state_encoding": "row_major_state_equals_row_times_columns_plus_column",
+            "boundary_behavior": "stay_in_place",
+            "requested_direction_probability": (
+                config.success_rate if config.is_slippery else 1.0
+            ),
+            "each_perpendicular_direction_probability": (
+                (1.0 - config.success_rate) / 2.0 if config.is_slippery else 0.0
+            ),
             "reward_schedule": {
                 "goal": 1.0,
                 "hole": 0.0,
@@ -172,6 +211,16 @@ def _benchmark_spec(config: FrozenLakeConfig) -> BenchmarkSpec:
         primary_metric="success_rate",
         score_direction="maximize",
     )
+
+
+def _tile_positions(layout: tuple[str, ...], tile: str) -> list[PolicyValue]:
+    positions: list[PolicyValue] = []
+    for row, line in enumerate(layout):
+        for column, value in enumerate(line):
+            if value == tile:
+                position: list[PolicyValue] = [row, column]
+                positions.append(position)
+    return positions
 
 
 def _episode_seed(split: str, seed: int, index: int) -> int:
@@ -185,12 +234,23 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
 
 
 def _successful(record: EpisodeRecord) -> bool:
-    return bool(
-        record.policy_failure is None
-        and record.transitions
-        and record.transitions[-1].step.terminated
-        and record.total_reward > 0.0
-    )
+    return _terminal_outcome(record) == "goal"
+
+
+def _terminal_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    if not record.transitions:
+        return "incomplete"
+    final = record.transitions[-1].step
+    observation = _trace_observation(final.observation)
+    if final.terminated and observation["tile"] == "G":
+        return "goal"
+    if final.terminated and observation["tile"] == "H":
+        return "hole"
+    if final.truncated:
+        return "time_limit"
+    return "incomplete"
 
 
 def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
@@ -213,13 +273,14 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         else 0.0
                     ),
                     "reached_goal": _successful(record),
+                    "terminal_outcome": _terminal_outcome(record),
                     "failure": record.policy_failure,
                 }
             )
         )
         observation = _trace_observation(record.initial_observation)
         for step_index, transition in enumerate(record.transitions):
-            if type(transition.action) is not int:
+            if type(transition.action) is not int or not 0 <= transition.action < 4:
                 raise ValueError("FrozenLake trace Action is invalid")
             next_observation = _trace_observation(
                 transition.step.observation
@@ -232,10 +293,12 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "step_index": step_index,
                         "observation": observation,
                         "action": transition.action,
+                        "action_meaning": _ACTION_MEANINGS[transition.action],
                         "reward": transition.step.reward,
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
+                        "metrics": transition.step.metrics,
                     }
                 )
             )

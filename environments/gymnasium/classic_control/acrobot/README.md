@@ -21,6 +21,13 @@ terminal step. Higher scores therefore mean reaching the target in fewer
 steps. The official task contract is documented in the
 [Gymnasium Acrobot reference](https://gymnasium.farama.org/environments/classic_control/acrobot/).
 
+`theta1` is measured from the downward direction and `theta2` is relative to
+the first link. With one-meter links, the public success condition is
+`-cos(theta1) - cos(theta1 + theta2) > 1`. Actions apply `-1`, `0`, or `+1`
+N·m at the middle joint. The specification publishes this formula, units,
+0.2-second RK4 integration, book dynamics, physical constants, initial-state
+sampling, velocity bounds, rewards, and 500-step horizon.
+
 ## Public interface
 
 ```python
@@ -53,10 +60,13 @@ the Gymnasium array order.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean Episode length, successful Episodes, Policy
+Feedback reports mean return, mean Episode length, successful and time-limit
+Episodes, mean and overall best free-end height, closest target gap, Policy
 failures, and bounded trace coverage. The public `trace.jsonl` artifact retains
-at most eight Episodes. It contains the observations seen by the Policy,
-unmodified Actions, rewards, next observations, and termination flags.
+at most eight Episodes. It contains the observations seen by the Policy, named
+unmodified Actions, torque, reconstructed absolute and relative angles,
+angular velocities, link and free-end heights, target margin, elapsed simulated
+time, rewards, next observations, termination flags, and terminal reason.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

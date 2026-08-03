@@ -106,6 +106,15 @@ _SPEC = BenchmarkSpec(
         "maximum_columns": MAX_COLUMNS,
         "instruction_limit": MAX_INSTRUCTION_CHARACTERS,
         "failure_cost": FAILURE_COST,
+        "solution_atomicity": (
+            "The entire instruction string is validated and executed as one "
+            "Action; invalid or incomplete solutions are never partly scored."
+        ),
+        "score_formula": ("(instruction_characters+2)/(rows+columns-1) - 2*rows*columns + 20"),
+        "handling_lower_bound": (
+            "Every shipment requires P, storage U<dir>, retrieval L<dir>, "
+            "and D: at least 6 characters before travel or relocations."
+        ),
     },
     max_episode_steps=1,
     primary_metric="mean_normalized_cost",
@@ -168,9 +177,47 @@ class WarehousemanBenchmark:
                 ),
                 "mean_normalized_cost": score,
                 "mean_instruction_characters": (
-                    statistics.fmean(instruction_counts)
-                    if instruction_counts
-                    else None
+                    statistics.fmean(instruction_counts) if instruction_counts else None
+                ),
+                "mean_characters_per_shipment": _mean_metric(
+                    records,
+                    "characters_per_shipment",
+                ),
+                "mean_moves_per_shipment": _mean_metric(
+                    records,
+                    "moves_per_shipment",
+                ),
+                "mean_movement_character_fraction": _mean_metric(
+                    records,
+                    "movement_character_fraction",
+                ),
+                "mean_handling_character_fraction": _mean_metric(
+                    records,
+                    "handling_character_fraction",
+                ),
+                "mean_instruction_lower_bound_efficiency": _mean_metric(
+                    records,
+                    "instruction_lower_bound_efficiency",
+                ),
+                "mean_excess_characters_above_handling_lower_bound": _mean_metric(
+                    records,
+                    "excess_characters_above_handling_lower_bound",
+                ),
+                "mean_normalized_cost_gap_from_handling_lower_bound": _mean_metric(
+                    records,
+                    "normalized_cost_gap_from_handling_lower_bound",
+                ),
+                "mean_relocation_cycles": _mean_metric(
+                    records,
+                    "relocation_cycles",
+                ),
+                "mean_relocation_cycles_per_shipment": _mean_metric(
+                    records,
+                    "relocation_cycles_per_shipment",
+                ),
+                "mean_instruction_budget_fraction": _mean_metric(
+                    records,
+                    "instruction_budget_fraction",
                 ),
                 "episodes": len(records),
                 "completed": completed,
@@ -227,36 +274,61 @@ def _metric_integer(record: EpisodeRecord, name: str) -> int:
     return value
 
 
+def _mean_metric(
+    records: Sequence[EpisodeRecord],
+    name: str,
+) -> float | None:
+    values = tuple(
+        _metric_number(record, name) for record in records if record.policy_failure is None
+    )
+    return statistics.fmean(values) if values else None
+
+
 def _diagnostic_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
     lines: list[bytes] = []
     metric_names = (
+        "rows",
+        "columns",
+        "warehouse_cells",
+        "shipments",
         "instruction_characters",
+        "instruction_characters_remaining",
         "moves",
         "picks",
         "drops",
         "loads",
         "unloads",
+        "total_operations",
+        "handling_characters",
+        "minimum_handling_characters",
+        "excess_characters_above_handling_lower_bound",
+        "relocation_cycles",
+        "relocation_characters",
+    )
+    number_metric_names = (
+        "normalized_cost",
+        "instruction_budget_fraction",
+        "characters_per_shipment",
+        "moves_per_shipment",
+        "movement_character_fraction",
+        "handling_character_fraction",
+        "instruction_lower_bound_efficiency",
+        "normalized_cost_handling_lower_bound",
+        "normalized_cost_gap_from_handling_lower_bound",
+        "relocation_cycles_per_shipment",
     )
     for episode_index, record in enumerate(records):
         document: dict[str, object] = {
             "type": "episode",
             "episode_index": episode_index,
-            "status": (
-                "completed"
-                if record.policy_failure is None
-                else "policy_failed"
-            ),
-            "score": (
-                _episode_cost(record)
-                if record.policy_failure is None
-                else FAILURE_COST
-            ),
+            "status": ("completed" if record.policy_failure is None else "policy_failed"),
+            "score": (_episode_cost(record) if record.policy_failure is None else FAILURE_COST),
             "failure": record.policy_failure,
         }
         if record.policy_failure is None:
-            document["operations"] = {
-                name: _metric_integer(record, name)
-                for name in metric_names
+            document["operations"] = {name: _metric_integer(record, name) for name in metric_names}
+            document["efficiency"] = {
+                name: _metric_number(record, name) for name in number_metric_names
             }
         lines.append(_json_line(document))
     return Artifact(

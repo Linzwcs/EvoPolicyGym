@@ -43,14 +43,18 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.primary_metric, "capped_mean_turns")
         self.assertEqual(spec.score_direction, "maximize")
         self.assertEqual(
-            spec.environment_parameters,
-            {
-                "generator": "evopolicygym-independent-v1",
-                "minimum_size": MIN_SIZE,
-                "maximum_size": MAX_SIZE,
-                "turn_cap": MAX_EPISODE_STEPS,
-            },
+            spec.environment_parameters["generator"],
+            "evopolicygym-independent-v1",
         )
+        self.assertEqual(spec.environment_parameters["minimum_size"], MIN_SIZE)
+        self.assertEqual(spec.environment_parameters["maximum_size"], MAX_SIZE)
+        self.assertEqual(
+            spec.environment_parameters["turn_cap"],
+            MAX_EPISODE_STEPS,
+        )
+        self.assertIn("exactly 1 point", spec.environment_parameters["reward_semantics"])
+        self.assertIn("accepted or rejected", spec.environment_parameters["placement_atomicity"])
+        self.assertIn("private adventurer target", spec.environment_parameters["path_diagnostics"])
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_specification_revision"],
@@ -69,9 +73,7 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=12))
         repeated = tuple(benchmark.episodes("train", seed=7, count=12))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=12)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=12))
         test = tuple(benchmark.episodes("test", seed=7, count=12))
 
         self.assertEqual(train, repeated)
@@ -92,10 +94,7 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         generated = tuple(generate_case(seed) for seed in range(3))
 
         self.assertEqual(
-            tuple(
-                (case.size, case.flower, len(case.initial_trees))
-                for case in generated
-            ),
+            tuple((case.size, case.flower, len(case.initial_trees)) for case in generated),
             expected,
         )
         for case in generated:
@@ -104,8 +103,7 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             self.assertNotIn(case.entrance, case.initial_trees)
             self.assertNotIn(case.flower, case.initial_trees)
             self.assertGreaterEqual(
-                abs(case.flower[0] - case.entrance[0])
-                + abs(case.flower[1] - case.entrance[1]),
+                abs(case.flower[0] - case.entrance[0]) + abs(case.flower[1] - case.entrance[1]),
                 5,
             )
             self.assertEqual(
@@ -114,9 +112,7 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             )
 
     def test_initial_observation_exposes_no_private_case_identity(self) -> None:
-        environment = TreantsForestEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
         finally:
@@ -199,7 +195,9 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         invalid_actions: tuple[PolicyValue, ...] = (
             None,
             [],
-            {"placements": (),},
+            {
+                "placements": (),
+            },
             {"placements": [], "extra": True},
             {"placements": [[1]]},
             {"placements": [[1.0, 2]]},
@@ -208,9 +206,7 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             {"placements": [[-1, 2]]},
         )
         for action in invalid_actions:
-            environment = TreantsForestEnvironment(
-                EpisodeSpec(environment_seed=17)
-            )
+            environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=17))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction, msg=repr(action)):
@@ -270,10 +266,36 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             repeated_reset.reset()
         repeated_reset.close()
 
+    def test_real_placement_and_no_placement_turns_have_actionable_metrics(self) -> None:
+        placed_environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
+        try:
+            placed_environment.reset()
+            placed = placed_environment.step({"placements": [[36, 0]]})
+        finally:
+            placed_environment.close()
+
+        self.assertEqual(placed.metrics["placement_count_this_turn"], 1)
+        self.assertEqual(placed.metrics["placed_treants"], 1)
+        self.assertEqual(placed.metrics["submitted_placement_count"], 1)
+        self.assertEqual(placed.metrics["no_placement_this_turn"], False)
+        self.assertGreater(placed.metrics["newly_revealed_cell_count"], 0)
+        self.assertGreater(placed.metrics["revealed_cell_fraction"], 0.0)
+        self.assertGreater(placed.metrics["legal_candidate_cell_count"], 0)
+        self.assertGreaterEqual(placed.metrics["flower_path_length"], 0)
+        self.assertEqual(placed.metrics["score_so_far"], 1.0)
+
+        empty_environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
+        try:
+            empty_environment.reset()
+            empty = empty_environment.step({"placements": []})
+        finally:
+            empty_environment.close()
+        self.assertEqual(empty.metrics["no_placement_this_turn"], True)
+        self.assertEqual(empty.metrics["no_placement_turn_count"], 1)
+        self.assertEqual(empty.metrics["mean_submitted_placements_per_turn"], 0.0)
+
     def test_feedback_penalizes_failure_and_keeps_identity_private(self) -> None:
-        environment = TreantsForestEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
         try:
             initial = environment.reset()
         finally:
@@ -325,14 +347,9 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
             float(MAX_EPISODE_STEPS),
         )
         documents = [
-            json.loads(line)
-            for line in result.feedback.artifacts[0].read_bytes().splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         ]
-        transitions = [
-            document
-            for document in documents
-            if document["type"] == "transition"
-        ]
+        transitions = [document for document in documents if document["type"] == "transition"]
         self.assertTrue(transitions)
         self.assertEqual(
             transitions[0]["action"],
@@ -340,23 +357,31 @@ class TreantsForestBenchmarkTests(unittest.TestCase):
         )
         self.assertIsNotNone(transitions[0]["observation"]["initial"])
         self.assertIsNone(transitions[0]["next_observation"]["initial"])
+        self.assertIn("flower_path_length", transitions[0]["metrics"])
+        self.assertIn("newly_revealed_cell_count", transitions[0]["metrics"])
+        self.assertEqual(result.feedback.content["mean_no_placement_turn_fraction"], 1.0)
+        self.assertEqual(result.feedback.content["placement_episode_rate"], 0.0)
 
     def test_feedback_bounds_long_transition_traces(self) -> None:
-        environment = TreantsForestEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = TreantsForestEnvironment(EpisodeSpec(environment_seed=123))
         try:
             initial = environment.reset()
             first = environment.step({"placements": []})
         finally:
             environment.close()
-        metrics: dict[str, PolicyValue] = {
-            "turns": MAX_EPISODE_STEPS,
-            "placed_treants": 0,
-            "revealed_cells": 10,
-            "flower_reached": False,
-            "turn_cap_reached": True,
-        }
+        self.assertIsInstance(first.metrics, dict)
+        assert isinstance(first.metrics, dict)
+        metrics: dict[str, PolicyValue] = dict(first.metrics)
+        metrics.update(
+            {
+                "turns": MAX_EPISODE_STEPS,
+                "remaining_turns": 0,
+                "score_so_far": float(MAX_EPISODE_STEPS),
+                "flower_reached": False,
+                "turn_cap_reached": True,
+                "terminal_reason": "turn_cap",
+            }
+        )
         ordinary = Transition(
             action={"placements": []},
             step=Step(

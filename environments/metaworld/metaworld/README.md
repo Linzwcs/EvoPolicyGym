@@ -24,9 +24,17 @@ The Host fixes the task collection for a Run and chooses the concrete task for
 each Episode. MT1 observations are canonical 39-element `float64`
 `TensorValue`s. MT10, MT50, and custom observations add a public one-hot task
 tensor with a public index-to-task mapping in the environment parameters.
-Episode task selection remains absent from Feedback and Run-visible traces.
+Run-visible traces retain only the Policy-visible state and task one-hot; they
+never include Episode seeds, Host scenarios, or other private Case identity.
 
 The primary metric is success rate. Mean return and public reward-component
-traces provide intermediate optimization feedback. ML1/ML10/ML45 are reserved
-until the Kernel has an explicit Trial abstraction.
-
+traces provide intermediate optimization feedback. Current values, per-step
+changes, and Episode-best values are reported for reach/contact, grasp,
+in-place progress, object-to-target distance, and dense reward. Feedback also
+distinguishes current versus ever-achieved success/grasp, first achievement,
+later regression, action magnitude/saturation, state motion, and per-task
+success/return for MT collections. Each traced transition
+contains the Policy-visible observation, Action, reward, next observation, and
+public metrics. Episodes longer than 160 steps retain the first 128 and final 32
+steps, with retained and omitted counts reported explicitly. ML1/ML10/ML45 are
+reserved until the Kernel has an explicit Trial abstraction.

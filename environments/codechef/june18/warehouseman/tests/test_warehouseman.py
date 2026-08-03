@@ -44,18 +44,25 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
         self.assertEqual(spec.max_episode_steps, 1)
         self.assertEqual(spec.primary_metric, "mean_normalized_cost")
         self.assertEqual(spec.score_direction, "minimize")
+        self.assertEqual(spec.environment_parameters["generator"], GENERATOR_ID)
+        self.assertEqual(spec.environment_parameters["minimum_rows"], MIN_ROWS)
+        self.assertEqual(spec.environment_parameters["maximum_rows"], MAX_ROWS)
         self.assertEqual(
-            spec.environment_parameters,
-            {
-                "generator": GENERATOR_ID,
-                "minimum_rows": MIN_ROWS,
-                "maximum_rows": MAX_ROWS,
-                "minimum_columns": MIN_COLUMNS,
-                "maximum_columns": MAX_COLUMNS,
-                "instruction_limit": MAX_INSTRUCTION_CHARACTERS,
-                "failure_cost": FAILURE_COST,
-            },
+            spec.environment_parameters["minimum_columns"],
+            MIN_COLUMNS,
         )
+        self.assertEqual(
+            spec.environment_parameters["maximum_columns"],
+            MAX_COLUMNS,
+        )
+        self.assertEqual(
+            spec.environment_parameters["instruction_limit"],
+            MAX_INSTRUCTION_CHARACTERS,
+        )
+        self.assertEqual(spec.environment_parameters["failure_cost"], FAILURE_COST)
+        self.assertIn("one Action", spec.environment_parameters["solution_atomicity"])
+        self.assertIn("instruction_characters", spec.environment_parameters["score_formula"])
+        self.assertIn("at least 6 characters", spec.environment_parameters["handling_lower_bound"])
         self.assertEqual(spec.metadata["implementation"], "independent")
         self.assertEqual(
             spec.metadata["upstream_material_license"],
@@ -70,9 +77,7 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=12))
         repeated = tuple(benchmark.episodes("train", seed=7, count=12))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=12)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=12))
         test = tuple(benchmark.episodes("test", seed=7, count=12))
 
         self.assertEqual(train, repeated)
@@ -93,10 +98,7 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
         generated = tuple(generate_case(seed) for seed in range(3))
 
         self.assertEqual(
-            tuple(
-                (case.rows, case.columns, case.arrivals[-1])
-                for case in generated
-            ),
+            tuple((case.rows, case.columns, case.arrivals[-1]) for case in generated),
             expected,
         )
         for case in generated:
@@ -113,9 +115,7 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
     def test_initial_observation_is_public_input_without_case_identity(
         self,
     ) -> None:
-        environment = WarehousemanEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = WarehousemanEnvironment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
         finally:
@@ -205,6 +205,32 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
             terminal.reward,
             terminal.metrics["normalized_cost"],
         )
+        shipment_count = case.rows * case.columns - 1
+        self.assertEqual(terminal.metrics["shipments"], shipment_count)
+        self.assertEqual(terminal.metrics["picks"], shipment_count)
+        self.assertEqual(terminal.metrics["drops"], shipment_count)
+        self.assertEqual(terminal.metrics["loads"], terminal.metrics["unloads"])
+        self.assertEqual(
+            terminal.metrics["minimum_handling_characters"],
+            6 * shipment_count,
+        )
+        self.assertEqual(
+            terminal.metrics["instruction_characters"],
+            terminal.metrics["moves"] + terminal.metrics["handling_characters"],
+        )
+        self.assertEqual(
+            terminal.metrics["excess_characters_above_handling_lower_bound"],
+            terminal.metrics["moves"] + 4 * terminal.metrics["relocation_cycles"],
+        )
+        self.assertAlmostEqual(
+            terminal.metrics["movement_character_fraction"]
+            + terminal.metrics["handling_character_fraction"],
+            1.0,
+        )
+        self.assertEqual(
+            terminal.metrics["terminal_reason"],
+            "complete_valid_solution",
+        )
 
     def test_environment_lifecycle_and_deterministic_replay(self) -> None:
         episode = EpisodeSpec(environment_seed=123)
@@ -275,13 +301,37 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
             document["operations"]["instruction_characters"],
             len(action),
         )
+        self.assertEqual(
+            document["operations"]["instruction_characters"],
+            document["operations"]["moves"] + document["operations"]["handling_characters"],
+        )
+        self.assertEqual(
+            document["operations"]["relocation_characters"],
+            4 * document["operations"]["relocation_cycles"],
+        )
+        self.assertGreater(document["efficiency"]["characters_per_shipment"], 6.0)
+        self.assertAlmostEqual(
+            document["efficiency"]["movement_character_fraction"]
+            + document["efficiency"]["handling_character_fraction"],
+            1.0,
+        )
+        self.assertEqual(
+            feedback.content["mean_characters_per_shipment"],
+            step.metrics["characters_per_shipment"],
+        )
+        self.assertEqual(
+            feedback.content["mean_relocation_cycles"],
+            float(step.metrics["relocation_cycles"]),
+        )
+        self.assertEqual(
+            feedback.content["mean_instruction_budget_fraction"],
+            len(action) / MAX_INSTRUCTION_CHARACTERS,
+        )
 
     def test_feedback_assigns_failure_cost_without_private_evidence(
         self,
     ) -> None:
-        environment = WarehousemanEnvironment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = WarehousemanEnvironment(EpisodeSpec(environment_seed=123))
         try:
             initial = environment.reset()
         finally:
@@ -327,18 +377,14 @@ class WarehousemanBenchmarkTests(unittest.TestCase):
             benchmark.spec.environment_digest,
         )
         self.assertLess(result.feedback.score, FAILURE_COST)
-        self.assertTrue(
-            all(episode.status == "completed" for episode in result.episodes)
-        )
+        self.assertTrue(all(episode.status == "completed" for episode in result.episodes))
         diagnostics = [
-            json.loads(line)
-            for line in result.feedback.artifacts[0].read_bytes().splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         ]
         self.assertEqual(len(diagnostics), 3)
         self.assertTrue(
             all(
-                document["operations"]["instruction_characters"]
-                <= MAX_INSTRUCTION_CHARACTERS
+                document["operations"]["instruction_characters"] <= MAX_INSTRUCTION_CHARACTERS
                 for document in diagnostics
             )
         )

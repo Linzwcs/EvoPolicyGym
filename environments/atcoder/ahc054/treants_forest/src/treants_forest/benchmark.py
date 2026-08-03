@@ -78,9 +78,7 @@ _SPEC = BenchmarkSpec(
         "provider": "AtCoder",
         "contest": "AtCoder Heuristic Contest 054",
         "task": "AHC054 A",
-        "upstream_specification": (
-            "https://atcoder.jp/contests/ahc054/tasks/ahc054_a"
-        ),
+        "upstream_specification": ("https://atcoder.jp/contests/ahc054/tasks/ahc054_a"),
         "upstream_specification_revision": "2025-09-21",
         "upstream_tool_archive_revision": "YDAxDRZr_v2",
         "upstream_tool_license": "not declared; not redistributed",
@@ -97,6 +95,18 @@ _SPEC = BenchmarkSpec(
         "minimum_size": MIN_SIZE,
         "maximum_size": MAX_SIZE,
         "turn_cap": MAX_EPISODE_STEPS,
+        "reward_semantics": "Every accepted turn earns exactly 1 point.",
+        "termination_semantics": (
+            "Reaching the flower terminates; surviving 2048 turns truncates with the maximum score."
+        ),
+        "placement_atomicity": (
+            "The complete placement list is accepted or rejected as one "
+            "Action; invalid Actions are never clipped, repaired, or partly applied."
+        ),
+        "path_diagnostics": (
+            "Flower distances use only the public initial trees plus accepted "
+            "Policy placements and reveal no private adventurer target."
+        ),
     },
     max_episode_steps=MAX_EPISODE_STEPS,
     primary_metric="capped_mean_turns",
@@ -144,17 +154,20 @@ class TreantsForestBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
 
         turns = tuple(
-            record.total_reward if record.policy_failure is None else 0.0
-            for record in records
+            record.total_reward if record.policy_failure is None else 0.0 for record in records
         )
         score = statistics.fmean(turns)
         failures = sum(record.policy_failure is not None for record in records)
         reached = sum(_terminal_flag(record, "flower_reached") for record in records)
         capped = sum(_terminal_flag(record, "turn_cap_reached") for record in records)
         placements = tuple(_final_integer(record, "placed_treants") for record in records)
-        trace, traced_episodes, traced_transitions, omitted_transitions = (
-            _trace_artifact(records)
+        placement_episodes = sum(
+            _reached(record, "placement_count_this_turn") for record in records
         )
+        flower_revealed = sum(
+            _terminal_or_reached_flag(record, "flower_revealed") for record in records
+        )
+        trace, traced_episodes, traced_transitions, omitted_transitions = _trace_artifact(records)
         return Feedback(
             score=score,
             content={
@@ -165,6 +178,43 @@ class TreantsForestBenchmark:
                 ),
                 "capped_mean_turns": score,
                 "mean_placed_treants": statistics.fmean(placements),
+                "episodes_with_placements": placement_episodes,
+                "placement_episode_rate": placement_episodes / len(records),
+                "mean_submitted_placements_per_turn": _mean_final_number(
+                    records,
+                    "mean_submitted_placements_per_turn",
+                ),
+                "mean_no_placement_turn_fraction": _mean_ratio(
+                    records,
+                    "no_placement_turn_count",
+                    "turns",
+                ),
+                "mean_final_revealed_cells": _mean_final_number(
+                    records,
+                    "revealed_cells",
+                ),
+                "mean_final_revealed_cell_fraction": _mean_final_number(
+                    records,
+                    "revealed_cell_fraction",
+                ),
+                "mean_final_legal_candidate_cell_count": _mean_final_number(
+                    records,
+                    "legal_candidate_cell_count",
+                ),
+                "mean_final_flower_path_length": _mean_final_number(
+                    records,
+                    "flower_path_length",
+                ),
+                "mean_worst_flower_path_length": _mean_final_number(
+                    records,
+                    "worst_flower_path_length",
+                ),
+                "mean_unique_adventurer_position_count": _mean_final_number(
+                    records,
+                    "unique_adventurer_position_count",
+                ),
+                "flower_revealed_episodes": flower_revealed,
+                "flower_revealed_rate": flower_revealed / len(records),
                 "flower_reached": reached,
                 "turn_cap_reached": capped,
                 "episodes": len(records),
@@ -214,6 +264,58 @@ def _final_integer(record: EpisodeRecord, name: str) -> int:
     return value
 
 
+def _final_number(record: EpisodeRecord, name: str) -> float | int | None:
+    if record.policy_failure is not None or not record.transitions:
+        return None
+    metrics = record.transitions[-1].step.metrics
+    if type(metrics) is not dict:
+        raise ValueError("Treant's Forest terminal metrics are invalid")
+    value = metrics.get(name)
+    if type(value) not in {int, float}:
+        raise ValueError("Treant's Forest terminal metrics are invalid")
+    return value
+
+
+def _mean_final_number(
+    records: Sequence[EpisodeRecord],
+    name: str,
+) -> float | None:
+    values = tuple(
+        value for record in records if (value := _final_number(record, name)) is not None
+    )
+    return statistics.fmean(values) if values else None
+
+
+def _mean_ratio(
+    records: Sequence[EpisodeRecord],
+    numerator: str,
+    denominator: str,
+) -> float | None:
+    values: list[float] = []
+    for record in records:
+        top = _final_number(record, numerator)
+        bottom = _final_number(record, denominator)
+        if top is not None and bottom is not None and bottom > 0:
+            values.append(top / bottom)
+    return statistics.fmean(values) if values else None
+
+
+def _reached(record: EpisodeRecord, name: str) -> bool:
+    return any(
+        type(transition.step.metrics) is dict
+        and type(transition.step.metrics.get(name)) is int
+        and transition.step.metrics[name] > 0
+        for transition in record.transitions
+    )
+
+
+def _terminal_or_reached_flag(record: EpisodeRecord, name: str) -> bool:
+    return any(
+        type(transition.step.metrics) is dict and transition.step.metrics.get(name) is True
+        for transition in record.transitions
+    )
+
+
 def _trace_artifact(
     records: Sequence[EpisodeRecord],
 ) -> tuple[Artifact, int, int, int]:
@@ -230,11 +332,7 @@ def _trace_artifact(
                     "episode_index": episode_index,
                     "status": _status(record),
                     "steps": record.steps,
-                    "score": (
-                        record.total_reward
-                        if record.policy_failure is None
-                        else 0.0
-                    ),
+                    "score": (record.total_reward if record.policy_failure is None else 0.0),
                     "failure": record.policy_failure,
                 }
             )
@@ -244,9 +342,7 @@ def _trace_artifact(
             if traced_transitions >= _MAX_TRACED_TRANSITIONS:
                 break
             action = _trace_action(transition.action)
-            next_observation = _trace_observation(
-                transition.step.observation
-            )
+            next_observation = _trace_observation(transition.step.observation)
             lines.append(
                 _json_line(
                     {
@@ -259,6 +355,7 @@ def _trace_artifact(
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
+                        "metrics": _trace_metrics(transition.step.metrics),
                     }
                 )
             )
@@ -327,14 +424,16 @@ def _trace_observation(observation: PolicyValue) -> PolicyValue:
         entrance = initial["entrance"]
         flower = initial["flower"]
         trees = initial["trees"]
-        if (
-            type(entrance) is not list
-            or type(flower) is not list
-            or type(trees) is not list
-        ):
+        if type(entrance) is not list or type(flower) is not list or type(trees) is not list:
             raise ValueError("Treant's Forest trace observation is invalid")
         _validate_coordinates([entrance, flower, *trees])
     return copy_policy_value(observation)
+
+
+def _trace_metrics(metrics: PolicyValue) -> PolicyValue:
+    if type(metrics) is not dict:
+        raise ValueError("Treant's Forest trace metrics are invalid")
+    return copy_policy_value(metrics)
 
 
 def _validate_coordinates(values: list[PolicyValue]) -> None:

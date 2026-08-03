@@ -11,6 +11,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -48,15 +49,16 @@ class LunarLanderBenchmarkTests(unittest.TestCase):
             discrete.spec.environment_digest,
             continuous.spec.environment_digest,
         )
+        parameters = continuous.spec.environment_parameters
+        self.assertTrue(parameters["continuous"])
+        self.assertEqual(parameters["gravity"], -9.0)
+        self.assertTrue(parameters["enable_wind"])
+        self.assertEqual(parameters["wind_power"], 12.0)
+        self.assertEqual(parameters["turbulence_power"], 1.0)
+        self.assertEqual(parameters["main_engine_impulse_power"], 13.0)
         self.assertEqual(
-            continuous.spec.environment_parameters,
-            {
-                "continuous": True,
-                "gravity": -9.0,
-                "enable_wind": True,
-                "wind_power": 12.0,
-                "turbulence_power": 1.0,
-            },
+            parameters["continuous_main_engine_power_formula"],
+            "(command+1)/2",
         )
         self.assertIsInstance(discrete.spec.action_space, dict)
         self.assertIsInstance(continuous.spec.action_space, dict)
@@ -64,6 +66,30 @@ class LunarLanderBenchmarkTests(unittest.TestCase):
         assert isinstance(continuous.spec.action_space, dict)
         self.assertEqual(discrete.spec.action_space["type"], "discrete")
         self.assertEqual(continuous.spec.action_space["shape"], [2])
+        self.assertEqual(
+            discrete.spec.environment_parameters["time_limit"],
+            1000,
+        )
+        observation_space = discrete.spec.observation_space
+        assert isinstance(observation_space, dict)
+        self.assertEqual(
+            observation_space["policy_carrier"],
+            "dict[str, float | bool]",
+        )
+        fields = observation_space["fields"]
+        assert isinstance(fields, dict)
+        x_position = fields["x_position"]
+        angular_velocity = fields["angular_velocity"]
+        assert isinstance(x_position, dict)
+        assert isinstance(angular_velocity, dict)
+        x_meaning = x_position["meaning"]
+        angular_velocity_meaning = angular_velocity["meaning"]
+        self.assertIsInstance(x_meaning, str)
+        self.assertIsInstance(angular_velocity_meaning, str)
+        assert isinstance(x_meaning, str)
+        assert isinstance(angular_velocity_meaning, str)
+        self.assertIn("pad center", x_meaning)
+        self.assertIn("multiply by 2.5", angular_velocity_meaning)
 
     def test_config_rejects_invalid_types_and_gravity(self) -> None:
         with self.assertRaises(TypeError):
@@ -191,6 +217,41 @@ class LunarLanderBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
 
+        environment = benchmark.make_environment(
+            EpisodeSpec(environment_seed=123)
+        )
+        try:
+            environment.reset()
+            result = environment.step([0.5, -0.75])
+        finally:
+            environment.close()
+        metrics = _metrics(result)
+        self.assertEqual(
+            _string_metric(metrics, "requested_action_meaning"),
+            "continuous_throttle",
+        )
+        self.assertEqual(
+            _float_metric(metrics, "main_engine_power_fraction"),
+            0.75,
+        )
+        self.assertEqual(
+            _float_metric(metrics, "side_engine_power_fraction"),
+            0.75,
+        )
+        self.assertEqual(
+            _string_metric(metrics, "side_engine_direction"),
+            "left",
+        )
+        self.assertAlmostEqual(
+            _float_metric(metrics, "charged_fuel_penalty"),
+            0.2475,
+        )
+        self.assertAlmostEqual(
+            _float_metric(metrics, "reward_from_public_terms"),
+            result.reward,
+            delta=3e-5,
+        )
+
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
     ) -> None:
@@ -289,6 +350,61 @@ class LunarLanderBenchmarkTests(unittest.TestCase):
             },
         )
         self.assertEqual(transitions[0]["action"], 0)
+        self.assertEqual(transitions[0]["action_meaning"], "do_nothing")
+        self.assertEqual(transitions[0]["metrics"]["charged_fuel_penalty"], 0.0)
+        self.assertIn(
+            transitions[-1]["metrics"]["terminal_reason"],
+            {"crash", "left_viewport", "time_limit"},
+        )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(
+            result.feedback.content[
+                "mean_episode_requested_main_engine_fuel_penalty"
+            ],
+            0.0,
+        )
+        closest = result.feedback.content["mean_closest_normalized_pad_distance"]
+        self.assertIsInstance(closest, float)
+        assert isinstance(closest, float)
+        self.assertGreaterEqual(closest, 0.0)
+
+    def test_reference_heuristic_lands_real_episode_with_explicit_outcome(self) -> None:
+        benchmark = LunarLanderBenchmark()
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=121))
+        final_step: Step | None = None
+        total_reward = 0.0
+        try:
+            observation = environment.reset()
+            for _ in range(1000):
+                assert isinstance(observation, dict)
+                final_step = environment.step(_heuristic_action(observation))
+                total_reward += final_step.reward
+                observation = final_step.observation
+                if final_step.done:
+                    break
+        finally:
+            environment.close()
+
+        self.assertIsNotNone(final_step)
+        assert final_step is not None
+        self.assertTrue(final_step.terminated)
+        self.assertFalse(final_step.truncated)
+        self.assertEqual(final_step.reward, 100.0)
+        self.assertGreater(total_reward, 200.0)
+        metrics = _metrics(final_step)
+        self.assertEqual(
+            _string_metric(metrics, "terminal_reason"),
+            "settled_landing",
+        )
+        self.assertTrue(
+            _bool_metric(metrics, "reward_was_terminal_override")
+        )
+        self.assertEqual(_float_metric(metrics, "terminal_override_reward"), 100.0)
+        self.assertLess(
+            _float_metric(metrics, "minimum_landing_state_penalty"),
+            50.0,
+        )
 
     def test_reference_heuristic_improves_on_no_thrust(self) -> None:
         benchmark = LunarLanderBenchmark()
@@ -331,6 +447,33 @@ def _rollout(
     finally:
         environment.close()
     return total
+
+
+def _metrics(step: Step) -> dict[str, PolicyValue]:
+    if type(step.metrics) is not dict:
+        raise AssertionError("expected object metrics")
+    return step.metrics
+
+
+def _string_metric(metrics: dict[str, PolicyValue], name: str) -> str:
+    value = metrics.get(name)
+    if type(value) is not str:
+        raise AssertionError(f"expected string metric {name}")
+    return value
+
+
+def _float_metric(metrics: dict[str, PolicyValue], name: str) -> float:
+    value = metrics.get(name)
+    if type(value) is not float:
+        raise AssertionError(f"expected float metric {name}")
+    return value
+
+
+def _bool_metric(metrics: dict[str, PolicyValue], name: str) -> bool:
+    value = metrics.get(name)
+    if type(value) is not bool:
+        raise AssertionError(f"expected bool metric {name}")
+    return value
 
 
 def _heuristic_action(observation: dict[str, PolicyValue]) -> int:

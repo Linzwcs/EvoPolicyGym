@@ -27,12 +27,17 @@ _MAX_TRACED_EPISODES = 8
 _SPEC = BenchmarkSpec(
     id="gymnasium/CartPole-v1/mean-return-v1",
     description=(
-        "Balance the pole for up to 500 steps. Choose 0 to push left or 1 "
-        "to push right. Maximize mean Episode return."
+        "Balance the pole for 500 control steps of 0.02 seconds each. Action 0 "
+        "applies 10 N left and Action 1 applies 10 N right. Every transition, "
+        "including a terminating transition, rewards 1. The Episode terminates "
+        "when absolute cart position exceeds 2.4 m or absolute pole angle exceeds "
+        "12 degrees (0.20943951 rad), and truncates successfully after step 500. "
+        "Maximize mean Episode return; return therefore equals survived steps."
     ),
     observation_space={
         "type": "vector",
-        "dtype": "float64",
+        "policy_carrier": "list[float]",
+        "source_dtype": "float32",
         "shape": [4],
         "components": [
             "cart_position",
@@ -40,10 +45,23 @@ _SPEC = BenchmarkSpec(
             "pole_angle",
             "pole_angular_velocity",
         ],
+        "component_meanings": {
+            "cart_position": "Horizontal cart position in meters; termination limit is ±2.4.",
+            "cart_velocity": "Horizontal cart velocity in meters per second; unbounded.",
+            "pole_angle": (
+                "Pole angle in radians from upright; positive tilts right and "
+                "termination limit is ±0.20943951 (±12 degrees)."
+            ),
+            "pole_angular_velocity": (
+                "Pole angular velocity in radians per second; positive rotates right."
+            ),
+        },
+        "initial_sampling": "each component independently uniform in [-0.05, 0.05]",
     },
     action_space={
         "type": "discrete",
         "values": [0, 1],
+        "component": "force_direction",
         "meaning": {
             "0": "push_left",
             "1": "push_right",
@@ -54,6 +72,23 @@ _SPEC = BenchmarkSpec(
         "provider": "Gymnasium",
         "reward_per_step": 1.0,
         "maximum_return": 500.0,
+        "failure_return": 0.0,
+    },
+    environment_parameters={
+        "cart_position_limit_meters": 2.4,
+        "pole_angle_limit_radians": 12.0 * 3.141592653589793 / 180.0,
+        "pole_angle_limit_degrees": 12.0,
+        "force_magnitude_newtons": 10.0,
+        "seconds_per_step": 0.02,
+        "gravity_meters_per_second_squared": 9.8,
+        "cart_mass_kilograms": 1.0,
+        "pole_mass_kilograms": 0.1,
+        "pole_half_length_meters": 0.5,
+        "integrator": "explicit_euler",
+        "initial_state_minimum": -0.05,
+        "initial_state_maximum": 0.05,
+        "reward_per_step_including_termination": 1.0,
+        "time_limit": 500,
     },
     max_episode_steps=500,
     primary_metric="mean_return",
@@ -106,6 +141,24 @@ class CartPoleBenchmark:
         )
         failures = sum(record.policy_failure is not None for record in records)
         score = statistics.fmean(returns)
+        mean_steps = statistics.fmean(record.steps for record in records)
+        time_limit_successes = sum(
+            bool(
+                record.policy_failure is None
+                and record.transitions
+                and record.transitions[-1].step.truncated
+                and not record.transitions[-1].step.terminated
+            )
+            for record in records
+        )
+        cart_limit_episodes = sum(
+            "cart_position_limit" in _terminal_reason(record)
+            for record in records
+        )
+        pole_limit_episodes = sum(
+            "pole_angle_limit" in _terminal_reason(record)
+            for record in records
+        )
         traced = records[:_MAX_TRACED_EPISODES]
         return Feedback(
             score=score,
@@ -114,7 +167,11 @@ class CartPoleBenchmark:
                     f"Mean return {score:.3f} across {len(records)} Episodes."
                 ),
                 "mean_return": score,
+                "mean_steps": mean_steps,
                 "episodes": len(records),
+                "time_limit_successes": time_limit_successes,
+                "cart_position_limit_episodes": cart_limit_episodes,
+                "pole_angle_limit_episodes": pole_limit_episodes,
                 "policy_failures": failures,
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
@@ -148,13 +205,14 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                     ),
                     "steps": record.steps,
                     "return": record.total_reward,
+                    "outcome": _episode_outcome(record),
                     "failure": record.policy_failure,
                 }
             )
         )
         observation = _trace_observation(record.initial_observation)
         for step_index, transition in enumerate(record.transitions):
-            if type(transition.action) is not int:
+            if type(transition.action) is not int or transition.action not in {0, 1}:
                 raise ValueError("CartPole trace Action is invalid")
             next_observation = _trace_observation(
                 transition.step.observation
@@ -167,10 +225,14 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "step_index": step_index,
                         "observation": observation,
                         "action": transition.action,
+                        "action_meaning": (
+                            "push_left" if transition.action == 0 else "push_right"
+                        ),
                         "reward": transition.step.reward,
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
+                        "metrics": transition.step.metrics,
                     }
                 )
             )
@@ -180,6 +242,27 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
         media_type="application/x-ndjson",
         content=b"".join(lines),
     )
+
+
+def _terminal_reason(record: EpisodeRecord) -> str:
+    if not record.transitions:
+        return ""
+    metrics = record.transitions[-1].step.metrics
+    if type(metrics) is not dict:
+        return ""
+    reason = metrics.get("terminal_reason")
+    return reason if type(reason) is str else ""
+
+
+def _episode_outcome(record: EpisodeRecord) -> str:
+    if record.policy_failure is not None:
+        return "policy_failure"
+    reason = _terminal_reason(record)
+    if reason == "time_limit":
+        return "balanced_to_time_limit"
+    if reason:
+        return reason
+    return "incomplete"
 
 
 def _trace_observation(observation: PolicyValue) -> list[float]:

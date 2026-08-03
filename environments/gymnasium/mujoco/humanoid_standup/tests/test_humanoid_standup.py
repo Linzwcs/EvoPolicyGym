@@ -6,6 +6,7 @@ import statistics
 import unittest
 
 from evopolicygym import EvaluationConfig, evaluate
+from evopolicygym.artifacts import ARTIFACT_MAX_BYTES
 from evopolicygym.authoring import (
     BenchmarkFixture,
     EpisodeRecord,
@@ -106,15 +107,64 @@ _EXTERNAL_FORCE_COMPONENTS = {
     "force_z",
 }
 _METRIC_FIELDS = {
+    "step_count",
+    "remaining_steps",
+    "model_timestep_seconds",
+    "seconds_per_step",
+    "simulated_seconds",
+    "requested_action_by_joint",
+    "actuator_gear_scaled_controls",
+    "sum_squared_action",
+    "sum_absolute_action",
+    "cumulative_absolute_action",
+    "initial_x_position",
+    "initial_y_position",
     "x_position",
     "y_position",
-    "z_distance_from_origin",
+    "net_x_displacement",
+    "net_y_displacement",
+    "initial_torso_z_position",
+    "torso_z_position",
+    "height_gain_from_reset",
+    "z_distance_from_nominal_origin",
+    "minimum_torso_z_position",
+    "maximum_torso_z_position",
+    "maximum_height_gain_from_reset",
+    "torso_z_velocity",
+    "minimum_torso_z_velocity",
+    "maximum_torso_z_velocity",
+    "upward_step_fraction",
+    "torso_tilt_radians",
+    "torso_tilt_degrees",
+    "minimum_torso_tilt_radians",
+    "maximum_torso_tilt_radians",
+    "quaternion_norm_error",
+    "external_forces_in_observation",
+    "sum_squared_external_force_components",
+    "raw_impact_cost_before_clamp",
+    "maximum_external_force_body_norm_this_step",
+    "maximum_external_force_body_this_step",
+    "maximum_external_force_body_norm",
+    "maximum_external_force_body",
+    "actuator_forces_in_observation",
+    "maximum_absolute_actuator_force_this_step",
+    "maximum_actuator_force_joint_this_step",
+    "maximum_absolute_actuator_force",
+    "maximum_actuator_force_joint",
     "reward_upward",
     "reward_control",
     "reward_impact",
     "reward_constant",
+    "reward_from_public_terms",
+    "cumulative_reward_upward",
+    "cumulative_reward_control",
+    "cumulative_reward_impact",
+    "cumulative_reward_constant",
+    "cumulative_return",
     "tendon_lengths",
     "tendon_velocities",
+    "maximum_absolute_tendon_velocity",
+    "terminal_reason",
 }
 _OPTIONAL_FIELDS = {
     "body_inertias",
@@ -148,13 +198,72 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(default.spec.max_episode_steps, 1000)
         self.assertEqual(default.spec.primary_metric, "mean_return")
+        self.assertIsInstance(default.spec.action_space, dict)
+        assert isinstance(default.spec.action_space, dict)
+        self.assertEqual(
+            default.spec.action_space["components"],
+            list(_ACTION_JOINTS),
+        )
+        self.assertEqual(
+            default.spec.action_space["actuator_gears"],
+            [
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                300.0,
+                200.0,
+                100.0,
+                100.0,
+                300.0,
+                200.0,
+                25.0,
+                25.0,
+                25.0,
+                25.0,
+                25.0,
+                25.0,
+            ],
+        )
         self.assertEqual(
             default.spec.environment_parameters,
             {
                 "frame_skip": 5,
+                "model_timestep_seconds": 0.003,
+                "seconds_per_step": 0.015,
+                "upward_reward_time_divisor_seconds": 0.003,
+                "nominal_prone_torso_z": 0.105,
+                "action_components": list(_ACTION_JOINTS),
+                "actuator_gears": [
+                    100.0,
+                    100.0,
+                    100.0,
+                    100.0,
+                    100.0,
+                    300.0,
+                    200.0,
+                    100.0,
+                    100.0,
+                    300.0,
+                    200.0,
+                    25.0,
+                    25.0,
+                    25.0,
+                    25.0,
+                    25.0,
+                    25.0,
+                ],
                 "ctrl_cost_weight": 0.1,
                 "impact_cost_weight": 0.0000005,
                 "impact_cost_range": [None, 10.0],
+                "reward_formula": (
+                    "torso_z/0.003+1-ctrl_cost_weight*sum(action^2)-"
+                    "clip(impact_cost_weight*sum(cfrc_ext^2),"
+                    "impact_cost_range)"
+                ),
+                "natural_termination": "none",
+                "time_limit": 1000,
                 "reset_noise_scale": 0.01,
                 "exclude_current_positions_from_observation": True,
                 "include_cinert_in_observation": True,
@@ -221,9 +330,7 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -250,9 +357,7 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -285,6 +390,26 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
                 step.reward,
                 upward + control + impact + constant,
             )
+            self.assertAlmostEqual(
+                upward,
+                _float(step.metrics["torso_z_position"]) / 0.003,
+            )
+            self.assertEqual(step.metrics["model_timestep_seconds"], 0.003)
+            self.assertEqual(step.metrics["seconds_per_step"], 0.015)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+            self.assertTrue(step.metrics["external_forces_in_observation"])
+            self.assertIsInstance(
+                step.metrics["raw_impact_cost_before_clamp"],
+                float,
+            )
+            self.assertGreater(
+                _float(step.metrics["initial_torso_z_position"]),
+                0.08,
+            )
+            self.assertLess(
+                _float(step.metrics["initial_torso_z_position"]),
+                0.13,
+            )
         finally:
             environment.close()
             environment.close()
@@ -309,9 +434,7 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=456)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=456))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -320,6 +443,70 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
                 set(observation),
                 {"torso_x_position", "torso_y_position", *_STATE_FIELDS},
             )
+        finally:
+            environment.close()
+
+    def test_real_action_cost_and_nonuniform_gears_are_public(self) -> None:
+        benchmark = HumanoidStandupBenchmark()
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=321))
+        action = [0.0] * 17
+        action[0] = 0.4
+        action[5] = -0.2
+        action[6] = 0.1
+        action[11] = -0.4
+        try:
+            environment.reset()
+            step = environment.step(_policy_action(action))
+            assert isinstance(step.metrics, dict)
+            self.assertAlmostEqual(
+                _float(step.metrics["reward_control"]),
+                -0.1 * (0.16 + 0.04 + 0.01 + 0.16),
+                places=7,
+            )
+            scaled = step.metrics["actuator_gear_scaled_controls"]
+            self.assertIsInstance(scaled, dict)
+            assert isinstance(scaled, dict)
+            self.assertAlmostEqual(
+                _float(scaled["abdomen_y"]),
+                40.0,
+                delta=0.00001,
+            )
+            self.assertAlmostEqual(
+                _float(scaled["right_hip_y"]),
+                -60.0,
+                delta=0.00001,
+            )
+            self.assertAlmostEqual(
+                _float(scaled["right_knee"]),
+                20.0,
+                delta=0.00001,
+            )
+            self.assertAlmostEqual(
+                _float(scaled["right_shoulder_1"]),
+                -10.0,
+                delta=0.00001,
+            )
+        finally:
+            environment.close()
+
+    def test_minimal_observation_marks_unavailable_force_diagnostics(
+        self,
+    ) -> None:
+        benchmark = HumanoidStandupBenchmark(
+            HumanoidStandupConfig(
+                include_qfrc_actuator_in_observation=False,
+                include_cfrc_ext_in_observation=False,
+            )
+        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=789))
+        try:
+            environment.reset()
+            step = environment.step([0.0] * 17)
+            assert isinstance(step.metrics, dict)
+            self.assertFalse(step.metrics["external_forces_in_observation"])
+            self.assertIsNone(step.metrics["sum_squared_external_force_components"])
+            self.assertFalse(step.metrics["actuator_forces_in_observation"])
+            self.assertIsNone(step.metrics["maximum_absolute_actuator_force"])
         finally:
             environment.close()
 
@@ -336,9 +523,7 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
             True,
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -387,7 +572,7 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["policy_failures"], 1)
         self.assertEqual(feedback.content["mean_final_torso_height"], None)
 
-    def test_zero_torque_baseline_publishes_complete_nested_trace(
+    def test_zero_torque_baseline_publishes_sampled_nested_trace(
         self,
     ) -> None:
         benchmark = HumanoidStandupBenchmark()
@@ -411,18 +596,38 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
             result.environment_digest,
             benchmark.spec.environment_digest,
         )
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["time_limit_episodes"], 1)
+        self.assertIsInstance(
+            result.feedback.content["mean_episode_maximum_torso_height"],
+            float,
+        )
+        self.assertIsInstance(
+            result.feedback.content["mean_episode_maximum_height_gain_from_reset"],
+            float,
+        )
         documents = tuple(
-            json.loads(line)
-            for line in result.feedback.artifacts[0]
-            .read_bytes()
-            .splitlines()
+            json.loads(line) for line in result.feedback.artifacts[0].read_bytes().splitlines()
         )
-        transitions = tuple(
-            document
-            for document in documents
-            if document["type"] == "transition"
+        episode = documents[0]
+        transitions = tuple(document for document in documents if document["type"] == "transition")
+        self.assertEqual(episode["steps"], 1000)
+        self.assertEqual(episode["traced_transitions"], 100)
+        self.assertEqual(episode["omitted_transitions"], 900)
+        self.assertEqual(
+            episode["trace_sampling"],
+            "uniform_including_endpoints",
         )
-        self.assertEqual(len(transitions), 1000)
+        self.assertEqual(len(transitions), 100)
+        self.assertEqual(transitions[0]["step_index"], 0)
+        self.assertEqual(transitions[-1]["step_index"], 999)
+        self.assertLessEqual(
+            result.feedback.artifacts[0].size,
+            ARTIFACT_MAX_BYTES,
+        )
+        self.assertEqual(episode["outcome"], "time_limit")
+        self.assertIn("maximum_torso_height", episode)
         self.assertEqual(
             set(transitions[0]["observation"]),
             _STATE_FIELDS | _OPTIONAL_FIELDS,
@@ -439,45 +644,46 @@ class HumanoidStandupBenchmarkTests(unittest.TestCase):
         )
         zero_torque: list[float] = []
         controlled: list[float] = []
+        zero_final_heights: list[float] = []
+        controlled_final_heights: list[float] = []
 
         for episode in episodes:
-            zero_torque.append(
-                _rollout(benchmark, episode, control=False)
+            zero_return, zero_height = _rollout(
+                benchmark,
+                episode,
+                control=False,
             )
-            controlled.append(
-                _rollout(benchmark, episode, control=True)
+            controlled_return, controlled_height = _rollout(
+                benchmark,
+                episode,
+                control=True,
             )
+            zero_torque.append(zero_return)
+            controlled.append(controlled_return)
+            zero_final_heights.append(zero_height)
+            controlled_final_heights.append(controlled_height)
 
         self.assertGreater(
             statistics.fmean(controlled),
             statistics.fmean(zero_torque),
         )
+        self.assertGreater(
+            statistics.fmean(controlled_final_heights),
+            statistics.fmean(zero_final_heights),
+        )
 
 
 def _sample_observation() -> dict[str, PolicyValue]:
-    observation: dict[str, PolicyValue] = {
-        field: 0.0 for field in _STATE_FIELDS
-    }
+    observation: dict[str, PolicyValue] = {field: 0.0 for field in _STATE_FIELDS}
     observation["body_inertias"] = {
-        body: {component: 0.0 for component in _INERTIA_COMPONENTS}
-        for body in _BODIES
+        body: {component: 0.0 for component in _INERTIA_COMPONENTS} for body in _BODIES
     }
     observation["body_velocities"] = {
-        body: {
-            component: 0.0
-            for component in _BODY_VELOCITY_COMPONENTS
-        }
-        for body in _BODIES
+        body: {component: 0.0 for component in _BODY_VELOCITY_COMPONENTS} for body in _BODIES
     }
-    observation["actuator_forces"] = {
-        joint: 0.0 for joint in _JOINTS
-    }
+    observation["actuator_forces"] = {joint: 0.0 for joint in _JOINTS}
     observation["external_forces"] = {
-        body: {
-            component: 0.0
-            for component in _EXTERNAL_FORCE_COMPONENTS
-        }
-        for body in _BODIES
+        body: {component: 0.0 for component in _EXTERNAL_FORCE_COMPONENTS} for body in _BODIES
     }
     return observation
 
@@ -487,25 +693,20 @@ def _rollout(
     episode: EpisodeSpec,
     *,
     control: bool,
-) -> float:
+) -> tuple[float, float]:
     environment = benchmark.make_environment(episode)
     total = 0.0
     try:
         observation = environment.reset()
+        result = None
         for _ in range(1000):
             action: PolicyValue = [0.0] * 17
             if control:
                 assert isinstance(observation, dict)
                 action = [
                     _clip(
-                        -2.0
-                        * _float(observation[f"{joint}_angle"])
-                        - 0.1
-                        * _float(
-                            observation[
-                                f"{joint}_angular_velocity"
-                            ]
-                        )
+                        -2.0 * _float(observation[f"{joint}_angle"])
+                        - 0.1 * _float(observation[f"{joint}_angular_velocity"])
                     )
                     for joint in _ACTION_JOINTS
                 ]
@@ -516,7 +717,9 @@ def _rollout(
                 break
     finally:
         environment.close()
-    return total
+    assert result is not None
+    assert isinstance(result.metrics, dict)
+    return total, _float(result.metrics["torso_z_position"])
 
 
 def _float(value: PolicyValue) -> float:

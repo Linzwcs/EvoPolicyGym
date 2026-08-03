@@ -9,16 +9,16 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Step,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.policy import PolicyValue, TensorValue
 
-from minigrid_put_near import (
-    PutNearBenchmark,
-    PutNearConfig,
-    baseline_program,
-)
+from minigrid_put_near import PutNearBenchmark, PutNearConfig, baseline_program
+
+_SUCCESS_ACTIONS = (1, 2, 1, 2, 2, 0, 3, 1, 1, 2, 2, 2, 1, 4)
+_CORRECT_PICKUP_PREFIX = (1, 2, 1, 2, 2, 0, 3)
 
 
 class PutNearBenchmarkTests(unittest.TestCase):
@@ -26,23 +26,27 @@ class PutNearBenchmarkTests(unittest.TestCase):
         default = PutNearBenchmark()
         small = PutNearBenchmark(PutNearConfig(profile="6x6-N2"))
 
-        self.assertEqual(
-            default.spec.id,
-            "minigrid/PutNear-v0/success-rate-v1",
-        )
+        self.assertEqual(default.spec.id, "minigrid/PutNear-v0/success-rate-v1")
         self.assertEqual(default.spec.max_episode_steps, 40)
         self.assertEqual(small.spec.max_episode_steps, 30)
-        self.assertNotEqual(
-            default.spec.environment_digest,
-            small.spec.environment_digest,
+        self.assertNotEqual(default.spec.environment_digest, small.spec.environment_digest)
+        self.assertEqual(default.spec.environment_parameters["profile"], "8x8-N3")
+        self.assertEqual(default.spec.environment_parameters["object_count"], 3)
+
+    def test_spec_explains_exact_terminal_and_box_toggle_semantics(self) -> None:
+        parameters = PutNearBenchmark().spec.environment_parameters
+
+        self.assertEqual(parameters["see_through_walls"], True)
+        self.assertEqual(parameters["initial_objects_are_non_adjacent"], True)
+        self.assertIn("terminates immediately", parameters["action_notes"]["pick_up"])
+        self.assertIn(
+            "any drop attempted while carrying terminates", parameters["action_notes"]["drop"]
         )
+        self.assertIn("destroys it without terminating", parameters["action_notes"]["toggle"])
+        self.assertIn("wrong-object pickup", parameters["natural_termination"])
         self.assertEqual(
-            default.spec.environment_parameters["profile"],
-            "8x8-N3",
-        )
-        self.assertEqual(
-            default.spec.environment_parameters["object_count"],
-            3,
+            parameters["success_reward_formula"],
+            "1 - 0.9*step_count/max_episode_steps",
         )
 
     def test_config_rejects_unsupported_or_ambiguous_profiles(self) -> None:
@@ -53,12 +57,9 @@ class PutNearBenchmarkTests(unittest.TestCase):
 
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = PutNearBenchmark()
-
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -69,9 +70,7 @@ class PutNearBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(all(item.scenario is None for item in train))
 
-    def test_environment_is_conformant_and_rejects_invalid_actions(
-        self,
-    ) -> None:
+    def test_environment_is_conformant_and_rejects_invalid_actions(self) -> None:
         benchmark = PutNearBenchmark(PutNearConfig(profile="6x6-N2"))
         report = check_benchmark(
             benchmark,
@@ -83,44 +82,21 @@ class PutNearBenchmarkTests(unittest.TestCase):
             ),
         )
         self.assertTrue(report.passed, report.issues)
-
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
             assert isinstance(observation, dict)
-            self.assertEqual(
-                set(observation),
-                {"image", "direction", "mission"},
-            )
-            image = observation["image"]
-            self.assertIsInstance(image, TensorValue)
-            assert isinstance(image, TensorValue)
-            self.assertEqual(image.dtype, "uint8")
-            self.assertEqual(image.shape, (7, 7, 3))
-            self.assertEqual(len(image.data), 147)
-            mission = observation["mission"]
-            self.assertIsInstance(mission, str)
-            assert isinstance(mission, str)
-            self.assertTrue(mission.startswith("put the "))
-            self.assertIn(" near the ", mission)
+            self.assertEqual(set(observation), {"image", "direction", "mission"})
+            self.assertIsInstance(observation["image"], TensorValue)
+            self.assertTrue(str(observation["mission"]).startswith("put the "))
         finally:
             environment.close()
             environment.close()
 
-        invalid_actions: tuple[PolicyValue, ...] = (
-            -1,
-            7,
-            True,
-            2.0,
-            [2],
-        )
+        invalid_actions: tuple[PolicyValue, ...] = (-1, 7, True, 2.0, [2])
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
@@ -128,16 +104,102 @@ class PutNearBenchmarkTests(unittest.TestCase):
             finally:
                 environment.close()
 
-    def test_episode_scenario_cannot_override_benchmark_configuration(
-        self,
-    ) -> None:
+    def test_real_success_requires_actual_adjacent_drop(self) -> None:
+        benchmark = PutNearBenchmark(PutNearConfig(profile="8x8-N3"))
+        episode = benchmark.episodes("validation", seed=5, count=1)[0]
+        steps = _run_actions(benchmark, episode, _SUCCESS_ACTIONS)
+
+        pickup = steps[6]
+        self.assertFalse(pickup.terminated)
+        self.assertEqual(pickup.metrics["move_object_label"], "yellow_ball")
+        self.assertEqual(pickup.metrics["target_object_label"], "red_box")
+        self.assertEqual(pickup.metrics["correct_object_picked_up_this_step"], True)
+        self.assertEqual(pickup.metrics["correct_object_pickup_step"], 7)
+        self.assertEqual(pickup.metrics["carrying_move_object"], True)
+
+        final = steps[-1]
+        self.assertTrue(final.terminated)
+        self.assertFalse(final.truncated)
+        self.assertAlmostEqual(final.reward, 1.0 - 0.9 * 14 / 40)
+        self.assertEqual(final.metrics["valid_success_drop_before_action"], True)
+        self.assertEqual(final.metrics["object_dropped_this_step"], True)
+        self.assertEqual(final.metrics["misplaced_drop"], False)
+        self.assertEqual(final.metrics["blocked_terminal_drop"], False)
+        self.assertEqual(final.metrics["success"], True)
+        self.assertEqual(final.metrics["terminal_reason"], "success")
+
+    def test_wrong_pickup_terminates_and_names_carried_decoy(self) -> None:
+        benchmark = PutNearBenchmark(PutNearConfig(profile="8x8-N3"))
+        episode = benchmark.episodes("validation", seed=5, count=1)[0]
+        final = _run_actions(benchmark, episode, (1, 2, 3))[-1]
+
+        self.assertTrue(final.terminated)
+        self.assertFalse(final.truncated)
+        self.assertEqual(final.reward, 0.0)
+        self.assertEqual(final.metrics["wrong_object_picked_up"], True)
+        self.assertEqual(final.metrics["carried_object"], "yellow_box")
+        self.assertEqual(final.metrics["terminal_reason"], "wrong_object_pickup")
+
+    def test_misplaced_and_blocked_drops_have_distinct_outcomes(self) -> None:
+        benchmark = PutNearBenchmark(PutNearConfig(profile="8x8-N3"))
+        episode = benchmark.episodes("validation", seed=5, count=1)[0]
+        misplaced = _run_actions(
+            benchmark,
+            episode,
+            (*_CORRECT_PICKUP_PREFIX, 4),
+        )[-1]
+        blocked = _run_actions(
+            benchmark,
+            episode,
+            (*_CORRECT_PICKUP_PREFIX, 1, 4),
+        )[-1]
+
+        self.assertTrue(misplaced.terminated)
+        self.assertEqual(misplaced.metrics["object_dropped_this_step"], True)
+        self.assertEqual(misplaced.metrics["misplaced_drop"], True)
+        self.assertEqual(misplaced.metrics["failed_drop"], False)
+        self.assertEqual(misplaced.metrics["terminal_reason"], "misplaced_drop")
+        self.assertTrue(blocked.terminated)
+        self.assertEqual(blocked.metrics["object_dropped_this_step"], False)
+        self.assertEqual(blocked.metrics["blocked_terminal_drop"], True)
+        self.assertEqual(blocked.metrics["failed_drop"], True)
+        self.assertEqual(blocked.metrics["carried_object"], "yellow_ball")
+        self.assertEqual(blocked.metrics["terminal_reason"], "blocked_drop")
+
+    def test_toggling_mission_box_destroys_it_without_termination(self) -> None:
+        benchmark = PutNearBenchmark(PutNearConfig(profile="8x8-N3"))
+        episode = benchmark.episodes("validation", seed=5, count=1)[0]
+        steps = _run_actions(benchmark, episode, (0, 2, 2, 5))
+        final = steps[-1]
+
+        self.assertFalse(final.terminated)
+        self.assertFalse(final.truncated)
+        self.assertEqual(final.reward, 0.0)
+        self.assertEqual(final.metrics["front_object_before_action"], "red_box")
+        self.assertEqual(final.metrics["box_destroyed_this_step"], True)
+        self.assertEqual(final.metrics["target_object_destroyed_this_step"], True)
+        self.assertEqual(final.metrics["mission_object_destroyed"], True)
+        self.assertEqual(final.metrics["mission_object_destroyed_step"], 4)
+        self.assertEqual(final.metrics["task_stage"], "mission_object_destroyed")
+
+    def test_timeout_is_distinct_from_natural_failures(self) -> None:
+        benchmark = PutNearBenchmark(PutNearConfig(profile="8x8-N3"))
+        episode = benchmark.episodes("validation", seed=5, count=1)[0]
+        final = _run_actions(benchmark, episode, (6,) * 40)[-1]
+
+        self.assertFalse(final.terminated)
+        self.assertTrue(final.truncated)
+        self.assertEqual(final.reward, 0.0)
+        self.assertEqual(final.metrics["step_count"], 40)
+        self.assertEqual(final.metrics["remaining_steps"], 0)
+        self.assertEqual(final.metrics["done_action_count"], 40)
+        self.assertEqual(final.metrics["terminal_reason"], "time_limit")
+
+    def test_episode_scenario_cannot_override_benchmark_configuration(self) -> None:
         benchmark = PutNearBenchmark()
         with self.assertRaises(ValueError):
             benchmark.make_environment(
-                EpisodeSpec(
-                    environment_seed=1,
-                    scenario={"profile": "6x6-N2"},
-                )
+                EpisodeSpec(environment_seed=1, scenario={"profile": "6x6-N2"})
             )
 
     def test_feedback_penalizes_failure_and_keeps_identity_private(self) -> None:
@@ -149,30 +211,23 @@ class PutNearBenchmarkTests(unittest.TestCase):
             transitions=(),
             policy_failure="invalid_action",
         )
-
         feedback = benchmark.feedback((failed,))
+        trace = feedback.artifacts[0]
 
         self.assertEqual(feedback.score, 0.0)
-        self.assertEqual(len(feedback.artifacts), 1)
-        trace = feedback.artifacts[0]
         self.assertEqual(trace.name, "trace.jsonl")
         self.assertNotIn(b"environment_seed", trace.read_bytes())
         self.assertNotIn(b"policy_seed", trace.read_bytes())
         self.assertNotIn(b'"profile"', trace.read_bytes())
-        self.assertIsInstance(feedback.content, dict)
-        assert isinstance(feedback.content, dict)
         self.assertEqual(feedback.content["policy_failures"], 1)
-        self.assertEqual(feedback.content["wrong_object_episodes"], 0)
-        self.assertEqual(feedback.content["misplaced_object_episodes"], 0)
+        self.assertEqual(feedback.content["wrong_object_picked_up_episodes"], 0)
+        self.assertEqual(feedback.content["misplaced_drop_episodes"], 0)
+        self.assertIsNone(feedback.content["mean_pickup_event_count"])
 
-    def test_baseline_solves_every_public_profile_and_publishes_trace(
-        self,
-    ) -> None:
+    def test_baseline_solves_every_public_profile_and_publishes_trace(self) -> None:
         for profile in ("6x6-N2", "8x8-N3"):
             with self.subTest(profile=profile):
-                benchmark = PutNearBenchmark(
-                    PutNearConfig(profile=profile)
-                )
+                benchmark = PutNearBenchmark(PutNearConfig(profile=profile))
                 result = evaluate(
                     baseline_program(),
                     benchmark,
@@ -189,36 +244,17 @@ class PutNearBenchmarkTests(unittest.TestCase):
                     result.benchmark_id,
                     "minigrid/PutNear-v0/success-rate-v1",
                 )
-                self.assertEqual(
-                    result.environment_digest,
-                    benchmark.spec.environment_digest,
-                )
+                self.assertEqual(result.environment_digest, benchmark.spec.environment_digest)
                 self.assertEqual(result.feedback.score, 1.0)
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
-                self.assertEqual(
-                    result.feedback.content["wrong_object_rate"],
-                    0.0,
-                )
-                self.assertEqual(
-                    result.feedback.content["misplaced_object_rate"],
-                    0.0,
-                )
+                self.assertEqual(result.feedback.content["wrong_object_picked_up_rate"], 0.0)
+                self.assertEqual(result.feedback.content["misplaced_drop_rate"], 0.0)
+                self.assertEqual(result.feedback.content["blocked_terminal_drop_rate"], 0.0)
                 trace = result.feedback.artifacts[0]
-                documents = tuple(
-                    json.loads(line)
-                    for line in trace.read_bytes().splitlines()
-                )
+                documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())
                 transitions = tuple(
-                    document
-                    for document in documents
-                    if document["type"] == "transition"
+                    document for document in documents if document["type"] == "transition"
                 )
                 self.assertEqual(trace.name, "trace.jsonl")
-                self.assertEqual(
-                    trace.media_type,
-                    "application/x-ndjson",
-                )
                 self.assertTrue(transitions)
                 self.assertTrue(
                     all(
@@ -227,15 +263,30 @@ class PutNearBenchmarkTests(unittest.TestCase):
                         for item in transitions
                     )
                 )
+                self.assertTrue(
+                    all("valid_success_drop_available" in item["metrics"] for item in transitions)
+                )
+
+
+def _run_actions(
+    benchmark: PutNearBenchmark,
+    episode: EpisodeSpec,
+    actions: tuple[int, ...],
+) -> tuple[Step, ...]:
+    environment = benchmark.make_environment(episode)
+    steps: list[Step] = []
+    try:
+        environment.reset()
+        for action in actions:
+            steps.append(environment.step(action))
+    finally:
+        environment.close()
+    return tuple(steps)
 
 
 def _empty_observation() -> dict[str, PolicyValue]:
     return {
-        "image": TensorValue(
-            dtype="uint8",
-            shape=(7, 7, 3),
-            data=bytes(147),
-        ),
+        "image": TensorValue(dtype="uint8", shape=(7, 7, 3), data=bytes(147)),
         "direction": 0,
         "mission": "put the purple ball near the red key",
     }

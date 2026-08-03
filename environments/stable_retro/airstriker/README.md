@@ -15,3 +15,12 @@ The Policy receives 224 × 320 RGB frames and returns one of Stable-Retro's 126
 restricted discrete controller actions. The Episode starts from the bundled
 Level 1 state, ends on the upstream game-over condition, and has a public
 18,000-frame fallback horizon. Mean score delta is the primary metric.
+
+Feedback includes bounded per-Episode summaries, explicit controller-button
+meanings for used actions, and a diagnostic trace covering at most 32 steps in
+each of four Episodes. Long Episodes retain their first and last steps, a
+bounded sample of non-zero reward events, and an even sample of the remaining
+timeline. The trace references lossless RGB arrays in compressed NPZ artifacts;
+PNG contact sheets and bounded animated GIF replays provide lightweight visual
+previews. All omitted Episodes, steps, and replay frames are reported
+explicitly.

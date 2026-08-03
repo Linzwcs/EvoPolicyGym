@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -40,6 +41,18 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters["object_count"],
             4,
         )
+        self.assertEqual(
+            default.spec.environment_parameters["image_axis_order"],
+            ["view_x", "view_y", "channel"],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["direction_encoding"],
+            {"east": 0, "south": 1, "west": 2, "north": 3},
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["success_reward_formula"],
+            "1 - 0.9*step_count/max_episode_steps",
+        )
 
         exposed = default.spec.environment_parameters["color_encoding"]
         self.assertIsInstance(exposed, dict)
@@ -61,9 +74,7 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -89,9 +100,7 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -122,15 +131,40 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
             [2],
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
                     environment.step(invalid)
             finally:
                 environment.close()
+
+    def test_step_feedback_exposes_target_door_search(self) -> None:
+        benchmark = GoToDoorBenchmark(GoToDoorConfig(profile="5x5"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=0))
+        try:
+            environment.reset()
+            step = environment.step(0)
+        finally:
+            environment.close()
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["step_count"], 1)
+        self.assertEqual(step.metrics["remaining_steps"], 99)
+        self.assertEqual(step.metrics["turn_left_count"], 1)
+        self.assertEqual(step.metrics["move_forward_count"], 0)
+        self.assertEqual(step.metrics["target_label"], "green_door")
+        self.assertIsInstance(step.metrics["target_visible"], bool)
+        self.assertIsInstance(step.metrics["visible_candidate_count"], int)
+        self.assertIsInstance(
+            step.metrics["unique_candidate_count_found"],
+            int,
+        )
+        self.assertIn(
+            step.metrics["task_stage"],
+            {"explore_doors", "approach_target", "declare_done"},
+        )
+        self.assertEqual(step.metrics["terminal_reason"], "none")
 
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
@@ -169,6 +203,60 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["target_found_episodes"], 0)
         self.assertEqual(feedback.content["wrong_completion_episodes"], 0)
 
+    def test_real_completion_errors_are_distinguished(self) -> None:
+        benchmark = GoToDoorBenchmark(GoToDoorConfig(profile="5x5"))
+        toggle_record = _run_episode(benchmark, (5,))
+        done_record = _run_episode(benchmark, (6,))
+        toggle_metrics = toggle_record.transitions[-1].step.metrics
+        done_metrics = done_record.transitions[-1].step.metrics
+        self.assertIsInstance(toggle_metrics, dict)
+        self.assertIsInstance(done_metrics, dict)
+        assert isinstance(toggle_metrics, dict)
+        assert isinstance(done_metrics, dict)
+        self.assertEqual(toggle_metrics["premature_toggle"], True)
+        self.assertEqual(toggle_metrics["wrong_done"], False)
+        self.assertEqual(
+            toggle_metrics["terminal_reason"],
+            "premature_toggle",
+        )
+        self.assertEqual(done_metrics["premature_toggle"], False)
+        self.assertEqual(done_metrics["wrong_done"], True)
+        self.assertEqual(done_metrics["terminal_reason"], "wrong_done")
+
+        feedback = benchmark.feedback((toggle_record, done_record))
+        self.assertEqual(feedback.score, 0.0)
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["wrong_completion_rate"], 1.0)
+        self.assertEqual(feedback.content["premature_toggle_rate"], 0.5)
+        self.assertEqual(feedback.content["wrong_done_rate"], 0.5)
+        documents = tuple(
+            json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()
+        )
+        outcomes = tuple(
+            document["outcome"] for document in documents if document["type"] == "episode"
+        )
+        self.assertEqual(outcomes, ("premature_toggle", "wrong_done"))
+
+    def test_time_limit_is_not_a_completion_error(self) -> None:
+        benchmark = GoToDoorBenchmark(GoToDoorConfig(profile="5x5"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step(0)
+            for _ in range(benchmark.spec.max_episode_steps - 1):
+                step = environment.step(0)
+        finally:
+            environment.close()
+        self.assertFalse(step.terminated)
+        self.assertTrue(step.truncated)
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["wrong_completion"], False)
+        self.assertEqual(step.metrics["completion_step"], -1)
+        self.assertEqual(step.metrics["remaining_steps"], 0)
+        self.assertEqual(step.metrics["terminal_reason"], "time_limit")
+
     def test_baseline_solves_every_public_profile_and_publishes_trace(
         self,
     ) -> None:
@@ -206,15 +294,18 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
                     result.feedback.content["wrong_completion_rate"],
                     0.0,
                 )
-                trace = result.feedback.artifacts[0]
-                documents = tuple(
-                    json.loads(line)
-                    for line in trace.read_bytes().splitlines()
+                self.assertEqual(
+                    result.feedback.content["premature_toggle_rate"],
+                    0.0,
                 )
+                self.assertEqual(
+                    result.feedback.content["wrong_done_rate"],
+                    0.0,
+                )
+                trace = result.feedback.artifacts[0]
+                documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())
                 transitions = tuple(
-                    document
-                    for document in documents
-                    if document["type"] == "transition"
+                    document for document in documents if document["type"] == "transition"
                 )
                 self.assertEqual(trace.name, "trace.jsonl")
                 self.assertEqual(
@@ -229,6 +320,34 @@ class GoToDoorBenchmarkTests(unittest.TestCase):
                         for item in transitions
                     )
                 )
+                episode_documents = tuple(
+                    document for document in documents if document["type"] == "episode"
+                )
+                self.assertTrue(
+                    all(document["outcome"] == "success" for document in episode_documents)
+                )
+
+
+def _run_episode(
+    benchmark: GoToDoorBenchmark,
+    actions: tuple[int, ...],
+) -> EpisodeRecord:
+    episode = EpisodeSpec(environment_seed=0)
+    environment = benchmark.make_environment(episode)
+    transitions: list[Transition] = []
+    try:
+        initial_observation = environment.reset()
+        for action in actions:
+            step = environment.step(action)
+            transitions.append(Transition(action=action, step=step))
+    finally:
+        environment.close()
+    return EpisodeRecord(
+        episode=episode,
+        policy_seed=0,
+        initial_observation=initial_observation,
+        transitions=tuple(transitions),
+    )
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

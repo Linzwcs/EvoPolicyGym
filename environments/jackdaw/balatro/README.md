@@ -127,9 +127,14 @@ preserved because it can affect scoring.
 ## Feedback and replay
 
 Feedback reports the objective score, win rate, mean Ante reached, mean Blinds
-cleared, Policy failures, and the pinned engine revision. It deliberately does
-not publish derived strategy diagnostics, action summaries, or automatic
-best/worst analysis.
+cleared, Policy failures, and the pinned engine revision. It also aggregates
+action counts, played hand types, bought-card and pack-pick types, best hand
+score, best Blind progress, final chip deficit, current and peak money, money
+gained/spent, purchase cost, sale value, and termination outcomes. Bounded
+per-Episode diagnostics retain these same signals so an authoring Agent can
+separate weak hand selection, failed Blind scaling, and poor shop economy.
+Policy failures still score zero, but their public progress before failure is
+reported separately from that scored outcome.
 
 `replay.jsonl` retains complete semantic replays in Episode order within a
 15 MiB public-artifact budget. Aggregate Feedback and Episode summaries still
@@ -137,10 +142,21 @@ cover every requested Episode; `replay_episodes` and
 `replay_episodes_omitted` report detailed replay coverage. Every retained
 initial state and transition state is the complete observation that the Policy
 actually received, including `deck`, `poker_hands`, owned `vouchers`, awarded
-`tags`, and `legal_actions`. This lets a Policy-authoring Agent reproduce its
-decision context without receiving Environment or Policy seeds. A visual
-player may render only the fields it needs; that presentation choice does not
-reduce the artifact.
+`tags`, and `legal_actions`, plus public-derived transition metrics. This lets a
+Policy-authoring Agent reproduce its decision context without receiving
+Environment or Policy seeds.
+
+This headless distribution contains no official Balatro art, sprites, fonts,
+or animation pipeline, so it does not pretend that a generated chart is a game
+GIF. `replay.jsonl` is the authoritative visualizable artifact: an external
+player may render only the semantic fields it needs without changing the
+Benchmark or exposing hidden draw order.
+
+For Episodes longer than 256 decisions, the replay retains the first 192 and
+final 64 transitions so that both early setup and terminal outcomes remain
+visible. Episode records and aggregate Feedback explicitly report retained and
+omitted transition counts; the 15 MiB budget may additionally omit later whole
+Episode replays.
 
 Each transition's top-level `reward` is the Benchmark reward. A Blind's
 spendable in-game payout is a separate `blind.dollar_reward` value.

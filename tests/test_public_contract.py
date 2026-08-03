@@ -1494,6 +1494,12 @@ assert "program/" in prompt
 assert "feedback/" in prompt
 assert "skills/improve-counter/SKILL.md" in prompt
 assert 'evopolicygym-session submit program --episodes "0"' in prompt
+assert "The only authorized way to execute, query, or" in prompt
+assert "Do not directly instantiate, import, call, clone, emulate" in prompt
+assert "Environment interaction must consume Host-managed Episode budget" in prompt
+assert "Session commands are synchronous" in prompt
+assert "Never start a second submit or" in prompt
+assert "finish concurrently" in prompt
 assert "evopolicygym-session finish SUBMISSION_ID" in prompt
 assert os.environ["CODEX_API_KEY"] == {api_key!r}
 assert "EVOPOLICYGYM_TEST_SECRET" not in os.environ

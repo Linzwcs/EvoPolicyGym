@@ -55,10 +55,19 @@ full throttle without steering. Both are intentionally weak.
 ## Feedback and trace
 
 Feedback reports mean return, mean steps, completed laps, Policy failures, and
-bounded trace coverage. `trace.jsonl` retains one complete Episode. It stores
-the initial frame and each next frame losslessly as `zlib+base64`, together
-with exact Actions, rewards, and termination flags. The encoded object records
-the Tensor dtype and shape needed for deterministic reconstruction.
+bounded trace coverage. Up to four Episodes and 48 steps per Episode are
+traced. Long Episodes retain their first and last steps, a bounded sample of
+inferred new-tile events, and an even sample of the remaining timeline.
+`trace.jsonl` references exact decision and result RGB arrays in compressed NPZ
+artifacts. PNG contact sheets and bounded animated GIF replays expose the visual
+trajectory, controls, rewards, cumulative return, and inferred track coverage.
+
+Track coverage is inferred entirely from the public reward contract: positive
+`reward + 0.1` tile bonuses are accumulated and divided by the track's public
+1000-point reward total. Feedback also summarizes continuous control usage,
+discrete Action counts, inferred new-tile events, lap completion, and
+off-playfield termination. Omitted Episodes, steps, and replay frames are
+reported explicitly.
 
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.

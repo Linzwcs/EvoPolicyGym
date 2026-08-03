@@ -32,30 +32,41 @@ and never cross the Policy boundary.
 
 ## Contract
 
-The default Policy observation contains seventeen named floats: front-tip
-height and angle, six back/front leg joint angles, front-tip x/z velocity, and
-seven angular velocities. With
-`exclude_current_positions_from_observation=False`, `front_tip_x_position` is
+The default Policy observation contains seventeen named floats: torso root
+height and pitch, six back/front leg joint angles, torso root x/z velocity, and
+seven angular velocities. Earlier `front_tip_*` labels were incorrect for the
+official model's `rootx`, `rootz`, and `rooty` qpos/qvel entries and have been
+replaced with `torso_*`. With
+`exclude_current_positions_from_observation=False`, `torso_x_position` is
 prepended.
 
 An Action is an exact six-float list containing the back and front thigh, shin,
-and foot torques, each in `[-1.0, 1.0]`. Integers, tuples, non-finite values,
-and out-of-range values are rejected rather than converted or clipped.
+and foot controls, each in `[-1.0, 1.0]`. The actuator order is back
+thigh/shin/foot then front thigh/shin/foot, with respective gears
+`[120, 90, 60, 120, 60, 30]`. Integers, tuples, non-finite values, and
+out-of-range values are rejected rather than converted or clipped.
 
 HalfCheetah never terminates naturally and truncates after 1000 steps. Reward
-is weighted forward x velocity minus weighted squared control magnitude. The
-scalar Benchmark score is mean Episode return. Gymnasium's published solution
-threshold is `4800`.
+is exactly `forward_weight*x_velocity - control_weight*sum(action²)`. MuJoCo's
+model timestep is `0.01 s`; one Policy step spans `0.01 × frame_skip` seconds.
+The scalar Benchmark score is mean Episode return. Gymnasium's published
+solution threshold is `4800`.
 
 Policy failure receives a configuration-scaled return no greater than `-1000`.
 The packaged baseline applies zero torque and is intentionally weak.
 
 ## Feedback and trace
 
-Feedback reports mean return, mean steps, final x position, Policy failures,
-and bounded trace coverage. `trace.jsonl` retains at most four Episodes with
-complete Policy observations, exact Actions, public kinematic metrics, reward
-terms, and termination flags.
+Feedback reports final and net x displacement, trajectory x extrema, mean and
+peak forward/backward velocity, forward-step fraction, torso height and pitch
+range, action magnitude, cumulative forward reward and control penalty,
+time-limit outcomes, Policy failures, and bounded trace coverage.
+
+`trace.jsonl` retains at most four Episodes with complete Policy observations
+and exact Actions. Per-step metrics contain joint-named controls, gear-scaled
+controls, elapsed time, initial/current/net x position, velocity and direction
+fractions, torso pose, current and cumulative reward decomposition, and
+terminal reason. Episode rows publish corresponding aggregate diagnostics.
 
 Environment seeds, Policy seeds, Host paths, credentials, model paths, and
 private runtime evidence are never published.

@@ -25,6 +25,14 @@ class FourRoomsTests(unittest.TestCase):
             default.spec.metadata["environment"],
             "MiniGrid-FourRooms-v0",
         )
+        self.assertEqual(
+            default.spec.environment_parameters["image_channel_order"],
+            ["object", "color", "state"],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["direction_encoding"],
+            {"east": 0, "south": 1, "west": 2, "north": 3},
+        )
 
     def test_split_planning_and_scenario_rejection(self) -> None:
         benchmark = FourRoomsBenchmark()
@@ -36,9 +44,7 @@ class FourRoomsTests(unittest.TestCase):
             )
         )
         with self.assertRaises(ValueError):
-            benchmark.make_environment(
-                EpisodeSpec(environment_seed=1, scenario={"size": 11})
-            )
+            benchmark.make_environment(EpisodeSpec(environment_seed=1, scenario={"size": 11}))
 
     def test_feedback_privacy(self) -> None:
         failed = EpisodeRecord(
@@ -48,11 +54,25 @@ class FourRoomsTests(unittest.TestCase):
             transitions=(),
             policy_failure="invalid_action",
         )
-        trace = (
-            FourRoomsBenchmark().feedback((failed,)).artifacts[0].read_bytes()
-        )
+        trace = FourRoomsBenchmark().feedback((failed,)).artifacts[0].read_bytes()
         self.assertNotIn(b"environment_seed", trace)
         self.assertNotIn(b"policy_seed", trace)
+
+    def test_step_feedback_exposes_exploration_and_horizon(self) -> None:
+        environment = FourRoomsBenchmark().make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step(6)
+            self.assertIsInstance(step.metrics, dict)
+            assert isinstance(step.metrics, dict)
+            self.assertEqual(step.metrics["step_count"], 1)
+            self.assertEqual(step.metrics["remaining_steps"], 255)
+            self.assertEqual(step.metrics["done_count"], 1)
+            self.assertEqual(step.metrics["ineffective_action"], True)
+            self.assertEqual(step.metrics["unique_observation_count"], 1)
+            self.assertEqual(step.metrics["terminal_reason"], "none")
+        finally:
+            environment.close()
 
     def test_baseline_solves_seeded_episodes(self) -> None:
         benchmark = FourRoomsBenchmark()
@@ -68,6 +88,12 @@ class FourRoomsTests(unittest.TestCase):
             ),
         )
         self.assertEqual(result.feedback.score, 1.0)
+        self.assertIsInstance(result.feedback.content, dict)
+        assert isinstance(result.feedback.content, dict)
+        self.assertEqual(
+            result.feedback.content["episodes_goal_found_but_not_reached"],
+            0,
+        )
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

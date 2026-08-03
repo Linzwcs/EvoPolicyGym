@@ -9,6 +9,7 @@ from evopolicygym.authoring import (
     EpisodeRecord,
     EpisodeSpec,
     InvalidAction,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
@@ -46,6 +47,18 @@ class FetchBenchmarkTests(unittest.TestCase):
             default.spec.environment_parameters["object_count"],
             3,
         )
+        self.assertEqual(
+            default.spec.environment_parameters["image_axis_order"],
+            ["view_x", "view_y", "channel"],
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["direction_encoding"],
+            {"east": 0, "south": 1, "west": 2, "north": 3},
+        )
+        self.assertEqual(
+            default.spec.environment_parameters["success_reward_formula"],
+            "1 - 0.9*step_count/max_episode_steps",
+        )
 
         exposed = default.spec.environment_parameters["color_encoding"]
         self.assertIsInstance(exposed, dict)
@@ -67,9 +80,7 @@ class FetchBenchmarkTests(unittest.TestCase):
 
         train = tuple(benchmark.episodes("train", seed=7, count=10))
         repeated = tuple(benchmark.episodes("train", seed=7, count=10))
-        validation = tuple(
-            benchmark.episodes("validation", seed=7, count=10)
-        )
+        validation = tuple(benchmark.episodes("validation", seed=7, count=10))
 
         self.assertEqual(train, repeated)
         self.assertEqual(len({item.environment_seed for item in train}), 10)
@@ -95,9 +106,7 @@ class FetchBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
-        environment = benchmark.make_environment(
-            EpisodeSpec(environment_seed=123)
-        )
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
         try:
             observation = environment.reset()
             self.assertIsInstance(observation, dict)
@@ -128,15 +137,40 @@ class FetchBenchmarkTests(unittest.TestCase):
             [2],
         )
         for invalid in invalid_actions:
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=123)
-            )
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
             try:
                 environment.reset()
                 with self.assertRaises(InvalidAction):
                     environment.step(invalid)
             finally:
                 environment.close()
+
+    def test_step_feedback_exposes_target_and_candidate_search(self) -> None:
+        benchmark = FetchBenchmark(FetchConfig(profile="5x5-N2"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=0))
+        try:
+            environment.reset()
+            step = environment.step(0)
+        finally:
+            environment.close()
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["step_count"], 1)
+        self.assertEqual(step.metrics["remaining_steps"], 124)
+        self.assertEqual(step.metrics["turn_left_count"], 1)
+        self.assertEqual(step.metrics["pick_up_count"], 0)
+        self.assertEqual(step.metrics["target_label"], "blue_key")
+        self.assertIsInstance(step.metrics["target_visible"], bool)
+        self.assertIsInstance(step.metrics["visible_candidate_count"], int)
+        self.assertIsInstance(
+            step.metrics["unique_candidate_count_found"],
+            int,
+        )
+        self.assertIn(
+            step.metrics["task_stage"],
+            {"explore_candidates", "approach_target", "pick_up_target"},
+        )
+        self.assertEqual(step.metrics["terminal_reason"], "none")
 
     def test_episode_scenario_cannot_override_benchmark_configuration(
         self,
@@ -175,6 +209,81 @@ class FetchBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["target_found_episodes"], 0)
         self.assertEqual(feedback.content["wrong_object_episodes"], 0)
 
+    def test_real_pickup_outcomes_and_failed_attempt_are_distinguished(
+        self,
+    ) -> None:
+        benchmark = FetchBenchmark(FetchConfig(profile="5x5-N2"))
+        success_record = _run_episode(benchmark, (0, 2, 1, 3))
+        wrong_record = _run_episode(benchmark, (1, 2, 0, 3))
+        failed_record = _run_episode(benchmark, (3,))
+        success_metrics = success_record.transitions[-1].step.metrics
+        wrong_metrics = wrong_record.transitions[-1].step.metrics
+        failed_metrics = failed_record.transitions[-1].step.metrics
+        self.assertIsInstance(success_metrics, dict)
+        self.assertIsInstance(wrong_metrics, dict)
+        self.assertIsInstance(failed_metrics, dict)
+        assert isinstance(success_metrics, dict)
+        assert isinstance(wrong_metrics, dict)
+        assert isinstance(failed_metrics, dict)
+
+        self.assertEqual(success_metrics["success"], True)
+        self.assertEqual(success_metrics["picked_up_label"], "blue_key")
+        self.assertEqual(
+            success_metrics["front_candidate_before_action"],
+            "blue_key",
+        )
+        self.assertEqual(success_metrics["terminal_reason"], "success")
+        self.assertEqual(wrong_metrics["wrong_object"], True)
+        self.assertEqual(wrong_metrics["picked_up_label"], "purple_ball")
+        self.assertEqual(wrong_metrics["wrong_object_label"], "purple_ball")
+        self.assertEqual(
+            wrong_metrics["front_candidate_before_action"],
+            "purple_ball",
+        )
+        self.assertEqual(wrong_metrics["terminal_reason"], "wrong_object")
+        self.assertEqual(failed_metrics["pickup_attempt"], True)
+        self.assertEqual(failed_metrics["failed_pickup"], True)
+        self.assertEqual(failed_metrics["failed_pickup_count"], 1)
+        self.assertEqual(failed_metrics["picked_up_object"], False)
+        self.assertEqual(failed_metrics["terminal_reason"], "none")
+
+        feedback = benchmark.feedback((success_record, wrong_record, failed_record))
+        self.assertEqual(feedback.score, 1 / 3)
+        self.assertIsInstance(feedback.content, dict)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["wrong_object_rate"], 1 / 3)
+        self.assertEqual(
+            feedback.content["failed_pickup_episode_rate"],
+            1 / 3,
+        )
+        documents = tuple(
+            json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()
+        )
+        outcomes = tuple(
+            document["outcome"] for document in documents if document["type"] == "episode"
+        )
+        self.assertEqual(outcomes, ("success", "wrong_object", "incomplete"))
+
+    def test_time_limit_is_not_a_pickup_outcome(self) -> None:
+        benchmark = FetchBenchmark(FetchConfig(profile="5x5-N2"))
+        environment = benchmark.make_environment(EpisodeSpec(environment_seed=123))
+        try:
+            environment.reset()
+            step = environment.step(6)
+            for _ in range(benchmark.spec.max_episode_steps - 1):
+                step = environment.step(6)
+        finally:
+            environment.close()
+        self.assertFalse(step.terminated)
+        self.assertTrue(step.truncated)
+        self.assertIsInstance(step.metrics, dict)
+        assert isinstance(step.metrics, dict)
+        self.assertEqual(step.metrics["wrong_object"], False)
+        self.assertEqual(step.metrics["picked_up_object"], False)
+        self.assertEqual(step.metrics["pickup_step"], -1)
+        self.assertEqual(step.metrics["remaining_steps"], 0)
+        self.assertEqual(step.metrics["terminal_reason"], "time_limit")
+
     def test_baseline_solves_every_public_profile_and_publishes_trace(
         self,
     ) -> None:
@@ -212,15 +321,14 @@ class FetchBenchmarkTests(unittest.TestCase):
                     result.feedback.content["wrong_object_rate"],
                     0.0,
                 )
-                trace = result.feedback.artifacts[0]
-                documents = tuple(
-                    json.loads(line)
-                    for line in trace.read_bytes().splitlines()
+                self.assertEqual(
+                    result.feedback.content["failed_pickup_episode_rate"],
+                    0.0,
                 )
+                trace = result.feedback.artifacts[0]
+                documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())
                 transitions = tuple(
-                    document
-                    for document in documents
-                    if document["type"] == "transition"
+                    document for document in documents if document["type"] == "transition"
                 )
                 self.assertEqual(trace.name, "trace.jsonl")
                 self.assertEqual(
@@ -235,6 +343,34 @@ class FetchBenchmarkTests(unittest.TestCase):
                         for item in transitions
                     )
                 )
+                episode_documents = tuple(
+                    document for document in documents if document["type"] == "episode"
+                )
+                self.assertTrue(
+                    all(document["outcome"] == "success" for document in episode_documents)
+                )
+
+
+def _run_episode(
+    benchmark: FetchBenchmark,
+    actions: tuple[int, ...],
+) -> EpisodeRecord:
+    episode = EpisodeSpec(environment_seed=0)
+    environment = benchmark.make_environment(episode)
+    transitions: list[Transition] = []
+    try:
+        initial_observation = environment.reset()
+        for action in actions:
+            step = environment.step(action)
+            transitions.append(Transition(action=action, step=step))
+    finally:
+        environment.close()
+    return EpisodeRecord(
+        episode=episode,
+        policy_seed=0,
+        initial_observation=initial_observation,
+        transitions=tuple(transitions),
+    )
 
 
 def _empty_observation() -> dict[str, PolicyValue]:

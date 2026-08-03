@@ -9,6 +9,11 @@ direction, and mission text. It must explore the room, pick up the yellow key,
 unlock the yellow door, and reach the green goal. The primary score is Episode
 success rate.
 
+The spec defines image axes `[view_x, view_y, channel]`, channel order
+`[object, color, state]`, agent position `(3,6)`, view orientation, compass
+codes, every symbolic code, Action meanings, horizon, and exact time-decaying
+success reward. Forward decreases `view_y`; right increases `view_x`.
+
 ## Install and test
 
 From the EvoPolicyGym repository root:
@@ -36,12 +41,15 @@ program = baseline_program()
 
 Available profiles are `5x5`, `6x6`, `8x8`, and `16x16`.
 
-Feedback includes success, key-pickup and door-opening rates, aggregate return
-and step statistics, truncations, and Policy failures. `trace.jsonl` contains
-a bounded semantic trace for at most four Episodes; long traces retain the
-first 128 and last 32 transitions. Milestones are derived from the same
-Policy-visible symbolic observations and actions. Feedback contains no Episode
-seed, private Case identity, or Host path.
+Feedback exposes the full observable funnel: first seeing the key, picking it
+up, first seeing and opening the door, seeing the goal, and succeeding. It also
+reports the first step of every milestone, where Episodes stalled, remaining
+horizon, observation novelty, ineffective Actions, per-Action usage, aggregate
+return, truncations, and Policy failures. `trace.jsonl` contains a bounded
+semantic trace for at most four Episodes; long traces retain the first 128 and
+last 32 transitions. Milestones are derived only from Policy-visible symbolic
+observations and actions. Feedback contains no Episode seed, hidden global
+position, private Case identity, or Host path.
 
 The packaged baseline constructs a relative map from its egocentric
 observations and uses shortest-path planning between the key, door, and goal.

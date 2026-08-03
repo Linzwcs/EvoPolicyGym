@@ -3518,6 +3518,8 @@ body {
   border-right: 0.5px solid var(--epg-rule-strong) !important;
   background: var(--epg-page);
   box-shadow: none;
+  transition: none !important;
+  will-change: auto;
 }
 
 .theme-doc-sidebar-container .thin-scrollbar {

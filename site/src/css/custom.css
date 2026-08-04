@@ -765,7 +765,7 @@ body {
 .home-demo-grid {
   display: grid;
   overflow: hidden;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-left: 0.5px solid var(--epg-rule);
 }
 
@@ -793,11 +793,21 @@ body {
 .home-demo-tile img {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
   border-bottom: 0.5px solid var(--epg-rule);
+  background: #10171c;
   filter: saturate(0.82) contrast(0.96);
   transition: filter 180ms ease;
+}
+
+.home-demo-tile--balatro img {
+  background: #f5f7f3;
+}
+
+.home-demo-tile--crafter img {
+  background: #080b09;
+  image-rendering: pixelated;
 }
 
 .home-demo-tile:hover img {
@@ -3518,6 +3528,8 @@ body {
   border-right: 0.5px solid var(--epg-rule-strong) !important;
   background: var(--epg-page);
   box-shadow: none;
+  transition: none !important;
+  will-change: auto;
 }
 
 .theme-doc-sidebar-container .thin-scrollbar {
@@ -4759,7 +4771,7 @@ body {
   }
 
   .home-demo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .home-notes {

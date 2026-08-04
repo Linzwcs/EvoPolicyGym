@@ -170,6 +170,7 @@ EvoPolicyGym authoring API.
 | [AtCoder AHC](environments/atcoder/) | AHC054, AHC057, and AHC058 |
 | [CodeChef Challenges](environments/codechef/) | WAREHOUS |
 | [Crafter](environments/crafter/) | Canonical achievement, long-horizon development, and survival-development profiles |
+| [DeepMind Control Suite](environments/dm_control/) | All 28 official benchmarking tasks across 14 continuous-control domains |
 | [Gymnasium Box2D](environments/gymnasium/box2d/) | LunarLander, BipedalWalker, and CarRacing |
 | [Gymnasium Classic Control](environments/gymnasium/classic_control/) | CartPole, Acrobot, Mountain Car, and Pendulum |
 | [Gymnasium MuJoCo](environments/gymnasium/mujoco/) | All eleven current `v5` tasks |
@@ -178,6 +179,7 @@ EvoPolicyGym authoring API.
 | [HighwayEnv](environments/highway_env/) | All ten canonical single-agent tasks |
 | [Gymnasium-Robotics](environments/gymnasium_robotics/) | Fetch, Maze, Adroit, Shadow Hand, and FrankaKitchen profiles |
 | [MetaWorld](environments/metaworld/) | All 50 MT1 tasks, MT10, MT50, and custom collections |
+| [robosuite](environments/robosuite/) | All 19 registered single-arm and two-arm Panda manipulation environments |
 | [NLE](environments/nle/) | Linux-targeted NetHackScore-v0 with complete semantic trajectory Feedback |
 | [ALE](environments/ale/) | Redistributable Tetris profile |
 | [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios |

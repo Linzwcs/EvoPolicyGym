@@ -438,11 +438,58 @@ class ArcAgi3BenchmarkTests(unittest.TestCase):
         )
         benchmark.feedback(records)
         self.assertEqual(arcade.closed, ["scorecard-1"])
-
         repeated = benchmark.episodes("test", seed=1, count=1)[0]
         repeated_environment = benchmark.make_environment(repeated)
         repeated_environment.close()
         self.assertEqual(arcade.makes[-1][2], "scorecard-2")
+
+    def test_feedback_saves_playback_for_every_episode(self) -> None:
+        arcade = _FakeArcade()
+        benchmark = ArcAgi3Benchmark(
+            ArcAgi3Config(
+                profile="custom",
+                custom_game_ids=("zz99-deadbeef",),
+                max_episode_steps=1,
+            ),
+            _arcade=arcade,
+        )
+        records: list[EpisodeRecord] = []
+        for episode in benchmark.episodes("train", seed=18, count=5):
+            environment = benchmark.make_environment(episode)
+            try:
+                initial = environment.reset()
+                action: PolicyValue = {"action": 1}
+                step = environment.step(action)
+            finally:
+                environment.close()
+            records.append(
+                EpisodeRecord(
+                    episode=episode,
+                    policy_seed=4,
+                    initial_observation=initial,
+                    transitions=(Transition(action=action, step=step),),
+                )
+            )
+
+        feedback = benchmark.feedback(tuple(records))
+
+        self.assertEqual(
+            [
+                artifact.name
+                for artifact in feedback.artifacts
+                if artifact.media_type == "image/gif"
+            ],
+            [f"episode-{index:03d}/playback.gif" for index in range(5)],
+        )
+        content = cast(dict[str, object], feedback.content)
+        self.assertEqual(content["video_episodes"], 5)
+        self.assertEqual(content["video_episode_results"], 5)
+        self.assertEqual(content["video_episodes_without_gif"], 0)
+        videos = cast(list[dict[str, object]], content["videos"])
+        self.assertEqual(
+            [video["status"] for video in videos],
+            ["available"] * 5,
+        )
 
     def test_invalid_configurations_are_rejected(self) -> None:
         with self.assertRaises(ValueError):

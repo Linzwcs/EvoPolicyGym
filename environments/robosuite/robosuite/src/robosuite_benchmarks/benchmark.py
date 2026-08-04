@@ -22,6 +22,13 @@ from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import RobosuiteConfig
 from .environment import RobosuiteEnvironment
+from .video import (
+    VIDEO_FRAME_SHAPE,
+    VIDEO_MAX_FRAMES_PER_EPISODE,
+    trace_metrics,
+    video_capture_interval,
+    video_feedback,
+)
 
 _SEED_DOMAIN = b"evopolicygym-robosuite/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
@@ -84,6 +91,11 @@ class RobosuiteBenchmark:
             traced,
             total_transitions=sum(record.steps for record in records),
         )
+        video_artifacts, video_manifests, video_unavailable = video_feedback(
+            records,
+            profile=self._config.profile,
+            capture_interval=video_capture_interval(self._config.max_episode_steps),
+        )
         return Feedback(
             score=score,
             content={
@@ -130,8 +142,19 @@ class RobosuiteBenchmark:
                 "trace_episodes_omitted": len(records) - len(traced),
                 "traced_transitions": traced_transitions,
                 "trace_transitions_omitted": omitted_transitions,
+                "video_episodes": len(video_artifacts),
+                "video_episode_results": len(video_manifests),
+                "video_episodes_without_gif": len(records) - len(video_artifacts),
+                "video_capture_unavailable_episodes": video_unavailable,
+                "video_camera": "agentview",
+                "video_frame_shape": list(VIDEO_FRAME_SHAPE),
+                "video_capture_interval_steps": video_capture_interval(
+                    self._config.max_episode_steps
+                ),
+                "video_frame_cap_per_episode": VIDEO_MAX_FRAMES_PER_EPISODE,
+                "video_artifacts": video_manifests,
             },
-            artifacts=(trace,),
+            artifacts=(trace, *video_artifacts),
         )
 
 
@@ -185,6 +208,11 @@ def _spec(config: RobosuiteConfig) -> BenchmarkSpec:
             ),
             "controller": "BASIC/OSC_POSE",
             "observation_mode": "proprioception_plus_object_state",
+            "tensor_encoding": (
+                "Observation fields are TensorValue objects, not indexable sequences. "
+                "For float64 tensors, decode TensorValue.data as packed little-endian "
+                "doubles, for example with struct.iter_unpack('<d', value.data)."
+            ),
             "reward_shaping": True,
             "continuous_actions": True,
             "action_size": config.action_size,
@@ -341,7 +369,7 @@ def _trace(
                         "next_observation": _trace_value(transition.step.observation),
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
-                        "metrics": _trace_value(transition.step.metrics),
+                        "metrics": _trace_value(trace_metrics(transition.step.metrics)),
                     }
                 )
             )
@@ -351,6 +379,7 @@ def _trace(
             name="trace.jsonl",
             media_type="application/x-ndjson",
             content=b"".join(lines),
+            retention="bulk",
         ),
         traced_transitions,
         total_transitions - traced_transitions,

@@ -3,16 +3,27 @@
 from __future__ import annotations
 
 import math
-from typing import SupportsFloat, cast
+from typing import Protocol, SupportsFloat, cast
 
 import gymnasium
 import metaworld  # noqa: F401  # Registers the public MetaWorld entries.
+import mujoco  # type: ignore[import-untyped]
 import numpy
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
 from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
 
 from .config import MetaWorldConfig
+from .video import (
+    VIDEO_CAMERA,
+    VIDEO_CAPTURE_FAILED_METRIC,
+    VIDEO_FRAME_HEIGHT,
+    VIDEO_FRAME_METRIC,
+    VIDEO_FRAME_SHAPE,
+    VIDEO_FRAME_WIDTH,
+    VIDEO_INITIAL_FRAME_METRIC,
+    video_capture_interval,
+)
 
 _STATE_SHAPE = (39,)
 _ACTION_SHAPE = (4,)
@@ -24,6 +35,11 @@ _PUBLIC_NUMERIC_METRICS = (
     "obj_to_target",
     "unscaled_reward",
 )
+
+
+class _MujocoEnvironment(Protocol):
+    model: mujoco.MjModel
+    data: mujoco.MjData
 
 
 class MetaWorldEnvironment:
@@ -55,6 +71,9 @@ class MetaWorldEnvironment:
                 disable_env_checker=True,
             ),
         )
+        upstream = cast(_MujocoEnvironment, self._environment.unwrapped)
+        self._model = upstream.model
+        self._data = upstream.data
         self._started = False
         self._done = False
         self._closed = False
@@ -81,6 +100,9 @@ class MetaWorldEnvironment:
         self._zero_action_count = 0
         self._cumulative_state_motion = 0.0
         self._no_state_change_count = 0
+        self._video_capture_failed = False
+        self._video_capture_interval = video_capture_interval(_MAX_EPISODE_STEPS)
+        self._video_renderer: mujoco.Renderer | None = None
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -104,6 +126,7 @@ class MetaWorldEnvironment:
         if previous_state is None:
             raise RuntimeError("MetaWorld state history is unavailable")
         control = _action(action)
+        initial_video_frame = self._capture_video_frame() if self._steps == 0 else None
         observation, reward, terminated, truncated, info = self._environment.step(control)
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError("MetaWorld returned invalid termination flags")
@@ -181,6 +204,13 @@ class MetaWorldEnvironment:
         self._done = terminated or truncated
         self._previous_state = current_state
         self._previous_upstream = upstream
+        video_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._video_capture_interval == 0
+            or self._done
+        ):
+            video_frame = self._capture_video_frame()
         metrics: dict[str, PolicyValue] = {
             **upstream,
             "task_name": self._task_name,
@@ -249,7 +279,12 @@ class MetaWorldEnvironment:
                 truncated=truncated,
             ),
             "terminal_reason": terminal_reason,
+            VIDEO_CAPTURE_FAILED_METRIC: self._video_capture_failed,
         }
+        if initial_video_frame is not None:
+            metrics[VIDEO_INITIAL_FRAME_METRIC] = initial_video_frame
+        if video_frame is not None:
+            metrics[VIDEO_FRAME_METRIC] = video_frame
         return Step(
             observation=public,
             reward=number,
@@ -261,8 +296,45 @@ class MetaWorldEnvironment:
     def close(self) -> None:
         if self._closed:
             return
+        self._close_video_renderer()
         self._environment.close()
         self._closed = True
+
+    def _capture_video_frame(self) -> TensorValue | None:
+        if self._video_capture_failed:
+            return None
+        try:
+            if self._video_renderer is None:
+                self._video_renderer = mujoco.Renderer(
+                    self._model,
+                    height=VIDEO_FRAME_HEIGHT,
+                    width=VIDEO_FRAME_WIDTH,
+                )
+            self._video_renderer.update_scene(self._data, camera=VIDEO_CAMERA)
+            raw = self._video_renderer.render()
+            frame = numpy.asarray(raw)
+            if frame.shape != VIDEO_FRAME_SHAPE or frame.dtype != numpy.dtype(numpy.uint8):
+                raise RuntimeError("MetaWorld camera frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(frame)
+            return TensorValue(
+                dtype="uint8",
+                shape=VIDEO_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._video_capture_failed = True
+            self._close_video_renderer()
+            return None
+
+    def _close_video_renderer(self) -> None:
+        renderer = self._video_renderer
+        self._video_renderer = None
+        if renderer is None:
+            return
+        try:
+            renderer.close()
+        except Exception:
+            self._video_capture_failed = True
 
     def _observation(self, value: object) -> PolicyValue:
         state = _tensor(value)

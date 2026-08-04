@@ -23,9 +23,10 @@ references its exact decision and result RGB arrays in a lossless NPZ artifact.
 A PNG contact sheet provides a lightweight visual overview, and a bounded
 animated GIF replays up to 24 frames with step, action, and reward labels. The
 GIF always retains its initial frame, final frame, and every traced non-zero
-reward event before evenly sampling the remaining timeline. Feedback reports
-all omitted Episodes, steps, and replay frames explicitly and never publishes
-Episode seeds or Case identity.
+reward event before evenly sampling the remaining timeline. Lossless trace and
+contact-sheet evidence remains limited to four Episodes, while every Episode
+publishes its own bounded replay GIF. Feedback reports all omitted trace steps
+and replay frames explicitly and never publishes Episode seeds or Case identity.
 
 Additional games should become profiles only when their ROM distribution and CI
 availability are explicit. A local ROM directory is not accepted as Benchmark

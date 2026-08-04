@@ -6,10 +6,11 @@ import math
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import SupportsFloat, SupportsIndex, cast
+from typing import Protocol, SupportsFloat, SupportsIndex, cast
 
 import gymnasium
 import gymnasium_robotics  # type: ignore[import-untyped]
+import mujoco  # type: ignore[import-untyped]
 import numpy
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
 from evopolicygym.policy import PolicyValue, TensorValue
@@ -18,6 +19,16 @@ from gymnasium_robotics.utils import rotations  # type: ignore[import-untyped]
 from numpy.typing import NDArray
 
 from .config import RoboticsConfig
+from .video import (
+    VIDEO_CAPTURE_FAILED_METRIC,
+    VIDEO_FRAME_HEIGHT,
+    VIDEO_FRAME_METRIC,
+    VIDEO_FRAME_SHAPE,
+    VIDEO_FRAME_WIDTH,
+    VIDEO_INITIAL_FRAME_METRIC,
+    video_camera,
+    video_capture_interval,
+)
 
 gymnasium.register_envs(gymnasium_robotics)
 
@@ -40,6 +51,11 @@ _TENSOR_DTYPES = frozenset(
 _KITCHEN_TASK_COUNT = 7
 
 type RoboticsAction = NDArray[numpy.float32] | NDArray[numpy.float64]
+
+
+class _MujocoEnvironment(Protocol):
+    model: mujoco.MjModel
+    data: mujoco.MjData
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +83,9 @@ class RoboticsEnvironment:
             gymnasium.Env[object, RoboticsAction],
             gymnasium.make(config.environment_id),
         )
+        upstream = cast(_MujocoEnvironment, self._environment.unwrapped)
+        self._model = upstream.model
+        self._data = upstream.data
         action_space = self._environment.action_space
         expected_dtype = numpy.dtype(config.action_dtype)
         if (
@@ -100,6 +119,10 @@ class RoboticsEnvironment:
         self._cumulative_state_motion = 0.0
         self._no_state_change_count = 0
         self._completed_tasks: set[str] = set()
+        self._video_camera = video_camera(config.profile)
+        self._video_capture_failed = False
+        self._video_capture_interval = video_capture_interval(config.max_episode_steps)
+        self._video_renderer: mujoco.Renderer | None = None
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -130,6 +153,7 @@ class RoboticsEnvironment:
         if previous_state is None:
             raise RuntimeError("Robotics state history is unavailable")
         control = _action(action, config=self._config)
+        initial_video_frame = self._capture_video_frame() if self._steps == 0 else None
         observation, reward, terminated, truncated, info = self._environment.step(control)
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError("Gymnasium-Robotics returned invalid termination flags")
@@ -219,6 +243,13 @@ class RoboticsEnvironment:
         completed_task_names = list[PolicyValue](sorted(self._completed_tasks))
         newly_completed_task_names = list[PolicyValue](sorted(step_completions))
         remaining_task_names = list[PolicyValue](sorted(remaining_tasks))
+        video_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._video_capture_interval == 0
+            or self._done
+        ):
+            video_frame = self._capture_video_frame()
         metrics: dict[str, PolicyValue] = {
             "step_count": self._steps,
             "remaining_steps": max(self._config.max_episode_steps - self._steps, 0),
@@ -277,7 +308,12 @@ class RoboticsEnvironment:
                 task_completion_fraction=task_completion_fraction,
             ),
             "terminal_reason": terminal_reason,
+            VIDEO_CAPTURE_FAILED_METRIC: self._video_capture_failed,
         }
+        if initial_video_frame is not None:
+            metrics[VIDEO_INITIAL_FRAME_METRIC] = initial_video_frame
+        if video_frame is not None:
+            metrics[VIDEO_FRAME_METRIC] = video_frame
         return Step(
             observation=public,
             reward=number,
@@ -289,8 +325,48 @@ class RoboticsEnvironment:
     def close(self) -> None:
         if self._closed:
             return
+        self._close_video_renderer()
         self._environment.close()
         self._closed = True
+
+    def _capture_video_frame(self) -> TensorValue | None:
+        if self._video_capture_failed:
+            return None
+        try:
+            if self._video_renderer is None:
+                self._video_renderer = mujoco.Renderer(
+                    self._model,
+                    height=VIDEO_FRAME_HEIGHT,
+                    width=VIDEO_FRAME_WIDTH,
+                )
+            self._video_renderer.update_scene(
+                self._data,
+                camera=self._video_camera,
+            )
+            raw = self._video_renderer.render()
+            frame = numpy.asarray(raw)
+            if frame.shape != VIDEO_FRAME_SHAPE or frame.dtype != numpy.dtype(numpy.uint8):
+                raise RuntimeError("Gymnasium-Robotics camera frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(frame)
+            return TensorValue(
+                dtype="uint8",
+                shape=VIDEO_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._video_capture_failed = True
+            self._close_video_renderer()
+            return None
+
+    def _close_video_renderer(self) -> None:
+        renderer = self._video_renderer
+        self._video_renderer = None
+        if renderer is None:
+            return
+        try:
+            renderer.close()
+        except Exception:
+            self._video_capture_failed = True
 
 
 def _action(value: PolicyValue, *, config: RoboticsConfig) -> RoboticsAction:

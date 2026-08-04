@@ -74,11 +74,12 @@ it never samples or truncates the animation frames of an observation it
 publishes. Each Episode owns its observation Artifact, even when another
 Episode contains identical data.
 
-The first four traced Episodes also publish `episode-NNN/playback.gif` using the
-official ARC-AGI-3 16-color palette. The accompanying `videos` manifest maps
-each initial/post-Action observation and game state to its GIF frame range and
-to the next decision step. A video contains at most 512 frames: every traced
-observation retains its final decision frame, while extra animation frames are
+Every Episode with a visual observation publishes `episode-NNN/playback.gif`
+using the official ARC-AGI-3 16-color palette. The accompanying `videos`
+manifest maps each selected initial/post-Action observation and game state to
+its GIF frame range and to the next decision step. A video contains at most 512
+frames: every selected observation retains its final decision frame, while
+extra animation frames are
 uniformly sampled when necessary. Playback uses 100 ms per encoded frame and
 nearest-neighbor scaling. A status strip identifies the observation, source
 animation frame, decision step, game state, and completed/required levels; the
@@ -87,7 +88,8 @@ GIF is diagnostic visualization, not an additional scoring input.
 The trace, observation arrays, manifest, and videos deliberately exclude game
 ID, scenario, Environment and Policy seeds, scorecard/GUID values, Host paths,
 and execution evidence. Additional trace Episodes or steps are reported as
-omitted; only the diagnostic GIF may sample animation frames.
+omitted; all Episode results remain in the Kernel-owned `feedback.json`
+`episodes` array, and only the diagnostic GIF may sample animation frames.
 
 ## Episode seeds
 

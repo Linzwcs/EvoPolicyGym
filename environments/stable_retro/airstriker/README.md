@@ -21,6 +21,7 @@ meanings for used actions, and a diagnostic trace covering at most 32 steps in
 each of four Episodes. Long Episodes retain their first and last steps, a
 bounded sample of non-zero reward events, and an even sample of the remaining
 timeline. The trace references lossless RGB arrays in compressed NPZ artifacts;
-PNG contact sheets and bounded animated GIF replays provide lightweight visual
-previews. All omitted Episodes, steps, and replay frames are reported
-explicitly.
+PNG contact sheets provide lightweight previews for traced Episodes, and every
+Episode publishes its own bounded animated GIF replay. Omitted trace Episodes
+and steps plus sampled replay frames are reported explicitly; the Kernel-owned
+`feedback.json` retains every Episode result.

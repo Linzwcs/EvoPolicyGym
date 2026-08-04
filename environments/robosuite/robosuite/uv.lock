@@ -91,6 +91,7 @@ source = { editable = "." }
 dependencies = [
     { name = "evopolicygym" },
     { name = "mujoco" },
+    { name = "pillow" },
     { name = "robosuite" },
 ]
 
@@ -105,6 +106,7 @@ requires-dist = [
     { name = "evopolicygym", editable = "../../../" },
     { name = "mujoco", specifier = ">=3.3.0,<3.4" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.3.0" },
+    { name = "pillow", specifier = ">=12.1.1,<13" },
     { name = "robosuite", specifier = "==1.5.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
 ]

@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "robosuite==1.5.2",
+    "pillow>=12.1.1,<13",
     # MuJoCo 3.11 removed MjData.qM, which robosuite 1.5.2's OSC controller
     # still reads. Keep the independently tested 3.3 ABI until upstream moves.
     "mujoco>=3.3.0,<3.4",

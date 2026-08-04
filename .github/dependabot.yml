@@ -17,6 +17,7 @@ updates:
       - "/environments/arcprize/*"
       - "/environments/atcoder/*/*"
       - "/environments/codechef/*/*"
+      - "/environments/dm_control/*"
       - "/environments/gymnasium/*/*"
       - "/environments/gymnasium_robotics/*"
       - "/environments/highway_env/*"
@@ -24,6 +25,7 @@ updates:
       - "/environments/metaworld/*"
       - "/environments/minigrid/babyai"
       - "/environments/minigrid/minigrid/*"
+      - "/environments/robosuite/*"
       - "/environments/stable_retro/*"
       - "/environments/vizdoom/*"
     schedule:

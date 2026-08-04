@@ -6,16 +6,40 @@ import math
 from collections.abc import Mapping
 from typing import Protocol, cast
 
+import mujoco  # type: ignore[import-untyped]
 import numpy as np
 import robosuite  # type: ignore[import-untyped]
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
 from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import RobosuiteConfig
+from .video import (
+    VIDEO_CAPTURE_FAILED_METRIC,
+    VIDEO_FRAME_HEIGHT,
+    VIDEO_FRAME_METRIC,
+    VIDEO_FRAME_SHAPE,
+    VIDEO_FRAME_WIDTH,
+    VIDEO_INITIAL_FRAME_METRIC,
+    video_capture_interval,
+)
+
+
+class _WrappedModel(Protocol):
+    _model: mujoco.MjModel
+
+
+class _WrappedData(Protocol):
+    _data: mujoco.MjData
+
+
+class _Simulation(Protocol):
+    model: _WrappedModel
+    data: _WrappedData
 
 
 class _UpstreamEnvironment(Protocol):
     action_dim: int
+    sim: _Simulation
 
     @property
     def action_spec(self) -> tuple[object, object]: ...
@@ -95,6 +119,9 @@ class RobosuiteEnvironment:
         self._no_state_change_count = 0
         self._previous_proprioception: np.ndarray[tuple[int], np.dtype[np.float64]] | None = None
         self._previous_objects: np.ndarray[tuple[int], np.dtype[np.float64]] | None = None
+        self._video_renderer: mujoco.Renderer | None = None
+        self._video_capture_failed = False
+        self._video_capture_interval = video_capture_interval(config.max_episode_steps)
 
     def reset(self) -> PolicyValue:
         self._require_open()
@@ -114,6 +141,7 @@ class RobosuiteEnvironment:
         if self._done:
             raise RuntimeError("robosuite Environment cannot step after termination")
         control = _action(action, size=self._config.action_size)
+        initial_video_frame = self._capture_video_frame() if self._step_count == 0 else None
         raw_observation, raw_reward, raw_done, raw_info = self._environment.step(control)
         if type(raw_done) is not bool:
             raise RuntimeError("robosuite returned an invalid done flag")
@@ -164,46 +192,99 @@ class RobosuiteEnvironment:
         truncated = raw_done and self._step_count >= self._config.max_episode_steps
         terminated = raw_done and not truncated
         self._done = raw_done
+        video_frame = None
+        if (
+            self._step_count == 1
+            or self._step_count % self._video_capture_interval == 0
+            or self._done
+        ):
+            video_frame = self._capture_video_frame()
+        metrics: dict[str, PolicyValue] = {
+            "step_count": self._step_count,
+            "success": success,
+            "success_ever": self._success_ever,
+            "success_first_reached_this_step": success and not success_before,
+            "first_success_step": self._first_success_step,
+            "success_lost_this_step": success_before and not success,
+            "success_lost_count": self._success_lost_count,
+            "dense_reward": reward,
+            "best_dense_reward": self._best_reward,
+            "action_l2_norm": action_l2_norm,
+            "mean_action_l2_norm": self._action_l2_sum / self._step_count,
+            "saturated_action_component_count": saturated_components,
+            "cumulative_saturated_action_component_count": (
+                self._saturated_action_component_count
+            ),
+            "zero_action_count": self._zero_action_count,
+            "proprioception_motion_l2": proprioception_motion_l2,
+            "object_motion_l2": object_motion_l2,
+            "mean_proprioception_motion_l2": (
+                self._proprio_motion_sum / self._step_count
+            ),
+            "mean_object_motion_l2": self._object_motion_sum / self._step_count,
+            "no_state_change_count": self._no_state_change_count,
+            VIDEO_CAPTURE_FAILED_METRIC: self._video_capture_failed,
+        }
+        if initial_video_frame is not None:
+            metrics[VIDEO_INITIAL_FRAME_METRIC] = initial_video_frame
+        if video_frame is not None:
+            metrics[VIDEO_FRAME_METRIC] = video_frame
         return Step(
             observation=observation,
             reward=reward,
             terminated=terminated,
             truncated=truncated,
-            metrics={
-                "step_count": self._step_count,
-                "success": success,
-                "success_ever": self._success_ever,
-                "success_first_reached_this_step": success and not success_before,
-                "first_success_step": self._first_success_step,
-                "success_lost_this_step": success_before and not success,
-                "success_lost_count": self._success_lost_count,
-                "dense_reward": reward,
-                "best_dense_reward": self._best_reward,
-                "action_l2_norm": action_l2_norm,
-                "mean_action_l2_norm": self._action_l2_sum / self._step_count,
-                "saturated_action_component_count": saturated_components,
-                "cumulative_saturated_action_component_count": (
-                    self._saturated_action_component_count
-                ),
-                "zero_action_count": self._zero_action_count,
-                "proprioception_motion_l2": proprioception_motion_l2,
-                "object_motion_l2": object_motion_l2,
-                "mean_proprioception_motion_l2": (
-                    self._proprio_motion_sum / self._step_count
-                ),
-                "mean_object_motion_l2": self._object_motion_sum / self._step_count,
-                "no_state_change_count": self._no_state_change_count,
-            },
+            metrics=metrics,
         )
 
     def close(self) -> None:
         if not self._closed:
             self._closed = True
+            self._close_video_renderer()
             self._environment.close()
 
     def _require_open(self) -> None:
         if self._closed:
             raise RuntimeError("robosuite Environment is closed")
+
+    def _capture_video_frame(self) -> TensorValue | None:
+        if self._video_capture_failed:
+            return None
+        try:
+            if self._video_renderer is None:
+                self._video_renderer = mujoco.Renderer(
+                    self._environment.sim.model._model,
+                    height=VIDEO_FRAME_HEIGHT,
+                    width=VIDEO_FRAME_WIDTH,
+                )
+            self._video_renderer.update_scene(
+                self._environment.sim.data._data,
+                camera="agentview",
+            )
+            raw = self._video_renderer.render()
+            frame = np.asarray(raw)
+            if frame.shape != VIDEO_FRAME_SHAPE or frame.dtype != np.dtype(np.uint8):
+                raise RuntimeError("robosuite camera frame shape or dtype drifted")
+            contiguous = np.ascontiguousarray(frame)
+            return TensorValue(
+                dtype="uint8",
+                shape=VIDEO_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._video_capture_failed = True
+            self._close_video_renderer()
+            return None
+
+    def _close_video_renderer(self) -> None:
+        renderer = self._video_renderer
+        self._video_renderer = None
+        if renderer is None:
+            return
+        try:
+            renderer.close()
+        except Exception:
+            self._video_capture_failed = True
 
 
 def _valid_action_bounds(low: object, high: object, *, size: int) -> bool:

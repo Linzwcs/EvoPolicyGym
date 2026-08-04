@@ -248,6 +248,39 @@ class CarRacingBenchmarkTests(unittest.TestCase):
         self.assertIsNone(trace["return"])
         self.assertEqual(trace["scored_return"], -1000.0)
 
+    def test_feedback_saves_replay_for_every_episode(self) -> None:
+        record = EpisodeRecord(
+            episode=EpisodeSpec(environment_seed=11),
+            policy_seed=21,
+            initial_observation=_black_frame(),
+            transitions=(),
+        )
+
+        feedback = CarRacingBenchmark().feedback((record,) * 5)
+
+        self.assertEqual(
+            [
+                artifact.name
+                for artifact in feedback.artifacts
+                if artifact.media_type == "image/gif"
+            ],
+            [f"episode-{index:03d}/replay.gif" for index in range(5)],
+        )
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["traced_episodes"], 4)
+        self.assertEqual(feedback.content["replay_episodes"], 5)
+        self.assertEqual(feedback.content["replay_episodes_without_gif"], 0)
+        manifests = feedback.content["replay_artifacts"]
+        assert isinstance(manifests, list)
+        self.assertEqual(
+            [
+                manifest["status"]
+                for manifest in manifests
+                if isinstance(manifest, dict)
+            ],
+            ["available"] * 5,
+        )
+
     def test_feedback_publishes_bounded_visual_trace_and_progress(self) -> None:
         progress_steps = {20, 50, 80, 110, 140, 170}
         transitions = tuple(

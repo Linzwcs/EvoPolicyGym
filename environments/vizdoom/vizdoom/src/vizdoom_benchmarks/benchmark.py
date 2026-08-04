@@ -132,27 +132,47 @@ class ViZDoomBenchmark:
         )
         score = statistics.fmean(returns)
         summarized = records[:_MAX_SUMMARIZED_EPISODES]
-        traced = tuple(
+        replayed = tuple(
             _TracedEpisode(
                 episode_index=episode_index,
                 record=record,
                 step_indices=_trace_step_indices(record, config=self._config),
                 config=self._config,
             )
-            for episode_index, record in enumerate(
-                records[:_MAX_TRACED_EPISODES]
-            )
+            for episode_index, record in enumerate(records)
         )
+        traced = replayed[:_MAX_TRACED_EPISODES]
         trace_artifact = _trace_artifact(traced, failure_return=floor)
         visual_artifacts: list[Artifact] = []
         observation_manifests: list[PolicyValue] = []
+        replay_manifests: list[PolicyValue] = []
         raw_frame_bytes = 0
-        for episode in traced:
+        for episode in replayed:
+            replay, replay_timeline, replay_scale = _replay_artifact(episode)
+            replay_manifests.append(
+                {
+                    "episode_index": episode.episode_index,
+                    "status": "available",
+                    "artifact": episode.replay_artifact_name,
+                    "encoded_frames": len(replay_timeline),
+                    "frames_omitted": (
+                        1 + episode.record.steps - len(replay_timeline)
+                    ),
+                    "sampled_steps": len(episode.step_indices),
+                    "steps_omitted": (
+                        episode.record.steps - len(episode.step_indices)
+                    ),
+                    "scale": replay_scale,
+                    "timeline": replay_timeline,
+                }
+            )
+            if episode.episode_index >= len(traced):
+                visual_artifacts.append(replay)
+                continue
             observation_artifact = _observation_artifact(episode)
             contact_sheet, contact_sheet_tiles = _contact_sheet_artifact(
                 episode
             )
-            replay, replay_timeline, replay_scale = _replay_artifact(episode)
             visual_artifacts.extend(
                 (observation_artifact, contact_sheet, replay)
             )
@@ -247,14 +267,21 @@ class ViZDoomBenchmark:
                 ),
                 "trace_format": (
                     "trace.jsonl references lossless selected screen, audio, "
-                    "and game-variable arrays in per-Episode observations.npz "
-                    "artifacts. Notifications remain inline. Contact sheets "
-                    "and replay GIFs are nearest-neighbor previews; omitted "
-                    "steps and Episodes are reported explicitly."
+                    "and game-variable arrays for traced Episodes in "
+                    "per-Episode observations.npz artifacts. Notifications "
+                    "remain inline and contact sheets cover those traced "
+                    "Episodes. Every Episode has a bounded nearest-neighbor "
+                    "replay GIF; omitted trace and replay steps are reported "
+                    "explicitly."
                 ),
                 "replay_frame_cap_per_episode": _MAX_REPLAY_FRAMES,
                 "replay_frame_duration_ms": _REPLAY_FRAME_DURATION_MS,
                 "replay_artifact_byte_cap": _MAX_REPLAY_ARTIFACT_BYTES,
+                "replay_episodes": len(replay_manifests),
+                "replay_episodes_without_gif": (
+                    len(records) - len(replay_manifests)
+                ),
+                "replay_artifacts": replay_manifests,
                 "observation_artifacts": observation_manifests,
             },
             artifacts=(trace_artifact, *visual_artifacts),

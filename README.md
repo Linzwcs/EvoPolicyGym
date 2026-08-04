@@ -5,8 +5,23 @@
 <h1 align="center">EvoPolicyGym</h1>
 
 <p align="center">
-  Evaluation and rollout infrastructure for coding agents that evolve
-  executable policies.
+  <strong>Can coding agents build better executable Policies from limited
+  environment feedback?</strong>
+</p>
+
+<p align="center">
+  EvoPolicyGym evaluates the complete improvement process: an Agent repeatedly
+  edits a Policy and spends a fixed Episode budget on experiments; the Host
+  then privately validates the published candidates, selects one, and measures
+  it through held-out Assessment.
+</p>
+
+<p align="center">
+  <a href="https://linzwcs.github.io/EvoPolicyGym/leaderboard/"><strong>Leaderboard</strong></a>
+  · <a href="https://linzwcs.github.io/EvoPolicyGym/blog/"><strong>Experiments</strong></a>
+  · <a href="https://linzwcs.github.io/EvoPolicyGym/docs/"><strong>Documentation</strong></a>
+  · <a href="https://arxiv.org/abs/2607.02440"><strong>Paper</strong></a>
+  · <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0"><strong>Reproduce Core16</strong></a>
 </p>
 
 <p align="center">
@@ -18,20 +33,61 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
 </p>
 
-EvoPolicyGym is infrastructure for evaluating coding agents and generating
-training experience through **Autonomous Policy Evolution**. It brings
-heterogeneous interactive environments under a common Benchmark contract,
-compares Agents under fixed Episode budgets, and records reproducible Runs of
-Programs, Submissions, Feedback, and outcomes.
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://linzwcs.github.io/EvoPolicyGym/blog/balatro-policy-evolution/">
+        <img src="site/public/images/blog/balatro-sol-winning-replay.gif" alt="Agent-authored Balatro Policy completing a held-out run" height="180">
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://linzwcs.github.io/EvoPolicyGym/environments/">
+        <img src="site/public/images/home/crafter-deep-iron-combat.gif" alt="Agent-authored Crafter Policy navigating a deep-iron combat episode" height="180">
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://linzwcs.github.io/EvoPolicyGym/blog/">
+        <img src="site/public/images/blog/nle-sol-policy-training-replay.gif" alt="Agent-authored NetHack Policy exploring a dungeon" height="180">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Balatro</strong><br>Final held-out Policy · score 1021</td>
+    <td align="center"><strong>Crafter</strong><br>Submission 15 · deep-iron combat</td>
+    <td align="center"><strong>NetHack</strong><br>1,269 steps · dungeon depth 11</td>
+  </tr>
+</table>
 
-These Runs support both fair evaluation and the construction of rollout
-datasets for downstream RL and other post-training methods. Policies act
-within Episodes; Agents improve them between Evaluations by designing
-experiments, allocating resources, and editing code.
+<p align="center"><em>Three autonomous Policies · real experiment replays</em></p>
 
-The paper implementation and Core16 results are preserved at
-[`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0); they are
-historical research artifacts, not outputs of the current 0.3 Kernel.
+> Most coding benchmarks evaluate one final answer. EvoPolicyGym evaluates how
+> an Agent experiments, improves after feedback, and generalizes to unseen
+> Episodes.
+
+## What it measures
+
+1. **Write** a complete executable Policy.
+2. **Experiment** within a fixed Episode budget.
+3. **Learn** from bounded, public Feedback.
+4. **Publish** candidates before private evaluation begins.
+5. **Generalize** when the Host selects on Validation and assesses only the
+   selected Program on held-out Episodes.
+
+EvoPolicyGym brings heterogeneous interactive environments under a common
+Benchmark contract and records the complete trajectory of Programs,
+Submissions, Feedback, selection, and outcomes. Reproducible Runs support both
+fair Agent evaluation and rollout datasets for RL and other post-training
+methods.
+
+## Choose your path
+
+| Reproduce the 2026 paper | Build with EvoPolicyGym |
+| --- | --- |
+| Use the historical [`v0.1.0`](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) implementation, Core16 configurations, and published results. | Use the current **v0.3 alpha Kernel** to author Benchmarks, evaluate Agents, and generate rollout trajectories. |
+| [Paper](https://arxiv.org/abs/2607.02440) · [Core16 results](https://linzwcs.github.io/EvoPolicyGym/results/) · [Paper code](https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0) | [Getting started](https://linzwcs.github.io/EvoPolicyGym/docs/getting-started/) · [Environment catalog](environments/) · [Authoring guide](https://linzwcs.github.io/EvoPolicyGym/docs/authoring/) |
+
+The paper results are historical research artifacts, not outputs of the
+current Kernel.
 
 ## How it works
 

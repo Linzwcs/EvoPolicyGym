@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import struct
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 from evopolicygym.authoring import (
     BenchmarkFixture,
@@ -48,6 +49,9 @@ class RoboticsBenchmarkTests(unittest.TestCase):
                     self.assertIn("action_l2_norm", metrics)
                     self.assertIn("state_motion_l2", metrics)
                     self.assertIn("task_stage", metrics)
+                    self.assertIs(metrics["feedback_video_capture_failed"], False)
+                    self.assertIsInstance(metrics["feedback_video_initial_rgb"], TensorValue)
+                    self.assertIsInstance(metrics["feedback_video_rgb"], TensorValue)
                 finally:
                     environment.close()
                     environment.close()
@@ -65,6 +69,30 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(kitchen.spec.max_episode_steps, 280)
 
+    def test_camera_feedback_renders_from_episode_worker_thread(self) -> None:
+        benchmark = RoboticsBenchmark()
+
+        def run_episode_step() -> dict[str, PolicyValue]:
+            environment = benchmark.make_environment(EpisodeSpec(environment_seed=17))
+            try:
+                environment.reset()
+                step = environment.step([0.0, 0.0, 0.0, 0.0])
+                return _step_metrics(step)
+            finally:
+                environment.close()
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            metrics = executor.submit(run_episode_step).result(timeout=30)
+        initial = metrics["feedback_video_initial_rgb"]
+        result = metrics["feedback_video_rgb"]
+        self.assertIsInstance(initial, TensorValue)
+        self.assertIsInstance(result, TensorValue)
+        assert isinstance(initial, TensorValue)
+        assert isinstance(result, TensorValue)
+        self.assertEqual(initial.shape, (128, 128, 3))
+        self.assertEqual(result.shape, (128, 128, 3))
+        self.assertIs(metrics["feedback_video_capture_failed"], False)
+
     def test_specs_publish_exact_profile_reward_and_success_semantics(self) -> None:
         fetch = RoboticsBenchmark().spec.environment_parameters
         maze = RoboticsBenchmark(RoboticsConfig(profile="point-maze")).spec.environment_parameters
@@ -80,11 +108,13 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         fetch_reward = fetch["reward_semantics"]
         adroit_reward = adroit["reward_semantics"]
         action_handling = fetch["action_handling"]
+        tensor_encoding = fetch["tensor_encoding"]
         assert isinstance(fetch_success, dict)
         assert isinstance(maze_success, dict)
         assert isinstance(pen_success, dict)
         assert isinstance(fetch_reward, str)
         assert isinstance(adroit_reward, str)
+        assert isinstance(tensor_encoding, str)
         assert isinstance(action_handling, str)
 
         self.assertIn("-1 until", fetch_reward)
@@ -99,6 +129,8 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         self.assertIn("dense", adroit_reward)
         self.assertEqual(pen_success["z_rotation_ignored"], True)
         self.assertIn("rejected", action_handling)
+        self.assertIn("not iterable", tensor_encoding)
+        self.assertIn("struct.iter_unpack", tensor_encoding)
 
     def test_invalid_profile_and_action_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -254,6 +286,73 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         )
         self.assertGreaterEqual(_number_metric(feedback.content, "mean_state_motion_l2"), 0.0)
         self.assertEqual(_step_metrics(transitions[-1].step)["terminal_reason"], "time_limit")
+        trace = feedback.artifacts[0].read_bytes()
+        self.assertNotIn(b"feedback_video_initial_rgb", trace)
+        self.assertNotIn(b"feedback_video_rgb", trace)
+        self.assertEqual(feedback.content["video_episodes"], 1)
+        self.assertEqual(len(feedback.artifacts), 2)
+        self.assertEqual(feedback.artifacts[1].name, "episode-000/robot-camera.gif")
+        self.assertTrue(feedback.artifacts[1].read_bytes().startswith(b"GIF89a"))
+
+    def test_feedback_saves_one_gif_for_every_episode(self) -> None:
+        benchmark = RoboticsBenchmark()
+        records: list[EpisodeRecord] = []
+        for episode_index in range(3):
+            episode = EpisodeSpec(environment_seed=100 + episode_index)
+            environment = benchmark.make_environment(episode)
+            try:
+                initial = environment.reset()
+                action: PolicyValue = [0.0, 0.0, 0.0, 0.0]
+                step = environment.step(action)
+            finally:
+                environment.close()
+            records.append(
+                EpisodeRecord(
+                    episode=episode,
+                    policy_seed=200 + episode_index,
+                    initial_observation=initial,
+                    transitions=(Transition(action=action, step=step),),
+                )
+            )
+
+        feedback = benchmark.feedback(tuple(records))
+
+        self.assertEqual(
+            [artifact.name for artifact in feedback.artifacts],
+            [
+                "trace.jsonl",
+                "episode-000/robot-camera.gif",
+                "episode-001/robot-camera.gif",
+                "episode-002/robot-camera.gif",
+            ],
+        )
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["video_episode_results"], 3)
+        self.assertEqual(feedback.content["video_episodes_without_gif"], 0)
+
+    def test_zero_step_failure_has_explicit_unavailable_video_result(self) -> None:
+        benchmark = RoboticsBenchmark()
+        feedback = benchmark.feedback(
+            (
+                EpisodeRecord(
+                    episode=EpisodeSpec(environment_seed=301),
+                    policy_seed=401,
+                    initial_observation={},
+                    transitions=(),
+                    policy_failure="invalid_action",
+                ),
+            )
+        )
+        self.assertEqual([artifact.name for artifact in feedback.artifacts], ["trace.jsonl"])
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["video_episode_results"], 1)
+        self.assertEqual(feedback.content["video_episodes_without_gif"], 1)
+        manifests = feedback.content["video_artifacts"]
+        assert isinstance(manifests, list)
+        manifest = manifests[0]
+        assert isinstance(manifest, dict)
+        self.assertEqual(manifest["status"], "unavailable")
+        self.assertEqual(manifest["reason"], "no_recorded_frames")
 
     def test_replay_conformance(self) -> None:
         report = check_benchmark(

@@ -18,6 +18,8 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "metaworld==3.1.1",
+    "pillow>=12.1.1,<13",
+    "mujoco>=3.3.0,<3.4",
     # Gymnasium's MuJoCo renderer imports packaging, while MetaWorld 3.1.1
     # does not declare it directly.
     "packaging>=26,<27",
@@ -46,6 +48,7 @@ packages = ["src/metaworld_benchmarks"]
 include = [
     "/README.md",
     "/pyproject.toml",
+    "/scripts",
     "/src",
     "/tests",
 ]
@@ -59,7 +62,7 @@ python_version = "3.12"
 strict = true
 show_error_codes = true
 warn_unused_configs = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 [tool.ruff]
 line-length = 100
@@ -68,4 +71,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["E501"]
-

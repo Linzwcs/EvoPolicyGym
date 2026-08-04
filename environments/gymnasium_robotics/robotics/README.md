@@ -7,6 +7,10 @@ One Host-selected `RoboticsConfig.profile` is fixed for an entire Run and is
 included in the public environment parameters and environment digest. The
 profile cannot be changed by a Policy.
 
+Policy-visible numeric observations use the bounded `TensorValue` ABI rather
+than iterable Python arrays. The public environment parameters give the exact
+little-endian `float64` decoding pattern used by Policy authors.
+
 The package contains 21 profiles across Fetch, Point/Ant Maze, Adroit Hand,
 Shadow Dexterous Hand (including boolean and continuous touch-sensor variants),
 and FrankaKitchen. `ROBOTICS_PROFILES` is the canonical profile list.
@@ -33,6 +37,18 @@ Each traced transition contains the Policy-visible observation, Action, reward,
 next observation, and public metrics. Episodes longer than 160 steps retain the
 first 128 and final 32 steps, with retained and omitted counts reported
 explicitly. No Host paths, seeds, simulator objects, or other private identity
-enter Feedback.
+enter Feedback. In addition to that bounded JSONL trace, every Episode with at
+least one valid transition publishes its own bounded 128x128 animated GIF from
+a task-appropriate MuJoCo camera. Fetch, AntMaze, Adroit, and FrankaKitchen use
+stable named cameras; PointMaze and Shadow Hand use the free camera. The Host
+captures the initial state, first result, terminal result, and an adaptive
+stride of intermediate results, with at most 42 frames per Episode. Raw RGB
+tensors exist only in Host-side Step metrics, are removed from JSONL traces,
+and never become Policy observations. GIFs use `retention="bulk"`.
+
+Feedback includes one video manifest for every Episode. A zero-step Policy
+failure has no public post-reset artifact channel, so it is retained as an
+explicit unavailable video result rather than being silently omitted.
+
 Multi-agent MaMuJoCo environments intentionally remain outside this
 single-Policy ABI.

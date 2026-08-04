@@ -6,6 +6,14 @@ import {paperMeta} from "../data/project";
 
 const notes = [
   {
+    date: "2026-08-03",
+    path: "/blog/nethack-policy-evolution/",
+    titleEn: "Into the Dungeon: Building Exploration Systems for NetHack",
+    titleZh: "深入地下城：为 NetHack 构建探索系统",
+    tagEn: "Experiment",
+    tagZh: "实验",
+  },
+  {
     date: "2026-07-29",
     path: "/blog/balatro-policy-evolution/",
     titleEn: "Teaching a Coding Agent to write a Balatro policy system",
@@ -49,7 +57,7 @@ const featuredRuns = [
   {
     id: "nethack-sol",
     kind: "nethack",
-    path: "/blog/",
+    path: "/blog/nethack-policy-evolution/",
     media: "images/blog/nle-sol-policy-training-replay.gif",
     titleEn: "NetHack · Sol Policy",
     titleZh: "NetHack · Sol Policy",

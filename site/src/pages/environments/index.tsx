@@ -18,6 +18,9 @@ export default function EnvironmentCatalogPage() {
       return {
         ...domain,
         collectionCount: collections.length,
+        ecosystems: Array.from(
+          new Set(collections.map((collection) => collection.ecosystem)),
+        ).sort((left, right) => left.localeCompare(right)),
         taskProfileCount: collections.reduce(
           (total, collection) => total + collection.taskProfiles,
           0,
@@ -80,7 +83,7 @@ export default function EnvironmentCatalogPage() {
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <h3>{pickLocalized(language, domain.title)}</h3>
               </div>
-              <p>{pickLocalized(language, domain.summary)}</p>
+              <p>{domain.ecosystems.join(" · ")}</p>
               <dl>
                 <div>
                   <dt><Localized en="Collections" zh="Collections" /></dt>

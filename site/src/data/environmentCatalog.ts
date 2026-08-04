@@ -1,5 +1,3 @@
-export type EnvironmentDomain = "control" | "planning" | "games";
-
 export interface LocalizedText {
   en: string;
   zh: string;
@@ -12,7 +10,7 @@ export interface EnvironmentItem {
 
 export interface EnvironmentCollection {
   id: string;
-  domain: EnvironmentDomain;
+  domain: string;
   ecosystem: string;
   suite: string;
   distributions: number;
@@ -27,37 +25,23 @@ export interface EnvironmentCollection {
 }
 
 export interface EnvironmentDomainGroup {
-  id: EnvironmentDomain;
+  id: string;
   title: LocalizedText;
-  summary: LocalizedText;
 }
 
-export const environmentDomains: EnvironmentDomainGroup[] = [
-  {
-    id: "control",
-    title: { en: "Control and robotics", zh: "控制与机器人" },
-    summary: {
-      en: "Compact control, physics, locomotion, manipulation, and multi-task robotics.",
-      zh: "紧凑控制、物理、运动、操作与多任务机器人。",
-    },
-  },
-  {
-    id: "planning",
-    title: { en: "Navigation and planning", zh: "导航与规划" },
-    summary: {
-      en: "Discrete planning, partial observability, memory, procedural layouts, and language-conditioned tasks.",
-      zh: "离散规划、部分可观测、记忆、程序化地图与语言条件任务。",
-    },
-  },
-  {
-    id: "games",
-    title: { en: "Interactive simulation and games", zh: "交互模拟与游戏" },
-    summary: {
-      en: "Driving, first-person control, arcade games, and long-horizon strategic play.",
-      zh: "驾驶、第一人称控制、街机游戏与长时程策略游戏。",
-    },
-  },
-];
+const environmentDomainTitles: Readonly<Record<string, LocalizedText>> = {
+  control: { en: "Control and robotics", zh: "控制与机器人" },
+  planning: { en: "Navigation and planning", zh: "导航与规划" },
+  games: { en: "Interactive simulation and games", zh: "交互模拟与游戏" },
+};
+
+function humanizeDomainId(domainId: string): string {
+  return domainId
+    .split(/[-_]/u)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 export const environmentCollections: EnvironmentCollection[] = [
   {
@@ -615,6 +599,20 @@ export const environmentCollections: EnvironmentCollection[] = [
     items: [{ name: "Red Deck · White Stake" }],
   },
 ];
+
+export const environmentDomains: EnvironmentDomainGroup[] = Array.from(
+  new Set(environmentCollections.map((collection) => collection.domain)),
+  (domainId) => {
+    const fallbackTitle = humanizeDomainId(domainId);
+    return {
+      id: domainId,
+      title: environmentDomainTitles[domainId] ?? {
+        en: fallbackTitle,
+        zh: fallbackTitle,
+      },
+    };
+  },
+);
 
 export const environmentDistributionCount = environmentCollections.reduce(
   (total, collection) => total + collection.distributions,

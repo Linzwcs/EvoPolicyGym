@@ -154,27 +154,47 @@ class CarRacingBenchmark:
         failures = sum(record.policy_failure is not None for record in records)
         mean_steps = statistics.fmean(record.steps for record in records)
         summarized = records[:_MAX_SUMMARIZED_EPISODES]
-        traced = tuple(
+        replayed = tuple(
             _TracedEpisode(
                 episode_index=episode_index,
                 record=record,
                 step_indices=_trace_step_indices(record),
                 continuous=self._config.continuous,
             )
-            for episode_index, record in enumerate(
-                records[:_MAX_TRACED_EPISODES]
-            )
+            for episode_index, record in enumerate(records)
         )
+        traced = replayed[:_MAX_TRACED_EPISODES]
         trace_artifact = _trace_artifact(traced)
         visual_artifacts: list[Artifact] = []
         frame_manifests: list[PolicyValue] = []
+        replay_manifests: list[PolicyValue] = []
         raw_frame_bytes = 0
-        for episode in traced:
+        for episode in replayed:
+            replay, replay_timeline, replay_scale = _replay_artifact(episode)
+            replay_manifests.append(
+                {
+                    "episode_index": episode.episode_index,
+                    "status": "available",
+                    "artifact": episode.replay_artifact_name,
+                    "encoded_frames": len(replay_timeline),
+                    "frames_omitted": (
+                        1 + episode.record.steps - len(replay_timeline)
+                    ),
+                    "sampled_steps": len(episode.step_indices),
+                    "steps_omitted": (
+                        episode.record.steps - len(episode.step_indices)
+                    ),
+                    "scale": replay_scale,
+                    "timeline": replay_timeline,
+                }
+            )
+            if episode.episode_index >= len(traced):
+                visual_artifacts.append(replay)
+                continue
             frame_artifact = _frame_artifact(episode)
             contact_sheet, contact_sheet_tiles = _contact_sheet_artifact(
                 episode
             )
-            replay, replay_timeline, replay_scale = _replay_artifact(episode)
             visual_artifacts.extend((frame_artifact, contact_sheet, replay))
             episode_raw_frame_bytes = (
                 1 + 2 * len(episode.step_indices)
@@ -260,10 +280,11 @@ class CarRacingBenchmark:
                 ),
                 "trace_format": (
                     "trace.jsonl references lossless decision/result RGB "
-                    "arrays in per-Episode observations.npz artifacts. "
-                    "Contact sheets and replay GIFs are nearest-neighbor "
-                    "previews; omitted steps and Episodes are reported "
-                    "explicitly."
+                    "arrays for the traced Episodes in per-Episode "
+                    "observations.npz artifacts. Contact sheets cover those "
+                    "traced Episodes. Every Episode has a bounded "
+                    "nearest-neighbor replay GIF; omitted trace and replay "
+                    "steps are reported explicitly."
                 ),
                 "track_progress_inference": (
                     "Inferred coverage sums positive (reward + 0.1) tile "
@@ -273,6 +294,11 @@ class CarRacingBenchmark:
                 "replay_frame_cap_per_episode": _MAX_REPLAY_FRAMES,
                 "replay_frame_duration_ms": _REPLAY_FRAME_DURATION_MS,
                 "replay_artifact_byte_cap": _MAX_REPLAY_ARTIFACT_BYTES,
+                "replay_episodes": len(replay_manifests),
+                "replay_episodes_without_gif": (
+                    len(records) - len(replay_manifests)
+                ),
+                "replay_artifacts": replay_manifests,
                 "frame_artifacts": frame_manifests,
             },
             artifacts=(trace_artifact, *visual_artifacts),

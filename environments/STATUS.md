@@ -19,7 +19,7 @@ profiles and never cross the Policy boundary.
 
 | Ecosystem | Coverage | Distribution layout |
 | --- | --- | --- |
-| ARC-AGI-3 | All 25 public games returned by the official discovery API on 2026-08-01, pinned by full version ID; custom fixed collections; fresh local game instances with per-Episode seeds supplied when supported upstream; one complete game per Episode with in-Episode level resets and shared official scorecard aggregation | [`arcprize/arc_agi_3/`](arcprize/arc_agi_3/) |
+| ARC-AGI-3 | All 25 public games returned by the official discovery API on 2026-08-01, pinned by full version ID; custom fixed collections; fresh local game instances with per-Episode seeds supplied when supported upstream; one complete game per Episode with in-Episode level resets, shared official scorecard aggregation, and per-Episode playback GIF Feedback | [`arcprize/arc_agi_3/`](arcprize/arc_agi_3/) |
 | AtCoder AHC054 | Treant's Forest with independently generated connected forests, private adventurer target orders, strict atomic Treant placement, and a 2,048-turn score cap | [`atcoder/ahc054/treants_forest/`](atcoder/ahc054/treants_forest/) |
 | AtCoder AHC057 | Molecules with all 300 points, 1,000 turns, toroidal double-precision motion, atomic multi-bond Actions, momentum-conserving component velocity, exact 10 × 30 terminal partitions, and official logarithmic cost scoring | [`atcoder/ahc057/molecules/`](atcoder/ahc057/molecules/) |
 | AtCoder AHC058 | Apple Incremental Game with the complete 10-ID, four-Level, 500-turn production hierarchy, independent log-uniform case generation, strict affordability, official processing order, and exact log2 scoring | [`atcoder/ahc058/apple_incremental_game/`](atcoder/ahc058/apple_incremental_game/) |
@@ -35,9 +35,9 @@ profiles and never cross the Policy boundary.
 | MetaWorld | All 50 MT1 `*-v3` tasks, MT10, MT50, and fixed custom MT collections | [`metaworld/metaworld/`](metaworld/metaworld/) |
 | robosuite | All 19 environments registered by robosuite 1.5.2: Lift, Stack, five NutAssembly profiles, six PickPlace profiles, Door, Wipe, ToolHang, and four two-arm tasks; fixed Panda robots, BASIC/OSC pose control, state observations, per-Episode bounded `agentview` replay GIF Feedback, and a MuJoCo 3.3 compatibility pin | [`robosuite/robosuite/`](robosuite/robosuite/) |
 | NLE / NetHack | Linux-targeted `NetHackScore-v0` with a fixed Monk role, upstream task Actions, deterministic Episode seed triplets, complete reversible raw training evidence, Agent-owned analysis, and aggregate-only Validation/Assessment | [`nle/nethack/`](nle/nethack/) |
-| ALE Atari | The wheel's redistributable Tetris ROM, RGB observations, and the minimal action set | [`ale/atari/`](ale/atari/) |
-| ViZDoom | 12 standard scenarios whose configs and WADs ship in ViZDoom: Basic, Audio, Notifications, DeadlyCorridor, Deathmatch, DefendCenter, DefendLine, HealthGathering, HealthGatheringSupreme, MyWayHome, PredictPosition, and TakeCover | [`vizdoom/vizdoom/`](vizdoom/vizdoom/) |
-| Stable-Retro | The wheel's redistributable Airstriker Level 1 ROM/state and restricted discrete controller actions | [`stable_retro/airstriker/`](stable_retro/airstriker/) |
+| ALE Atari | The wheel's redistributable Tetris ROM, RGB observations, the minimal action set, and per-Episode bounded replay GIF Feedback | [`ale/atari/`](ale/atari/) |
+| ViZDoom | 12 standard scenarios whose configs and WADs ship in ViZDoom: Basic, Audio, Notifications, DeadlyCorridor, Deathmatch, DefendCenter, DefendLine, HealthGathering, HealthGatheringSupreme, MyWayHome, PredictPosition, and TakeCover; per-Episode bounded replay GIF Feedback | [`vizdoom/vizdoom/`](vizdoom/vizdoom/) |
+| Stable-Retro | The wheel's redistributable Airstriker Level 1 ROM/state, restricted discrete controller actions, and per-Episode bounded replay GIF Feedback | [`stable_retro/airstriker/`](stable_retro/airstriker/) |
 
 ## Deferred by an explicit Kernel boundary
 

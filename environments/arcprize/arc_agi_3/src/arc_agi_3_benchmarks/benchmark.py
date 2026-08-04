@@ -38,7 +38,6 @@ _MAX_TRACED_EPISODES = 8
 _MAX_TRACED_STEPS = 128
 _MAX_TRACED_FRAME_BYTES_PER_EPISODE = 8 * 1024 * 1024
 _MAX_TRACED_FRAME_BYTES_TOTAL = 12 * 1024 * 1024
-_MAX_VIDEO_EPISODES = 4
 _MAX_VIDEO_FRAMES = 512
 _MAX_VIDEO_ARTIFACT_BYTES = 12 * 1024 * 1024
 _VIDEO_FRAME_DURATION_MS = 100
@@ -267,7 +266,7 @@ class ArcAgi3Benchmark:
             if (artifact := _observation_artifact(episode)) is not None
         )
         video_artifacts, video_manifests = _video_artifacts(
-            traced[:_MAX_VIDEO_EPISODES]
+            _video_episodes(records)
         )
         return Feedback(
             score=score,
@@ -313,13 +312,18 @@ class ArcAgi3Benchmark:
                 ),
                 "videos": video_manifests,
                 "video_episodes": len(video_artifacts),
-                "video_episodes_omitted": len(records) - len(video_artifacts),
+                "video_episode_results": len(video_manifests),
+                "video_episodes_without_gif": (
+                    len(records) - len(video_artifacts)
+                ),
                 "video_frame_cap_per_episode": _MAX_VIDEO_FRAMES,
                 "video_frame_duration_ms": _VIDEO_FRAME_DURATION_MS,
                 "video_format": (
-                    "Animated GIFs use the official ARC-AGI-3 palette. Every traced "
-                    "observation contributes its final decision frame; additional "
-                    "animation frames are uniformly sampled when the cap is reached."
+                    "Every Episode publishes an animated GIF using the official "
+                    "ARC-AGI-3 palette when it has a visual observation. Every "
+                    "selected observation contributes its final decision frame; "
+                    "additional animation frames are uniformly sampled when the "
+                    "cap is reached."
                 ),
             },
             artifacts=(
@@ -537,6 +541,34 @@ def _traced_episodes(records: Sequence[EpisodeRecord]) -> tuple[_TracedEpisode, 
     return tuple(traced)
 
 
+def _video_episodes(records: Sequence[EpisodeRecord]) -> tuple[_TracedEpisode, ...]:
+    episodes: list[_TracedEpisode] = []
+    for episode_index, record in enumerate(records):
+        candidates = _traced_episodes((record,))
+        if candidates:
+            candidate = candidates[0]
+            episodes.append(
+                _TracedEpisode(
+                    episode_index=episode_index,
+                    record=record,
+                    transitions=candidate.transitions,
+                    observations=candidate.observations,
+                    frame_bytes=candidate.frame_bytes,
+                )
+            )
+            continue
+        episodes.append(
+            _TracedEpisode(
+                episode_index=episode_index,
+                record=record,
+                transitions=(),
+                observations=(record.initial_observation,),
+                frame_bytes=_observation_frame_bytes(record.initial_observation),
+            )
+        )
+    return tuple(episodes)
+
+
 def _observation_frame_bytes(value: PolicyValue) -> int:
     validated = _validated_observation(value)
     return 0 if validated is None else len(validated[0].data)
@@ -681,6 +713,22 @@ def _video_artifacts(
             if observation is not None
         ]
         if not visual:
+            manifests.append(
+                {
+                    "episode_index": episode_index,
+                    "status": "unavailable",
+                    "reason": "no_visual_observation",
+                    "artifact": None,
+                    "traced_steps": len(traced),
+                    "trace_steps_omitted": record.steps - len(traced),
+                    "source_animation_frames": 0,
+                    "encoded_frames": 0,
+                    "sampled": False,
+                    "frame_duration_ms": _VIDEO_FRAME_DURATION_MS,
+                    "scale": None,
+                    "timeline": [],
+                }
+            )
             continue
 
         allocations = _video_frame_allocations(
@@ -754,6 +802,7 @@ def _video_artifacts(
         manifests.append(
             {
                 "episode_index": episode_index,
+                "status": "available",
                 "artifact": name,
                 "traced_steps": len(traced),
                 "trace_steps_omitted": record.steps - len(traced),

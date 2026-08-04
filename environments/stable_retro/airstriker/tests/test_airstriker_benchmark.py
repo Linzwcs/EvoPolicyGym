@@ -65,6 +65,39 @@ class AirstrikerBenchmarkTests(unittest.TestCase):
         )
         self.assertTrue(report.passed, report.issues)
 
+    def test_feedback_saves_replay_for_every_episode(self) -> None:
+        record = EpisodeRecord(
+            episode=EpisodeSpec(environment_seed=11),
+            policy_seed=21,
+            initial_observation=_frame(0),
+            transitions=(),
+        )
+
+        feedback = AirstrikerBenchmark().feedback((record,) * 5)
+
+        self.assertEqual(
+            [
+                artifact.name
+                for artifact in feedback.artifacts
+                if artifact.media_type == "image/gif"
+            ],
+            [f"episode-{index:03d}/replay.gif" for index in range(5)],
+        )
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["traced_episodes"], 4)
+        self.assertEqual(feedback.content["replay_episodes"], 5)
+        self.assertEqual(feedback.content["replay_episodes_without_gif"], 0)
+        manifests = feedback.content["replay_artifacts"]
+        assert isinstance(manifests, list)
+        self.assertEqual(
+            [
+                manifest["status"]
+                for manifest in manifests
+                if isinstance(manifest, dict)
+            ],
+            ["available"] * 5,
+        )
+
     def test_feedback_publishes_bounded_lossless_visual_trace(self) -> None:
         reward_steps = {
             20,

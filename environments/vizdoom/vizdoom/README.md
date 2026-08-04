@@ -21,9 +21,11 @@ Episodes. Long Episodes retain their first and last steps, bounded samples of
 reward and game-variable-change events, and an even timeline sample. Selected
 screen frames, game variables, and optional audio are stored losslessly in
 compressed NPZ artifacts; optional notifications remain inline. PNG contact
-sheets and bounded animated GIF replays expose the visual trajectory, action
-meaning, reward, and primary game variables. Omitted Episodes, steps, and replay
-frames are reported explicitly, without seeds, paths, or WAD identity.
+sheets cover traced Episodes, while every Episode publishes its own bounded
+animated GIF replay exposing the visual trajectory, action meaning, reward, and
+primary game variables. Omitted trace Episodes and steps plus sampled replay
+frames are reported explicitly; the Kernel-owned `feedback.json` retains every
+Episode result without seeds, paths, or WAD identity.
 
 Commercial Doom/Doom2 map registrations are intentionally excluded because
 their WADs do not ship with ViZDoom. FreeDoom campaign maps can be added as a

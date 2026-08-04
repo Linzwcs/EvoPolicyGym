@@ -8,8 +8,8 @@ const notes = [
   {
     date: "2026-08-03",
     path: "/blog/nethack-policy-evolution/",
-    titleEn: "Into the dungeon: autonomous Policy evolution in NetHack",
-    titleZh: "深入地下城：在 NetHack 中自主演化 Policy",
+    titleEn: "Into the Dungeon: Building Exploration Systems for NetHack",
+    titleZh: "深入地下城：为 NetHack 构建探索系统",
     tagEn: "Experiment",
     tagZh: "实验",
   },

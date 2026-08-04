@@ -189,6 +189,80 @@ class RobosuiteBenchmarkTests(unittest.TestCase):
         self.assertEqual(replay.retention, "bulk")
         self.assertTrue(replay.read_bytes().startswith(b"GIF89a"))
 
+    def test_feedback_saves_one_gif_for_every_completed_episode(self) -> None:
+        benchmark = RobosuiteBenchmark(
+            RobosuiteConfig(profile="lift", max_episode_steps=1)
+        )
+        records: list[EpisodeRecord] = []
+        for episode_index in range(3):
+            episode = EpisodeSpec(environment_seed=100 + episode_index)
+            environment = benchmark.make_environment(episode)
+            try:
+                initial = environment.reset()
+                action: PolicyValue = [0.0] * 7
+                step = environment.step(action)
+            finally:
+                environment.close()
+            records.append(
+                EpisodeRecord(
+                    episode=episode,
+                    policy_seed=200 + episode_index,
+                    initial_observation=initial,
+                    transitions=(Transition(action=action, step=step),),
+                )
+            )
+
+        feedback = benchmark.feedback(tuple(records))
+
+        self.assertEqual(
+            [artifact.name for artifact in feedback.artifacts],
+            [
+                "trace.jsonl",
+                "episode-000/agentview.gif",
+                "episode-001/agentview.gif",
+                "episode-002/agentview.gif",
+            ],
+        )
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["video_episodes"], 3)
+        self.assertEqual(feedback.content["video_episode_results"], 3)
+        self.assertEqual(feedback.content["video_episodes_without_gif"], 0)
+        manifests = feedback.content["video_artifacts"]
+        self.assertIsInstance(manifests, list)
+        assert isinstance(manifests, list)
+        self.assertEqual(
+            [manifest["status"] for manifest in manifests if isinstance(manifest, dict)],
+            ["available", "available", "available"],
+        )
+
+    def test_zero_step_failure_has_explicit_unavailable_video_result(self) -> None:
+        benchmark = RobosuiteBenchmark(
+            RobosuiteConfig(profile="lift", max_episode_steps=1)
+        )
+        episode = EpisodeSpec(environment_seed=301)
+        feedback = benchmark.feedback(
+            (
+                EpisodeRecord(
+                    episode=episode,
+                    policy_seed=401,
+                    initial_observation={},
+                    transitions=(),
+                    policy_failure="invalid_action",
+                ),
+            )
+        )
+        self.assertEqual([item.name for item in feedback.artifacts], ["trace.jsonl"])
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["video_episode_results"], 1)
+        self.assertEqual(feedback.content["video_episodes_without_gif"], 1)
+        manifests = feedback.content["video_artifacts"]
+        assert isinstance(manifests, list)
+        manifest = manifests[0]
+        self.assertIsInstance(manifest, dict)
+        assert isinstance(manifest, dict)
+        self.assertEqual(manifest["status"], "unavailable")
+        self.assertEqual(manifest["reason"], "no_recorded_frames")
+
     def test_conformance_and_packaged_baseline(self) -> None:
         benchmark = RobosuiteBenchmark(
             RobosuiteConfig(profile="lift", max_episode_steps=2)

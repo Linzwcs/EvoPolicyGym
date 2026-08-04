@@ -21,7 +21,6 @@ VIDEO_INITIAL_FRAME_METRIC = "feedback_video_initial_rgb"
 VIDEO_FRAME_METRIC = "feedback_video_rgb"
 VIDEO_CAPTURE_FAILED_METRIC = "feedback_video_capture_failed"
 
-_MAX_VIDEO_EPISODES = 2
 _MAX_VIDEO_ARTIFACT_BYTES = 4 * 1024 * 1024
 _VIDEO_FRAME_DURATION_MS = 200
 _VIDEO_STATUS_HEIGHT = 36
@@ -46,11 +45,24 @@ def video_feedback(
     artifacts: list[Artifact] = []
     manifests: list[PolicyValue] = []
     unavailable = 0
-    for episode_index, record in enumerate(records[:_MAX_VIDEO_EPISODES]):
+    for episode_index, record in enumerate(records):
         frames, capture_failed = _episode_frames(record)
-        if capture_failed:
+        if capture_failed or not frames:
             unavailable += 1
         if not frames:
+            manifests.append(
+                {
+                    "episode_index": episode_index,
+                    "status": "unavailable",
+                    "reason": "no_recorded_frames",
+                    "artifact": None,
+                    "camera": "suite camera_id=0",
+                    "frame_shape": list(VIDEO_FRAME_SHAPE),
+                    "capture_interval_steps": capture_interval,
+                    "recorded_frames": 0,
+                    "steps_without_video_frame": record.steps,
+                }
+            )
             continue
         selected, content, scale = _encode_bounded_gif(frames, profile=profile)
         name = f"episode-{episode_index:03d}/default-camera.gif"
@@ -65,6 +77,7 @@ def video_feedback(
         manifests.append(
             {
                 "episode_index": episode_index,
+                "status": "partial" if capture_failed else "available",
                 "artifact": name,
                 "camera": "suite camera_id=0",
                 "frame_shape": list(VIDEO_FRAME_SHAPE),

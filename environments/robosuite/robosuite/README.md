@@ -40,12 +40,17 @@ An Episode succeeds if the upstream task success predicate is true on any
 transition. The Environment continues until the configured horizon unless the
 upstream task declares an earlier terminal condition. Feedback reports success,
 dense return, first success, action magnitude/saturation, state motion, cleanup
-outcomes, and bounded public transition traces. It also publishes up to two
-`agentview` replay GIFs. The camera is sampled at 128x128 on the initial state,
+outcomes, and bounded public transition traces. It also publishes one
+`agentview` replay GIF for every Episode with at least one valid transition.
+The camera is sampled at 128x128 on the initial state,
 step 1, a fixed stride chosen from the configured horizon, and the terminal
 state, for at most 42 frames per Episode. Short Episodes capture every step.
 Raw frames stay in Host-only Step metrics and never become Policy
 observations; the GIFs and reproducible JSONL trace use `retention="bulk"`.
+The Kernel-owned `feedback.json` `episodes` array preserves every Episode's
+status, reward, step count, and Policy failure without summary truncation. A
+zero-step Policy failure is recorded there with an explicit unavailable video
+manifest because the public Environment SPI has no post-reset artifact channel.
 
 Video capture is diagnostic evidence and is fail-soft: a missing offscreen GL
 backend is reported in Feedback without changing the physics Episode or score.

@@ -5,23 +5,17 @@
 <h1 align="center">EvoPolicyGym</h1>
 
 <p align="center">
-  <strong>Can coding agents build better executable Policies from limited
-  environment feedback?</strong>
+  EvoPolicyGym provides a standardized evaluation protocol and a unified
+  interface to interactive environments, giving Coding Agents the
+  infrastructure to evolve executable Policies from bounded feedback and
+  measure them on held-out Cases.
 </p>
 
 <p align="center">
-  EvoPolicyGym evaluates the complete improvement process: an Agent repeatedly
-  edits a Policy and spends a fixed Episode budget on experiments; the Host
-  then privately validates the published candidates, selects one, and measures
-  it through held-out Assessment.
-</p>
-
-<p align="center">
-  <a href="https://linzwcs.github.io/EvoPolicyGym/leaderboard/"><strong>Leaderboard</strong></a>
-  · <a href="https://linzwcs.github.io/EvoPolicyGym/blog/"><strong>Experiments</strong></a>
-  · <a href="https://linzwcs.github.io/EvoPolicyGym/docs/"><strong>Documentation</strong></a>
-  · <a href="https://arxiv.org/abs/2607.02440"><strong>Paper</strong></a>
-  · <a href="https://github.com/Linzwcs/EvoPolicyGym/tree/v0.1.0"><strong>Reproduce Core16</strong></a>
+  <a href="https://linzwcs.github.io/EvoPolicyGym/"><strong>Project website</strong></a>
+  · <a href="https://linzwcs.github.io/EvoPolicyGym/blog/"><strong>Research blog</strong></a>
+  · <a href="https://linzwcs.github.io/EvoPolicyGym/docs/getting-started/"><strong>Get started</strong></a>
+  · <a href="https://arxiv.org/abs/2607.02440"><strong>Read the paper</strong></a>
 </p>
 
 <p align="center">

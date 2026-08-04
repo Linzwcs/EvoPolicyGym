@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "dm-control==1.0.43",
+    "pillow>=12.1.1,<13",
     # dm-control 1.0.43 is generated against MuJoCo 3.10's mjData layout.
     # MuJoCo 3.11 removes qM, which its generated indexer still reads.
     "mujoco>=3.10.0,<3.11",

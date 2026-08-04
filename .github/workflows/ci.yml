@@ -162,6 +162,7 @@ jobs:
           - environments/atcoder/ahc058/apple_incremental_game
           - environments/codechef/june18/warehouseman
           - environments/crafter/crafter
+          - environments/dm_control/control_suite
           - environments/gymnasium/box2d/bipedal_walker
           - environments/gymnasium/box2d/car_racing
           - environments/gymnasium/box2d/lunar_lander
@@ -191,6 +192,7 @@ jobs:
           - environments/metaworld/metaworld
           - environments/minigrid/babyai
           - environments/nle/nethack
+          - environments/robosuite/robosuite
           - environments/stable_retro/airstriker
           - environments/vizdoom/vizdoom
     steps:

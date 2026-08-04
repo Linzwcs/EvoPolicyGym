@@ -34,7 +34,19 @@ Actions are exact-float arrays with the upstream shape and bounds. For every
 current benchmarking task the bounds are `[-1, 1]`. Invalid Actions are
 rejected before `Environment.step()`; they are never clipped or repaired.
 Feedback scores mean continuous return and provides bounded public JSONL
-traces plus reward, discount, action, and state-motion diagnostics.
+traces plus reward, discount, action, and state-motion diagnostics. It also
+publishes up to two replay GIFs from the suite's `camera_id=0`. The camera is
+sampled at 128x128 on the initial state, step 1, a fixed stride chosen from the
+configured horizon, and the terminal state, for at most 42 frames per Episode.
+Short Episodes capture every step. Raw frames stay in Host-only Step metrics
+and never become Policy observations; the GIFs and reproducible JSONL trace
+use `retention="bulk"`.
+
+Video capture is diagnostic evidence and is fail-soft: a missing offscreen GL
+backend is reported in Feedback without changing the physics Episode or score.
+On macOS the adapter uses MuJoCo's native CGL renderer so Episode worker
+threads do not enter dm_control's GLFW window path. Headless Linux deployments
+should provision a working MuJoCo EGL or OSMesa profile.
 
 ## Runtime pin
 

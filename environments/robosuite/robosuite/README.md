@@ -27,7 +27,8 @@ The Policy observation contains two canonical `float64` tensors:
 `proprioception` concatenates the upstream per-robot proprioceptive state and
 `objects` contains the task's public object state. Camera frames, simulator
 objects, Host paths, seeds, and raw Case identity never cross the Policy
-boundary.
+boundary. The packaged baseline demonstrates how to decode the tensor bytes
+with `struct.iter_unpack("<d", ...)`.
 
 Actions are strict BASIC-controller vectors in `[-1, 1]`. Single-arm tasks use
 six operational-space pose deltas and, where a gripper exists, one gripper
@@ -39,7 +40,18 @@ An Episode succeeds if the upstream task success predicate is true on any
 transition. The Environment continues until the configured horizon unless the
 upstream task declares an earlier terminal condition. Feedback reports success,
 dense return, first success, action magnitude/saturation, state motion, cleanup
-outcomes, and bounded public transition traces.
+outcomes, and bounded public transition traces. It also publishes up to two
+`agentview` replay GIFs. The camera is sampled at 128x128 on the initial state,
+step 1, a fixed stride chosen from the configured horizon, and the terminal
+state, for at most 42 frames per Episode. Short Episodes capture every step.
+Raw frames stay in Host-only Step metrics and never become Policy
+observations; the GIFs and reproducible JSONL trace use `retention="bulk"`.
+
+Video capture is diagnostic evidence and is fail-soft: a missing offscreen GL
+backend is reported in Feedback without changing the physics Episode or score.
+On macOS the adapter uses MuJoCo's native CGL renderer rather than robosuite
+1.5.2's GLFW offscreen wrapper. Headless Linux deployments should provision a
+working MuJoCo EGL or OSMesa profile.
 
 ## Runtime pin
 

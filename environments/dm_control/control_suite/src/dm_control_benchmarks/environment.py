@@ -6,12 +6,22 @@ import math
 from collections.abc import Mapping
 from typing import Protocol, cast
 
+import mujoco  # type: ignore[import-untyped]
 import numpy as np
 from dm_control import suite  # type: ignore[import-untyped]
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
 from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import DmControlConfig, ObservationField
+from .video import (
+    VIDEO_CAPTURE_FAILED_METRIC,
+    VIDEO_FRAME_HEIGHT,
+    VIDEO_FRAME_METRIC,
+    VIDEO_FRAME_SHAPE,
+    VIDEO_FRAME_WIDTH,
+    VIDEO_INITIAL_FRAME_METRIC,
+    video_capture_interval,
+)
 
 
 class _ActionSpec(Protocol):
@@ -30,6 +40,8 @@ class _TimeStep(Protocol):
 
 
 class _UpstreamEnvironment(Protocol):
+    physics: _Physics
+
     def action_spec(self) -> _ActionSpec: ...
 
     def reset(self) -> _TimeStep: ...
@@ -40,6 +52,19 @@ class _UpstreamEnvironment(Protocol):
     ) -> _TimeStep: ...
 
     def close(self) -> None: ...
+
+
+class _Physics(Protocol):
+    model: _WrappedModel
+    data: _WrappedData
+
+
+class _WrappedModel(Protocol):
+    _model: mujoco.MjModel
+
+
+class _WrappedData(Protocol):
+    _data: mujoco.MjData
 
 
 class DmControlEnvironment:
@@ -80,6 +105,9 @@ class DmControlEnvironment:
         self._state_motion_sum = 0.0
         self._no_state_change_count = 0
         self._previous_state: np.ndarray[tuple[int], np.dtype[np.float64]] | None = None
+        self._video_capture_failed = False
+        self._video_capture_interval = video_capture_interval(config.max_episode_steps)
+        self._video_renderer: mujoco.Renderer | None = None
 
     def reset(self) -> PolicyValue:
         self._require_open()
@@ -103,6 +131,7 @@ class DmControlEnvironment:
         if self._done:
             raise RuntimeError("dm_control Environment cannot step after termination")
         control = _action(action, size=self._config.action_size)
+        initial_video_frame = self._capture_video_frame() if self._step_count == 0 else None
         time_step = self._environment.step(control)
         reward = _finite_number(time_step.reward, name="reward")
         discount = _finite_number(time_step.discount, name="discount")
@@ -139,40 +168,93 @@ class DmControlEnvironment:
         terminated = upstream_last and discount == 0.0
         truncated = not terminated and (upstream_last or configured_limit)
         self._done = terminated or truncated
+        video_frame = None
+        if (
+            self._step_count == 1
+            or self._step_count % self._video_capture_interval == 0
+            or self._done
+        ):
+            video_frame = self._capture_video_frame()
+        metrics: dict[str, PolicyValue] = {
+            "step_count": self._step_count,
+            "discount": discount,
+            "reward": reward,
+            "return": self._return,
+            "mean_reward": self._return / self._step_count,
+            "best_reward": self._best_reward,
+            "action_l2_norm": action_l2_norm,
+            "mean_action_l2_norm": self._action_l2_sum / self._step_count,
+            "saturated_action_component_count": saturated_components,
+            "cumulative_saturated_action_component_count": (
+                self._saturated_action_component_count
+            ),
+            "zero_action_count": self._zero_action_count,
+            "state_motion_l2": state_motion_l2,
+            "mean_state_motion_l2": self._state_motion_sum / self._step_count,
+            "no_state_change_count": self._no_state_change_count,
+            "upstream_last": upstream_last,
+            VIDEO_CAPTURE_FAILED_METRIC: self._video_capture_failed,
+        }
+        if initial_video_frame is not None:
+            metrics[VIDEO_INITIAL_FRAME_METRIC] = initial_video_frame
+        if video_frame is not None:
+            metrics[VIDEO_FRAME_METRIC] = video_frame
         return Step(
             observation=observation,
             reward=reward,
             terminated=terminated,
             truncated=truncated,
-            metrics={
-                "step_count": self._step_count,
-                "discount": discount,
-                "reward": reward,
-                "return": self._return,
-                "mean_reward": self._return / self._step_count,
-                "best_reward": self._best_reward,
-                "action_l2_norm": action_l2_norm,
-                "mean_action_l2_norm": self._action_l2_sum / self._step_count,
-                "saturated_action_component_count": saturated_components,
-                "cumulative_saturated_action_component_count": (
-                    self._saturated_action_component_count
-                ),
-                "zero_action_count": self._zero_action_count,
-                "state_motion_l2": state_motion_l2,
-                "mean_state_motion_l2": self._state_motion_sum / self._step_count,
-                "no_state_change_count": self._no_state_change_count,
-                "upstream_last": upstream_last,
-            },
+            metrics=metrics,
         )
 
     def close(self) -> None:
         if not self._closed:
             self._closed = True
+            self._close_video_renderer()
             self._environment.close()
 
     def _require_open(self) -> None:
         if self._closed:
             raise RuntimeError("dm_control Environment is closed")
+
+    def _capture_video_frame(self) -> TensorValue | None:
+        if self._video_capture_failed:
+            return None
+        try:
+            if self._video_renderer is None:
+                self._video_renderer = mujoco.Renderer(
+                    self._environment.physics.model._model,
+                    height=VIDEO_FRAME_HEIGHT,
+                    width=VIDEO_FRAME_WIDTH,
+                )
+            self._video_renderer.update_scene(
+                self._environment.physics.data._data,
+                camera=0,
+            )
+            raw = self._video_renderer.render()
+            frame = np.asarray(raw)
+            if frame.shape != VIDEO_FRAME_SHAPE or frame.dtype != np.dtype(np.uint8):
+                raise RuntimeError("dm_control camera frame shape or dtype drifted")
+            contiguous = np.ascontiguousarray(frame)
+            return TensorValue(
+                dtype="uint8",
+                shape=VIDEO_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._video_capture_failed = True
+            self._close_video_renderer()
+            return None
+
+    def _close_video_renderer(self) -> None:
+        renderer = self._video_renderer
+        self._video_renderer = None
+        if renderer is None:
+            return
+        try:
+            renderer.close()
+        except Exception:
+            self._video_capture_failed = True
 
 
 def _valid_action_spec(specification: _ActionSpec, *, size: int) -> bool:

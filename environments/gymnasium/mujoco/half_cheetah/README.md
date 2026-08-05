@@ -68,6 +68,19 @@ controls, elapsed time, initial/current/net x position, velocity and direction
 fractions, torso pose, current and cumulative reward decomposition, and
 terminal reason. Episode rows publish corresponding aggregate diagnostics.
 
+Every Episode with at least one valid transition also preserves every captured
+256 × 256 `rgb_array` frame losslessly in `rendered-frames.npz`, together with
+step indices, rewards, reward presence, and cumulative returns. The Benchmark
+captures the initial pose, first result, terminal result, and a fixed stride of
+intermediate results, with at most 42 frames per Episode. An H.264 MP4 at five
+frames per second is derived from exactly that sequence for direct playback;
+the MP4 is presentation, while the NPZ is the pixel-exact evidence. Both use
+`retention="bulk"`, and the manifest states whether capture is complete for
+the sampling schedule and whether the schedule covers every Episode step. Raw
+RGB tensors are removed from `trace.jsonl` and never become Policy
+observations. Rendering failure is diagnostic and does not change physics or
+score; zero-step failures publish an explicit unavailable manifest.
+
 Environment seeds, Policy seeds, Host paths, credentials, model paths, and
 private runtime evidence are never published.
 

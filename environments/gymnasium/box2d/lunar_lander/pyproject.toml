@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "gymnasium[box2d]>=1.3.0,<2",
+    "imageio-ffmpeg>=0.6,<0.7",
 ]
 
 [build-system]

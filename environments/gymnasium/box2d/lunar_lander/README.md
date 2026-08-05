@@ -96,6 +96,18 @@ state; contact changes and support state; closest landing-state penalty;
 remaining steps; and an exact terminal reason. Episode rows carry the matching
 aggregate diagnostics and explicit outcome.
 
+Every Episode with at least one valid transition also preserves every captured
+600 × 400 upstream `rgb_array` frame losslessly in `rendered-frames.npz`, with
+step indices, rewards, reward presence, and cumulative returns. The Benchmark
+captures the initial scene, first result, terminal result, and a fixed stride
+of intermediate results, with at most 42 frames per Episode. It derives an
+H.264 MP4 at five frames per second from exactly those frames for direct
+playback. The NPZ is pixel-exact evidence and the MP4 is a presentation
+artifact; both use `retention="bulk"`. Raw RGB tensors are removed from
+`trace.jsonl` and never become Policy observations. Rendering failure is
+diagnostic and cannot change physics or score; zero-step failures publish an
+explicit unavailable manifest.
+
 Environment seeds, Policy seeds, Host paths, credentials, and private runtime
 evidence are never published.
 

@@ -21,6 +21,13 @@ from evopolicygym.policy import PolicyValue
 
 from .config import HalfCheetahConfig
 from .environment import HalfCheetahEnvironment
+from .visual import (
+    VISUAL_FRAME_SHAPE,
+    VISUAL_MAX_FRAMES_PER_EPISODE,
+    visual_capture_interval,
+    visual_feedback,
+)
+from .visual import trace_metrics as strip_visual_metrics
 
 _EPISODE_SEED_DOMAIN = b"evopolicygym-half-cheetah/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
@@ -92,6 +99,7 @@ _METRIC_FIELDS = frozenset(
         "cumulative_reward_control",
         "cumulative_return",
         "terminal_reason",
+        "feedback_visual_capture_failed",
     }
 )
 
@@ -189,6 +197,11 @@ class HalfCheetahBenchmark:
         )
         outcomes = tuple(_episode_outcome(record) for record in records)
         traced = records[:_MAX_TRACED_EPISODES]
+        capture_interval = visual_capture_interval(_MAX_EPISODE_STEPS)
+        visual_artifacts, visual_manifests, visual_unavailable = visual_feedback(
+            records,
+            capture_interval=capture_interval,
+        )
         return Feedback(
             score=score,
             content={
@@ -252,6 +265,20 @@ class HalfCheetahBenchmark:
                 "failure_return": self._failure_return,
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
+                "rendered_frame_evidence_episodes": _artifact_episode_count(
+                    visual_manifests,
+                    "evidence_artifact",
+                ),
+                "video_episodes": _artifact_episode_count(
+                    visual_manifests,
+                    "video_artifact",
+                ),
+                "visual_episode_results": len(visual_manifests),
+                "visual_capture_unavailable_episodes": visual_unavailable,
+                "visual_frame_shape": list(VISUAL_FRAME_SHAPE),
+                "visual_capture_interval_steps": capture_interval,
+                "visual_frame_cap_per_episode": VISUAL_MAX_FRAMES_PER_EPISODE,
+                "rendered_frame_evidence": visual_manifests,
             },
             artifacts=(
                 _trace_artifact(
@@ -259,8 +286,16 @@ class HalfCheetahBenchmark:
                     observation_fields=self._observation_fields,
                     failure_return=self._failure_return,
                 ),
+                *visual_artifacts,
             ),
         )
+
+
+def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
+    return sum(
+        type(manifest) is dict and type(manifest.get(key)) is str
+        for manifest in manifests
+    )
 
 
 def _benchmark_spec(
@@ -628,6 +663,7 @@ def _trace_observation(
 
 
 def _trace_metrics(metrics: PolicyValue) -> dict[str, object]:
+    metrics = strip_visual_metrics(metrics)
     if type(metrics) is not dict or set(metrics) != set(_METRIC_FIELDS):
         raise ValueError("HalfCheetah trace metrics are invalid")
     traced: dict[str, object] = {}
@@ -638,6 +674,9 @@ def _trace_metrics(metrics: PolicyValue) -> dict[str, object]:
                 raise ValueError("HalfCheetah trace metrics are invalid")
         elif key == "terminal_reason":
             if type(value) is not str:
+                raise ValueError("HalfCheetah trace metrics are invalid")
+        elif key == "feedback_visual_capture_failed":
+            if type(value) is not bool:
                 raise ValueError("HalfCheetah trace metrics are invalid")
         elif key in {"requested_action_by_joint", "actuator_gear_scaled_controls"}:
             if type(value) is not dict or set(value) != set(_ACTION_COMPONENTS):

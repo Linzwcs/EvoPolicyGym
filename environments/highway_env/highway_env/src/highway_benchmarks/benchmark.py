@@ -26,6 +26,12 @@ from numpy.typing import NDArray
 
 from .config import HighwayConfig
 from .environment import HighwayEnvironment
+from .visual import (
+    VISUAL_MAX_FRAMES_PER_EPISODE,
+    trace_metrics,
+    visual_capture_interval,
+    visual_feedback,
+)
 
 _SEED_DOMAIN = b"evopolicygym-highway-env/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
@@ -166,6 +172,20 @@ class HighwayBenchmark:
             episode.episode_index: len(episode.step_indices)
             for episode in traced
         }
+        capture_interval = visual_capture_interval(self._config.max_episode_steps)
+        visual_artifacts, visual_manifests, visual_unavailable = visual_feedback(
+            records,
+            profile=self._config.profile,
+            capture_interval=capture_interval,
+        )
+        preview_episode_count = _artifact_episode_count(
+            visual_manifests,
+            "preview_artifact",
+        )
+        frame_evidence_episode_count = _artifact_episode_count(
+            visual_manifests,
+            "evidence_artifact",
+        )
         return Feedback(
             score=score,
             content={
@@ -220,9 +240,29 @@ class HighwayBenchmark:
                     "and Episodes are reported explicitly."
                 ),
                 "observation_artifacts": observation_manifests,
+                "rendered_frame_evidence_episodes": frame_evidence_episode_count,
+                "rendered_frame_evidence_format": "lossless NPZ",
+                "visual_preview_episodes": preview_episode_count,
+                "visual_episode_results": len(visual_manifests),
+                "visual_capture_unavailable_episodes": visual_unavailable,
+                "visual_renderer": "HighwayEnv rgb_array",
+                "visual_capture_interval_steps": capture_interval,
+                "visual_frame_cap_per_episode": VISUAL_MAX_FRAMES_PER_EPISODE,
+                "rendered_frame_evidence": visual_manifests,
             },
-            artifacts=(_trace(traced, failure_return=failure_return), *observation_artifacts),
+            artifacts=(
+                _trace(traced, failure_return=failure_return),
+                *observation_artifacts,
+                *visual_artifacts,
+            ),
         )
+
+
+def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
+    return sum(
+        type(manifest) is dict and type(manifest.get(key)) is str
+        for manifest in manifests
+    )
 
 
 def _spec(config: HighwayConfig) -> BenchmarkSpec:
@@ -592,7 +632,7 @@ def _trace(
                         "reward": transition.step.reward,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
-                        "metrics": transition.step.metrics,
+                        "metrics": trace_metrics(transition.step.metrics),
                         "event": _event_transition(transition),
                         "decision_observation": _observation_reference(
                             episode,

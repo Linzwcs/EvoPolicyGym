@@ -36,6 +36,22 @@ profile-specific semantic view:
 - Racetrack reports occupancy and on-road grid statistics;
 - Lane Keeping reports state, derivative, reference state, and tracking error.
 
+For the nine profiles whose upstream Environments support `rgb_array`, every
+Episode with at least one valid transition also preserves the renderer's
+original RGB frames losslessly in
+`rendered-frames.npz`, together with step indices, rewards, reward presence,
+and cumulative returns. A smaller annotated GIF is derived from the same
+frames for convenient inspection; it is not the sole visual evidence. The
+Host captures the initial scene, first result, terminal result, and a fixed
+stride of intermediate results, with at most 42 frames per Episode. Short
+Episodes capture every step. Each manifest states separately whether capture
+is complete for that schedule and whether the schedule covers every Episode
+step. Raw RGB values are removed from the JSONL trace and never become Policy
+observations. Both visual artifacts use `retention="bulk"`.
+The upstream `lane-keeping-v0` constructor does not support `render_mode`; its
+Episodes therefore publish an explicit unavailable visual-evidence manifest
+instead of changing the task or synthesizing a renderer.
+
 The public Benchmark specification now declares the exact shapes, dtypes,
 features, axes, and profile-specific Action meanings. Omitted Episodes and
 steps are explicit. Environment seeds and Host identities are never published.

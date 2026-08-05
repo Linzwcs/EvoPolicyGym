@@ -70,5 +70,11 @@ class HighwayConfig:
     def continuous(self) -> bool:
         return _PROFILES[self.profile].continuous
 
+    @property
+    def supports_rgb_rendering(self) -> bool:
+        """Whether the upstream Environment accepts rgb_array rendering."""
+
+        return self.profile != "lane-keeping"
+
 
 __all__ = ["HIGHWAY_PROFILES", "HighwayConfig"]

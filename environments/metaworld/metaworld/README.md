@@ -41,14 +41,20 @@ public metrics. Episodes longer than 160 steps retain the first 128 and final 32
 steps, with retained and omitted counts reported explicitly. ML1/ML10/ML45 are
 reserved until the Kernel has an explicit Trial abstraction.
 
-Every Episode with at least one valid transition also publishes its own
-bounded 128x128 animated GIF from MetaWorld's `corner2` MuJoCo camera. The Host
+Every Episode with at least one valid transition also preserves every captured
+128x128 frame from MetaWorld's `corner2` MuJoCo camera losslessly in
+`rendered-frames.npz`, together with step indices, rewards, reward presence,
+and cumulative returns. A bounded animated GIF is derived from the same frames
+for convenient inspection; it is not the sole visual evidence. The Host
 captures the initial state, first result, terminal result, and an adaptive
 stride of intermediate results, with at most 42 frames per Episode. Raw RGB
-tensors exist only in Host-side Step metrics, are removed from JSONL traces,
-and never become Policy observations. GIFs use `retention="bulk"`.
+values exist in Host-side Step metrics during evaluation, are removed from
+JSONL traces, and never become Policy observations. The lossless frame
+evidence and derived GIF use `retention="bulk"`. Each manifest states whether
+capture is complete for the configured sampling schedule and whether it covers
+every Episode step.
 
-Feedback includes one video manifest for every Episode. A zero-step Policy
+Feedback includes one visual-evidence manifest for every Episode. A zero-step Policy
 failure has no public post-reset artifact channel, so it is retained as an
-explicit unavailable video result rather than being silently omitted. Episode
+explicit unavailable visual-evidence result rather than being silently omitted. Episode
 seeds and private scenario identity never cross the Policy boundary.

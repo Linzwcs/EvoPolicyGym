@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import struct
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
+import numpy
 from evopolicygym.authoring import (
     BenchmarkFixture,
     EpisodeRecord,
@@ -268,11 +270,25 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         self.assertNotIn(b"feedback_video_initial_rgb", trace)
         self.assertNotIn(b"feedback_video_rgb", trace)
         self.assertEqual(feedback.content["video_episodes"], 1)
-        self.assertEqual(len(feedback.artifacts), 2)
-        self.assertEqual(feedback.artifacts[1].name, "episode-000/corner2.gif")
-        self.assertTrue(feedback.artifacts[1].read_bytes().startswith(b"GIF89a"))
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 1)
+        self.assertEqual(len(feedback.artifacts), 3)
+        evidence = feedback.artifacts[1]
+        self.assertEqual(evidence.name, "episode-000/rendered-frames.npz")
+        self.assertEqual(evidence.media_type, "application/x-npz")
+        with numpy.load(io.BytesIO(evidence.read_bytes()), allow_pickle=False) as archive:
+            self.assertEqual(archive["frames"].shape[1:], (128, 128, 3))
+            self.assertEqual(int(archive["step_indices"][0]), -1)
+            self.assertFalse(bool(archive["reward_present"][0]))
+            self.assertTrue(archive["reward_present"][1:].all())
+            initial_frame = _step_metrics(transitions[0].step)[
+                "feedback_video_initial_rgb"
+            ]
+            assert isinstance(initial_frame, TensorValue)
+            self.assertEqual(archive["frames"][0].tobytes(), initial_frame.data)
+        self.assertEqual(feedback.artifacts[2].name, "episode-000/corner2.gif")
+        self.assertTrue(feedback.artifacts[2].read_bytes().startswith(b"GIF89a"))
 
-    def test_feedback_saves_one_gif_for_every_episode(self) -> None:
+    def test_feedback_saves_frame_evidence_and_preview_per_episode(self) -> None:
         benchmark = MetaWorldBenchmark()
         records: list[EpisodeRecord] = []
         for episode_index in range(3):
@@ -299,14 +315,30 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
             [artifact.name for artifact in feedback.artifacts],
             [
                 "trace.jsonl",
+                "episode-000/rendered-frames.npz",
                 "episode-000/corner2.gif",
+                "episode-001/rendered-frames.npz",
                 "episode-001/corner2.gif",
+                "episode-002/rendered-frames.npz",
                 "episode-002/corner2.gif",
             ],
         )
         assert isinstance(feedback.content, dict)
         self.assertEqual(feedback.content["video_episode_results"], 3)
         self.assertEqual(feedback.content["video_episodes_without_gif"], 0)
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 3)
+        manifests = feedback.content["rendered_frame_evidence"]
+        assert isinstance(manifests, list)
+        first_manifest = manifests[0]
+        assert isinstance(first_manifest, dict)
+        self.assertEqual(
+            first_manifest["evidence_artifact"],
+            "episode-000/rendered-frames.npz",
+        )
+        self.assertEqual(
+            first_manifest["preview_artifact"],
+            "episode-000/corner2.gif",
+        )
 
     def test_zero_step_failure_has_explicit_unavailable_video_result(self) -> None:
         benchmark = MetaWorldBenchmark()
@@ -335,6 +367,9 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         assert isinstance(manifest, dict)
         self.assertEqual(manifest["status"], "unavailable")
         self.assertEqual(manifest["reason"], "no_recorded_frames")
+        self.assertIsNone(manifest["frames_artifact"])
+        self.assertIsNone(manifest["evidence_artifact"])
+        self.assertIsNone(manifest["preview_artifact"])
 
     def test_replay_conformance(self) -> None:
         report = check_benchmark(

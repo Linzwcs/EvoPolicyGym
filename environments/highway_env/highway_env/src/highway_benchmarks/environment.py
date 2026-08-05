@@ -15,6 +15,12 @@ from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
 
 from .config import HighwayConfig
+from .visual import (
+    VISUAL_CAPTURE_FAILED_METRIC,
+    VISUAL_FRAME_METRIC,
+    VISUAL_INITIAL_FRAME_METRIC,
+    visual_capture_interval,
+)
 
 _TENSOR_DTYPES = frozenset(
     {
@@ -46,13 +52,20 @@ class HighwayEnvironment:
             raise ValueError("HighwayEnv configuration belongs in HighwayConfig")
         self._seed = episode.environment_seed
         self._config = config
-        self._environment = cast(
-            gymnasium.Env[object, object],
-            gymnasium.make(config.environment_id),
+        upstream = (
+            gymnasium.make(config.environment_id, render_mode="rgb_array")
+            if config.supports_rgb_rendering
+            else gymnasium.make(config.environment_id)
         )
+        self._environment = cast(gymnasium.Env[object, object], upstream)
         self._started = False
         self._done = False
         self._closed = False
+        self._steps = 0
+        self._visual_capture_failed = not config.supports_rgb_rendering
+        self._visual_capture_interval = visual_capture_interval(
+            config.max_episode_steps
+        )
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -75,18 +88,35 @@ class HighwayEnvironment:
             if self._config.continuous
             else _discrete_action(action, size=self._config.action_size)
         )
+        initial_visual_frame = (
+            self._capture_visual_frame() if self._steps == 0 else None
+        )
         observation, reward, terminated, truncated, info = (
             self._environment.step(applied)
         )
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError("HighwayEnv returned invalid termination flags")
         self._done = terminated or truncated
+        self._steps += 1
+        visual_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._visual_capture_interval == 0
+            or self._done
+        ):
+            visual_frame = self._capture_visual_frame()
+        metrics = _metrics(info)
+        metrics[VISUAL_CAPTURE_FAILED_METRIC] = self._visual_capture_failed
+        if initial_visual_frame is not None:
+            metrics[VISUAL_INITIAL_FRAME_METRIC] = initial_visual_frame
+        if visual_frame is not None:
+            metrics[VISUAL_FRAME_METRIC] = visual_frame
         return Step(
             observation=_policy_value(observation, name="observation"),
             reward=_number(reward, name="reward"),
             terminated=terminated,
             truncated=truncated,
-            metrics=_metrics(info),
+            metrics=metrics,
         )
 
     def close(self) -> None:
@@ -94,6 +124,31 @@ class HighwayEnvironment:
             return
         self._environment.close()
         self._closed = True
+
+    def _capture_visual_frame(self) -> TensorValue | None:
+        if self._visual_capture_failed:
+            return None
+        try:
+            raw = self._environment.render()
+            if type(raw) is not numpy.ndarray:
+                raise RuntimeError("HighwayEnv renderer did not return an array")
+            if (
+                raw.dtype != numpy.dtype(numpy.uint8)
+                or raw.ndim != 3
+                or raw.shape[2] != 3
+                or raw.shape[0] <= 0
+                or raw.shape[1] <= 0
+            ):
+                raise RuntimeError("HighwayEnv RGB frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(raw)
+            return TensorValue(
+                dtype="uint8",
+                shape=tuple(int(size) for size in contiguous.shape),
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._visual_capture_failed = True
+            return None
 
 
 def _discrete_action(value: PolicyValue, *, size: int) -> int:

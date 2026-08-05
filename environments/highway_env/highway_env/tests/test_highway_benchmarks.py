@@ -67,7 +67,10 @@ class HighwayBenchmarkTests(unittest.TestCase):
                         transitions=(Transition(action=action, step=step),),
                     )
                     feedback = benchmark.feedback((record,))
-                    self.assertEqual(len(feedback.artifacts), 2)
+                    self.assertEqual(
+                        len(feedback.artifacts),
+                        4 if config.supports_rgb_rendering else 2,
+                    )
                     artifacts = {
                         artifact.name: artifact
                         for artifact in feedback.artifacts
@@ -92,6 +95,71 @@ class HighwayBenchmarkTests(unittest.TestCase):
                         allow_pickle=False,
                     ) as arrays:
                         self.assertEqual(arrays["step_indices"].tolist(), [0])
+                    assert isinstance(feedback.content, dict)
+                    manifests = feedback.content["rendered_frame_evidence"]
+                    assert isinstance(manifests, list)
+                    manifest = manifests[0]
+                    assert isinstance(manifest, dict)
+                    if config.supports_rgb_rendering:
+                        self.assertEqual(
+                            feedback.content["rendered_frame_evidence_episodes"],
+                            1,
+                        )
+                        visual_evidence = artifacts[
+                            "episode-000/rendered-frames.npz"
+                        ]
+                        with numpy.load(
+                            io.BytesIO(visual_evidence.content),
+                            allow_pickle=False,
+                        ) as arrays:
+                            self.assertEqual(arrays["frames"].shape[0], 2)
+                            self.assertEqual(
+                                arrays["step_indices"].tolist(),
+                                [-1, 1],
+                            )
+                            self.assertEqual(
+                                arrays["reward_present"].tolist(),
+                                [False, True],
+                            )
+                            metrics = step.metrics
+                            assert isinstance(metrics, dict)
+                            initial_frame = metrics[
+                                "feedback_visual_initial_rgb"
+                            ]
+                            assert isinstance(initial_frame, TensorValue)
+                            self.assertEqual(
+                                arrays["frames"][0].tobytes(),
+                                initial_frame.data,
+                            )
+                        preview = artifacts["episode-000/road-scene.gif"]
+                        self.assertTrue(preview.content.startswith(b"GIF8"))
+                        self.assertEqual(preview.retention, "bulk")
+                        self.assertEqual(
+                            manifest["evidence_artifact"],
+                            "episode-000/rendered-frames.npz",
+                        )
+                        self.assertEqual(
+                            manifest["preview_artifact"],
+                            "episode-000/road-scene.gif",
+                        )
+                    else:
+                        self.assertEqual(
+                            feedback.content["rendered_frame_evidence_episodes"],
+                            0,
+                        )
+                        self.assertEqual(manifest["status"], "unavailable")
+                        self.assertEqual(
+                            manifest["reason"],
+                            "capture_unavailable",
+                        )
+                    self.assertNotIn(
+                        "feedback_visual_initial_rgb",
+                        trace[1]["metrics"],
+                    )
+                    self.assertNotIn(
+                        "feedback_visual_rgb",
+                        trace[1]["metrics"],
+                    )
                     public_bytes = json.dumps(feedback.content).encode(
                         "utf-8"
                     ) + b"".join(
@@ -225,6 +293,12 @@ class HighwayBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["traced_steps"], 48)
         self.assertEqual(feedback.content["trace_steps_omitted"], 52)
         self.assertEqual(feedback.content["successful_episodes"], 1)
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 0)
+        visual_manifests = feedback.content["rendered_frame_evidence"]
+        assert isinstance(visual_manifests, list)
+        visual_manifest = visual_manifests[0]
+        assert isinstance(visual_manifest, dict)
+        self.assertEqual(visual_manifest["status"], "unavailable")
         summaries = feedback.content["episode_summaries"]
         self.assertIsInstance(summaries, list)
         assert isinstance(summaries, list)

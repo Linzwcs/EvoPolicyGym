@@ -161,6 +161,23 @@ one.
 
 ## Run a coding agent
 
+First-party command-line integrations are available for Codex, Claude Code,
+and Kimi Code:
+
+```python
+from evopolicygym.agents import ClaudeCode, Codex, KimiCode
+
+codex = Codex(model="gpt-5.6-luna", reasoning_effort="high")
+claude = ClaudeCode(model="sonnet", effort="high")
+kimi = KimiCode(model="kimi-code/kimi-for-coding")
+```
+
+Each selection translates the same Host-owned task into a non-interactive CLI
+invocation; the Run protocol and process supervision remain provider-neutral.
+Authenticate the selected CLI before starting a Run. For Kimi Code, set
+`KIMI_CODE_HOME` to a caller-owned isolated directory when retained CLI
+configuration and session history must not share state with other Runs.
+
 After authenticating the Codex CLI, start a small budgeted CartPole Run:
 
 ```console

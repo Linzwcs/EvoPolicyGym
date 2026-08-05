@@ -37,6 +37,21 @@ result = run(
 )
 ```
 
+The same Run can select either of the other first-party command-line
+integrations without changing the Benchmark or Run configuration:
+
+```python
+from evopolicygym.agents import ClaudeCode, KimiCode
+
+claude = ClaudeCode(model="sonnet", effort="high")
+kimi = KimiCode(model="kimi-code/kimi-for-coding")
+```
+
+All three providers run non-interactively and retain their structured stdout
+as Agent evidence. Claude Code runs in bare mode without session persistence.
+Kimi Code currently persists CLI state, so set `KIMI_CODE_HOME` to a dedicated
+caller-owned directory when Runs must not share its configuration or history.
+
 The Host creates the Episode pool before the Agent starts. The Agent can edit
 `workspace/program/`, submit candidates, read committed Feedback, and finish
 with published candidates.

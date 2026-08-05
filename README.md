@@ -270,6 +270,30 @@ Use `check_benchmark()` before distribution. See the
 the [CartPole](environments/gymnasium/classic_control/cartpole/) or
 [FrozenLake](environments/gymnasium/toy_text/frozen_lake/) packages.
 
+## Join us
+
+Contributions of all sizes are welcome. Areas where help is especially
+valuable include integrating new interactive environments, improving the
+Kernel, clarifying and extending the documentation, and expanding test
+coverage and representative test data.
+
+### Contribute with coding agents
+
+We recommend using a coding agent to contribute to EvoPolicyGym. Claude Code
+and Codex can use the repository's
+[`evopolicygym` Agent Skill](skills/evopolicygym/) for project-specific
+guidance on Benchmark authoring, provider integration, Run diagnostics, and
+Kernel development. Ask the agent to read the Skill before it starts making
+changes.
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+### Contact
+
+To propose an environment integration, coordinate a larger change, or ask
+where to start, open a GitHub issue or email
+[zhilin.nlp@gmail.com](mailto:zhilin.nlp@gmail.com).
+
 ## Development
 
 ```console

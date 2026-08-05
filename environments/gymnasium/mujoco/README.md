@@ -24,3 +24,8 @@ the superseded `v4` contracts are not separate Benchmarks.
 Official XML model selection is Host-owned and fixed to Gymnasium's packaged
 asset for each Benchmark. Custom XML paths and rendering/camera parameters are
 not Policy-visible environment parameters.
+
+HalfCheetah additionally publishes bounded, lossless rendered-frame evidence
+and an H.264 MP4 derived from the same step-aligned captures. The remaining
+MuJoCo distributions currently retain their semantic state traces and are the
+next visual-evidence rollout target.

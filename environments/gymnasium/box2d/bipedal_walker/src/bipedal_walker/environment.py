@@ -7,10 +7,18 @@ from collections.abc import Iterable
 from typing import SupportsFloat, cast
 
 import gymnasium
+import numpy
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
-from evopolicygym.policy import PolicyValue
+from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import BipedalWalkerConfig
+from .visual import (
+    VISUAL_CAPTURE_FAILED_METRIC,
+    VISUAL_FRAME_METRIC,
+    VISUAL_FRAME_SHAPE,
+    VISUAL_INITIAL_FRAME_METRIC,
+    visual_capture_interval,
+)
 
 _SCALAR_OBSERVATION_NAMES = (
     "hull_angle",
@@ -75,6 +83,7 @@ class BipedalWalkerEnvironment:
             gymnasium.make(
                 "BipedalWalker-v3",
                 hardcore=config.hardcore,
+                render_mode="rgb_array",
             ),
         )
         self._started = False
@@ -90,6 +99,10 @@ class BipedalWalkerEnvironment:
         self._cumulative_return = 0.0
         self._relative_progress_coordinate = 0.0
         self._maximum_relative_progress_coordinate = 0.0
+        self._visual_capture_failed = False
+        self._visual_capture_interval = visual_capture_interval(
+            _MAX_EPISODE_STEPS
+        )
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -114,6 +127,9 @@ class BipedalWalkerEnvironment:
         if previous_observation is None:
             raise RuntimeError("BipedalWalker observation is unavailable")
         public_action = _action(action)
+        initial_visual_frame = (
+            self._capture_visual_frame() if self._steps == 0 else None
+        )
         observation, reward, terminated, truncated, _ = self._environment.step(public_action)
         if type(terminated) is not bool or type(truncated) is not bool:
             raise RuntimeError(
@@ -180,6 +196,18 @@ class BipedalWalkerEnvironment:
         )
         self._observation = public_observation
         self._done = terminated or truncated
+        visual_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._visual_capture_interval == 0
+            or self._done
+        ):
+            visual_frame = self._capture_visual_frame()
+        metrics[VISUAL_CAPTURE_FAILED_METRIC] = self._visual_capture_failed
+        if initial_visual_frame is not None:
+            metrics[VISUAL_INITIAL_FRAME_METRIC] = initial_visual_frame
+        if visual_frame is not None:
+            metrics[VISUAL_FRAME_METRIC] = visual_frame
         return Step(
             observation=public_observation,
             reward=public_reward,
@@ -193,6 +221,27 @@ class BipedalWalkerEnvironment:
             return
         self._environment.close()
         self._closed = True
+
+    def _capture_visual_frame(self) -> TensorValue | None:
+        if self._visual_capture_failed:
+            return None
+        try:
+            raw = self._environment.render()
+            if (
+                type(raw) is not numpy.ndarray
+                or raw.dtype != numpy.dtype(numpy.uint8)
+                or raw.shape != VISUAL_FRAME_SHAPE
+            ):
+                raise RuntimeError("BipedalWalker RGB frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(raw)
+            return TensorValue(
+                dtype="uint8",
+                shape=VISUAL_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._visual_capture_failed = True
+            return None
 
 
 def _action(value: PolicyValue) -> list[float]:

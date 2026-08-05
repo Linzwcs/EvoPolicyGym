@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import math
 import statistics
 import unittest
+from unittest.mock import patch
 
+import numpy
 from evopolicygym import EvaluationConfig, evaluate
 from evopolicygym.authoring import (
     BenchmarkFixture,
@@ -12,10 +15,11 @@ from evopolicygym.authoring import (
     EpisodeSpec,
     InvalidAction,
     Step,
+    Transition,
     check_benchmark,
 )
 from evopolicygym.execution import ProcessExecution
-from evopolicygym.policy import PolicyValue
+from evopolicygym.policy import PolicyValue, TensorValue
 
 from lunar_lander import (
     LunarLanderBenchmark,
@@ -25,6 +29,62 @@ from lunar_lander import (
 
 
 class LunarLanderBenchmarkTests(unittest.TestCase):
+    def test_feedback_publishes_lossless_frames_and_mp4_video(self) -> None:
+        benchmark = LunarLanderBenchmark()
+        episode = EpisodeSpec(environment_seed=123)
+        environment = benchmark.make_environment(episode)
+        try:
+            initial = environment.reset()
+            action: PolicyValue = 0
+            step = environment.step(action)
+        finally:
+            environment.close()
+        record = EpisodeRecord(
+            episode=episode,
+            policy_seed=7,
+            initial_observation=initial,
+            transitions=(Transition(action=action, step=step),),
+        )
+        feedback = benchmark.feedback((record,))
+
+        self.assertEqual(
+            [artifact.name for artifact in feedback.artifacts],
+            [
+                "trace.jsonl",
+                "episode-000/rendered-frames.npz",
+                "episode-000/behavior.mp4",
+            ],
+        )
+        evidence = feedback.artifacts[1]
+        with numpy.load(io.BytesIO(evidence.read_bytes()), allow_pickle=False) as archive:
+            self.assertEqual(archive["frames"].shape, (2, 400, 600, 3))
+            self.assertEqual(archive["step_indices"].tolist(), [-1, 1])
+            metrics = step.metrics
+            assert isinstance(metrics, dict)
+            initial_frame = metrics["feedback_visual_initial_rgb"]
+            assert isinstance(initial_frame, TensorValue)
+            self.assertEqual(archive["frames"][0].tobytes(), initial_frame.data)
+        video = feedback.artifacts[2]
+        self.assertEqual(video.media_type, "video/mp4")
+        self.assertEqual(video.retention, "bulk")
+        self.assertEqual(video.read_bytes()[4:8], b"ftyp")
+        self.assertNotIn(b"feedback_visual_initial_rgb", feedback.artifacts[0].read_bytes())
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 1)
+        self.assertEqual(feedback.content["video_episodes"], 1)
+        with patch(
+            "lunar_lander.visual._video_artifact",
+            side_effect=RuntimeError("encoder unavailable"),
+        ):
+            fallback = benchmark.feedback((record,))
+        self.assertEqual(
+            [artifact.name for artifact in fallback.artifacts],
+            ["trace.jsonl", "episode-000/rendered-frames.npz"],
+        )
+        assert isinstance(fallback.content, dict)
+        self.assertEqual(fallback.content["rendered_frame_evidence_episodes"], 1)
+        self.assertEqual(fallback.content["video_episodes"], 0)
+
     def test_config_controls_action_space_and_environment_identity(
         self,
     ) -> None:

@@ -8,10 +8,17 @@ from typing import SupportsFloat, cast
 import gymnasium
 import numpy
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
-from evopolicygym.policy import PolicyValue
+from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
 
 from .config import HalfCheetahConfig
+from .visual import (
+    VISUAL_CAPTURE_FAILED_METRIC,
+    VISUAL_FRAME_METRIC,
+    VISUAL_FRAME_SHAPE,
+    VISUAL_INITIAL_FRAME_METRIC,
+    visual_capture_interval,
+)
 
 _BODY_FIELDS = (
     "torso_z_position",
@@ -82,6 +89,9 @@ class HalfCheetahEnvironment:
                 exclude_current_positions_from_observation=(
                     config.exclude_current_positions_from_observation
                 ),
+                render_mode="rgb_array",
+                width=VISUAL_FRAME_SHAPE[1],
+                height=VISUAL_FRAME_SHAPE[0],
             ),
         )
         self._started = False
@@ -101,6 +111,10 @@ class HalfCheetahEnvironment:
         self._cumulative_control_reward = 0.0
         self._cumulative_return = 0.0
         self._cumulative_absolute_action = 0.0
+        self._visual_capture_failed = False
+        self._visual_capture_interval = visual_capture_interval(
+            _MAX_EPISODE_STEPS
+        )
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -123,6 +137,9 @@ class HalfCheetahEnvironment:
             raise RuntimeError("Episode is already complete")
 
         applied_action = _action(action)
+        initial_visual_frame = (
+            self._capture_visual_frame() if self._steps == 0 else None
+        )
         observation, reward, terminated, truncated, info = self._environment.step(
             applied_action
         )
@@ -202,6 +219,18 @@ class HalfCheetahEnvironment:
             cumulative_absolute_action=self._cumulative_absolute_action,
         )
         self._done = terminated or truncated
+        visual_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._visual_capture_interval == 0
+            or self._done
+        ):
+            visual_frame = self._capture_visual_frame()
+        metrics[VISUAL_CAPTURE_FAILED_METRIC] = self._visual_capture_failed
+        if initial_visual_frame is not None:
+            metrics[VISUAL_INITIAL_FRAME_METRIC] = initial_visual_frame
+        if visual_frame is not None:
+            metrics[VISUAL_FRAME_METRIC] = visual_frame
         return Step(
             observation=public_observation,
             reward=public_reward,
@@ -215,6 +244,27 @@ class HalfCheetahEnvironment:
             return
         self._environment.close()
         self._closed = True
+
+    def _capture_visual_frame(self) -> TensorValue | None:
+        if self._visual_capture_failed:
+            return None
+        try:
+            raw = self._environment.render()
+            if (
+                type(raw) is not numpy.ndarray
+                or raw.dtype != numpy.dtype(numpy.uint8)
+                or raw.shape != VISUAL_FRAME_SHAPE
+            ):
+                raise RuntimeError("HalfCheetah RGB frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(raw)
+            return TensorValue(
+                dtype="uint8",
+                shape=VISUAL_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._visual_capture_failed = True
+            return None
 
 
 def _action(value: PolicyValue) -> NDArray[numpy.float32]:

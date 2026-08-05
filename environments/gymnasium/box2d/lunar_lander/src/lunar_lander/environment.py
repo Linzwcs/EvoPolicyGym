@@ -7,10 +7,18 @@ from collections.abc import Iterable
 from typing import SupportsFloat, cast
 
 import gymnasium
+import numpy
 from evopolicygym.authoring import EpisodeSpec, InvalidAction, Step
-from evopolicygym.policy import PolicyValue
+from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import LunarLanderConfig
+from .visual import (
+    VISUAL_CAPTURE_FAILED_METRIC,
+    VISUAL_FRAME_METRIC,
+    VISUAL_FRAME_SHAPE,
+    VISUAL_INITIAL_FRAME_METRIC,
+    visual_capture_interval,
+)
 
 _OBSERVATION_NAMES = (
     "x_position",
@@ -69,6 +77,7 @@ class LunarLanderEnvironment:
                 enable_wind=config.enable_wind,
                 wind_power=config.wind_power,
                 turbulence_power=config.turbulence_power,
+                render_mode="rgb_array",
             ),
         )
         self._started = False
@@ -88,6 +97,10 @@ class LunarLanderEnvironment:
         self._main_engine_firing_steps = 0
         self._side_engine_firing_steps = 0
         self._minimum_landing_state_penalty = math.inf
+        self._visual_capture_failed = False
+        self._visual_capture_interval = visual_capture_interval(
+            _MAX_EPISODE_STEPS
+        )
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -118,6 +131,9 @@ class LunarLanderEnvironment:
             _continuous_action(action)
             if self._continuous
             else _discrete_action(action)
+        )
+        initial_visual_frame = (
+            self._capture_visual_frame() if self._steps == 0 else None
         )
         action_meaning, main_power, side_power, side_engine = _action_effect(
             applied,
@@ -219,6 +235,18 @@ class LunarLanderEnvironment:
         )
         self._observation = public_observation
         self._done = terminated or truncated
+        visual_frame = None
+        if (
+            self._steps == 1
+            or self._steps % self._visual_capture_interval == 0
+            or self._done
+        ):
+            visual_frame = self._capture_visual_frame()
+        metrics[VISUAL_CAPTURE_FAILED_METRIC] = self._visual_capture_failed
+        if initial_visual_frame is not None:
+            metrics[VISUAL_INITIAL_FRAME_METRIC] = initial_visual_frame
+        if visual_frame is not None:
+            metrics[VISUAL_FRAME_METRIC] = visual_frame
         return Step(
             observation=public_observation,
             reward=public_reward,
@@ -232,6 +260,27 @@ class LunarLanderEnvironment:
             return
         self._environment.close()
         self._closed = True
+
+    def _capture_visual_frame(self) -> TensorValue | None:
+        if self._visual_capture_failed:
+            return None
+        try:
+            raw = self._environment.render()
+            if (
+                type(raw) is not numpy.ndarray
+                or raw.dtype != numpy.dtype(numpy.uint8)
+                or raw.shape != VISUAL_FRAME_SHAPE
+            ):
+                raise RuntimeError("LunarLander RGB frame shape or dtype drifted")
+            contiguous = numpy.ascontiguousarray(raw)
+            return TensorValue(
+                dtype="uint8",
+                shape=VISUAL_FRAME_SHAPE,
+                data=contiguous.tobytes(order="C"),
+            )
+        except Exception:
+            self._visual_capture_failed = True
+            return None
 
 
 def _discrete_action(value: PolicyValue) -> int:

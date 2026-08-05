@@ -21,6 +21,13 @@ from evopolicygym.policy import PolicyValue
 
 from .config import BipedalWalkerConfig
 from .environment import BipedalWalkerEnvironment
+from .visual import (
+    VISUAL_FRAME_SHAPE,
+    VISUAL_MAX_FRAMES_PER_EPISODE,
+    trace_metrics,
+    visual_capture_interval,
+    visual_feedback,
+)
 
 _EPISODE_SEED_DOMAIN = b"evopolicygym-bipedal-walker/episode-seed/v1\0"
 _SPLITS = frozenset({"train", "validation", "test"})
@@ -139,6 +146,11 @@ class BipedalWalkerBenchmark:
         diagnostics = tuple(_episode_diagnostics(record) for record in records)
         mean_steps = statistics.fmean(record.steps for record in records)
         traced = records[:_MAX_TRACED_EPISODES]
+        capture_interval = visual_capture_interval(_MAX_EPISODE_STEPS)
+        visual_artifacts, visual_manifests, visual_unavailable = visual_feedback(
+            records,
+            capture_interval=capture_interval,
+        )
         return Feedback(
             score=score,
             content={
@@ -195,9 +207,30 @@ class BipedalWalkerBenchmark:
                 "failure_return": _FAILURE_RETURN,
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
+                "rendered_frame_evidence_episodes": _artifact_episode_count(
+                    visual_manifests,
+                    "evidence_artifact",
+                ),
+                "video_episodes": _artifact_episode_count(
+                    visual_manifests,
+                    "video_artifact",
+                ),
+                "visual_episode_results": len(visual_manifests),
+                "visual_capture_unavailable_episodes": visual_unavailable,
+                "visual_frame_shape": list(VISUAL_FRAME_SHAPE),
+                "visual_capture_interval_steps": capture_interval,
+                "visual_frame_cap_per_episode": VISUAL_MAX_FRAMES_PER_EPISODE,
+                "rendered_frame_evidence": visual_manifests,
             },
-            artifacts=(_trace_artifact(traced),),
+            artifacts=(_trace_artifact(traced), *visual_artifacts),
         )
+
+
+def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
+    return sum(
+        type(manifest) is dict and type(manifest.get(key)) is str
+        for manifest in manifests
+    )
 
 
 def _benchmark_spec(config: BipedalWalkerConfig) -> BenchmarkSpec:
@@ -500,7 +533,7 @@ def _trace_artifact(records: Sequence[EpisodeRecord]) -> Artifact:
                         "next_observation": next_observation,
                         "terminated": transition.step.terminated,
                         "truncated": transition.step.truncated,
-                        "metrics": transition.step.metrics,
+                        "metrics": trace_metrics(transition.step.metrics),
                     }
                 )
             )

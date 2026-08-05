@@ -195,6 +195,15 @@ jobs:
           - environments/robosuite/robosuite
           - environments/stable_retro/airstriker
           - environments/vizdoom/vizdoom
+        include:
+          - project: environments/dm_control/control_suite
+            mujoco_gl: egl
+          - project: environments/gymnasium_robotics/robotics
+            mujoco_gl: egl
+          - project: environments/metaworld/metaworld
+            mujoco_gl: egl
+          - project: environments/robosuite/robosuite
+            mujoco_gl: egl
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -208,11 +217,19 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
+      - name: Install headless MuJoCo rendering runtime
+        if: matrix.mujoco_gl == 'egl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libegl1 libgl1-mesa-dri
+
       - name: Sync locked Benchmark environment
         run: uv sync --project ${{ matrix.project }} --locked --extra dev
 
       - name: Check, test, and build external Benchmark
         working-directory: ${{ matrix.project }}
+        env:
+          MUJOCO_GL: ${{ matrix.mujoco_gl || 'glfw' }}
         run: |
           uv run ruff check src tests
           uv run mypy

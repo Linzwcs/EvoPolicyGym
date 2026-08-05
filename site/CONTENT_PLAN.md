@@ -96,9 +96,9 @@ For each future release:
 ## Environment section status
 
 The public boundary, lifecycle, conformance semantics, and Environment
-reference contracts are implementation-backed. The catalog covers 59
-independently installable Benchmark distributions and at least 212 named tasks
-or profiles across 13 upstream ecosystems. Parameterized collections and size
+reference contracts are implementation-backed. The catalog covers 63
+independently installable Benchmark distributions and at least 302 named tasks
+or profiles across 17 upstream ecosystems. Parameterized collections and size
 variants extend the concrete configuration surface beyond that named count.
 The typed catalog remains a compact inventory. Environment-specific
 explanation and media live in Markdown/MDX pages and remain grounded in the

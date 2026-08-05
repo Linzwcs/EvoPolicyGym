@@ -213,6 +213,8 @@ jobs:
 
       - name: Check, test, and build external Benchmark
         working-directory: ${{ matrix.project }}
+        env:
+          MUJOCO_GL: egl
         run: |
           uv run ruff check src tests
           uv run mypy

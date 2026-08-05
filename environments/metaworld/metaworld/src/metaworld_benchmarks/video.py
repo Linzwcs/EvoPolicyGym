@@ -1,4 +1,4 @@
-"""Bounded camera replay evidence derived from Host-only Step metrics."""
+"""Lossless camera evidence and derived previews from Host-only Step metrics."""
 
 from __future__ import annotations
 
@@ -53,18 +53,30 @@ def video_feedback(
         if not frames:
             manifests.append(
                 {
+                    "schema": "metaworld/rendered-frame-evidence/v1",
                     "episode_index": episode_index,
                     "status": "unavailable",
                     "reason": "no_recorded_frames",
                     "artifact": None,
+                    "frames_artifact": None,
+                    "evidence_artifact": None,
+                    "preview_artifact": None,
                     "camera": VIDEO_CAMERA,
+                    "source": "host_camera",
+                    "color_space": "RGB",
+                    "frame_dtype": "uint8",
                     "frame_shape": list(VIDEO_FRAME_SHAPE),
                     "capture_interval_steps": capture_interval,
                     "recorded_frames": 0,
                     "steps_without_video_frame": record.steps,
+                    "complete_for_capture_schedule": False,
+                    "complete_for_episode": False,
                 }
             )
             continue
+        frames_name = f"episode-{episode_index:03d}/rendered-frames.npz"
+        frame_evidence = _frame_evidence_artifact(frames, name=frames_name)
+        artifacts.append(frame_evidence)
         selected, content, scale = _encode_bounded_gif(frames, profile=profile)
         name = f"episode-{episode_index:03d}/corner2.gif"
         artifacts.append(
@@ -77,14 +89,30 @@ def video_feedback(
         )
         manifests.append(
             {
+                "schema": "metaworld/rendered-frame-evidence/v1",
                 "episode_index": episode_index,
                 "status": "partial" if capture_failed else "available",
                 "artifact": name,
+                "frames_artifact": frames_name,
+                "evidence_artifact": frames_name,
+                "evidence_media_type": frame_evidence.media_type,
+                "evidence_artifact_bytes": frame_evidence.size,
+                "preview_artifact": name,
+                "preview_media_type": "image/gif",
                 "camera": VIDEO_CAMERA,
+                "source": "host_camera",
+                "color_space": "RGB",
+                "frame_dtype": "uint8",
                 "frame_shape": list(VIDEO_FRAME_SHAPE),
                 "capture_interval_steps": capture_interval,
                 "recorded_frames": len(frames),
                 "steps_without_video_frame": max(0, record.steps - (len(frames) - 1)),
+                "complete_for_capture_schedule": not capture_failed,
+                "complete_for_episode": (
+                    not capture_failed
+                    and capture_interval == 1
+                    and len(frames) == record.steps + 1
+                ),
                 "encoded_frames": len(selected),
                 "encoded_frames_omitted": len(frames) - len(selected),
                 "frame_duration_ms": _VIDEO_FRAME_DURATION_MS,
@@ -101,6 +129,44 @@ def video_feedback(
             }
         )
     return tuple(artifacts), manifests, unavailable
+
+
+def _frame_evidence_artifact(
+    frames: Sequence[_ReplayFrame],
+    *,
+    name: str,
+) -> Artifact:
+    """Preserve every captured RGB frame without presentation transforms."""
+
+    if not frames:
+        raise ValueError("MetaWorld frame evidence requires at least one frame")
+    output = io.BytesIO()
+    np.savez_compressed(
+        output,
+        frames=np.stack([frame.frame for frame in frames]),
+        step_indices=np.asarray(
+            [-1 if frame.step_index is None else frame.step_index for frame in frames],
+            dtype=np.int32,
+        ),
+        rewards=np.asarray(
+            [0.0 if frame.reward is None else frame.reward for frame in frames],
+            dtype=np.float64,
+        ),
+        reward_present=np.asarray(
+            [frame.reward is not None for frame in frames],
+            dtype=np.bool_,
+        ),
+        cumulative_returns=np.asarray(
+            [frame.cumulative_return for frame in frames],
+            dtype=np.float64,
+        ),
+    )
+    return Artifact(
+        name=name,
+        media_type="application/x-npz",
+        content=output.getvalue(),
+        retention="bulk",
+    )
 
 
 def trace_metrics(value: PolicyValue) -> PolicyValue:

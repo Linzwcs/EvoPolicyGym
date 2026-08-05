@@ -40,19 +40,28 @@ An Episode succeeds if the upstream task success predicate is true on any
 transition. The Environment continues until the configured horizon unless the
 upstream task declares an earlier terminal condition. Feedback reports success,
 dense return, first success, action magnitude/saturation, state motion, cleanup
-outcomes, and bounded public transition traces. It also publishes one
-`agentview` replay GIF for every Episode with at least one valid transition.
-The camera is sampled at 128x128 on the initial state,
-step 1, a fixed stride chosen from the configured horizon, and the terminal
-state, for at most 42 frames per Episode. Short Episodes capture every step.
-Raw frames stay in Host-only Step metrics and never become Policy
-observations; the GIFs and reproducible JSONL trace use `retention="bulk"`.
+outcomes, and bounded public transition traces. For every Episode with at
+least one valid transition, it also preserves every captured 128x128
+`agentview` frame losslessly in `rendered-frames.npz`. The evidence contains
+frame pixels, step indices, rewards, reward presence, cumulative returns, and
+the task-success state. An `agentview` replay GIF is derived from the same
+frames for convenient inspection; it is not the sole visual evidence.
+
+The camera is sampled on the initial state, step 1, a fixed stride chosen from
+the configured horizon, and the terminal state, for at most 42 frames per
+Episode. Short Episodes capture every step. Raw RGB values exist in Host-only
+Step metrics during evaluation, are removed from the JSONL trace, and never
+become Policy observations. The lossless frame evidence, derived GIF, and
+reproducible trace all use `retention="bulk"`. Each visual-evidence manifest
+states whether capture is complete for the configured sampling schedule and
+whether it covers every Episode step.
 The Kernel-owned `feedback.json` `episodes` array preserves every Episode's
 status, reward, step count, and Policy failure without summary truncation. A
-zero-step Policy failure is recorded there with an explicit unavailable video
-manifest because the public Environment SPI has no post-reset artifact channel.
+zero-step Policy failure is recorded there with an explicit unavailable
+visual-evidence manifest because the public Environment SPI has no post-reset
+artifact channel.
 
-Video capture is diagnostic evidence and is fail-soft: a missing offscreen GL
+Camera capture is diagnostic evidence and is fail-soft: a missing offscreen GL
 backend is reported in Feedback without changing the physics Episode or score.
 On macOS the adapter uses MuJoCo's native CGL renderer rather than robosuite
 1.5.2's GLFW offscreen wrapper. Headless Linux deployments should provision a

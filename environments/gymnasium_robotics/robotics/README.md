@@ -38,17 +38,24 @@ next observation, and public metrics. Episodes longer than 160 steps retain the
 first 128 and final 32 steps, with retained and omitted counts reported
 explicitly. No Host paths, seeds, simulator objects, or other private identity
 enter Feedback. In addition to that bounded JSONL trace, every Episode with at
-least one valid transition publishes its own bounded 128x128 animated GIF from
-a task-appropriate MuJoCo camera. Fetch, AntMaze, Adroit, and FrankaKitchen use
-stable named cameras; PointMaze and Shadow Hand use the free camera. The Host
-captures the initial state, first result, terminal result, and an adaptive
-stride of intermediate results, with at most 42 frames per Episode. Raw RGB
-tensors exist only in Host-side Step metrics, are removed from JSONL traces,
-and never become Policy observations. GIFs use `retention="bulk"`.
+least one valid transition preserves every captured 128x128 camera frame
+losslessly in `rendered-frames.npz`, together with step indices, rewards,
+reward presence, and cumulative returns. A bounded animated GIF is derived
+from the same frames for convenient inspection; it is not the sole visual
+evidence. Fetch, AntMaze, Adroit, and FrankaKitchen use stable named cameras;
+PointMaze and Shadow Hand use the free camera.
 
-Feedback includes one video manifest for every Episode. A zero-step Policy
+The Host captures the initial state, first result, terminal result, and an
+adaptive stride of intermediate results, with at most 42 frames per Episode.
+Raw RGB values exist in Host-side Step metrics during evaluation, are removed
+from JSONL traces, and never become Policy observations. The lossless frame
+evidence and derived GIF use `retention="bulk"`. Each manifest states whether
+capture is complete for the configured sampling schedule and whether it covers
+every Episode step.
+
+Feedback includes one visual-evidence manifest for every Episode. A zero-step Policy
 failure has no public post-reset artifact channel, so it is retained as an
-explicit unavailable video result rather than being silently omitted.
+explicit unavailable visual-evidence result rather than being silently omitted.
 
 Multi-agent MaMuJoCo environments intentionally remain outside this
 single-Policy ABI.

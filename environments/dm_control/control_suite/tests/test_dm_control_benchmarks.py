@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from typing import cast
 
+import numpy
 from dm_control import suite  # type: ignore[import-untyped]
 from evopolicygym.authoring import (
     BenchmarkFixture,
@@ -203,14 +205,31 @@ class DmControlBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["video_episodes"], 1)
         self.assertEqual(feedback.content["video_capture_unavailable_episodes"], 0)
         self.assertEqual(feedback.content["video_frame_shape"], [128, 128, 3])
-        self.assertEqual(len(feedback.artifacts), 2)
-        replay = feedback.artifacts[1]
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 1)
+        self.assertEqual(len(feedback.artifacts), 3)
+        evidence = feedback.artifacts[1]
+        self.assertEqual(evidence.name, "episode-000/rendered-frames.npz")
+        self.assertEqual(evidence.media_type, "application/x-npz")
+        self.assertEqual(evidence.retention, "bulk")
+        with numpy.load(io.BytesIO(evidence.read_bytes()), allow_pickle=False) as archive:
+            self.assertEqual(archive["frames"].shape, (3, 128, 128, 3))
+            self.assertEqual(archive["step_indices"].tolist(), [-1, 1, 2])
+            self.assertEqual(
+                archive["reward_present"].tolist(),
+                [False, True, True],
+            )
+            metrics = transitions[0].step.metrics
+            assert isinstance(metrics, dict)
+            initial_frame = metrics["feedback_video_initial_rgb"]
+            assert isinstance(initial_frame, TensorValue)
+            self.assertEqual(archive["frames"][0].tobytes(), initial_frame.data)
+        replay = feedback.artifacts[2]
         self.assertEqual(replay.name, "episode-000/default-camera.gif")
         self.assertEqual(replay.media_type, "image/gif")
         self.assertEqual(replay.retention, "bulk")
         self.assertTrue(replay.read_bytes().startswith(b"GIF89a"))
 
-    def test_feedback_saves_one_gif_for_every_completed_episode(self) -> None:
+    def test_feedback_saves_frame_evidence_and_preview_per_episode(self) -> None:
         benchmark = DmControlBenchmark(
             DmControlConfig(profile="cartpole-swingup", max_episode_steps=1)
         )
@@ -239,8 +258,11 @@ class DmControlBenchmarkTests(unittest.TestCase):
             [artifact.name for artifact in feedback.artifacts],
             [
                 "trace.jsonl",
+                "episode-000/rendered-frames.npz",
                 "episode-000/default-camera.gif",
+                "episode-001/rendered-frames.npz",
                 "episode-001/default-camera.gif",
+                "episode-002/rendered-frames.npz",
                 "episode-002/default-camera.gif",
             ],
         )
@@ -248,12 +270,23 @@ class DmControlBenchmarkTests(unittest.TestCase):
         self.assertEqual(feedback.content["video_episodes"], 3)
         self.assertEqual(feedback.content["video_episode_results"], 3)
         self.assertEqual(feedback.content["video_episodes_without_gif"], 0)
+        self.assertEqual(feedback.content["rendered_frame_evidence_episodes"], 3)
         manifests = feedback.content["video_artifacts"]
         self.assertIsInstance(manifests, list)
         assert isinstance(manifests, list)
         self.assertEqual(
             [manifest["status"] for manifest in manifests if isinstance(manifest, dict)],
             ["available", "available", "available"],
+        )
+        first_manifest = manifests[0]
+        assert isinstance(first_manifest, dict)
+        self.assertEqual(
+            first_manifest["evidence_artifact"],
+            "episode-000/rendered-frames.npz",
+        )
+        self.assertEqual(
+            first_manifest["preview_artifact"],
+            "episode-000/default-camera.gif",
         )
 
     def test_zero_step_failure_has_explicit_unavailable_video_result(self) -> None:
@@ -283,6 +316,9 @@ class DmControlBenchmarkTests(unittest.TestCase):
         assert isinstance(manifest, dict)
         self.assertEqual(manifest["status"], "unavailable")
         self.assertEqual(manifest["reason"], "no_recorded_frames")
+        self.assertIsNone(manifest["frames_artifact"])
+        self.assertIsNone(manifest["evidence_artifact"])
+        self.assertIsNone(manifest["preview_artifact"])
 
     def test_conformance_and_packaged_baseline(self) -> None:
         benchmark = DmControlBenchmark(

@@ -177,6 +177,13 @@ Benchmark-defined, but they must remain public, bounded, and free of Case
 identity, Environment seeds, Host paths, credentials, and private execution
 evidence.
 
+For visual environments, preserve the original captured RGB values losslessly
+in Benchmark-owned bulk artifacts with explicit step alignment and a bounded
+sampling manifest. Browser video and animated GIFs are presentation
+derivatives and should not be the only visual evidence. State separately
+whether the artifact is complete for its configured capture schedule and
+whether that schedule covers every Episode step.
+
 Policy failure must not be rewritten as an Environment reward unless the
 Benchmark contract explicitly defines such scoring from the sanitized record.
 Trusted faults must never become Policy penalties.

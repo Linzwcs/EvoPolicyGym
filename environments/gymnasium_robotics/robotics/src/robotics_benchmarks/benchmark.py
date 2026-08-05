@@ -109,6 +109,11 @@ class RoboticsBenchmark:
             camera=video_camera_label(camera),
             capture_interval=capture_interval,
         )
+        video_episode_count = _artifact_episode_count(video_manifests, "preview_artifact")
+        frame_evidence_episode_count = _artifact_episode_count(
+            video_manifests,
+            "evidence_artifact",
+        )
         final_metrics = tuple(
             metrics for record in records if (metrics := _final_metrics(record)) is not None
         )
@@ -220,18 +225,28 @@ class RoboticsBenchmark:
                 "trace_suffix_steps": _TRACE_SUFFIX_STEPS,
                 "traced_transitions": traced_transitions,
                 "trace_transitions_omitted": omitted_transitions,
-                "video_episodes": len(video_artifacts),
+                "video_episodes": video_episode_count,
                 "video_episode_results": len(video_manifests),
-                "video_episodes_without_gif": len(records) - len(video_artifacts),
+                "video_episodes_without_gif": len(records) - video_episode_count,
+                "rendered_frame_evidence_episodes": frame_evidence_episode_count,
+                "rendered_frame_evidence_format": "lossless NPZ",
                 "video_capture_unavailable_episodes": video_unavailable,
                 "video_camera": video_camera_label(camera),
                 "video_frame_shape": list(VIDEO_FRAME_SHAPE),
                 "video_capture_interval_steps": capture_interval,
                 "video_frame_cap_per_episode": VIDEO_MAX_FRAMES_PER_EPISODE,
                 "video_artifacts": video_manifests,
+                "rendered_frame_evidence": video_manifests,
             },
             artifacts=(trace, *video_artifacts),
         )
+
+
+def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
+    return sum(
+        type(manifest) is dict and type(manifest.get(key)) is str
+        for manifest in manifests
+    )
 
 
 def _spec(config: RoboticsConfig) -> BenchmarkSpec:

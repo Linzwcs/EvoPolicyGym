@@ -198,6 +198,8 @@ jobs:
         include:
           - project: environments/dm_control/control_suite
             mujoco_gl: egl
+          - project: environments/gymnasium/mujoco/half_cheetah
+            mujoco_gl: egl
           - project: environments/gymnasium_robotics/robotics
             mujoco_gl: egl
           - project: environments/metaworld/metaworld

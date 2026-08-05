@@ -24,6 +24,23 @@ class EnvironmentCICoverageTests(unittest.TestCase):
 
         self.assertEqual(missing, ())
 
+    def test_headless_mujoco_renderers_use_egl(self) -> None:
+        workflow = _CI_WORKFLOW.read_text(encoding="utf-8")
+        projects = (
+            "environments/dm_control/control_suite",
+            "environments/gymnasium/mujoco/half_cheetah",
+            "environments/gymnasium_robotics/robotics",
+            "environments/metaworld/metaworld",
+            "environments/robosuite/robosuite",
+        )
+
+        for project in projects:
+            with self.subTest(project=project):
+                self.assertIn(
+                    f"- project: {project}\n            mujoco_gl: egl",
+                    workflow,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

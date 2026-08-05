@@ -11,13 +11,17 @@ from .base import (
     command_invocation,
     resolve_executable,
 )
+from .claude_code import ClaudeCode
 from .codex import Codex
+from .kimi_code import KimiCode
 
 __all__ = [
     "AgentInvocation",
     "AgentTask",
     "CodingAgent",
+    "ClaudeCode",
     "Codex",
+    "KimiCode",
     "command_invocation",
     "resolve_executable",
 ]

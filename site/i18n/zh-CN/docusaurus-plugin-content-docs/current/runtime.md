@@ -48,8 +48,8 @@ Policy 状态与 scratch 不会被有意带入其他 Episode。
 - 第三方 Agent 或 Policy 代码的对抗性执行；
 - 任意 Python Program 的 bit-for-bit 确定性。
 
-Agent 进程同样在本地运行且没有隔离。当前 Codex integration 具有当前操作系统
-用户的权限。
+Agent 进程同样在本地运行且没有隔离。Codex、Claude Code、Kimi Code 和自定义
+command integration 都具有当前操作系统用户的权限。
 
 ## 故障域
 

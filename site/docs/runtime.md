@@ -49,8 +49,9 @@ Policy state and scratch never intentionally cross Episode boundaries.
 - adversarial execution of third-party Agent or Policy code;
 - bit-for-bit determinism for arbitrary Python Programs.
 
-The Agent process is also local and unisolated. In the current Codex
-integration it has the authority of the current operating-system user.
+The Agent process is also local and unisolated. Codex, Claude Code, Kimi Code,
+and custom command integrations have the authority of the current
+operating-system user.
 
 ## Failure domains
 

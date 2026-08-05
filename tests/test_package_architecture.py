@@ -87,7 +87,9 @@ assert not any(name in sys.modules for name in forbidden)
         }
         script = """\
 import sys
+from evopolicygym.agents.claude_code import ClaudeCode
 from evopolicygym.agents.codex import Codex
+from evopolicygym.agents.kimi_code import KimiCode
 from evopolicygym.evaluation import EvaluationConfig
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import (
@@ -107,7 +109,9 @@ assert ValidationConfig.__module__ == "evopolicygym.run"
 assert ConsoleProgress.__module__ == "evopolicygym.run.progress"
 assert RunEvent.__module__ == "evopolicygym.run.progress"
 assert RunObserver.__module__ == "evopolicygym.run.progress"
+assert ClaudeCode.__module__ == "evopolicygym.agents.claude_code"
 assert Codex.__module__ == "evopolicygym.agents.codex"
+assert KimiCode.__module__ == "evopolicygym.agents.kimi_code"
 assert AgentSkill.__module__ == "evopolicygym.skills"
 assert ProcessExecution.__module__ == "evopolicygym.execution"
 

@@ -37,6 +37,19 @@ result = run(
 )
 ```
 
+无需修改 Benchmark 或 Run 配置，也可以选择另外两个第一方命令行集成：
+
+```python
+from evopolicygym.agents import ClaudeCode, KimiCode
+
+claude = ClaudeCode(model="sonnet", effort="high")
+kimi = KimiCode(model="kimi-code/kimi-for-coding")
+```
+
+三个 provider 都以非交互方式运行，并将结构化 stdout 保留为 Agent 证据。
+Claude Code 使用 bare 模式且不持久化 session。Kimi Code 当前会持久化 CLI 状态；
+如果 Run 之间不能共享其配置或历史，请将 `KIMI_CODE_HOME` 指向调用者管理的独立目录。
+
 Host 在 Agent 启动前创建 Episode 池。Agent 可以修改 `workspace/program/`、提交
 候选、读取已发布 Feedback，并以已发布候选结束 Run。
 

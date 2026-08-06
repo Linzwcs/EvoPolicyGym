@@ -294,10 +294,10 @@ class ObstructedMazeTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.content["success_rate"], 1.0)
-                self.assertEqual(
-                    result.feedback.score, result.feedback.content["mean_return"]
-                )
+                content = result.feedback.content
+                assert isinstance(content, dict)
+                self.assertEqual(content["success_rate"], 1.0)
+                self.assertEqual(result.feedback.score, content["mean_return"])
                 self.assertEqual(result.feedback.artifacts[0].name, "trace.jsonl")
                 documents = tuple(
                     json.loads(line)

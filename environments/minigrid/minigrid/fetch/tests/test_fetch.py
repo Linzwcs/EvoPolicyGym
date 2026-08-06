@@ -248,10 +248,10 @@ class FetchBenchmarkTests(unittest.TestCase):
         self.assertEqual(failed_metrics["terminal_reason"], "none")
 
         feedback = benchmark.feedback((success_record, wrong_record, failed_record))
-        self.assertEqual(feedback.content["success_rate"], 1 / 3)
-        self.assertEqual(feedback.score, feedback.content["mean_return"])
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["success_rate"], 1 / 3)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
         self.assertEqual(feedback.content["wrong_object_rate"], 1 / 3)
         self.assertEqual(
             feedback.content["failed_pickup_episode_rate"],
@@ -311,12 +311,12 @@ class FetchBenchmarkTests(unittest.TestCase):
                     result.environment_digest,
                     benchmark.spec.environment_digest,
                 )
+                self.assertIsInstance(result.feedback.content, dict)
+                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(result.feedback.content["success_rate"], 1.0)
                 self.assertEqual(
                     result.feedback.score, result.feedback.content["mean_return"]
                 )
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(
                     result.feedback.content["target_found_rate"],
                     1.0,

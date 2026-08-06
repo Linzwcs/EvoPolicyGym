@@ -266,10 +266,8 @@ class PutNearBenchmarkTests(unittest.TestCase):
                     "minigrid/PutNear-v0/mean-return-v1",
                 )
                 self.assertEqual(result.environment_digest, benchmark.spec.environment_digest)
-                self.assertEqual(result.feedback.content["success_rate"], 1.0)
-                self.assertEqual(
-                    result.feedback.score, result.feedback.content["mean_return"]
-                )
+                self.assertEqual(content["success_rate"], 1.0)
+                self.assertEqual(result.feedback.score, content["mean_return"])
                 self.assertEqual(content["wrong_object_picked_up_rate"], 0.0)
                 self.assertEqual(content["misplaced_drop_rate"], 0.0)
                 self.assertEqual(content["blocked_terminal_drop_rate"], 0.0)

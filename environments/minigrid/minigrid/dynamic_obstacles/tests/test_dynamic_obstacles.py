@@ -339,12 +339,12 @@ class DynamicObstaclesBenchmarkTests(unittest.TestCase):
                     result.environment_digest,
                     benchmark.spec.environment_digest,
                 )
+                self.assertIsInstance(result.feedback.content, dict)
+                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(result.feedback.content["success_rate"], 1.0)
                 self.assertEqual(
                     result.feedback.score, result.feedback.content["mean_return"]
                 )
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(
                     result.feedback.content["collision_rate"],
                     0.0,

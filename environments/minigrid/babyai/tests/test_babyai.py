@@ -287,8 +287,8 @@ class BabyAITests(unittest.TestCase):
 
         content = result.feedback.content
         assert isinstance(content, dict)
-        self.assertEqual(result.feedback.content["success_rate"], 1.0)
-        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
+        self.assertEqual(content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, content["mean_return"])
         self.assertEqual(content["door_opened_this_step_rate"], 1.0)
         self.assertGreater(_number_metric(content, "mean_unique_observation_count"), 0)
         documents = tuple(

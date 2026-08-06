@@ -211,8 +211,10 @@ class LockedRoomTests(unittest.TestCase):
         self.assertEqual(final.metrics["terminal_reason"], "success")
 
         feedback = benchmark.feedback((record,))
-        self.assertEqual(feedback.content["success_rate"], 1.0)
-        self.assertEqual(feedback.score, feedback.content["mean_return"])
+        content = feedback.content
+        assert isinstance(content, dict)
+        self.assertEqual(content["success_rate"], 1.0)
+        self.assertEqual(feedback.score, content["mean_return"])
         document = json.loads(feedback.artifacts[0].read_bytes().splitlines()[0])
         self.assertEqual(document["outcome"], "success")
         self.assertEqual(document["target_color"], "grey")
@@ -248,10 +250,10 @@ class LockedRoomTests(unittest.TestCase):
                 episode_timeout_seconds=10,
             ),
         )
-        self.assertEqual(result.feedback.content["success_rate"], 1.0)
-        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
         self.assertIsInstance(result.feedback.content, dict)
         assert isinstance(result.feedback.content, dict)
+        self.assertEqual(result.feedback.content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
         for name in (
             "key_room_door_opened_rate",
             "key_picked_up_rate",

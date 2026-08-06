@@ -9,7 +9,8 @@ compass direction, and a mission naming the target ball color. It must explore
 multiple rooms, acquire the key matching the locked door, unlock the target
 room, free its carrying slot, and pick up the mission-matching ball. The key
 and locked-door color match each other; they are independent of the mission
-ball color. The primary score is Episode success rate.
+ball color. The primary score is mean upstream Episode return; success rate
+remains separately reported.
 
 ## Install and test
 

@@ -25,7 +25,7 @@ class UnlockTests(unittest.TestCase):
         benchmark = UnlockBenchmark()
         self.assertEqual(
             benchmark.spec.id,
-            "minigrid/Unlock-v0/success-rate-v1",
+            "minigrid/Unlock-v0/mean-return-v1",
         )
         self.assertEqual(benchmark.spec.max_episode_steps, 288)
         self.assertEqual(
@@ -140,7 +140,8 @@ class UnlockTests(unittest.TestCase):
         self.assertEqual(final.metrics["terminal_reason"], "success")
 
         feedback = benchmark.feedback((record,))
-        self.assertEqual(feedback.score, 1.0)
+        self.assertEqual(feedback.content["success_rate"], 1.0)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
         document = json.loads(feedback.artifacts[0].read_bytes().splitlines()[0])
         self.assertEqual(document["outcome"], "success")
         self.assertEqual(document["key_color_found"], "green")
@@ -176,7 +177,8 @@ class UnlockTests(unittest.TestCase):
                 episode_timeout_seconds=10,
             ),
         )
-        self.assertEqual(result.feedback.score, 1.0)
+        self.assertEqual(result.feedback.content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
         self.assertIsInstance(result.feedback.content, dict)
         assert isinstance(result.feedback.content, dict)
         self.assertEqual(

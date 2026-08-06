@@ -14,6 +14,9 @@ benchmark = BabyAIBenchmark(
 
 The Host selects the profile before a Run. The profile and family are visible
 to the Agent, fixed for the Run, and included in the environment digest.
+The primary metric is mean upstream Episode return, which rewards successful
+completion and the upstream time efficiency bonus. Success rate remains a
+separately reported task-completion outcome.
 Upstream-generated natural-language missions remain part of the public
 observation; Episode seeds and private identity never enter Feedback.
 Every Episode is procedurally generated from its private seed. Composite

@@ -20,7 +20,7 @@ class EmptyTests(unittest.TestCase):
         random = EmptyBenchmark(EmptyConfig(profile="6x6-random"))
         self.assertEqual(
             default.spec.id,
-            "minigrid/Empty-v0/success-rate-v1",
+            "minigrid/Empty-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 256)
         self.assertEqual(
@@ -114,7 +114,10 @@ class EmptyTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

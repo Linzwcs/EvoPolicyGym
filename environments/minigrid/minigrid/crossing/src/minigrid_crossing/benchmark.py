@@ -89,7 +89,7 @@ class _EpisodeDiagnostics:
 
 
 class CrossingBenchmark:
-    """Safe-navigation success rate across wall or lava rivers."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: CrossingConfig | None = None) -> None:
         if config is None:
@@ -130,7 +130,11 @@ class CrossingBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         goal_found = sum(_reached(r, "goal_found") for r in records)
         hazard_found = sum(_reached(r, "hazard_found") for r in records)
         hazards = sum(_reached(r, "hazard_entered") for r in records)
@@ -143,10 +147,10 @@ class CrossingBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the goal in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); {hazard_found} saw a hazard "
+                f"({success_rate:.3f} success rate); {hazard_found} saw a hazard "
                 f"and {hazards} entered one."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "goal_found_rate": goal_found / len(records),
             "hazard_found_rate": hazard_found / len(records),
             "hazard_entry_rate": hazards / len(records),
@@ -192,7 +196,7 @@ class CrossingBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace(traced),),
         )
@@ -205,7 +209,7 @@ def _spec(config: CrossingConfig) -> BenchmarkSpec:
         else "find the opening and get to the green goal square"
     )
     return BenchmarkSpec(
-        id="minigrid/Crossing-v0/success-rate-v1",
+        id="minigrid/Crossing-v0/mean-return-v1",
         description=(
             "Discover the openings through a generated sequence of wall or "
             "lava rivers and safely reach the opposite-corner goal."
@@ -279,7 +283,7 @@ def _spec(config: CrossingConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

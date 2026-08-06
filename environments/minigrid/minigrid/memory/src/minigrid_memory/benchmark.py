@@ -96,7 +96,7 @@ class _EpisodeDiagnostics:
 
 
 class MemoryBenchmark:
-    """Success rate on a partially observable object-memory T-maze."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: MemoryConfig | None = None) -> None:
         if config is None:
@@ -142,7 +142,7 @@ class MemoryBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         mean_return = statistics.fmean(
             record.total_reward if record.policy_failure is None else 0.0 for record in records
         )
@@ -168,11 +168,11 @@ class MemoryBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the matching object in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate); {wrong_targets} chose "
+                f"Episodes ({success_rate:.3f} success rate); {wrong_targets} chose "
                 f"the wrong target, {key_found} saw a green key, and "
                 f"{ball_found} saw a green ball."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "wrong_target_rate": wrong_targets / len(records),
             "green_key_found_rate": key_found / len(records),
             "green_ball_found_rate": ball_found / len(records),
@@ -231,7 +231,7 @@ class MemoryBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -239,11 +239,11 @@ class MemoryBenchmark:
 
 def _benchmark_spec(config: MemoryConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/Memory-v0/success-rate-v1",
+        id="minigrid/Memory-v0/mean-return-v1",
         description=(
             "Remember whether the green cue is a key or ball, traverse the "
             "partially observable hallway, and choose the matching object at "
-            "the T-junction. Maximize success rate."
+            "the T-junction. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -318,7 +318,7 @@ def _benchmark_spec(config: MemoryConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

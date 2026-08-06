@@ -87,11 +87,11 @@ class BabyAITests(unittest.TestCase):
         local = BabyAIBenchmark(BabyAIConfig(profile="GoToLocal"))
         self.assertEqual(
             goto.spec.id,
-            "minigrid/BabyAI-GoTo-v0/success-rate-v1",
+            "minigrid/BabyAI-GoTo-v0/mean-return-v1",
         )
         self.assertEqual(
             opened.spec.id,
-            "minigrid/BabyAI-Open-v0/success-rate-v1",
+            "minigrid/BabyAI-Open-v0/mean-return-v1",
         )
         self.assertEqual(goto.spec.max_episode_steps, 576)
         self.assertNotEqual(
@@ -287,7 +287,8 @@ class BabyAITests(unittest.TestCase):
 
         content = result.feedback.content
         assert isinstance(content, dict)
-        self.assertEqual(result.feedback.score, 1.0)
+        self.assertEqual(result.feedback.content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
         self.assertEqual(content["door_opened_this_step_rate"], 1.0)
         self.assertGreater(_number_metric(content, "mean_unique_observation_count"), 0)
         documents = tuple(

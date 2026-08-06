@@ -171,7 +171,7 @@ class _EpisodeDiagnostics:
 
 
 class BlockedUnlockPickupBenchmark:
-    """Success rate for the complete blocked-door manipulation chain."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self) -> None:
         self._spec = _benchmark_spec()
@@ -211,7 +211,7 @@ class BlockedUnlockPickupBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         counts = {name: _milestone_count(records, name) for name in _MILESTONES}
         mean_return = statistics.fmean(
             record.total_reward if record.policy_failure is None else 0.0 for record in records
@@ -229,10 +229,10 @@ class BlockedUnlockPickupBenchmark:
             "summary": (
                 f"Moved the blocker, unlocked the room, and collected the "
                 f"target in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); "
+                f"({success_rate:.3f} success rate); "
                 f"{counts['target_destroyed']} destroyed the target box."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_return": mean_return,
             "mean_steps": mean_steps,
             "mean_steps_on_success": (
@@ -300,7 +300,7 @@ class BlockedUnlockPickupBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -308,7 +308,7 @@ class BlockedUnlockPickupBenchmark:
 
 def _benchmark_spec() -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/BlockedUnlockPickup-v0/success-rate-v1",
+        id="minigrid/BlockedUnlockPickup-v0/mean-return-v1",
         description=(
             "Move the ball obstructing a locked door, acquire the matching "
             "key, unlock the second room, and pick up the mission box."
@@ -384,7 +384,7 @@ def _benchmark_spec() -> BenchmarkSpec:
             "time_limit": 16 * 6**2,
         },
         max_episode_steps=16 * 6**2,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

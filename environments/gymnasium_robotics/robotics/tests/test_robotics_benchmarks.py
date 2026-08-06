@@ -268,6 +268,9 @@ class RoboticsBenchmarkTests(unittest.TestCase):
 
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
+        self.assertEqual(benchmark.spec.primary_metric, "mean_return")
+        self.assertTrue(benchmark.spec.id.endswith("/mean-return-v1"))
         self.assertEqual(feedback.content["traced_transitions"], 160)
         self.assertEqual(feedback.content["trace_transitions_omitted"], 140)
         documents = [json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()]
@@ -377,6 +380,9 @@ class RoboticsBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual([artifact.name for artifact in feedback.artifacts], ["trace.jsonl"])
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.score, -51.0)
+        self.assertEqual(feedback.content["mean_return"], -51.0)
+        self.assertEqual(feedback.content["failure_return"], -51.0)
         self.assertEqual(feedback.content["video_episode_results"], 1)
         self.assertEqual(feedback.content["video_episodes_without_gif"], 1)
         manifests = feedback.content["video_artifacts"]

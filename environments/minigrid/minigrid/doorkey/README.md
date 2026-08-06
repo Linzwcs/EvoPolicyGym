@@ -7,7 +7,8 @@ partially observable navigation task.
 The Policy sees the upstream `7 × 7 × 3` egocentric symbolic image, compass
 direction, and mission text. It must explore the room, pick up the yellow key,
 unlock the yellow door, and reach the green goal. The primary score is Episode
-success rate.
+return from the upstream time-decaying reward; success rate remains separately
+reported.
 
 The spec defines image axes `[view_x, view_y, channel]`, channel order
 `[object, color, state]`, agent position `(3,6)`, view orientation, compass

@@ -165,7 +165,7 @@ class _EpisodeDiagnostics:
 
 
 class KeyCorridorBenchmark:
-    """Success rate on a multi-room matching-key search task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: KeyCorridorConfig | None = None) -> None:
         if config is None:
@@ -211,7 +211,7 @@ class KeyCorridorBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         counts = {name: _milestone_count(records, name) for name in _MILESTONES}
         found_keys = counts["found_key"]
         picked_up_keys = counts["picked_up_key"]
@@ -235,13 +235,13 @@ class KeyCorridorBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Picked up the target object in {successes}/"
-                f"{len(records)} Episodes ({score:.3f} success rate); "
+                f"{len(records)} Episodes ({success_rate:.3f} success rate); "
                 f"{picked_up_keys} acquired the door-matching key, "
                 f"{opened_doors} opened the target door, and "
                 f"{counts['target_pickup_blocked_by_carried_object']} "
                 f"attempted the target pickup with occupied hands."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "key_found_rate": found_keys / len(records),
             "key_pickup_rate": picked_up_keys / len(records),
             "key_drop_rate": counts["key_dropped"] / len(records),
@@ -325,7 +325,7 @@ class KeyCorridorBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -333,11 +333,11 @@ class KeyCorridorBenchmark:
 
 def _benchmark_spec(config: KeyCorridorConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/KeyCorridor-v0/success-rate-v1",
+        id="minigrid/KeyCorridor-v0/mean-return-v1",
         description=(
             "Search multiple partially observable rooms for the key matching "
             "the locked door, unlock the target room, free the carrying slot, "
-            "and pick up the mission-colored ball. Maximize success rate."
+            "and pick up the mission-colored ball. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -420,7 +420,7 @@ def _benchmark_spec(config: KeyCorridorConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

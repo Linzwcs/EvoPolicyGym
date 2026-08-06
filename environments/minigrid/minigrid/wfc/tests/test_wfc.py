@@ -251,10 +251,8 @@ class WFCTests(unittest.TestCase):
                 )
                 content = result.feedback.content
                 assert isinstance(content, dict)
-                self.assertEqual(result.feedback.content["success_rate"], 1.0)
-                self.assertEqual(
-                    result.feedback.score, result.feedback.content["mean_return"]
-                )
+                self.assertEqual(content["success_rate"], 1.0)
+                self.assertEqual(result.feedback.score, content["mean_return"])
                 self.assertEqual(content["goal_found_rate"], 1.0)
                 documents = tuple(
                     json.loads(line)

@@ -225,10 +225,10 @@ class BlockedUnlockPickupTests(unittest.TestCase):
                 episode_timeout_seconds=10,
             ),
         )
-        self.assertEqual(result.feedback.content["success_rate"], 1.0)
-        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
-        self.assertIsInstance(result.feedback.content, dict)
-        assert isinstance(result.feedback.content, dict)
+        content = result.feedback.content
+        assert isinstance(content, dict)
+        self.assertEqual(content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, content["mean_return"])
         for field in (
             "blocker_moved_rate",
             "blocker_dropped_rate",
@@ -238,14 +238,14 @@ class BlockedUnlockPickupTests(unittest.TestCase):
             "door_opened_rate",
             "target_found_rate",
         ):
-            self.assertEqual(result.feedback.content[field], 1.0)
+            self.assertEqual(content[field], 1.0)
         for field in (
             "target_destroyed_rate",
             "failed_pickup_rate",
             "failed_drop_rate",
             "failed_toggle_rate",
         ):
-            self.assertEqual(result.feedback.content[field], 0.0)
+            self.assertEqual(content[field], 0.0)
         self.assertEqual(
             result.feedback.artifacts[0].name,
             "trace.jsonl",

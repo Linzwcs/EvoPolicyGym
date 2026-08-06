@@ -175,12 +175,12 @@ class LavaGapTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
+                self.assertIsInstance(result.feedback.content, dict)
+                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(result.feedback.content["success_rate"], 1.0)
                 self.assertEqual(
                     result.feedback.score, result.feedback.content["mean_return"]
                 )
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
                 self.assertEqual(
                     result.feedback.content["hazard_rate"],
                     0.0,

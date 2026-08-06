@@ -114,14 +114,12 @@ class EmptyTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                content = result.feedback.content
+                assert isinstance(content, dict)
+                self.assertEqual(content["success_rate"], 1.0)
+                self.assertEqual(result.feedback.score, content["mean_return"])
                 self.assertEqual(
-                    result.feedback.score, result.feedback.content["mean_return"]
-                )
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
-                self.assertEqual(
-                    result.feedback.content["episodes_goal_found_but_not_reached"],
+                    content["episodes_goal_found_but_not_reached"],
                     0,
                 )
 

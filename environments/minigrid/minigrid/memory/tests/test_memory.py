@@ -300,18 +300,16 @@ class MemoryBenchmarkTests(unittest.TestCase):
                     result.environment_digest,
                     benchmark.spec.environment_digest,
                 )
-                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                content = result.feedback.content
+                assert isinstance(content, dict)
+                self.assertEqual(content["success_rate"], 1.0)
+                self.assertEqual(result.feedback.score, content["mean_return"])
                 self.assertEqual(
-                    result.feedback.score, result.feedback.content["mean_return"]
-                )
-                self.assertIsInstance(result.feedback.content, dict)
-                assert isinstance(result.feedback.content, dict)
-                self.assertEqual(
-                    result.feedback.content["wrong_target_rate"],
+                    content["wrong_target_rate"],
                     0.0,
                 )
                 self.assertIsNotNone(
-                    result.feedback.content["mean_decision_step"],
+                    content["mean_decision_step"],
                 )
                 trace = result.feedback.artifacts[0]
                 documents = tuple(json.loads(line) for line in trace.read_bytes().splitlines())

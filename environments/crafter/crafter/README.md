@@ -233,11 +233,14 @@ format does not introduce same-seed replay or a private identity side channel.
 Validation and Assessment remain Host-only aggregate phases and publish no
 detailed evidence to the Agent workspace. Their Host reports retain the same
 Benchmark-defined aggregate Feedback content, including the survival profile,
-but never copy Feedback Artifacts. Evaluations larger than the documented
-16-Episode detailed-feedback limit therefore return those complete aggregate
-metrics without constructing per-Episode Artifact files. This avoids the
-Kernel's 1,024-Artifact bound without selecting or sampling particular
-Episodes, and does not change scoring.
+but never construct or copy trajectory, NPZ, or MP4 Artifacts, regardless of
+their Episode count. The private Episode plan carries only a Boolean Artifact
+mode to `feedback()`; neither the split nor that marker crosses the Policy or
+Agent boundary. Train evaluations larger than the documented 16-Episode
+detailed-feedback limit likewise return complete aggregate metrics without
+constructing per-Episode Artifact files. These rules avoid unnecessary Host
+work and the Kernel's 1,024-Artifact bound without selecting or sampling
+particular Episodes, and do not change scoring.
 
 ## Temporal evidence-retention protocol
 

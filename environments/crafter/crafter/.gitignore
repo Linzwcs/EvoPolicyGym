@@ -1,2 +1,5 @@
 # Local experiment harnesses are caller-owned and not part of the distribution.
 .local/
+
+# Local repeatability audit generated from retained Runs.
+/docs/evaluation-repeatability-protocol.md

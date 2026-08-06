@@ -8,10 +8,13 @@ import io
 import json
 import math
 import statistics
+import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
+import imageio_ffmpeg
 import numpy as np
 from evopolicygym.authoring import (
     Artifact,
@@ -23,6 +26,7 @@ from evopolicygym.authoring import (
 )
 from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
+from PIL import Image
 
 from .config import CrafterConfig
 from .constants import ACHIEVEMENTS, ACTIONS
@@ -42,10 +46,14 @@ from .scoring import (
 )
 
 _EPISODE_SEED_DOMAIN = b"evopolicygym-crafter/episode-seed/v1\0"
+_EPISODE_ARTIFACT_SCENARIO_KEY = "publish_detailed_artifacts"
 _SPLITS = frozenset({"train", "validation", "test"})
 _OBSERVATION_SHAPE = (64, 64, 3)
 _OBSERVATION_BYTES = 64 * 64 * 3
 _OBSERVATION_CHUNK_FRAMES = 1_024
+_REPLAY_SEGMENT_FRAMES = 2_048
+_DETAILED_FEEDBACK_MAX_EPISODES = 16
+_AGENT_SKILL_NAME = "optimize-crafter-policy"
 _MOVEMENT_ACTIONS = frozenset({1, 2, 3, 4})
 _OPPOSITE_MOVEMENT = {
     1: 2,
@@ -110,14 +118,22 @@ class CrafterBenchmark:
         if type(count) is not int or count <= 0:
             raise ValueError("count must be a positive integer")
         return tuple(
-            EpisodeSpec(environment_seed=_episode_seed(split, seed, index))
+            EpisodeSpec(
+                environment_seed=_episode_seed(split, seed, index),
+                scenario={
+                    _EPISODE_ARTIFACT_SCENARIO_KEY: split == "train",
+                },
+            )
             for index in range(count)
         )
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
-        return CrafterEnvironment(episode, config=self._config)
+        return CrafterEnvironment(
+            _environment_episode(episode),
+            config=self._config,
+        )
 
     def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
         records = tuple(episodes)
@@ -141,7 +157,12 @@ class CrafterBenchmark:
             for record in records
         )
         action_diagnostics = _action_diagnostics(records)
-        artifacts, artifact_summary = _complete_feedback_artifacts(records)
+        artifacts, artifact_summary = _complete_feedback_artifacts(
+            records,
+            replay_fps=self._config.replay_fps,
+            replay_size=self._config.replay_size,
+            detailed_artifacts=_detailed_artifacts_enabled(records),
+        )
 
         feedback = Feedback(
             score=score,
@@ -214,7 +235,7 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
         return CrafterEnvironment(
-            episode,
+            _environment_episode(episode),
             config=self._config,
             reward_profile="survival-development-v3",
         )
@@ -245,6 +266,9 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
             records,
             score_profile="survival-development-v3",
             failure_return=-float(self._config.max_episode_steps),
+            replay_fps=self._config.replay_fps,
+            replay_size=self._config.replay_size,
+            detailed_artifacts=_detailed_artifacts_enabled(records),
         )
         content["detailed_feedback"] = artifact_summary
         return Feedback(
@@ -285,6 +309,16 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
             "official_score_formula": (
                 "exp(mean(log(1 + success_percent))) - 1"
             ),
+            "public_replays": {
+                "format": "H.264 MP4 without audio or overlays",
+                "frames_per_second": config.replay_fps,
+                "frame_size": [config.replay_size, config.replay_size],
+                "source_alignment": "video frame i is observation i",
+                "complete_artifact_episode_limit": (
+                    _DETAILED_FEEDBACK_MAX_EPISODES
+                ),
+                "detailed_artifact_splits": ["train"],
+            },
             "privileged_information_exposed": False,
         },
         environment_parameters={
@@ -293,6 +327,8 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
             "image_size": [64, 64],
             "reward": True,
             "max_episode_steps": config.max_episode_steps,
+            "replay_fps": config.replay_fps,
+            "replay_size": config.replay_size,
         },
         max_episode_steps=config.max_episode_steps,
         primary_metric="crafter_score_percent",
@@ -400,7 +436,7 @@ def _survival_development_spec(config: CrafterConfig) -> BenchmarkSpec:
                 "event_caps": repeat_caps,
             },
             "policy_failure_return": -float(config.max_episode_steps),
-            "trajectory_schema": "crafter/complete-feedback-manifest/v2",
+            "trajectory_schema": "crafter/complete-feedback-manifest/v3",
             "upstream_reward_field": "upstream_reward",
         }
     )
@@ -434,6 +470,35 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
     digest.update(seed.to_bytes(8, "big"))
     digest.update(index.to_bytes(8, "big"))
     return int.from_bytes(digest.digest()[:8], "big")
+
+
+def _environment_episode(episode: EpisodeSpec) -> EpisodeSpec:
+    _episode_detailed_artifacts(episode)
+    return EpisodeSpec(environment_seed=episode.environment_seed)
+
+
+def _detailed_artifacts_enabled(records: Sequence[EpisodeRecord]) -> bool:
+    enabled = {
+        _episode_detailed_artifacts(record.episode) for record in records
+    }
+    if len(enabled) != 1:
+        raise ValueError("Crafter Feedback cannot mix Artifact modes")
+    return enabled.pop()
+
+
+def _episode_detailed_artifacts(episode: EpisodeSpec) -> bool:
+    scenario = episode.scenario
+    if scenario is None:
+        return True
+    if (
+        type(scenario) is not dict
+        or set(scenario) != {_EPISODE_ARTIFACT_SCENARIO_KEY}
+    ):
+        raise ValueError("Crafter Episode scenario is invalid")
+    enabled = scenario[_EPISODE_ARTIFACT_SCENARIO_KEY]
+    if type(enabled) is not bool:
+        raise ValueError("Crafter Episode scenario is invalid")
+    return enabled
 
 
 def _scored_achievements(record: EpisodeRecord) -> frozenset[str]:
@@ -1452,14 +1517,33 @@ def _complete_feedback_artifacts(
     *,
     score_profile: str = "upstream",
     failure_return: float | None = None,
+    replay_fps: int = 10,
+    replay_size: int = 256,
+    detailed_artifacts: bool = True,
 ) -> tuple[tuple[Artifact, ...], dict[str, PolicyValue]]:
     if score_profile not in {"upstream", "survival-development-v3"}:
         raise ValueError("Crafter Artifact score profile is invalid")
     if score_profile == "survival-development-v3" and failure_return is None:
         raise ValueError("Crafter v3 Artifacts require a failure return")
+    if type(detailed_artifacts) is not bool:
+        raise TypeError("detailed_artifacts must be bool")
+    if not detailed_artifacts:
+        return (), _aggregate_only_artifact_summary(
+            records,
+            score_profile=score_profile,
+            reason="split_disables_detailed_artifacts",
+        )
+    if len(records) > _DETAILED_FEEDBACK_MAX_EPISODES:
+        return (), _aggregate_only_artifact_summary(
+            records,
+            score_profile=score_profile,
+            reason="episode_count_exceeds_detailed_artifact_limit",
+        )
     artifacts: list[Artifact] = []
     trajectory_entries: list[dict[str, object]] = []
     observation_entries: list[dict[str, object]] = []
+    replay_entries: list[dict[str, object]] = []
+    replay_cache: dict[tuple[int, int, tuple[bytes, ...]], bytes] = {}
     total_observations = 0
     total_transitions = 0
 
@@ -1525,6 +1609,15 @@ def _complete_feedback_artifacts(
                 "compressed_bytes": trajectory.size,
             }
         )
+        episode_replays, episode_replay_entries = _replay_artifacts(
+            record,
+            episode_index=episode_index,
+            frames_per_second=replay_fps,
+            frame_size=replay_size,
+            cache=replay_cache,
+        )
+        artifacts.extend(episode_replays)
+        replay_entries.extend(episode_replay_entries)
         total_transitions += record.steps
         for observation_index, observation in enumerate(_observations(record)):
             frames.append(_observation_array(observation))
@@ -1538,11 +1631,21 @@ def _complete_feedback_artifacts(
     bulk_bytes = sum(
         artifact.size for artifact in artifacts if artifact.retention == "bulk"
     )
+    replay_bytes = sum(
+        artifact.size
+        for artifact in artifacts
+        if artifact.media_type == "video/mp4"
+    )
+    trajectory_bytes = sum(
+        artifact.size
+        for artifact in artifacts
+        if artifact.media_type == "application/gzip"
+    )
     manifest = {
         "schema": (
-            "crafter/complete-feedback-manifest/v2"
+            "crafter/complete-feedback-manifest/v3"
             if score_profile == "survival-development-v3"
-            else "crafter/complete-feedback-manifest/v1"
+            else "crafter/complete-feedback-manifest/v2"
         ),
         "complete": True,
         "source_observation": {
@@ -1559,12 +1662,17 @@ def _complete_feedback_artifacts(
         "observations": total_observations,
         "trajectory_artifacts": trajectory_entries,
         "observation_artifacts": observation_entries,
+        "replay_artifacts": replay_entries,
         "bulk_compressed_bytes": bulk_bytes,
+        "trajectory_compressed_bytes": trajectory_bytes,
+        "replay_compressed_bytes": replay_bytes,
         "retention": {
-            "class": "bulk",
-            "policy": (
-                "complete for the newest submission; oldest bulk Artifacts "
-                "are evicted first from Agent and Host records"
+            "observations": (
+                "bulk capacity; newest submission is protected"
+            ),
+            "trajectories": "permanent",
+            "replays": (
+                "bulk capacity; newest submission is protected"
             ),
         },
     }
@@ -1600,8 +1708,41 @@ def _complete_feedback_artifacts(
         "transitions": total_transitions,
         "observations": total_observations,
         "bulk_compressed_bytes": bulk_bytes,
+        "trajectory_compressed_bytes": trajectory_bytes,
+        "replay_compressed_bytes": replay_bytes,
         "observation_chunks": len(observation_entries),
         "trajectory_artifacts": len(trajectory_entries),
+        "replay_artifacts": len(replay_entries),
+    }
+
+
+def _aggregate_only_artifact_summary(
+    records: Sequence[EpisodeRecord],
+    *,
+    score_profile: str,
+    reason: str,
+) -> dict[str, PolicyValue]:
+    return {
+        "schema": (
+            "crafter/complete-feedback-summary/v2"
+            if score_profile == "survival-development-v3"
+            else "crafter/complete-feedback-summary/v1"
+        ),
+        "complete": False,
+        "detail_scope": "aggregate-only",
+        "reason": reason,
+        "detailed_artifact_episode_limit": (
+            _DETAILED_FEEDBACK_MAX_EPISODES
+        ),
+        "episodes": len(records),
+        "transitions": sum(record.steps for record in records),
+        "observations": sum(record.steps + 1 for record in records),
+        "bulk_compressed_bytes": 0,
+        "trajectory_compressed_bytes": 0,
+        "replay_compressed_bytes": 0,
+        "observation_chunks": 0,
+        "trajectory_artifacts": 0,
+        "replay_artifacts": 0,
     }
 
 
@@ -1693,13 +1834,112 @@ def _trajectory_artifact(
             stream.write(_json_line(transition_line))
     return Artifact(
         name=(
-            f"bulk/episodes/episode-{episode_index:06d}/"
+            f"trajectories/episode-{episode_index:06d}/"
             "trajectory-000000.jsonl.gz"
         ),
         media_type="application/gzip",
         content=output.getvalue(),
-        retention="bulk",
+        retention="permanent",
     )
+
+
+def _replay_artifacts(
+    record: EpisodeRecord,
+    *,
+    episode_index: int,
+    frames_per_second: int,
+    frame_size: int,
+    cache: dict[tuple[int, int, tuple[bytes, ...]], bytes],
+) -> tuple[list[Artifact], list[dict[str, object]]]:
+    observations = _observations(record)
+    artifacts: list[Artifact] = []
+    entries: list[dict[str, object]] = []
+    for segment_index, start in enumerate(
+        range(0, len(observations), _REPLAY_SEGMENT_FRAMES)
+    ):
+        stop = min(start + _REPLAY_SEGMENT_FRAMES, len(observations))
+        segment = observations[start:stop]
+        cache_key = None
+        if len(segment) <= 4:
+            cache_key = (
+                frames_per_second,
+                frame_size,
+                tuple(_observation_array(item).tobytes() for item in segment),
+            )
+        content = None if cache_key is None else cache.get(cache_key)
+        if content is None:
+            content = _encode_replay(
+                segment,
+                frames_per_second=frames_per_second,
+                frame_size=frame_size,
+            )
+            if cache_key is not None:
+                cache[cache_key] = content
+        name = (
+            f"replays/episode-{episode_index:06d}/"
+            f"replay-{segment_index:06d}.mp4"
+        )
+        artifact = Artifact(
+            name=name,
+            media_type="video/mp4",
+            content=content,
+            retention="bulk",
+        )
+        artifacts.append(artifact)
+        entries.append(
+            {
+                "episode_index": episode_index,
+                "artifact": name,
+                "segment_index": segment_index,
+                "video_frames": stop - start,
+                "first_observation_index": start,
+                "last_observation_index": stop - 1,
+                "frames_per_second": frames_per_second,
+                "frame_size": [frame_size, frame_size],
+                "codec": "h264",
+                "audio": False,
+                "compressed_bytes": artifact.size,
+            }
+        )
+    return artifacts, entries
+
+
+def _encode_replay(
+    observations: Sequence[PolicyValue],
+    *,
+    frames_per_second: int,
+    frame_size: int,
+) -> bytes:
+    with tempfile.TemporaryDirectory(prefix="evopolicygym-crafter-replay-") as temporary:
+        path = Path(temporary) / "replay.mp4"
+        writer = imageio_ffmpeg.write_frames(
+            path,
+            (frame_size, frame_size),
+            pix_fmt_in="rgb24",
+            pix_fmt_out="yuv420p",
+            fps=frames_per_second,
+            quality=7,
+            codec="libx264",
+            macro_block_size=16,
+            ffmpeg_log_level="error",
+            output_params=["-an", "-movflags", "+faststart"],
+        )
+        writer.send(None)
+        try:
+            for observation in observations:
+                frame = _observation_array(observation)
+                if frame_size != _OBSERVATION_SHAPE[0]:
+                    frame = np.asarray(
+                        Image.fromarray(frame).resize(
+                            (frame_size, frame_size),
+                            resample=Image.Resampling.NEAREST,
+                        ),
+                        dtype=np.uint8,
+                    )
+                writer.send(np.ascontiguousarray(frame))
+        finally:
+            writer.close()
+        return path.read_bytes()
 
 
 def _observations(record: EpisodeRecord) -> Sequence[PolicyValue]:

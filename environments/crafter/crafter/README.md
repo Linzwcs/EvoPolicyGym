@@ -164,22 +164,26 @@ cycle diagnostics. The complete formula and tables are recorded in
 
 ## Complete training evidence
 
-All three profiles encode every public transition and every RGB observation from
-all Episodes used by a submission. There is no score-based Episode selection,
-first-Episode preference, temporal sampling, contact sheet, replay video, or
-hidden human-observer channel.
+For training submissions of at most 16 Episodes, all three profiles encode
+every public transition and every RGB observation from every Episode. They also
+publish a directly viewable MP4 for every Episode. There is no score-based
+Episode selection, first-Episode preference, temporal sampling, contact sheet,
+or hidden human-observer channel.
 
 The published layout is:
 
 ```text
 artifacts/
 ├── artifact-manifest.json
+├── trajectories/
+│   ├── episode-000000/trajectory-000000.jsonl.gz
+│   └── episode-000001/trajectory-000000.jsonl.gz
+├── replays/
+│   ├── episode-000000/replay-000000.mp4
+│   └── episode-000001/replay-000000.mp4
 └── bulk/
     ├── observations-000000.npz
-    ├── observations-000001.npz
-    └── episodes/
-        ├── episode-000000/trajectory-000000.jsonl.gz
-        └── episode-000001/trajectory-000000.jsonl.gz
+    └── observations-000001.npz
 ```
 
 Each gzip JSONL trajectory contains an Episode header followed by every
@@ -208,7 +212,19 @@ preserve every relation
 `observation[t] -> action[t] -> observation[t + 1]`.
 `artifact-manifest.json` is compact permanent metadata that lists every chunk,
 its frame range and compressed size, the complete Episode/transition/frame
-counts, and the alignment contract.
+counts, and the alignment contract. Complete trajectories are also permanent;
+their small compressed size preserves the action/reward history even after old
+lossless observation chunks expire.
+
+Each Episode replay contains all `steps + 1` observations in order. Video frame
+`i` is observation `i`; therefore transition `t` remains aligned as
+`frame[t] -> action[t] -> frame[t + 1]`. The default presentation is H.264 MP4,
+10 FPS, 256 x 256, nearest-neighbor expansion from the source image, with no
+audio, text, border, coordinate overlay, seed, or private state. Replay FPS and
+size are public `CrafterConfig` presentation settings. Episodes longer than
+2,048 observations use consecutive MP4 segments listed in the manifest so each
+Artifact remains within the Kernel's per-file limit. MP4 is a convenient lossy
+browsing layer; NPZ remains the byte-exact observation evidence.
 
 The Agent cannot address seeds or stable cases. `submit --episodes N` consumes
 the next `N` Episodes from the hidden train pool and exposes only submission and
@@ -217,14 +233,22 @@ format does not introduce same-seed replay or a private identity side channel.
 Validation and Assessment remain Host-only aggregate phases and publish no
 detailed evidence to the Agent workspace. Their Host reports retain the same
 Benchmark-defined aggregate Feedback content, including the survival profile,
-but never copy Feedback Artifacts.
+but never construct or copy trajectory, NPZ, or MP4 Artifacts, regardless of
+their Episode count. The private Episode plan carries only a Boolean Artifact
+mode to `feedback()`; neither the split nor that marker crosses the Policy or
+Agent boundary. Train evaluations larger than the documented 16-Episode
+detailed-feedback limit likewise return complete aggregate metrics without
+constructing per-Episode Artifact files. These rules avoid unnecessary Host
+work and the Kernel's 1,024-Artifact bound without selecting or sampling
+particular Episodes, and do not change scoring.
 
-## Temporal bulk-retention protocol
+## Temporal evidence-retention protocol
 
-Complete RGB and trajectory files are classified as `bulk`; scores,
-`feedback.json`, Episode summaries, hashes, `artifact-manifest.json`, and
-availability metadata are permanent. The Run applies one configurable
-capacity to the actual bytes occupied by bulk files across both copies:
+Lossless RGB chunks and MP4 replays are classified as `bulk`; complete
+trajectories, scores, `feedback.json`, Episode summaries, hashes,
+`artifact-manifest.json`, and availability metadata are permanent. The Run
+applies one configurable capacity to the actual bytes occupied by bulk files
+across both copies:
 
 ```text
 RUN/submissions/...                         # formal Host record
@@ -233,7 +257,7 @@ RUN/workspace/feedback/submissions/...      # Agent-visible mirror
 
 After a new submission is published to both locations, capacity enforcement
 walks older submission IDs in chronological order. It removes only old
-`observations-*.npz` and `trajectory-*.jsonl.gz` bulk files from both views;
+observation NPZ and replay MP4 bulk files from both views;
 it does not remove whole submission records or compact Feedback. The newest
 successfully published submission is always protected. If that submission
 alone exceeds the configured capacity, the data stays complete and
@@ -251,7 +275,18 @@ diagnostic scripts, and other working material. This directory is not part of
 the submitted Program and is never pruned by bulk retention. The Benchmark,
 not the Agent, chooses the lossless wire compression; the Agent chooses what to
 decode and what derived evidence to preserve in `analysis/` before a later
-submission makes older bulk data eligible for eviction.
+submission makes older bulk data eligible for eviction. To keep a replay, copy
+it to a path that retains its public association, for example
+`analysis/selected-replays/submission-000008/episode-000000.mp4`. This creates
+Agent-owned analysis; it does not pin or modify the original read-only
+Feedback Artifact.
+
+Formal `RUN/submissions/SUBMISSION_ID/program/` snapshots are always retained
+for Host audit and human review. They are never mirrored into Agent-visible
+Feedback. The Agent develops only the current editable `workspace/program/`
+and may preserve its own derived notes under `workspace/analysis/`. This keeps
+historical source provenance without making earlier Policies an implicit
+optimization hint or anchoring point.
 
 The current default capacity is 1 GiB counted across both physical copies. It
 is a provisional operating value, not a benchmark constant. Calibrate it from
@@ -261,25 +296,73 @@ submission plus the desired amount of recent history. Raising or lowering this
 storage value does not change scoring, Episode assignment, or Policy behavior.
 
 On 2026-08-02, a local 16-Episode baseline measurement at the 10,000-step
-horizon produced 2,694 transitions, 2,710 observations, three observation
-chunks, and 4,328,044 compressed bulk bytes per published copy. Its Episodes
-ended after 47–242 steps, so this is only a short-survival lower bound. The
-1-GiB default deliberately leaves substantial headroom; it must be revisited
-after a representative optimized Policy survives much longer.
+horizon produced 2,694 transitions and 2,710 observations. That measurement
+predated public MP4 publication and its Episodes ended after 47–242 steps, so
+it is not a current storage calibration. The 1-GiB default deliberately leaves
+substantial headroom; it must be revisited using
+`bulk_compressed_bytes` from representative optimized submissions.
 
-From the repository root, the current 512-Episode survival-development experiment can
+## Recommended model-comparison protocol
+
+The current cost-balanced formal Crafter comparison uses:
+
+```text
+train Episodes:       1,024
+Validation Episodes: 256 per candidate
+test Episodes:        512
+Run seed:             one explicit fixed value shared by every model
+submission size:      Agent-selected, at most 16 Episodes
+historical Policies:  Host-retained, never Agent-visible
+```
+
+The 1,024-Episode train budget gives a Coding Agent room for early visual
+diagnosis and later Policy refinement; it is a fixed comparison budget, not a
+claim that learning saturates exactly at 1,024. The Agent remains responsible
+for choosing each submission size because evidence allocation and feedback
+cadence are part of the end-to-end optimization behavior. It is an upper bound:
+the Agent may finish earlier, and every comparison must report the actual
+Episodes consumed.
+
+The evaluation sizes follow a local five-panel audit of three retained
+Policies. Moving from test32 to test256 reduced empirical finite-pool variance
+by 76.6%--86.4%, but 256 remained close to the desired cross-pool mean-SD
+boundary of ten score points. Validation256 and test512 therefore add margin
+for candidate selection and final reporting. This reduces procedural-world
+sampling noise; it does not remove stochastic variation between independent
+Coding-Agent optimization trajectories.
+
+All compared models must receive the same explicit Run seed, Environment
+configuration, horizon, scoring profile, initial Program, limits, and Agent
+instructions. Their Validation and test Episodes are then exactly paired.
+Train Episode planning is submission-scoped, so Agents that choose different
+submission-size sequences may receive different train sequences even with the
+same Run seed. This is intentional in the end-to-end protocol and must be
+reported rather than mistaken for identical training evidence.
+
+Historical Policy source is excluded from Agent Feedback. Earlier controlled
+Runs showed a directional advantage for the no-history arm, while one Run per
+condition was insufficient for a causal claim. Exclusion is nevertheless the
+cleaner default: the current Program remains available, Host provenance is
+unchanged, and the workspace avoids an unproven source of restoration bias and
+attention anchoring. Any future history ablation should be a separate repeated
+experiment rather than a switch in the formal comparison.
+
+From the repository root, one protocol-conforming survival-development Run can
 be launched with:
 
 ```console
-UV=/data/home/lilianhsong/mine/.tools/uv-0.11.16/bin/uv
+UV=/data/home/lilianhsong/.local/bin/uv
 $UV venv /data/tmp/evopolicygym-agent-tools --python 3.12
 $UV pip install \
   --python /data/tmp/evopolicygym-agent-tools/bin/python \
-  '.[agent-tools]'
+  '.[agent-tools]' \
+  'imageio>=2.37,<3' \
+  'imageio-ffmpeg>=0.6,<0.7'
 ```
 
-This is one Agent work-and-analysis environment: the CLI, NumPy, and Pillow
-are all available to policy-development scripts. The Crafter package keeps the
+This is one Agent work-and-analysis environment: the CLI, NumPy, Pillow,
+ImageIO, and imageio-ffmpeg are all available to policy-development scripts.
+The Crafter package keeps the
 same NumPy/Pillow guarantees for formal Policy execution, while Codex is
 started with its local-image viewing tool enabled. The separate process
 boundary protects Benchmark ownership and hidden Episode identity; it no
@@ -289,17 +372,17 @@ keeps repository source outside the isolated Agent environment.
 ```console
 environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
   --model gpt-5.6-sol \
-  --record-to runs/crafter-survival-development512-sol-<run-id> \
+  --record-to runs/crafter-survival-development1024-sol-<run-id> \
   --profile survival-development \
   --max-episode-steps 10000 \
-  --seed <seed> \
-  --max-submissions 40 \
-  --episode-budget 512 \
+  --seed 20260804 \
+  --max-submissions 1024 \
+  --episode-budget 1024 \
   --max-episodes-per-submission 16 \
   --bulk-feedback-retention-bytes 1073741824 \
-  --validation-episodes-per-candidate 32 \
+  --validation-episodes-per-candidate 256 \
   --validation-max-candidates 3 \
-  --assessment-episodes 32 \
+  --assessment-episodes 512 \
   --episode-timeout-seconds 600 \
   --agent-timeout-seconds 43200 \
   --progress plain \
@@ -308,7 +391,9 @@ environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
 
 The packaged Benchmark skill stays disabled unless `--benchmark-skill` is
 passed. `--codex-executable` can select the caller-owned isolated Codex wrapper
-used by local experiments. EvoPolicyGym's `ProcessExecution.unsafe()` remains
+used by local experiments. The launcher treats `episode_budget` as an upper
+bound and records actual consumption. EvoPolicyGym's
+`ProcessExecution.unsafe()` remains
 explicitly non-sandboxed. The Run directory split enforces data ownership and
 publication semantics, but is not an operating-system security boundary; a
 formal source-access prohibition still requires caller-owned whole-process

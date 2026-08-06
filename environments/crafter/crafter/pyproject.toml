@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "evopolicygym==0.3.*",
     "crafter==1.8.3",
+    "imageio-ffmpeg>=0.6,<0.7",
     "numpy>=2,<3",
     "pillow>=12,<13",
 ]
@@ -67,6 +68,10 @@ files = ["src", "tests"]
 [[tool.mypy.overrides]]
 module = ["crafter"]
 follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["imageio_ffmpeg"]
 ignore_missing_imports = true
 
 [tool.ruff]

@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import cast
 from unittest.mock import patch
 
+import imageio_ffmpeg
 import numpy
 from evopolicygym import EvaluationConfig, EvaluationResult, Program, evaluate
-from evopolicygym.artifacts import ARTIFACT_MAX_BYTES
 from evopolicygym.authoring import (
     BenchmarkFixture,
     EpisodeRecord,
@@ -107,6 +107,28 @@ class _CountingCrafter:
 
 
 class CrafterBenchmarkTests(unittest.TestCase):
+    def test_replay_presentation_is_public_and_validated(self) -> None:
+        benchmark = CrafterBenchmark(
+            CrafterConfig(replay_fps=12, replay_size=128)
+        )
+
+        replay = benchmark.spec.metadata["public_replays"]
+        assert isinstance(replay, dict)
+        self.assertEqual(replay["frames_per_second"], 12)
+        self.assertEqual(replay["frame_size"], [128, 128])
+        self.assertEqual(replay["complete_artifact_episode_limit"], 16)
+        self.assertEqual(replay["detailed_artifact_splits"], ["train"])
+        self.assertEqual(benchmark.spec.environment_parameters["replay_fps"], 12)
+        self.assertEqual(benchmark.spec.environment_parameters["replay_size"], 128)
+        self.assertNotEqual(
+            benchmark.spec.environment_digest,
+            CrafterBenchmark().spec.environment_digest,
+        )
+        with self.assertRaises(ValueError):
+            CrafterConfig(replay_fps=0)
+        with self.assertRaises(ValueError):
+            CrafterConfig(replay_size=65)
+
     def test_episode_planning_is_reproducible_and_split_scoped(self) -> None:
         benchmark = CrafterBenchmark()
         train = tuple(benchmark.episodes("train", seed=7, count=10))
@@ -122,7 +144,55 @@ class CrafterBenchmarkTests(unittest.TestCase):
                 item.environment_seed for item in validation
             )
         )
-        self.assertTrue(all(item.scenario is None for item in train))
+        self.assertTrue(
+            all(
+                item.scenario == {"publish_detailed_artifacts": True}
+                for item in train
+            )
+        )
+        self.assertTrue(
+            all(
+                item.scenario == {"publish_detailed_artifacts": False}
+                for item in validation
+            )
+        )
+
+    def test_validation_and_test_feedback_do_not_generate_artifacts(self) -> None:
+        benchmark = CrafterBenchmark()
+        train_episode = benchmark.episodes("train", seed=7, count=1)[0]
+        validation_episode = benchmark.episodes(
+            "validation",
+            seed=7,
+            count=1,
+        )[0]
+        test_episode = benchmark.episodes("test", seed=7, count=1)[0]
+
+        train = benchmark.feedback(
+            (_record(("collect_wood",), reward=1.0, episode=train_episode),)
+        )
+        self.assertTrue(train.artifacts)
+        for episode in (validation_episode, test_episode):
+            with self.subTest(episode=episode):
+                feedback = benchmark.feedback(
+                    (_record(("collect_wood",), reward=1.0, episode=episode),)
+                )
+                self.assertEqual(feedback.artifacts, ())
+                assert isinstance(feedback.content, dict)
+                detailed = feedback.content["detailed_feedback"]
+                assert isinstance(detailed, dict)
+                self.assertIs(detailed["complete"], False)
+                self.assertEqual(
+                    detailed["reason"],
+                    "split_disables_detailed_artifacts",
+                )
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(
+                    environment_seed=1,
+                    scenario={"unexpected": True},
+                )
+            )
 
     def test_environment_replays_deterministically(self) -> None:
         fixtures = (
@@ -294,15 +364,24 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             names,
             (
-                "bulk/episodes/episode-000000/trajectory-000000.jsonl.gz",
-                "bulk/episodes/episode-000001/trajectory-000000.jsonl.gz",
+                "trajectories/episode-000000/trajectory-000000.jsonl.gz",
+                "replays/episode-000000/replay-000000.mp4",
+                "trajectories/episode-000001/trajectory-000000.jsonl.gz",
+                "replays/episode-000001/replay-000000.mp4",
                 "bulk/observations-000000.npz",
                 "artifact-manifest.json",
             ),
         )
         self.assertEqual(
             tuple(artifact.retention for artifact in feedback.artifacts),
-            ("bulk", "bulk", "bulk", "permanent"),
+            (
+                "permanent",
+                "bulk",
+                "permanent",
+                "bulk",
+                "bulk",
+                "permanent",
+            ),
         )
         trajectory = tuple(
             json.loads(line)
@@ -314,7 +393,7 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertEqual(trajectory[1]["observation_index"], 0)
         self.assertEqual(trajectory[1]["next_observation_index"], 1)
         with numpy.load(
-            io.BytesIO(feedback.artifacts[2].read_bytes()),
+            io.BytesIO(feedback.artifacts[4].read_bytes()),
             allow_pickle=False,
         ) as archive:
             self.assertEqual(archive["observations"].shape, (3, 64, 64, 3))
@@ -330,12 +409,26 @@ class CrafterBenchmarkTests(unittest.TestCase):
         manifest = json.loads(feedback.artifacts[-1].read_bytes())
         self.assertEqual(
             manifest["schema"],
-            "crafter/complete-feedback-manifest/v1",
+            "crafter/complete-feedback-manifest/v2",
         )
         self.assertIs(manifest["complete"], True)
         self.assertEqual(manifest["episodes"], 2)
         self.assertEqual(manifest["transitions"], 1)
         self.assertEqual(manifest["observations"], 3)
+        self.assertEqual(len(manifest["replay_artifacts"]), 2)
+        self.assertEqual(
+            manifest["replay_artifacts"][0]["video_frames"],
+            2,
+        )
+        replay = feedback.artifacts[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            replay_path = Path(temporary) / "replay.mp4"
+            replay_path.write_bytes(replay.read_bytes())
+            decoded_frames, duration = imageio_ffmpeg.count_frames_and_secs(
+                replay_path
+            )
+        self.assertEqual(decoded_frames, 2)
+        self.assertAlmostEqual(duration, 0.2)
 
         public = b"".join(
             artifact.read_bytes() for artifact in feedback.artifacts
@@ -349,28 +442,15 @@ class CrafterBenchmarkTests(unittest.TestCase):
         record = _record(("collect_wood",), reward=1.0)
         feedback = CrafterBenchmark().feedback((record,) * 1_000)
 
-        trajectory_artifacts = tuple(
-            artifact
-            for artifact in feedback.artifacts
-            if artifact.name.endswith("trajectory-000000.jsonl.gz")
-        )
-        observation_artifacts = tuple(
-            artifact
-            for artifact in feedback.artifacts
-            if artifact.name.endswith(".npz")
-        )
-        self.assertEqual(len(trajectory_artifacts), 1_000)
-        self.assertEqual(len(observation_artifacts), 2)
-        self.assertEqual(len(feedback.artifacts), 1_003)
-        self.assertTrue(
-            all(artifact.size <= ARTIFACT_MAX_BYTES for artifact in feedback.artifacts)
-        )
+        self.assertEqual(feedback.artifacts, ())
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
         detailed = feedback.content["detailed_feedback"]
         self.assertIsInstance(detailed, dict)
         assert isinstance(detailed, dict)
-        self.assertIs(detailed["complete"], True)
+        self.assertIs(detailed["complete"], False)
+        self.assertEqual(detailed["detail_scope"], "aggregate-only")
+        self.assertEqual(detailed["detailed_artifact_episode_limit"], 16)
         self.assertEqual(detailed["episodes"], 1_000)
         self.assertEqual(detailed["transitions"], 1_000)
         self.assertEqual(detailed["observations"], 2_000)
@@ -802,7 +882,7 @@ class CrafterBenchmarkTests(unittest.TestCase):
         manifest = json.loads(feedback.artifacts[-1].read_bytes())
         self.assertEqual(
             manifest["schema"],
-            "crafter/complete-feedback-manifest/v2",
+            "crafter/complete-feedback-manifest/v3",
         )
         trajectory = tuple(
             json.loads(line)
@@ -1141,10 +1221,12 @@ class CrafterBenchmarkTests(unittest.TestCase):
             abs(cast(float, components["reconstruction_error"])),
             1e-12,
         )
-        manifest = json.loads(result.feedback.artifacts[-1].read_bytes())
+        self.assertEqual(result.feedback.artifacts, ())
+        detailed = result.feedback.content["detailed_feedback"]
+        assert isinstance(detailed, dict)
         self.assertEqual(
-            manifest["schema"],
-            "crafter/complete-feedback-manifest/v2",
+            detailed["reason"],
+            "split_disables_detailed_artifacts",
         )
 
     def test_baseline_exposes_executable_empty_capability_scaffold(self) -> None:
@@ -1247,6 +1329,7 @@ def _record(
     achievements: tuple[str, ...],
     *,
     reward: float,
+    episode: EpisodeSpec | None = None,
 ) -> EpisodeRecord:
     step = Step(
         observation=_ZERO_OBSERVATION,
@@ -1255,7 +1338,11 @@ def _record(
         metrics={"achievements_unlocked": list(achievements)},
     )
     return EpisodeRecord(
-        episode=EpisodeSpec(environment_seed=10),
+        episode=(
+            EpisodeSpec(environment_seed=10)
+            if episode is None
+            else episode
+        ),
         policy_seed=20,
         initial_observation=_ZERO_OBSERVATION,
         transitions=(Transition(action=5, step=step),),

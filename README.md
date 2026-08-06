@@ -118,6 +118,15 @@ use separate private allocations after the Agent has finished.
 Episode budget makes interaction efficiency comparable within one Benchmark;
 it is not a cross-Benchmark measure of compute cost.
 
+`RunConfig.finish_budget_policy` controls whether the Agent may hand candidates
+to the Host before using every Episode unit. The default, `allow_early`, keeps
+the budget as a maximum and lets the Agent stop when further experimentation is
+not worthwhile. `require_budget_exhaustion` turns it into a required allocation:
+an early `finish` returns `budget_remaining` without closing Agent authority,
+and the Agent must continue submitting until `episodes_remaining` reaches zero.
+The strict policy also rejects submission sizes that would make full budget
+use impossible within the remaining Submission limit.
+
 ## Quickstart
 
 EvoPolicyGym requires Python 3.12 and
@@ -213,7 +222,10 @@ evopolicygym-session finish submission-000002 submission-000003
 
 `submit` requests an experiment over selected Run-local Episode indices.
 `finish` hands published candidates to the Host and permanently closes Agent
-authority before private Validation and Assessment.
+authority before private Validation and Assessment. Runs configured with
+`finish_budget_policy="require_budget_exhaustion"` reject `finish` while any
+Episode budget remains; the rejection is retryable and does not change the
+candidate set.
 
 For AI-assisted setup, SDK usage, provider integration, Benchmark authoring,
 and Run diagnostics, use the reusable

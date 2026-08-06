@@ -74,6 +74,23 @@ not returned to this Agent Session. Exceeding the candidate limit, repeating a
 candidate, or naming an unpublished submission rejects the whole finish
 request, so you may correct it and retry.
 """
+    if config.finish_budget_policy == "require_budget_exhaustion":
+        finish_budget_guidance = """\
+This Run requires you to spend the entire Episode budget before finish can
+succeed. A finish request while Episode units remain is rejected with
+budget_remaining and leaves your authority open. Plan submission sizes so the
+budget can reach zero within the submission limit. The Host rejects a
+submission that is too small to preserve that possibility. After a successful
+submission reports zero episodes_remaining, call finish with your selected
+published candidate or candidates.
+
+"""
+    else:
+        finish_budget_guidance = """\
+You may call finish with unused Episode budget when you judge that further
+experimentation is not worthwhile.
+
+"""
     assessment_guidance = ""
     if config.assessment is not None:
         assessment_guidance = """\
@@ -183,6 +200,7 @@ Iterate by inspecting the Program, editing it, submitting it, and using the
 published Feedback.
 
 {finish_guidance}
+{finish_budget_guidance}\
 {assessment_guidance}\
 Unsubmitted workspace edits are never candidates or the final Program. Do not
 exit before calling finish successfully.

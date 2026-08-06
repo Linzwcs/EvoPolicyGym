@@ -298,12 +298,20 @@ over-budget selections are rejected before Program capture. Reusing an index
 across Submissions is valid and consumes budget again. The mapping is fixed
 for the Run, while Evaluation still creates a fresh Environment, Policy
 process, Policy instance, and scratch directory for every selected index.
+When `finish_budget_policy` requires budget exhaustion, admission additionally
+rejects a selection that would leave more Episode units than the remaining
+Submission slots can consume. Session construction rejects a strict
+configuration whose total capacity can never exhaust its Episode budget.
 
 `finish` also uses `agent-session/v3` and accepts a non-empty
 `submission_ids` list. The Host rejects malformed, duplicate, unknown, or
 over-limit candidates before changing Session state. A successful request
 closes Agent authority; it does not select a final Program inside the Session.
-Without Validation, exactly one candidate is allowed.
+Without Validation, exactly one candidate is allowed. The default
+`allow_early` finish budget policy admits a valid request with unused Episode
+units. `require_budget_exhaustion` instead returns a retryable
+`budget_remaining` rejection until the remaining count is zero. That rejection
+does not close authority, publish a candidate set, or consume budget.
 
 Validation uses a Run-seed-derived domain-separated seed and one identical
 `EvaluationConfig` for every candidate. Selection compares primary score in
@@ -334,10 +342,10 @@ from older submissions in chronological order and updates each view's
 Artifacts, and the complete newest submission. Submission Feedback uses
 `evopolicygym/feedback/v2` and maps every public Episode summary to its
 Run-local training index. `run.json` uses
-`evopolicygym/run-record/v7`, retains the bulk capacity, pool size, derivation protocol,
-the public Environment parameters and canonical digest beside the Benchmark
-ID, selected index sets, selected Skill names, digests, and snapshot paths,
-and references the available aggregate reports.
+`evopolicygym/run-record/v8`, retains the finish budget policy, bulk capacity,
+pool size, derivation protocol, the public Environment parameters and canonical
+digest beside the Benchmark ID, selected index sets, selected Skill names,
+digests, and snapshot paths, and references the available aggregate reports.
 
 This is a logical lifecycle and publication boundary, not a security boundary:
 `ProcessExecution` remains non-isolated. A Benchmark that requires

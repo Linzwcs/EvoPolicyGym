@@ -7,6 +7,7 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from ..agents import CodingAgent
 from ..benchmark import Benchmark
@@ -19,6 +20,11 @@ from .progress import ConsoleProgress, RunEvent, RunObserver
 _MAX_AGENT_SKILLS = 16
 _MAX_AGENT_SKILL_FILES = 2_048
 _MAX_AGENT_SKILL_BYTES = 64 * 1024 * 1024
+
+type FinishBudgetPolicy = Literal[
+    "allow_early",
+    "require_budget_exhaustion",
+]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -61,6 +67,7 @@ class RunConfig:
     episode_budget: int = 1_000
     episode_pool_size: int | None = None
     max_episodes_per_submission: int | None = None
+    finish_budget_policy: FinishBudgetPolicy = "allow_early"
     bulk_feedback_retention_bytes: int = 1024 * 1024 * 1024
     validation: ValidationConfig | None = None
     assessment: AssessmentConfig | None = None
@@ -101,6 +108,27 @@ class RunConfig:
                     "max_episodes_per_submission cannot exceed "
                     "episode_pool_size"
                 )
+        if (
+            type(self.finish_budget_policy) is not str
+            or self.finish_budget_policy
+            not in {"allow_early", "require_budget_exhaustion"}
+        ):
+            raise ValueError(
+                "finish_budget_policy must be 'allow_early' or "
+                "'require_budget_exhaustion'"
+            )
+        configured_submission_capacity = (
+            pool_size if submission_limit is None else submission_limit
+        )
+        if (
+            self.finish_budget_policy == "require_budget_exhaustion"
+            and self.episode_budget
+            > self.max_submissions * configured_submission_capacity
+        ):
+            raise ValueError(
+                "finish_budget_policy requires an Episode budget that can be "
+                "exhausted within max_submissions"
+            )
         if (
             type(self.bulk_feedback_retention_bytes) is not int
             or self.bulk_feedback_retention_bytes <= 0
@@ -208,6 +236,7 @@ def _select_skills(
 __all__ = [
     "AssessmentConfig",
     "ConsoleProgress",
+    "FinishBudgetPolicy",
     "RunConfig",
     "RunEvent",
     "RunObserver",

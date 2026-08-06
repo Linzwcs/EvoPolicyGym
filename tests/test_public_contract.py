@@ -449,6 +449,7 @@ description: Improve counter policies.
         self.assertEqual(run.episode_budget, 20)
         self.assertEqual(run.episode_pool_size, 20)
         self.assertIsNone(run.max_episodes_per_submission)
+        self.assertEqual(run.finish_budget_policy, "allow_early")
         self.assertEqual(
             run.bulk_feedback_retention_bytes,
             1024 * 1024 * 1024,
@@ -457,6 +458,7 @@ description: Improve counter policies.
             episode_budget=20,
             episode_pool_size=12,
             max_episodes_per_submission=5,
+            finish_budget_policy="require_budget_exhaustion",
             validation=ValidationConfig(
                 episodes_per_candidate=7,
                 max_candidates=2,
@@ -467,6 +469,10 @@ description: Improve counter policies.
         )
         self.assertEqual(capped.max_episodes_per_submission, 5)
         self.assertEqual(capped.episode_pool_size, 12)
+        self.assertEqual(
+            capped.finish_budget_policy,
+            "require_budget_exhaustion",
+        )
         self.assertEqual(
             capped.validation,
             ValidationConfig(
@@ -490,6 +496,18 @@ description: Improve counter policies.
             RunConfig(episode_pool_size=0)
         with self.assertRaises(ValueError):
             RunConfig(bulk_feedback_retention_bytes=0)
+        with self.assertRaises(ValueError):
+            RunConfig(finish_budget_policy="invalid")  # type: ignore[arg-type]
+        with self.assertRaisesRegex(
+            ValueError,
+            "can be exhausted within max_submissions",
+        ):
+            RunConfig(
+                max_submissions=2,
+                episode_budget=5,
+                episode_pool_size=2,
+                finish_budget_policy="require_budget_exhaustion",
+            )
         with self.assertRaises(ValueError):
             RunConfig(
                 episode_budget=10,
@@ -1081,6 +1099,24 @@ assert feedback["content"] == {{"status": "complete", "completed": 0}}
 assert not (workspace / "events.jsonl").exists()
 assert not (workspace / "agent").exists()
 
+early_finish = subprocess.run(
+    [
+        sys.executable,
+        "-m",
+        "evopolicygym.run._session.cli",
+        "finish",
+        first["result"]["submission_id"],
+    ],
+    check=False,
+    capture_output=True,
+    text=True,
+)
+assert early_finish.returncode == 1
+early_error = json.loads(early_finish.stderr)
+assert early_error["error"]["code"] == "budget_remaining"
+assert "1 Episode budget unit remains" in early_error["error"]["message"]
+assert not early_finish.stdout
+
 (workspace / "program" / "policy.py").write_text(
     {improved_source!r},
     encoding="utf-8",
@@ -1138,6 +1174,7 @@ print("fake-agent-finished")
                 config=RunConfig(
                     max_submissions=2,
                     episode_budget=2,
+                    finish_budget_policy="require_budget_exhaustion",
                     validation=ValidationConfig(
                         episodes_per_candidate=2,
                         max_candidates=2,
@@ -1226,6 +1263,10 @@ print("fake-agent-finished")
             2,
         )
         self.assertEqual(
+            [event["event"] for event in events].count("finish_rejected"),
+            1,
+        )
+        self.assertEqual(
             [event["event"] for event in events].count("episode_completed"),
             2,
         )
@@ -1239,8 +1280,12 @@ print("fake-agent-finished")
             [event.name for event in observer.events],
             [event["event"] for event in events],
         )
-        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v7")
+        self.assertEqual(manifest["schema"], "evopolicygym/run-record/v8")
         self.assertEqual(manifest["config"]["episode_pool_size"], 2)
+        self.assertEqual(
+            manifest["config"]["finish_budget_policy"],
+            "require_budget_exhaustion",
+        )
         self.assertEqual(
             manifest["config"]["bulk_feedback_retention_bytes"],
             1024 * 1024 * 1024,

@@ -7,7 +7,7 @@ navigation task.
 The Policy receives the upstream `7 × 7 × 3` egocentric symbolic image,
 compass direction, and fixed mission. It must discover a chain of rooms, open
 the connecting doors, and reach the green goal in the final room. The primary
-score is Episode success rate.
+score is mean upstream Episode return; success rate remains separately reported.
 
 The image uses `image[view_x, view_y, channel]`: the agent is at `(3, 6)`,
 forward decreases `view_y`, and right increases `view_x`. Actions `3`

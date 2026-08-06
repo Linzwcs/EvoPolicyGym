@@ -110,7 +110,7 @@ class _EpisodeDiagnostics:
 
 
 class RedBlueDoorsBenchmark:
-    """Success rate for opening two colored doors in order."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(
         self,
@@ -158,7 +158,7 @@ class RedBlueDoorsBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         red_found = _milestone_count(records, "red_door_found")
         blue_found = _milestone_count(records, "blue_door_found")
         red_opened = _milestone_count(records, "red_door_opened")
@@ -188,11 +188,11 @@ class RedBlueDoorsBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Opened red then blue in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate); {blue_before_red} "
+                f"Episodes ({success_rate:.3f} success rate); {blue_before_red} "
                 f"opened blue before ever opening red and "
                 f"{blue_after_reclose} opened blue after reclosing red."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "red_door_found_rate": red_found / len(records),
             "blue_door_found_rate": blue_found / len(records),
             "red_door_opened_rate": red_opened / len(records),
@@ -259,7 +259,7 @@ class RedBlueDoorsBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -267,10 +267,10 @@ class RedBlueDoorsBenchmark:
 
 def _benchmark_spec(config: RedBlueDoorsConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/RedBlueDoors-v0/success-rate-v1",
+        id="minigrid/RedBlueDoors-v0/mean-return-v1",
         description=(
             "Explore the central room, open the red door, then open the blue "
-            "door. Opening blue first fails immediately. Maximize success rate."
+            "door. Opening blue first fails immediately. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -343,7 +343,7 @@ def _benchmark_spec(config: RedBlueDoorsConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

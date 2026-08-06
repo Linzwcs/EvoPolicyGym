@@ -41,7 +41,7 @@ _TRACE_SUFFIX_STEPS = 32
 
 
 class MetaWorldBenchmark:
-    """Success rate for one fixed MetaWorld MT task collection."""
+    """Mean environment return for one fixed MetaWorld MT task collection."""
 
     def __init__(self, config: MetaWorldConfig | None = None) -> None:
         if config is None:
@@ -92,7 +92,11 @@ class MetaWorldBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        score = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         traced = records[:_MAX_TRACED_EPISODES]
         trace, traced_transitions, omitted_transitions = _trace(
             traced,
@@ -155,12 +159,10 @@ class MetaWorldBenchmark:
             content={
                 "summary": (
                     f"Solved {successes}/{len(records)} MetaWorld Episodes "
-                    f"({score:.3f} success rate)."
+                    f"({success_rate:.3f} success rate) with {score:.3f} mean return."
                 ),
-                "success_rate": score,
-                "mean_return": statistics.fmean(
-                    r.total_reward if r.policy_failure is None else 0.0 for r in records
-                ),
+                "success_rate": success_rate,
+                "mean_return": score,
                 "mean_steps": statistics.fmean(r.steps for r in records),
                 "mean_steps_on_success": (
                     statistics.fmean(record.steps for record in successful) if successful else None
@@ -289,11 +291,11 @@ def _spec(config: MetaWorldConfig) -> BenchmarkSpec:
         else config.collection_name.upper()
     )
     return BenchmarkSpec(
-        id=f"metaworld/{benchmark_name}/success-rate-v1",
+        id=f"metaworld/{benchmark_name}/mean-return-v1",
         description=(
             f"Complete tasks from MetaWorld's {benchmark_name} collection. "
-            "Maximize the fraction of Episodes reaching the public success "
-            "condition."
+            "Maximize mean upstream Episode return; success rate remains a "
+            "reported task-completion outcome."
         ),
         observation_space=observation,
         action_space={
@@ -349,7 +351,7 @@ def _spec(config: MetaWorldConfig) -> BenchmarkSpec:
             ),
         },
         max_episode_steps=_MAX_EPISODE_STEPS,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

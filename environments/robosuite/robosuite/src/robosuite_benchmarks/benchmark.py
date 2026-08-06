@@ -38,7 +38,7 @@ _TRACE_SUFFIX_STEPS = 8
 
 
 class RobosuiteBenchmark:
-    """Success rate for one fixed robosuite manipulation profile."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: RobosuiteConfig | None = None) -> None:
         if config is None:
@@ -82,7 +82,11 @@ class RobosuiteBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        score = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         final_metrics = tuple(
             metrics for record in records if (metrics := _final_metrics(record)) is not None
         )
@@ -106,14 +110,11 @@ class RobosuiteBenchmark:
             content={
                 "summary": (
                     f"Solved {successes}/{len(records)} robosuite Episodes "
-                    f"({score:.3f} success rate)."
+                    f"({success_rate:.3f} success rate) with {score:.3f} mean return."
                 ),
                 "profile": self._config.profile,
-                "success_rate": score,
-                "mean_return": statistics.fmean(
-                    record.total_reward if record.policy_failure is None else 0.0
-                    for record in records
-                ),
+                "success_rate": success_rate,
+                "mean_return": score,
                 "mean_steps": statistics.fmean(record.steps for record in records),
                 "mean_steps_to_first_success": _mean_present(
                     tuple(
@@ -175,7 +176,7 @@ def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
 
 def _spec(config: RobosuiteConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id=f"robosuite/{config.environment_id}/panda-state/success-rate-v1",
+        id=f"robosuite/{config.environment_id}/panda-state/mean-return-v1",
         description=(
             f"Complete robosuite {config.environment_id} with fixed Panda "
             "robots and the BASIC operational-space controller."
@@ -238,7 +239,7 @@ def _spec(config: RobosuiteConfig) -> BenchmarkSpec:
             "max_episode_steps": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

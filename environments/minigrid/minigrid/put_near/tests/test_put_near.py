@@ -26,7 +26,7 @@ class PutNearBenchmarkTests(unittest.TestCase):
         default = PutNearBenchmark()
         small = PutNearBenchmark(PutNearConfig(profile="6x6-N2"))
 
-        self.assertEqual(default.spec.id, "minigrid/PutNear-v0/success-rate-v1")
+        self.assertEqual(default.spec.id, "minigrid/PutNear-v0/mean-return-v1")
         self.assertEqual(default.spec.max_episode_steps, 40)
         self.assertEqual(small.spec.max_episode_steps, 30)
         self.assertNotEqual(default.spec.environment_digest, small.spec.environment_digest)
@@ -263,10 +263,13 @@ class PutNearBenchmarkTests(unittest.TestCase):
                 assert isinstance(content, dict)
                 self.assertEqual(
                     result.benchmark_id,
-                    "minigrid/PutNear-v0/success-rate-v1",
+                    "minigrid/PutNear-v0/mean-return-v1",
                 )
                 self.assertEqual(result.environment_digest, benchmark.spec.environment_digest)
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertEqual(content["wrong_object_picked_up_rate"], 0.0)
                 self.assertEqual(content["misplaced_drop_rate"], 0.0)
                 self.assertEqual(content["blocked_terminal_drop_rate"], 0.0)

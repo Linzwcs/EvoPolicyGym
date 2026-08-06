@@ -10,7 +10,8 @@ balls move locally before every action. The only valid actions are left,
 right, and forward. The upstream environment checks the cell ahead, moves the
 balls, then applies the Action; trying to move forward into any cell that was
 occupied by a non-goal object ends the Episode with reward `-1`. This includes
-both a grey ball and a wall. The primary score is Episode success rate.
+both a grey ball and a wall. The primary score is mean upstream Episode return;
+success rate remains separately reported.
 
 ## Install and test
 

@@ -110,7 +110,7 @@ class _EpisodeDiagnostics:
 
 
 class GoToObjectBenchmark:
-    """Success rate on a partially observable instruction-following task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: GoToObjectConfig | None = None) -> None:
         if config is None:
@@ -156,7 +156,7 @@ class GoToObjectBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         found_targets = _milestone_count(records, "target_found")
         wrong_completions = _milestone_count(records, "wrong_completion")
         premature_toggles = _milestone_count(records, "premature_toggle")
@@ -179,11 +179,11 @@ class GoToObjectBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Declared completion beside the mission target in "
-                f"{successes}/{len(records)} Episodes ({score:.3f} success "
+                f"{successes}/{len(records)} Episodes ({success_rate:.3f} success "
                 f"rate); {premature_toggles} terminated with toggle and "
                 f"{wrong_done} issued done from a wrong location."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "target_found_rate": found_targets / len(records),
             "wrong_completion_rate": wrong_completions / len(records),
             "premature_toggle_rate": premature_toggles / len(records),
@@ -239,7 +239,7 @@ class GoToObjectBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -247,11 +247,11 @@ class GoToObjectBenchmark:
 
 def _benchmark_spec(config: GoToObjectConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/GoToObject-v0/success-rate-v1",
+        id="minigrid/GoToObject-v0/mean-return-v1",
         description=(
             "Read the natural-language mission, explore the partially "
             "observable room, stand next to the matching colored key, ball, "
-            "or box, and declare completion. Maximize success rate."
+            "or box, and declare completion. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -326,7 +326,7 @@ def _benchmark_spec(config: GoToObjectConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

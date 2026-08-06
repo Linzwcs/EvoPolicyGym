@@ -137,7 +137,7 @@ _FINAL_COUNT_METRICS = (
 
 
 class BabyAIBenchmark:
-    """Success rate for one Host-selected BabyAI task profile."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: BabyAIConfig | None = None) -> None:
         if config is None:
@@ -179,7 +179,11 @@ class BabyAIBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _success(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         traced = records[:4]
         event_counts = {
             name: sum(_reached(record, name) for record in records) for name in _EVENT_METRICS
@@ -190,11 +194,11 @@ class BabyAIBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Completed the instruction in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate); "
+                f"Episodes ({success_rate:.3f} success rate); "
                 f"{event_counts['instruction_failure']} instruction failures "
                 f"and {sum(_truncated(record) for record in records)} timeouts."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_return": statistics.fmean(
                 record.total_reward if record.policy_failure is None else 0.0 for record in records
             ),
@@ -228,7 +232,7 @@ class BabyAIBenchmark:
         for name in _FINAL_COUNT_METRICS:
             content[f"mean_{name}"] = _mean_final_int(final_metrics, name)
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace(traced),),
         )
@@ -236,7 +240,7 @@ class BabyAIBenchmark:
 
 def _spec(config: BabyAIConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id=f"minigrid/BabyAI-{config.family}-v0/success-rate-v1",
+        id=f"minigrid/BabyAI-{config.family}-v0/mean-return-v1",
         description=(
             "Interpret the public BabyAI instruction and complete the selected task profile."
         ),
@@ -309,7 +313,7 @@ def _spec(config: BabyAIConfig) -> BenchmarkSpec:
             "state_encoding": {name: code for code, name in enumerate(_STATES)},
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

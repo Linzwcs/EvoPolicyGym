@@ -195,7 +195,7 @@ class _EpisodeDiagnostics:
 
 
 class MultiRoomBenchmark:
-    """Success rate on a partially observable connected-room task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: MultiRoomConfig | None = None) -> None:
         if config is None:
@@ -241,7 +241,11 @@ class MultiRoomBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         milestones = {
             name: sum(_reached_bool_milestone(record, metric) for record in records)
             for name, metric in _MILESTONES.items()
@@ -255,11 +259,11 @@ class MultiRoomBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the final-room goal in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate); recorded "
+                f"Episodes ({success_rate:.3f} success rate); recorded "
                 f"{sum(item.door_open_event_count for item in diagnostics)} "
                 "door-opening events."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_door_open_event_count": _mean_or_none(
                 tuple(float(item.door_open_event_count) for item in diagnostics)
             ),
@@ -323,7 +327,7 @@ class MultiRoomBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -331,11 +335,11 @@ class MultiRoomBenchmark:
 
 def _benchmark_spec(config: MultiRoomConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/MultiRoom-v0/success-rate-v1",
+        id="minigrid/MultiRoom-v0/mean-return-v1",
         description=(
             "Explore a chain of partially observable rooms, open successive "
             "doors, and reach the green goal in the final room. Maximize "
-            "success rate."
+            "upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -415,7 +419,7 @@ def _benchmark_spec(config: MultiRoomConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

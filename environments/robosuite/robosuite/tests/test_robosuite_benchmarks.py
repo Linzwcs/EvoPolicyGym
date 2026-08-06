@@ -247,6 +247,9 @@ class RobosuiteBenchmarkTests(unittest.TestCase):
             ],
         )
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
+        self.assertEqual(benchmark.spec.primary_metric, "mean_return")
+        self.assertTrue(benchmark.spec.id.endswith("/mean-return-v1"))
         self.assertEqual(feedback.content["video_episodes"], 3)
         self.assertEqual(feedback.content["video_episode_results"], 3)
         self.assertEqual(feedback.content["video_episodes_without_gif"], 0)

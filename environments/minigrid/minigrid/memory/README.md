@@ -7,7 +7,7 @@ partially observable T-maze.
 The Policy sees the upstream `7 × 7 × 3` egocentric symbolic image, compass
 direction, and mission text. It must remember whether the green cue was a key
 or a ball, walk down the corridor, and select the matching object. The primary
-score is Episode success rate.
+score is mean upstream Episode return; success rate remains separately reported.
 
 Only `turn_left`, `turn_right`, and `move_forward` are public Actions. The
 upstream environment silently rewrites its nominal `pickup` Action into

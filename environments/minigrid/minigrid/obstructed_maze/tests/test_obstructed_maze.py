@@ -83,7 +83,7 @@ class ObstructedMazeTests(unittest.TestCase):
         benchmark = ObstructedMazeBenchmark()
         self.assertEqual(
             benchmark.spec.id,
-            "minigrid/ObstructedMaze-v0/success-rate-v1",
+            "minigrid/ObstructedMaze-v0/mean-return-v1",
         )
         self.assertEqual(benchmark.spec.max_episode_steps, 288)
         full = ObstructedMazeBenchmark(ObstructedMazeConfig(profile="Full-v1"))
@@ -294,7 +294,10 @@ class ObstructedMazeTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertEqual(result.feedback.artifacts[0].name, "trace.jsonl")
                 documents = tuple(
                     json.loads(line)

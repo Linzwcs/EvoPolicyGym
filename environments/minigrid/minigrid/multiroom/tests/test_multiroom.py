@@ -29,7 +29,7 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
         fixed = MultiRoomBenchmark(MultiRoomConfig(profile="N4-S5"))
         legacy = MultiRoomBenchmark(MultiRoomConfig(profile="N4-S5-v0-legacy-N6"))
 
-        self.assertEqual(default.spec.id, "minigrid/MultiRoom-v0/success-rate-v1")
+        self.assertEqual(default.spec.id, "minigrid/MultiRoom-v0/mean-return-v1")
         self.assertEqual(default.spec.max_episode_steps, 120)
         self.assertEqual(small.spec.max_episode_steps, 40)
         self.assertEqual(fixed.spec.max_episode_steps, 80)
@@ -264,10 +264,13 @@ class MultiRoomBenchmarkTests(unittest.TestCase):
 
                 self.assertEqual(
                     result.benchmark_id,
-                    "minigrid/MultiRoom-v0/success-rate-v1",
+                    "minigrid/MultiRoom-v0/mean-return-v1",
                 )
                 self.assertEqual(result.environment_digest, benchmark.spec.environment_digest)
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(result.feedback.content["goal_found_rate"], 1.0)

@@ -29,8 +29,9 @@ and show the packed little-endian `float64` decoding pattern for Policies.
 Run-visible traces retain only the Policy-visible state and task one-hot; they
 never include Episode seeds, Host scenarios, or other private Case identity.
 
-The primary metric is success rate. Mean return and public reward-component
-traces provide intermediate optimization feedback. Current values, per-step
+The primary metric is mean Episode return from MetaWorld's upstream dense
+reward. Success rate remains a separately reported task-completion outcome.
+Public reward-component traces provide intermediate optimization feedback. Current values, per-step
 changes, and Episode-best values are reported for reach/contact, grasp,
 in-place progress, object-to-target distance, and dense reward. Feedback also
 distinguishes current versus ever-achieved success/grasp, first achievement,

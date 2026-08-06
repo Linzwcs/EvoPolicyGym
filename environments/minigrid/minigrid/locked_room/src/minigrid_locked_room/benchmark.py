@@ -163,7 +163,7 @@ class _EpisodeDiagnostics:
 
 
 class LockedRoomBenchmark:
-    """Success rate for the six-room key-conditioned navigation task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self) -> None:
         self._spec = _spec()
@@ -199,7 +199,11 @@ class LockedRoomBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         counts = {name: sum(_reached(record, name) for record in records) for name in _MILESTONES}
         successful = tuple(record for record in records if _success(record))
         diagnostics = tuple(
@@ -212,9 +216,9 @@ class LockedRoomBenchmark:
             "summary": (
                 f"Recovered the mission key, unlocked its room, and reached "
                 f"the goal in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate)."
+                f"({success_rate:.3f} success rate)."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_unique_door_color_count_opened": _mean_or_none(
                 tuple(float(item.unique_door_color_count_opened) for item in diagnostics)
             ),
@@ -287,7 +291,7 @@ class LockedRoomBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace(traced),),
         )
@@ -295,7 +299,7 @@ class LockedRoomBenchmark:
 
 def _spec() -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/LockedRoom-v0/success-rate-v1",
+        id="minigrid/LockedRoom-v0/mean-return-v1",
         description=(
             "Search six rooms according to the mission, recover the key "
             "matching the locked room, unlock it, and reach its goal."
@@ -373,7 +377,7 @@ def _spec() -> BenchmarkSpec:
             "time_limit": 190,
         },
         max_episode_steps=190,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

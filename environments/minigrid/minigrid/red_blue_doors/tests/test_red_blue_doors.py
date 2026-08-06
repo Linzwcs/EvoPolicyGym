@@ -28,7 +28,7 @@ class RedBlueDoorsBenchmarkTests(unittest.TestCase):
         small = RedBlueDoorsBenchmark(RedBlueDoorsConfig(profile="6x6"))
         self.assertEqual(
             default.spec.id,
-            "minigrid/RedBlueDoors-v0/success-rate-v1",
+            "minigrid/RedBlueDoors-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 1_280)
         self.assertEqual(small.spec.max_episode_steps, 720)
@@ -223,7 +223,10 @@ class RedBlueDoorsBenchmarkTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

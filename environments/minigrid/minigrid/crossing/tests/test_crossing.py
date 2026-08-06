@@ -28,7 +28,7 @@ class CrossingTests(unittest.TestCase):
         large = CrossingBenchmark(CrossingConfig(profile="lava-S11-N5"))
         self.assertEqual(
             default.spec.id,
-            "minigrid/Crossing-v0/success-rate-v1",
+            "minigrid/Crossing-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 324)
         self.assertEqual(large.spec.max_episode_steps, 484)
@@ -185,7 +185,10 @@ class CrossingTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

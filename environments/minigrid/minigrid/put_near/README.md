@@ -11,7 +11,7 @@ Picking up a wrong object terminates immediately. Every drop attempted while
 carrying also terminates: an actual adjacent drop succeeds, an actual
 non-adjacent drop is misplaced, and a drop into an occupied cell is a distinct
 blocked-drop failure that leaves the object carried. The primary score is
-Episode success rate.
+mean upstream Episode return; success rate remains separately reported.
 
 Although upstream documentation labels `toggle` unused, toggling an empty box
 destroys it without termination. Destroying either named mission object makes

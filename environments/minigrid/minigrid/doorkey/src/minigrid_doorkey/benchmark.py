@@ -101,7 +101,7 @@ class _EpisodeDiagnostics:
 
 
 class DoorKeyBenchmark:
-    """Success rate on a partially observable key-door navigation task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: DoorKeyConfig | None = None) -> None:
         if config is None:
@@ -147,7 +147,7 @@ class DoorKeyBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         found_keys = sum(_reached_milestone(record, "key_found") for record in records)
         picked_up_keys = sum(_reached_milestone(record, "picked_up_key") for record in records)
         opened_doors = sum(_reached_milestone(record, "opened_door") for record in records)
@@ -171,11 +171,11 @@ class DoorKeyBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the goal in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); {found_keys} saw the key, "
+                f"({success_rate:.3f} success rate); {found_keys} saw the key, "
                 f"{picked_up_keys} picked it up, {opened_doors} opened the "
                 f"door, and {found_goals} saw the goal."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "key_found_rate": found_keys / len(records),
             "key_pickup_rate": picked_up_keys / len(records),
             "door_found_rate": found_doors / len(records),
@@ -238,7 +238,7 @@ class DoorKeyBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -246,11 +246,11 @@ class DoorKeyBenchmark:
 
 def _benchmark_spec(config: DoorKeyConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/DoorKey-v0/success-rate-v1",
+        id="minigrid/DoorKey-v0/mean-return-v1",
         description=(
             "Explore a partially observable room, pick up the yellow key, "
             "unlock the yellow door, and reach the green goal. Maximize "
-            "success rate."
+            "upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -320,7 +320,7 @@ def _benchmark_spec(config: DoorKeyConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

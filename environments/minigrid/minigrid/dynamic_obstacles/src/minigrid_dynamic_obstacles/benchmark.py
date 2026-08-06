@@ -98,7 +98,7 @@ class _EpisodeDiagnostics:
 
 
 class DynamicObstaclesBenchmark:
-    """Success rate while avoiding moving obstacles."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(
         self,
@@ -150,7 +150,7 @@ class DynamicObstaclesBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         found_goals = _milestone_count(records, "goal_found")
         found_obstacles = _milestone_count(records, "obstacle_found")
         collisions = _milestone_count(records, "collision")
@@ -177,11 +177,11 @@ class DynamicObstaclesBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the goal in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); {collisions} made a blocked "
+                f"({success_rate:.3f} success rate); {collisions} made a blocked "
                 f"forward move ({obstacle_collisions} into a moving ball, "
                 f"{wall_collisions} into a wall)."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "goal_found_rate": found_goals / len(records),
             "obstacle_found_rate": found_obstacles / len(records),
             "collision_rate": collisions / len(records),
@@ -240,7 +240,7 @@ class DynamicObstaclesBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -248,7 +248,7 @@ class DynamicObstaclesBenchmark:
 
 def _benchmark_spec(config: DynamicObstaclesConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/DynamicObstacles-v0/success-rate-v1",
+        id="minigrid/DynamicObstacles-v0/mean-return-v1",
         description=(
             "Reach the green goal in a partially observable room while grey "
             "balls move locally after the front cell is checked and before "
@@ -335,7 +335,7 @@ def _benchmark_spec(config: DynamicObstaclesConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

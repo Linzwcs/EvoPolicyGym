@@ -45,7 +45,7 @@ class UnlockPickupTests(unittest.TestCase):
         benchmark = UnlockPickupBenchmark()
         self.assertEqual(
             benchmark.spec.id,
-            "minigrid/UnlockPickup-v0/success-rate-v1",
+            "minigrid/UnlockPickup-v0/mean-return-v1",
         )
         self.assertEqual(benchmark.spec.max_episode_steps, 288)
         self.assertEqual(
@@ -217,7 +217,8 @@ class UnlockPickupTests(unittest.TestCase):
                 episode_timeout_seconds=10,
             ),
         )
-        self.assertEqual(result.feedback.score, 1.0)
+        self.assertEqual(result.feedback.content["success_rate"], 1.0)
+        self.assertEqual(result.feedback.score, result.feedback.content["mean_return"])
         self.assertIsInstance(result.feedback.content, dict)
         assert isinstance(result.feedback.content, dict)
         for name in (

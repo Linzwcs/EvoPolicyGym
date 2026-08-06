@@ -26,7 +26,7 @@ class FetchBenchmarkTests(unittest.TestCase):
 
         self.assertEqual(
             default.spec.id,
-            "minigrid/Fetch-v0/success-rate-v1",
+            "minigrid/Fetch-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 320)
         self.assertEqual(small.spec.max_episode_steps, 125)
@@ -248,7 +248,8 @@ class FetchBenchmarkTests(unittest.TestCase):
         self.assertEqual(failed_metrics["terminal_reason"], "none")
 
         feedback = benchmark.feedback((success_record, wrong_record, failed_record))
-        self.assertEqual(feedback.score, 1 / 3)
+        self.assertEqual(feedback.content["success_rate"], 1 / 3)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
         self.assertEqual(feedback.content["wrong_object_rate"], 1 / 3)
@@ -304,13 +305,16 @@ class FetchBenchmarkTests(unittest.TestCase):
 
                 self.assertEqual(
                     result.benchmark_id,
-                    "minigrid/Fetch-v0/success-rate-v1",
+                    "minigrid/Fetch-v0/mean-return-v1",
                 )
                 self.assertEqual(
                     result.environment_digest,
                     benchmark.spec.environment_digest,
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

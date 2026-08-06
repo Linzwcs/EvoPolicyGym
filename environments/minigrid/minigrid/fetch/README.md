@@ -8,7 +8,7 @@ The Policy receives the upstream `7 × 7 × 3` egocentric symbolic image,
 compass direction, and a natural-language mission identifying a colored key or
 ball. It must explore the room and pick up exactly the requested object;
 choosing a distractor ends the Episode with zero reward. The primary score is
-Episode success rate.
+mean upstream Episode return; success rate remains separately reported.
 
 ## Install and test
 

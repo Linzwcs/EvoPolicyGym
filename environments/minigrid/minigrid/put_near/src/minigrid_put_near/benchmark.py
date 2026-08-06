@@ -191,7 +191,7 @@ class _EpisodeDiagnostics:
 
 
 class PutNearBenchmark:
-    """Success rate on instruction-conditioned object rearrangement."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: PutNearConfig | None = None) -> None:
         if config is None:
@@ -236,7 +236,11 @@ class PutNearBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         counts = {name: _milestone_count(records, name) for name in _MILESTONES}
         diagnostics = tuple(
             _episode_diagnostics(record)
@@ -247,12 +251,12 @@ class PutNearBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Placed the requested object near its target in "
-                f"{successes}/{len(records)} Episodes ({score:.3f} success rate); "
+                f"{successes}/{len(records)} Episodes ({success_rate:.3f} success rate); "
                 f"{counts['wrong_object_picked_up']} wrong pickups, "
                 f"{counts['misplaced_drop']} misplaced drops, and "
                 f"{counts['blocked_terminal_drop']} blocked terminal drops."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_return": statistics.fmean(
                 record.total_reward if record.policy_failure is None else 0.0 for record in records
             ),
@@ -307,7 +311,7 @@ class PutNearBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -315,11 +319,11 @@ class PutNearBenchmark:
 
 def _benchmark_spec(config: PutNearConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/PutNear-v0/success-rate-v1",
+        id="minigrid/PutNear-v0/mean-return-v1",
         description=(
             "Parse a relational mission, pick up exactly the requested "
             "colored object, and drop it in an empty cell adjacent to the "
-            "named target object. Maximize success rate."
+            "named target object. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -412,7 +416,7 @@ def _benchmark_spec(config: PutNearConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

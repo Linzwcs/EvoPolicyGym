@@ -52,7 +52,7 @@ _KITCHEN_GOALS: dict[str, PolicyValue] = {
 
 
 class RoboticsBenchmark:
-    """Success rate for one fixed Gymnasium-Robotics profile."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: RoboticsConfig | None = None) -> None:
         if config is None:
@@ -60,7 +60,8 @@ class RoboticsBenchmark:
         if type(config) is not RoboticsConfig:
             raise TypeError("config must be RoboticsConfig")
         self._config = config
-        self._spec = _spec(config)
+        self._failure_return = _failure_return(config)
+        self._spec = _spec(config, failure_return=self._failure_return)
 
     @property
     def spec(self) -> BenchmarkSpec:
@@ -95,7 +96,11 @@ class RoboticsBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        score = statistics.fmean(
+            record.total_reward if record.policy_failure is None else self._failure_return
+            for record in records
+        )
         traced = records[:_MAX_TRACED_EPISODES]
         trace, traced_transitions, omitted_transitions = _trace(
             traced,
@@ -140,12 +145,10 @@ class RoboticsBenchmark:
                 "summary": (
                     f"Solved {successes}/{len(records)} "
                     f"{self._config.profile} Episodes "
-                    f"({score:.3f} success rate)."
+                    f"({success_rate:.3f} success rate) with {score:.3f} mean return."
                 ),
-                "success_rate": score,
-                "mean_return": statistics.fmean(
-                    r.total_reward if r.policy_failure is None else 0.0 for r in records
-                ),
+                "success_rate": success_rate,
+                "mean_return": score,
                 "mean_steps": statistics.fmean(r.steps for r in records),
                 "mean_steps_to_first_success": _mean_present(
                     tuple(
@@ -219,6 +222,7 @@ class RoboticsBenchmark:
                 "terminated_episodes": sum(_terminated(r) for r in records),
                 "truncated_episodes": sum(_truncated(r) for r in records),
                 "policy_failures": sum(r.policy_failure is not None for r in records),
+                "failure_return": self._failure_return,
                 "traced_episodes": len(traced),
                 "trace_episodes_omitted": len(records) - len(traced),
                 "trace_prefix_steps": _TRACE_PREFIX_STEPS,
@@ -249,13 +253,13 @@ def _artifact_episode_count(manifests: Sequence[PolicyValue], key: str) -> int:
     )
 
 
-def _spec(config: RoboticsConfig) -> BenchmarkSpec:
+def _spec(config: RoboticsConfig, *, failure_return: float) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id=f"gymnasium-robotics/{config.environment_id}/success-rate-v1",
+        id=f"gymnasium-robotics/{config.environment_id}/mean-return-v1",
         description=(
             f"Complete Gymnasium-Robotics' {config.profile} task. "
-            "Maximize the fraction of Episodes that reach the public task "
-            "success condition."
+            "Maximize mean upstream Episode return; success rate remains a "
+            "reported task-completion outcome."
         ),
         observation_space=_observation_space(config),
         action_space={
@@ -272,6 +276,7 @@ def _spec(config: RoboticsConfig) -> BenchmarkSpec:
             "provider": "Gymnasium-Robotics",
             "upstream_version": "1.4.2",
             "reward_mode": _reward_mode(config),
+            "failure_return": failure_return,
             "success_persistence": (
                 "Success is scored if any transition reports the upstream "
                 "success condition; most profiles continue until TimeLimit, "
@@ -303,7 +308,7 @@ def _spec(config: RoboticsConfig) -> BenchmarkSpec:
             ),
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 
@@ -429,6 +434,14 @@ def _reward_mode(config: RoboticsConfig) -> str:
     if config.family == "franka-kitchen":
         return "newly completed task count"
     return "upstream sparse goal reward"
+
+
+def _failure_return(config: RoboticsConfig) -> float:
+    if config.family in {"fetch", "shadow-hand", "shadow-hand-touch"}:
+        return -float(config.max_episode_steps + 1)
+    if config.family in {"maze", "franka-kitchen"}:
+        return -1.0
+    return -1_000_000.0
 
 
 def _reward_semantics(config: RoboticsConfig) -> str:

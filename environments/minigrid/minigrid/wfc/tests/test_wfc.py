@@ -61,7 +61,7 @@ class WFCTests(unittest.TestCase):
         spec = WFCBenchmark().spec
         parameters = spec.environment_parameters
 
-        self.assertEqual(spec.id, "minigrid/WFC-v0/success-rate-v1")
+        self.assertEqual(spec.id, "minigrid/WFC-v0/mean-return-v1")
         self.assertEqual(spec.max_episode_steps, 2500)
         self.assertEqual(spec.metadata["environment"], "MiniGrid-WFC-MazeSimple-v0")
         self.assertEqual(parameters["procedurally_generated_each_episode"], True)
@@ -251,7 +251,10 @@ class WFCTests(unittest.TestCase):
                 )
                 content = result.feedback.content
                 assert isinstance(content, dict)
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertEqual(content["goal_found_rate"], 1.0)
                 documents = tuple(
                     json.loads(line)

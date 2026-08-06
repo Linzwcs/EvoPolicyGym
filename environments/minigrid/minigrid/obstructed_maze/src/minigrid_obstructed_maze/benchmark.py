@@ -227,7 +227,7 @@ class _EpisodeDiagnostics:
 
 
 class ObstructedMazeBenchmark:
-    """Success rate for the complete blocked-door manipulation chain."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: ObstructedMazeConfig | None = None) -> None:
         if config is None:
@@ -272,7 +272,11 @@ class ObstructedMazeBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         counts = {name: _milestone_count(records, name) for name in _MILESTONES}
         diagnostics = tuple(
             _episode_diagnostics(record)
@@ -283,9 +287,9 @@ class ObstructedMazeBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Collected the blue target ball in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate)."
+                f"Episodes ({success_rate:.3f} success rate)."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "profile_requires_key_box_opening": self._config.key_in_box,
             "profile_requires_blocker_relocation": self._config.blocked,
             "upstream_key_blocker_overlap_possible": (self._config.key_blocker_overlap_possible),
@@ -357,7 +361,7 @@ class ObstructedMazeBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -372,7 +376,7 @@ def _benchmark_spec(config: ObstructedMazeConfig) -> BenchmarkSpec:
         else None
     )
     return BenchmarkSpec(
-        id="minigrid/ObstructedMaze-v0/success-rate-v1",
+        id="minigrid/ObstructedMaze-v0/mean-return-v1",
         description=(
             "Navigate a room maze, optionally open grey boxes containing "
             "keys and relocate green balls obstructing doors, unlock the "
@@ -469,7 +473,7 @@ def _benchmark_spec(config: ObstructedMazeConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

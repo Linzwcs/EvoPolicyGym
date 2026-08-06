@@ -23,10 +23,12 @@ benchmark = RoboticsBenchmark(
 )
 ```
 
-The primary metric is success rate: an Episode counts as solved if the upstream
-success condition is reached on any step. Most profiles continue after success,
-so current success, first success, successful-step fraction, and later loss of
-the goal are reported separately. Goal-conditioned profiles expose current,
+The primary metric is mean Episode return from the upstream environment.
+Success rate remains separately reported: an Episode counts as solved if the
+upstream success condition is reached on any step. A Policy failure receives a
+profile-specific return below a valid unsuccessful Episode. Most profiles
+continue after success, so current success, first success, successful-step
+fraction, and later loss of the goal are reported separately. Goal-conditioned profiles expose current,
 initial, and best goal errors plus per-step improvement. Adroit profiles retain
 their upstream dense shaping and add public-state task progress where the
 observation supports it. Control diagnostics report action magnitude,

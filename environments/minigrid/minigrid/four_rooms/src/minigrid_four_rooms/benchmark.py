@@ -85,7 +85,7 @@ class _EpisodeDiagnostics:
 
 
 class FourRoomsBenchmark:
-    """Navigation success rate in the generated four-room maze."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self) -> None:
         self._spec = _spec()
@@ -121,7 +121,11 @@ class FourRoomsBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         goal_found = sum(_reached(r, "goal_found") for r in records)
         diagnostics = tuple(
             _episode_diagnostics(record)
@@ -135,10 +139,10 @@ class FourRoomsBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the goal in {successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); saw the goal in "
+                f"({success_rate:.3f} success rate); saw the goal in "
                 f"{goal_found}/{len(records)}."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "goal_found_rate": goal_found / len(records),
             "mean_return": statistics.fmean(
                 r.total_reward if r.policy_failure is None else 0.0 for r in records
@@ -176,7 +180,7 @@ class FourRoomsBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace(traced),),
         )
@@ -185,7 +189,7 @@ class FourRoomsBenchmark:
 def _spec() -> BenchmarkSpec:
     mission = "reach the goal"
     return BenchmarkSpec(
-        id="minigrid/FourRooms-v0/success-rate-v1",
+        id="minigrid/FourRooms-v0/mean-return-v1",
         description=(
             "Explore four rooms connected by generated openings and reach a randomly placed goal."
         ),
@@ -254,7 +258,7 @@ def _spec() -> BenchmarkSpec:
             "time_limit": _MAX_EPISODE_STEPS,
         },
         max_episode_steps=_MAX_EPISODE_STEPS,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

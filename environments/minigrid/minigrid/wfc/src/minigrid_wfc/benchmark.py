@@ -126,7 +126,7 @@ class _EpisodeDiagnostics:
 
 
 class WFCBenchmark:
-    """Navigation success rate in a selected WFC-generated maze family."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: WFCConfig | None = None) -> None:
         if config is None:
@@ -168,7 +168,11 @@ class WFCBenchmark:
             raise TypeError("episodes must contain EpisodeRecord values")
         successful = tuple(record for record in records if _success(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         milestones = {
             name: sum(_reached(record, name) for record in records) for name in _MILESTONES
         }
@@ -181,9 +185,9 @@ class WFCBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Reached the generated goal in {successes}/{len(records)} "
-                f"Episodes ({score:.3f} success rate)."
+                f"Episodes ({success_rate:.3f} success rate)."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "goal_found_rate": milestones["goal_found"] / len(records),
             "mean_return": statistics.fmean(
                 record.total_reward if record.policy_failure is None else 0.0 for record in records
@@ -232,12 +236,12 @@ class WFCBenchmark:
                     for item in diagnostics
                 )
             )
-        return Feedback(score=score, content=content, artifacts=(_trace(traced),))
+        return Feedback(score=mean_return, content=content, artifacts=(_trace(traced),))
 
 
 def _spec(config: WFCConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/WFC-v0/success-rate-v1",
+        id="minigrid/WFC-v0/mean-return-v1",
         description=(
             "Generate a fresh Wave Function Collapse level from the selected "
             "public pattern preset, navigate its connected component, and "
@@ -320,7 +324,7 @@ def _spec(config: WFCConfig) -> BenchmarkSpec:
             "natural_termination": ("moving forward onto the green goal terminates with success"),
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

@@ -157,7 +157,7 @@ class _EpisodeDiagnostics:
 
 
 class UnlockPickupBenchmark:
-    """Success rate for unlocking a room and collecting its target box."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self) -> None:
         self._spec = _spec()
@@ -193,7 +193,11 @@ class UnlockPickupBenchmark:
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
         successes = sum(_success(record) for record in records)
-        score = successes / len(records)
+        success_rate = successes / len(records)
+        mean_return = statistics.fmean(
+            record.total_reward if record.policy_failure is None else 0.0
+            for record in records
+        )
         counts = {name: sum(_reached(record, name) for record in records) for name in _MILESTONES}
         successful = tuple(record for record in records if _success(record))
         diagnostics = tuple(
@@ -206,10 +210,10 @@ class UnlockPickupBenchmark:
             "summary": (
                 f"Unlocked the room and collected the target in "
                 f"{successes}/{len(records)} Episodes "
-                f"({score:.3f} success rate); "
+                f"({success_rate:.3f} success rate); "
                 f"{counts['target_destroyed']} destroyed the target box."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "mean_return": statistics.fmean(
                 record.total_reward if record.policy_failure is None else 0.0 for record in records
             ),
@@ -270,7 +274,7 @@ class UnlockPickupBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace(traced),),
         )
@@ -278,7 +282,7 @@ class UnlockPickupBenchmark:
 
 def _spec() -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/UnlockPickup-v0/success-rate-v1",
+        id="minigrid/UnlockPickup-v0/mean-return-v1",
         description=(
             "Find the key matching a locked door, unlock the second room, "
             "free the carrying slot, and pick up the mission box."
@@ -354,7 +358,7 @@ def _spec() -> BenchmarkSpec:
             "time_limit": 8 * 6**2,
         },
         max_episode_steps=8 * 6**2,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

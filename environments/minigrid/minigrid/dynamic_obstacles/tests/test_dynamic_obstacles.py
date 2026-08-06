@@ -31,7 +31,7 @@ class DynamicObstaclesBenchmarkTests(unittest.TestCase):
 
         self.assertEqual(
             default.spec.id,
-            "minigrid/DynamicObstacles-v0/success-rate-v1",
+            "minigrid/DynamicObstacles-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 256)
         self.assertEqual(small.spec.max_episode_steps, 100)
@@ -268,9 +268,11 @@ class DynamicObstaclesBenchmarkTests(unittest.TestCase):
                 ),
             )
         )
-        self.assertEqual(feedback.score, 0.0)
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.content["success_rate"], 0.0)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
+        self.assertEqual(feedback.score, -1.0)
         self.assertEqual(feedback.content["collision_rate"], 1.0)
         self.assertEqual(feedback.content["obstacle_collision_rate"], 0.5)
         self.assertEqual(feedback.content["wall_collision_rate"], 0.5)
@@ -331,13 +333,16 @@ class DynamicObstaclesBenchmarkTests(unittest.TestCase):
 
                 self.assertEqual(
                     result.benchmark_id,
-                    "minigrid/DynamicObstacles-v0/success-rate-v1",
+                    "minigrid/DynamicObstacles-v0/mean-return-v1",
                 )
                 self.assertEqual(
                     result.environment_digest,
                     benchmark.spec.environment_digest,
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

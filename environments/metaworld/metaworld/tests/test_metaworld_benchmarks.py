@@ -241,6 +241,9 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
 
         self.assertIsInstance(feedback.content, dict)
         assert isinstance(feedback.content, dict)
+        self.assertEqual(feedback.score, feedback.content["mean_return"])
+        self.assertEqual(benchmark.spec.primary_metric, "mean_return")
+        self.assertTrue(benchmark.spec.id.endswith("/mean-return-v1"))
         self.assertEqual(feedback.content["traced_transitions"], 160)
         self.assertEqual(feedback.content["trace_transitions_omitted"], 340)
         documents = [json.loads(line) for line in feedback.artifacts[0].read_bytes().splitlines()]

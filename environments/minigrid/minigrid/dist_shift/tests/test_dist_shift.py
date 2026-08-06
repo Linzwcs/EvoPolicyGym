@@ -27,7 +27,7 @@ class DistShiftTests(unittest.TestCase):
         shifted = DistShiftBenchmark(DistShiftConfig(profile="shift2"))
         self.assertEqual(
             default.spec.id,
-            "minigrid/DistShift-v0/success-rate-v1",
+            "minigrid/DistShift-v0/mean-return-v1",
         )
         self.assertEqual(default.spec.max_episode_steps, 252)
         self.assertEqual(
@@ -182,7 +182,10 @@ class DistShiftTests(unittest.TestCase):
                         episode_timeout_seconds=10,
                     ),
                 )
-                self.assertEqual(result.feedback.score, 1.0)
+                self.assertEqual(result.feedback.content["success_rate"], 1.0)
+                self.assertEqual(
+                    result.feedback.score, result.feedback.content["mean_return"]
+                )
                 self.assertIsInstance(result.feedback.content, dict)
                 assert isinstance(result.feedback.content, dict)
                 self.assertEqual(

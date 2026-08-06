@@ -6,7 +6,8 @@ robosuite 1.5.2 through EvoPolicyGym's public authoring API.
 `RobosuiteConfig.profile` selects one fixed task for a Run. Single-arm tasks
 use one Panda; two-arm tasks use two opposed Pandas. All profiles use the
 upstream BASIC composite controller with OSC pose control, state observations,
-upstream dense shaping where implemented, and success-rate scoring.
+upstream dense shaping where implemented, and mean-return scoring. Success
+rate remains a separately reported task-completion outcome.
 
 ```python
 from robosuite_benchmarks import RobosuiteBenchmark, RobosuiteConfig

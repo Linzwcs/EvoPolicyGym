@@ -108,7 +108,7 @@ class _EpisodeDiagnostics:
 
 
 class GoToDoorBenchmark:
-    """Success rate on a partially observable instruction-following task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: GoToDoorConfig | None = None) -> None:
         if config is None:
@@ -154,7 +154,7 @@ class GoToDoorBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         found_targets = _milestone_count(records, "target_found")
         wrong_completions = _milestone_count(records, "wrong_completion")
         premature_toggles = _milestone_count(records, "premature_toggle")
@@ -177,11 +177,11 @@ class GoToDoorBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Declared completion beside the mission door in "
-                f"{successes}/{len(records)} Episodes ({score:.3f} success "
+                f"{successes}/{len(records)} Episodes ({success_rate:.3f} success "
                 f"rate); {premature_toggles} terminated with toggle and "
                 f"{wrong_done} issued done from a wrong location."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "target_found_rate": found_targets / len(records),
             "wrong_completion_rate": wrong_completions / len(records),
             "premature_toggle_rate": premature_toggles / len(records),
@@ -237,7 +237,7 @@ class GoToDoorBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -245,11 +245,11 @@ class GoToDoorBenchmark:
 
 def _benchmark_spec(config: GoToDoorConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/GoToDoor-v0/success-rate-v1",
+        id="minigrid/GoToDoor-v0/mean-return-v1",
         description=(
             "Read the natural-language mission, explore the partially "
             "observable room, stand next to the matching colored door, and "
-            "declare completion. Maximize success rate."
+            "declare completion. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -324,7 +324,7 @@ def _benchmark_spec(config: GoToDoorConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

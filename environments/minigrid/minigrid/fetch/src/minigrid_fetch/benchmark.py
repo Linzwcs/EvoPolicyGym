@@ -129,7 +129,7 @@ class _EpisodeDiagnostics:
 
 
 class FetchBenchmark:
-    """Success rate on a partially observable instruction-following task."""
+    """Mean upstream Episode return for this Benchmark."""
 
     def __init__(self, config: FetchConfig | None = None) -> None:
         if config is None:
@@ -175,7 +175,7 @@ class FetchBenchmark:
 
         successful = tuple(record for record in records if _successful(record))
         successes = len(successful)
-        score = successes / len(records)
+        success_rate = successes / len(records)
         found_targets = _milestone_count(records, "target_found")
         wrong_objects = _milestone_count(records, "wrong_object")
         failed_pickups = _milestone_count(records, "failed_pickup")
@@ -197,11 +197,11 @@ class FetchBenchmark:
         content: dict[str, PolicyValue] = {
             "summary": (
                 f"Fetched the mission-matching object in {successes}/"
-                f"{len(records)} Episodes ({score:.3f} success rate); "
+                f"{len(records)} Episodes ({success_rate:.3f} success rate); "
                 f"{wrong_objects} picked up a wrong object and "
                 f"{failed_pickups} made at least one failed pickup attempt."
             ),
-            "success_rate": score,
+            "success_rate": success_rate,
             "target_found_rate": found_targets / len(records),
             "wrong_object_rate": wrong_objects / len(records),
             "failed_pickup_episode_rate": failed_pickups / len(records),
@@ -262,7 +262,7 @@ class FetchBenchmark:
                 )
             )
         return Feedback(
-            score=score,
+            score=mean_return,
             content=content,
             artifacts=(_trace_artifact(traced),),
         )
@@ -270,11 +270,11 @@ class FetchBenchmark:
 
 def _benchmark_spec(config: FetchConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="minigrid/Fetch-v0/success-rate-v1",
+        id="minigrid/Fetch-v0/mean-return-v1",
         description=(
             "Read the natural-language mission, explore the partially "
             "observable room, and pick up the matching colored key or ball "
-            "without picking up a distractor. Maximize success rate."
+            "without picking up a distractor. Maximize upstream Episode return."
         ),
         observation_space={
             "type": "object",
@@ -351,7 +351,7 @@ def _benchmark_spec(config: FetchConfig) -> BenchmarkSpec:
             "time_limit": config.max_episode_steps,
         },
         max_episode_steps=config.max_episode_steps,
-        primary_metric="success_rate",
+        primary_metric="mean_return",
         score_direction="maximize",
     )
 

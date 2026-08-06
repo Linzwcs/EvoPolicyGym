@@ -18,7 +18,7 @@ from .._episode_pool import (
 from .._json import encode_public_json_value
 from .writer import write_json_atomic
 
-_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v7"
+_RUN_RECORD_SCHEMA = "evopolicygym/run-record/v8"
 
 
 def write_run_manifest(
@@ -91,6 +91,7 @@ def write_run_manifest(
                 "max_episodes_per_submission": (
                     config.max_episodes_per_submission
                 ),
+                "finish_budget_policy": config.finish_budget_policy,
                 "bulk_feedback_retention_bytes": (
                     config.bulk_feedback_retention_bytes
                 ),

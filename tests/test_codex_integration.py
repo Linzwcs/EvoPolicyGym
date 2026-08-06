@@ -127,6 +127,10 @@ class CodexIntegrationTests(unittest.TestCase):
         )
         self.assertIn("remaining Episode budget", invocation.instructions)
         self.assertIn(
+            "You may call finish with unused Episode budget",
+            invocation.instructions,
+        )
+        self.assertIn(
             "content field and all Artifact contents are defined by",
             invocation.instructions,
         )
@@ -136,6 +140,40 @@ class CodexIntegrationTests(unittest.TestCase):
         self.assertEqual(
             invocation.recorded_command[-1],
             "@agent/instructions.md",
+        )
+
+    def test_strict_finish_budget_policy_is_explicit_in_agent_task(self) -> None:
+        task = build_agent_task(
+            BenchmarkSpec(
+                id="example/strict-finish-v1",
+                description="Strict finish fixture.",
+                observation_space=None,
+                action_space=None,
+                metadata={},
+                max_episode_steps=1,
+                primary_metric="reward",
+                score_direction="maximize",
+            ),
+            RunConfig(
+                episode_budget=7,
+                max_submissions=2,
+                finish_budget_policy="require_budget_exhaustion",
+            ),
+        )
+
+        self.assertIn(
+            "requires you to spend the entire Episode budget",
+            task.instructions,
+        )
+        self.assertIn("budget_remaining", task.instructions)
+        self.assertIn("zero episodes_remaining", task.instructions)
+        self.assertIn(
+            "too small to preserve that possibility",
+            task.instructions,
+        )
+        self.assertNotIn(
+            "You may call finish with unused Episode budget",
+            task.instructions,
         )
 
     def test_codex_rejects_invalid_reasoning_effort_identifiers(self) -> None:

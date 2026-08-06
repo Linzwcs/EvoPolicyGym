@@ -22,7 +22,11 @@ from evopolicygym.results import (
     RunResult,
     SubmissionResult,
 )
-from evopolicygym.run import RunConfig, ValidationConfig
+from evopolicygym.run import (
+    FinishBudgetPolicy,
+    RunConfig,
+    ValidationConfig,
+)
 from evopolicygym.run._session.outcomes import (
     FinishReceipt,
     SessionError,
@@ -312,6 +316,102 @@ class SubmissionSessionTests(unittest.TestCase):
             ],
         )
 
+    def test_finish_can_require_the_entire_episode_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            recorder = FakeRecorder()
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(),
+                FakePublisher(),
+                recorder=recorder,
+                episode_budget=3,
+                finish_budget_policy="require_budget_exhaustion",
+            )
+
+            first = session.submit([0])
+            assert isinstance(first, SubmissionReceipt)
+            rejected = session.finish([first.submission_id])
+            second = session.submit([0, 1])
+            assert isinstance(second, SubmissionReceipt)
+            accepted = session.finish([first.submission_id])
+
+        self.assertIsInstance(rejected, SessionError)
+        assert isinstance(rejected, SessionError)
+        self.assertEqual(rejected.code, "budget_remaining")
+        self.assertEqual(
+            rejected.message,
+            "finish is not available: 2 Episode budget units remain. "
+            "Continue evaluating or confirming candidate Programs, then "
+            "retry finish.",
+        )
+        self.assertEqual(second.episodes_remaining, 0)
+        self.assertIsInstance(accepted, FinishReceipt)
+        self.assertEqual(
+            session.candidate_submission_ids,
+            (first.submission_id,),
+        )
+        rejected_event = next(
+            fields
+            for name, fields in recorder.events
+            if name == "finish_rejected"
+        )
+        self.assertEqual(
+            rejected_event,
+            {
+                "reason": "budget_remaining",
+                "candidate_count": 1,
+                "episodes_remaining": 2,
+            },
+        )
+
+    def test_required_budget_rejects_an_allocation_that_would_dead_end(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+            session = self._session(
+                FakeProgramSource(program),
+                FakeEvaluator(),
+                FakePublisher(),
+                episode_budget=5,
+                max_submissions=2,
+                max_episodes_per_submission=3,
+                finish_budget_policy="require_budget_exhaustion",
+            )
+
+            rejected = session.submit([0])
+            first = session.submit([0, 1])
+            second = session.submit([0, 1, 2])
+
+        self.assertIsInstance(rejected, SessionError)
+        assert isinstance(rejected, SessionError)
+        self.assertEqual(rejected.code, "budget_allocation")
+        self.assertIn("select at least 2 Episodes", rejected.message)
+        self.assertIsInstance(first, SubmissionReceipt)
+        self.assertIsInstance(second, SubmissionReceipt)
+        assert isinstance(second, SubmissionReceipt)
+        self.assertEqual(second.episodes_remaining, 0)
+
+    def test_required_budget_rejects_an_impossible_session_capacity(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            program = make_program(Path(temporary))
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "can be exhausted within max_submissions",
+            ):
+                self._session(
+                    FakeProgramSource(program),
+                    FakeEvaluator(),
+                    FakePublisher(),
+                    episode_budget=2_049,
+                    max_submissions=1,
+                    finish_budget_policy="require_budget_exhaustion",
+                )
+
     def test_mismatched_environment_identity_is_not_published(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             program = make_program(Path(temporary))
@@ -511,13 +611,17 @@ class SubmissionSessionTests(unittest.TestCase):
         *,
         recorder: FakeRecorder | None = None,
         episode_budget: int = 5,
+        max_submissions: int = 20,
         max_episodes_per_submission: int | None = None,
+        finish_budget_policy: FinishBudgetPolicy = "allow_early",
         validation: ValidationConfig | None = None,
     ) -> SubmissionSession:
         benchmark = StubBenchmark()
         config = RunConfig(
             episode_budget=episode_budget,
+            max_submissions=max_submissions,
             max_episodes_per_submission=max_episodes_per_submission,
+            finish_budget_policy=finish_budget_policy,
             validation=validation,
         )
         pool_size = config.episode_pool_size

@@ -100,6 +100,24 @@ class SubmissionSession:
         self._config = config
         self._recorder = recorder
         self._episode_pool = episode_pool
+        self._submission_episode_limit = min(
+            SESSION_MAX_EPISODE_INDICES,
+            len(episode_pool),
+            (
+                SESSION_MAX_EPISODE_INDICES
+                if config.max_episodes_per_submission is None
+                else config.max_episodes_per_submission
+            ),
+        )
+        if (
+            config.finish_budget_policy == "require_budget_exhaustion"
+            and config.episode_budget
+            > config.max_submissions * self._submission_episode_limit
+        ):
+            raise ValueError(
+                "finish_budget_policy requires an Episode budget that can be "
+                "exhausted within max_submissions"
+            )
         self._episodes_remaining = config.episode_budget
         self._submissions: list[SubmissionResult] = []
         self._candidate_submission_ids: tuple[str, ...] | None = None
@@ -177,6 +195,22 @@ class SubmissionSession:
             )
         if episodes > self._episodes_remaining:
             return _error("budget_exhausted", "insufficient Episode budget")
+        if self._config.finish_budget_policy == "require_budget_exhaustion":
+            remaining_after = self._episodes_remaining - episodes
+            submission_slots_after = (
+                self._config.max_submissions - len(self._submissions) - 1
+            )
+            future_capacity = (
+                submission_slots_after * self._submission_episode_limit
+            )
+            if remaining_after > future_capacity:
+                minimum_episodes = self._episodes_remaining - future_capacity
+                return _error(
+                    "budget_allocation",
+                    "this submission is too small to exhaust the Episode "
+                    "budget within the remaining submission limit; select at "
+                    f"least {minimum_episodes} Episodes",
+                )
 
         try:
             program = self._programs.capture()
@@ -344,10 +378,33 @@ class SubmissionSession:
                 "finish candidates must be published submissions",
                 candidate_count=len(identifiers),
             )
+        if (
+            self._config.finish_budget_policy
+            == "require_budget_exhaustion"
+            and self._episodes_remaining > 0
+        ):
+            remaining_message = (
+                "1 Episode budget unit remains."
+                if self._episodes_remaining == 1
+                else (
+                    f"{self._episodes_remaining} Episode budget units remain."
+                )
+            )
+            return self._reject_finish(
+                "budget_remaining",
+                f"finish is not available: {remaining_message} "
+                "Continue evaluating or confirming candidate Programs, then "
+                "retry finish.",
+                candidate_count=len(identifiers),
+                episodes_remaining=self._episodes_remaining,
+            )
 
         self._recorder.record_event(
             "finish_requested",
-            {"candidate_count": len(identifiers)},
+            {
+                "candidate_count": len(identifiers),
+                "episodes_remaining": self._episodes_remaining,
+            },
         )
         self._candidate_submission_ids = identifiers
         return FinishReceipt(candidate_submission_ids=identifiers)
@@ -364,10 +421,13 @@ class SubmissionSession:
         message: str,
         *,
         candidate_count: int | None = None,
+        episodes_remaining: int | None = None,
     ) -> SessionError:
         fields: dict[str, object] = {"reason": code}
         if candidate_count is not None:
             fields["candidate_count"] = candidate_count
+        if episodes_remaining is not None:
+            fields["episodes_remaining"] = episodes_remaining
         self._recorder.record_event("finish_rejected", fields)
         return _error(code, message)
 

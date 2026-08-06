@@ -48,6 +48,7 @@ result = run(
         episode_budget=48,
         episode_pool_size=96,
         max_episodes_per_submission=4,
+        finish_budget_policy="require_budget_exhaustion",
         validation=ValidationConfig(
             split="validation",
             episodes_per_candidate=10,
@@ -71,6 +72,10 @@ result = run(
   trace-heavy or otherwise batch-sensitive Feedback.
 - Choose `episode_pool_size` independently from `episode_budget` when the
   Agent needs more fixed matched conditions than it can spend.
+- Keep `finish_budget_policy="allow_early"` when Episode budget is a ceiling,
+  or select `"require_budget_exhaustion"` for comparable Runs that must spend
+  every Episode unit. In strict mode, make sure the configured Submission
+  count and per-Submission cap have enough total capacity.
 - Add `ConsoleProgress()` only as a non-authoritative observer. Observer
   failure must not change Run semantics.
 - State that `ProcessExecution.unsafe()` does not isolate the Agent or Policy.
@@ -101,6 +106,9 @@ submission, candidate handoff, budgets, and paths.
   Episode specification and Policy seed.
 - Treat a successful candidate handoff as the end of Agent authority. Host
   Validation and Assessment begin only after Agent cleanup.
+- In a strict finish-budget Run, treat `budget_remaining` as a retryable
+  rejection: continue legal submissions until `episodes_remaining` is zero,
+  then retry `finish` with the selected published candidates.
 
 ## Interpret Feedback and Host phases
 

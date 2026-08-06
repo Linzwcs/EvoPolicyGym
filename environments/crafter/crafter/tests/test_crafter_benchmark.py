@@ -117,6 +117,7 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertEqual(replay["frames_per_second"], 12)
         self.assertEqual(replay["frame_size"], [128, 128])
         self.assertEqual(replay["complete_artifact_episode_limit"], 16)
+        self.assertEqual(replay["detailed_artifact_splits"], ["train"])
         self.assertEqual(benchmark.spec.environment_parameters["replay_fps"], 12)
         self.assertEqual(benchmark.spec.environment_parameters["replay_size"], 128)
         self.assertNotEqual(
@@ -143,7 +144,55 @@ class CrafterBenchmarkTests(unittest.TestCase):
                 item.environment_seed for item in validation
             )
         )
-        self.assertTrue(all(item.scenario is None for item in train))
+        self.assertTrue(
+            all(
+                item.scenario == {"publish_detailed_artifacts": True}
+                for item in train
+            )
+        )
+        self.assertTrue(
+            all(
+                item.scenario == {"publish_detailed_artifacts": False}
+                for item in validation
+            )
+        )
+
+    def test_validation_and_test_feedback_do_not_generate_artifacts(self) -> None:
+        benchmark = CrafterBenchmark()
+        train_episode = benchmark.episodes("train", seed=7, count=1)[0]
+        validation_episode = benchmark.episodes(
+            "validation",
+            seed=7,
+            count=1,
+        )[0]
+        test_episode = benchmark.episodes("test", seed=7, count=1)[0]
+
+        train = benchmark.feedback(
+            (_record(("collect_wood",), reward=1.0, episode=train_episode),)
+        )
+        self.assertTrue(train.artifacts)
+        for episode in (validation_episode, test_episode):
+            with self.subTest(episode=episode):
+                feedback = benchmark.feedback(
+                    (_record(("collect_wood",), reward=1.0, episode=episode),)
+                )
+                self.assertEqual(feedback.artifacts, ())
+                assert isinstance(feedback.content, dict)
+                detailed = feedback.content["detailed_feedback"]
+                assert isinstance(detailed, dict)
+                self.assertIs(detailed["complete"], False)
+                self.assertEqual(
+                    detailed["reason"],
+                    "split_disables_detailed_artifacts",
+                )
+
+        with self.assertRaises(ValueError):
+            benchmark.make_environment(
+                EpisodeSpec(
+                    environment_seed=1,
+                    scenario={"unexpected": True},
+                )
+            )
 
     def test_environment_replays_deterministically(self) -> None:
         fixtures = (
@@ -1172,10 +1221,12 @@ class CrafterBenchmarkTests(unittest.TestCase):
             abs(cast(float, components["reconstruction_error"])),
             1e-12,
         )
-        manifest = json.loads(result.feedback.artifacts[-1].read_bytes())
+        self.assertEqual(result.feedback.artifacts, ())
+        detailed = result.feedback.content["detailed_feedback"]
+        assert isinstance(detailed, dict)
         self.assertEqual(
-            manifest["schema"],
-            "crafter/complete-feedback-manifest/v3",
+            detailed["reason"],
+            "split_disables_detailed_artifacts",
         )
 
     def test_baseline_exposes_executable_empty_capability_scaffold(self) -> None:
@@ -1278,6 +1329,7 @@ def _record(
     achievements: tuple[str, ...],
     *,
     reward: float,
+    episode: EpisodeSpec | None = None,
 ) -> EpisodeRecord:
     step = Step(
         observation=_ZERO_OBSERVATION,
@@ -1286,7 +1338,11 @@ def _record(
         metrics={"achievements_unlocked": list(achievements)},
     )
     return EpisodeRecord(
-        episode=EpisodeSpec(environment_seed=10),
+        episode=(
+            EpisodeSpec(environment_seed=10)
+            if episode is None
+            else episode
+        ),
         policy_seed=20,
         initial_observation=_ZERO_OBSERVATION,
         transitions=(Transition(action=5, step=step),),

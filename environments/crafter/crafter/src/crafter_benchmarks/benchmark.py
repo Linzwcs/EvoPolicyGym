@@ -11,6 +11,7 @@ import statistics
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 import imageio_ffmpeg
@@ -45,6 +46,7 @@ from .scoring import (
 )
 
 _EPISODE_SEED_DOMAIN = b"evopolicygym-crafter/episode-seed/v1\0"
+_EPISODE_ARTIFACT_SCENARIO_KEY = "publish_detailed_artifacts"
 _SPLITS = frozenset({"train", "validation", "test"})
 _OBSERVATION_SHAPE = (64, 64, 3)
 _OBSERVATION_BYTES = 64 * 64 * 3
@@ -116,14 +118,22 @@ class CrafterBenchmark:
         if type(count) is not int or count <= 0:
             raise ValueError("count must be a positive integer")
         return tuple(
-            EpisodeSpec(environment_seed=_episode_seed(split, seed, index))
+            EpisodeSpec(
+                environment_seed=_episode_seed(split, seed, index),
+                scenario={
+                    _EPISODE_ARTIFACT_SCENARIO_KEY: split == "train",
+                },
+            )
             for index in range(count)
         )
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
-        return CrafterEnvironment(episode, config=self._config)
+        return CrafterEnvironment(
+            _environment_episode(episode),
+            config=self._config,
+        )
 
     def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
         records = tuple(episodes)
@@ -151,6 +161,7 @@ class CrafterBenchmark:
             records,
             replay_fps=self._config.replay_fps,
             replay_size=self._config.replay_size,
+            detailed_artifacts=_detailed_artifacts_enabled(records),
         )
 
         feedback = Feedback(
@@ -224,7 +235,7 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
         return CrafterEnvironment(
-            episode,
+            _environment_episode(episode),
             config=self._config,
             reward_profile="survival-development-v3",
         )
@@ -257,6 +268,7 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
             failure_return=-float(self._config.max_episode_steps),
             replay_fps=self._config.replay_fps,
             replay_size=self._config.replay_size,
+            detailed_artifacts=_detailed_artifacts_enabled(records),
         )
         content["detailed_feedback"] = artifact_summary
         return Feedback(
@@ -305,6 +317,7 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
                 "complete_artifact_episode_limit": (
                     _DETAILED_FEEDBACK_MAX_EPISODES
                 ),
+                "detailed_artifact_splits": ["train"],
             },
             "privileged_information_exposed": False,
         },
@@ -457,6 +470,35 @@ def _episode_seed(split: str, seed: int, index: int) -> int:
     digest.update(seed.to_bytes(8, "big"))
     digest.update(index.to_bytes(8, "big"))
     return int.from_bytes(digest.digest()[:8], "big")
+
+
+def _environment_episode(episode: EpisodeSpec) -> EpisodeSpec:
+    _episode_detailed_artifacts(episode)
+    return EpisodeSpec(environment_seed=episode.environment_seed)
+
+
+def _detailed_artifacts_enabled(records: Sequence[EpisodeRecord]) -> bool:
+    enabled = {
+        _episode_detailed_artifacts(record.episode) for record in records
+    }
+    if len(enabled) != 1:
+        raise ValueError("Crafter Feedback cannot mix Artifact modes")
+    return enabled.pop()
+
+
+def _episode_detailed_artifacts(episode: EpisodeSpec) -> bool:
+    scenario = episode.scenario
+    if scenario is None:
+        return True
+    if (
+        type(scenario) is not dict
+        or set(scenario) != {_EPISODE_ARTIFACT_SCENARIO_KEY}
+    ):
+        raise ValueError("Crafter Episode scenario is invalid")
+    enabled = scenario[_EPISODE_ARTIFACT_SCENARIO_KEY]
+    if type(enabled) is not bool:
+        raise ValueError("Crafter Episode scenario is invalid")
+    return enabled
 
 
 def _scored_achievements(record: EpisodeRecord) -> frozenset[str]:
@@ -1477,15 +1519,25 @@ def _complete_feedback_artifacts(
     failure_return: float | None = None,
     replay_fps: int = 10,
     replay_size: int = 256,
+    detailed_artifacts: bool = True,
 ) -> tuple[tuple[Artifact, ...], dict[str, PolicyValue]]:
     if score_profile not in {"upstream", "survival-development-v3"}:
         raise ValueError("Crafter Artifact score profile is invalid")
     if score_profile == "survival-development-v3" and failure_return is None:
         raise ValueError("Crafter v3 Artifacts require a failure return")
+    if type(detailed_artifacts) is not bool:
+        raise TypeError("detailed_artifacts must be bool")
+    if not detailed_artifacts:
+        return (), _aggregate_only_artifact_summary(
+            records,
+            score_profile=score_profile,
+            reason="split_disables_detailed_artifacts",
+        )
     if len(records) > _DETAILED_FEEDBACK_MAX_EPISODES:
         return (), _aggregate_only_artifact_summary(
             records,
             score_profile=score_profile,
+            reason="episode_count_exceeds_detailed_artifact_limit",
         )
     artifacts: list[Artifact] = []
     trajectory_entries: list[dict[str, object]] = []
@@ -1668,6 +1720,7 @@ def _aggregate_only_artifact_summary(
     records: Sequence[EpisodeRecord],
     *,
     score_profile: str,
+    reason: str,
 ) -> dict[str, PolicyValue]:
     return {
         "schema": (
@@ -1677,7 +1730,7 @@ def _aggregate_only_artifact_summary(
         ),
         "complete": False,
         "detail_scope": "aggregate-only",
-        "reason": "episode_count_exceeds_detailed_artifact_limit",
+        "reason": reason,
         "detailed_artifact_episode_limit": (
             _DETAILED_FEEDBACK_MAX_EPISODES
         ),

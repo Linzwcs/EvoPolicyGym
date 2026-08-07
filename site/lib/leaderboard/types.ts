@@ -35,21 +35,36 @@ export interface LeaderboardEnvironment {
   primary_metric: string;
   score_direction: "maximize" | "minimize";
   summary: LocalizedValue;
+  configuration_ids?: string[];
+  default_configuration_id?: string;
   evidence_path?: string;
 }
+
+export type LeaderboardConfigurationParameter = string | number | boolean;
+
+export interface LeaderboardTestConfiguration {
+  id: string;
+  label: LocalizedValue;
+  description: LocalizedValue;
+  parameters: Record<string, LeaderboardConfigurationParameter>;
+}
+
+export type LeaderboardScore = number | Record<string, number>;
 
 export interface LeaderboardEntry {
   id: string;
   display: string;
   harness: string;
   kind: "agent" | "baseline";
-  scores: Record<string, number>;
+  thinking_effort?: string;
+  scores: Record<string, LeaderboardScore>;
 }
 
 export interface LeaderboardResults {
   schema: "evopolicygym/leaderboard-results/v1";
   generated_at: string;
   final_reruns: number;
+  test_configurations?: LeaderboardTestConfiguration[];
   environments: LeaderboardEnvironment[];
   entries: LeaderboardEntry[];
 }

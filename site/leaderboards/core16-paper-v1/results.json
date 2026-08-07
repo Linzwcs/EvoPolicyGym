@@ -51,7 +51,7 @@
     },
     {
       "id": "random_policy",
-      "display": "Random policy",
+      "display": "Baseline",
       "harness": "Uniform",
       "kind": "baseline",
       "scores": {"acrobot": -499.15625, "continuouscar": -33.359488, "bipedal": -100.975808, "racing": -29.627216, "reacher5": -43.771999, "halfcheetah5": -291.843544, "ant5": -34.602259, "pusher5": -147.461739, "minigrid_doorkey": 0, "minigrid_keycorridor": 0, "minigrid_fourrooms": 0.041688, "minigrid_obstructedmaze": 0, "parking": -47.447772, "roundabout": 7.1875, "fetch_push": -46.03125, "fetch_pickandplace": -43.75}

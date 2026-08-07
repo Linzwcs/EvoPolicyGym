@@ -1,0 +1,47 @@
+---
+schema: evopolicygym/leaderboard-suite/v2
+id: jackdaw-v1
+slug: jackdaw-v1
+status: active
+default: false
+version: v1
+experiment_version: v0.3.0
+title:
+  en: Jackdaw Distribution
+  zh: Jackdaw Distribution
+label:
+  en: Jackdaw
+  zh: Jackdaw
+description:
+  en: Published leaderboard results for Balatro Environments in the Jackdaw ecosystem.
+  zh: Jackdaw 生态下 Balatro Environment 已公开的排行榜结果。
+profile:
+  id: jackdaw-balatro-1024-v1
+  label:
+    en: Balatro 1,024-Episode profile
+    zh: Balatro 1,024-Episode 配置
+  budget: 1024
+  budget_unit: training episodes / run
+content:
+  suite:
+    en: index.mdx
+    zh: index.zh-CN.mdx
+  environment:
+    en: environment.mdx
+    zh: environment.zh-CN.mdx
+results: results.json
+---
+
+<LeaderboardIntro eyebrow="Active Distribution">
+
+# Jackdaw
+
+<SuiteFacts />
+
+</LeaderboardIntro>
+
+<LeaderboardSection number="1" title="Environment leaderboards">
+
+<EnvironmentDirectory />
+
+</LeaderboardSection>

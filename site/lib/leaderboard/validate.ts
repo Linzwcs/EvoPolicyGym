@@ -63,7 +63,50 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
     throw new Error(`${filePath}: entries must not be empty`);
   }
 
+  const configurationIds = new Set<string>();
+  if (value.test_configurations !== undefined) {
+    if (
+      !Array.isArray(value.test_configurations) ||
+      value.test_configurations.length === 0
+    ) {
+      throw new Error(`${filePath}: test_configurations must not be empty`);
+    }
+    for (const item of value.test_configurations) {
+      if (!isRecord(item)) {
+        throw new Error(`${filePath}: invalid test configuration`);
+      }
+      requireText(item.id, `${filePath}: test_configuration.id`);
+      if (configurationIds.has(item.id)) {
+        throw new Error(`${filePath}: duplicate test configuration ${item.id}`);
+      }
+      configurationIds.add(item.id);
+      validateLocalized(item.label, `${filePath}: test_configuration.label`);
+      validateLocalized(
+        item.description,
+        `${filePath}: test_configuration.description`,
+      );
+      if (!isRecord(item.parameters)) {
+        throw new Error(
+          `${filePath}: test_configuration.parameters must be an object`,
+        );
+      }
+      for (const [name, parameter] of Object.entries(item.parameters)) {
+        requireText(name, `${filePath}: test_configuration parameter name`);
+        if (
+          typeof parameter !== "string" &&
+          typeof parameter !== "boolean" &&
+          (typeof parameter !== "number" || !Number.isFinite(parameter))
+        ) {
+          throw new Error(
+            `${filePath}: test_configuration parameter ${name} is invalid`,
+          );
+        }
+      }
+    }
+  }
+
   const environmentIds = new Set<string>();
+  const environmentConfigurationIds = new Map<string, Set<string>>();
   for (const item of value.environments) {
     if (!isRecord(item)) throw new Error(`${filePath}: invalid environment`);
     for (const name of ["id", "display", "category", "primary_metric"]) {
@@ -80,6 +123,50 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
     if (!isScoreDirection(item.score_direction)) {
       throw new Error(`${filePath}: invalid score direction`);
     }
+    const configured = item.configuration_ids !== undefined;
+    if (configured !== (item.default_configuration_id !== undefined)) {
+      throw new Error(
+        `${filePath}: environment configuration fields must be declared together`,
+      );
+    }
+    if (configured) {
+      if (
+        !Array.isArray(item.configuration_ids) ||
+        item.configuration_ids.length === 0
+      ) {
+        throw new Error(
+          `${filePath}: environment.configuration_ids must not be empty`,
+        );
+      }
+      requireText(
+        item.default_configuration_id,
+        `${filePath}: environment.default_configuration_id`,
+      );
+      const selectedIds = new Set<string>();
+      for (const configurationId of item.configuration_ids) {
+        requireText(
+          configurationId,
+          `${filePath}: environment.configuration_id`,
+        );
+        if (!configurationIds.has(configurationId)) {
+          throw new Error(
+            `${filePath}: environment references unknown configuration ${configurationId}`,
+          );
+        }
+        if (selectedIds.has(configurationId)) {
+          throw new Error(
+            `${filePath}: environment repeats configuration ${configurationId}`,
+          );
+        }
+        selectedIds.add(configurationId);
+      }
+      if (!selectedIds.has(item.default_configuration_id)) {
+        throw new Error(
+          `${filePath}: environment default configuration is not selected`,
+        );
+      }
+      environmentConfigurationIds.set(String(item.id), selectedIds);
+    }
   }
 
   const entryIds = new Set<string>();
@@ -95,6 +182,9 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
     if (!isEntryKind(item.kind)) {
       throw new Error(`${filePath}: invalid entry kind`);
     }
+    if (item.thinking_effort !== undefined) {
+      requireText(item.thinking_effort, `${filePath}: entry.thinking_effort`);
+    }
     if (!isRecord(item.scores)) {
       throw new Error(`${filePath}: entry.scores must be an object`);
     }
@@ -102,8 +192,32 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
       if (!environmentIds.has(environmentId)) {
         throw new Error(`${filePath}: score references unknown ${environmentId}`);
       }
-      if (typeof score !== "number" || !Number.isFinite(score)) {
-        throw new Error(`${filePath}: score for ${environmentId} must be finite`);
+      const selectedConfigurationIds = environmentConfigurationIds.get(environmentId);
+      if (selectedConfigurationIds === undefined) {
+        if (typeof score !== "number" || !Number.isFinite(score)) {
+          throw new Error(`${filePath}: score for ${environmentId} must be finite`);
+        }
+        continue;
+      }
+      if (!isRecord(score)) {
+        throw new Error(
+          `${filePath}: configured score for ${environmentId} must be an object`,
+        );
+      }
+      for (const [configurationId, configuredScore] of Object.entries(score)) {
+        if (!selectedConfigurationIds.has(configurationId)) {
+          throw new Error(
+            `${filePath}: score references unavailable configuration ${configurationId}`,
+          );
+        }
+        if (
+          typeof configuredScore !== "number" ||
+          !Number.isFinite(configuredScore)
+        ) {
+          throw new Error(
+            `${filePath}: score for ${environmentId}/${configurationId} must be finite`,
+          );
+        }
       }
     }
   }
@@ -124,6 +238,28 @@ export function validateSuiteCoverage(
       throw new Error(
         `${filePath}: ${manifest.id}/${entry.id} is missing ${missing.join(", ")}`,
       );
+    }
+    if (entry.kind !== "agent") continue;
+    for (const environment of results.environments) {
+      const configurationIds = environment.configuration_ids;
+      if (configurationIds === undefined) continue;
+      const configuredScores = entry.scores[environment.id];
+      if (
+        typeof configuredScores === "number" ||
+        configuredScores === undefined
+      ) {
+        throw new Error(
+          `${filePath}: ${manifest.id}/${entry.id} has no configured scores for ${environment.id}`,
+        );
+      }
+      const missingConfigurations = configurationIds.filter(
+        (configurationId) => !Object.hasOwn(configuredScores, configurationId),
+      );
+      if (missingConfigurations.length > 0) {
+        throw new Error(
+          `${filePath}: ${manifest.id}/${entry.id}/${environment.id} is missing ${missingConfigurations.join(", ")}`,
+        );
+      }
     }
   }
 }

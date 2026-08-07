@@ -1,0 +1,86 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-07-29T00:00:00Z",
+  "final_reruns": 4,
+  "test_configurations": [
+    {
+      "id": "red-white-train-1024-assess-128-v1",
+      "label": {
+        "en": "Red Deck / White Stake · 1,024 train / 128 assessment",
+        "zh": "Red Deck / White Stake · 1,024 训练 / 128 Assessment"
+      },
+      "description": {
+        "en": "Start from the baseline, optimize on the fixed Red Deck and White Stake training pool for up to 1,024 Episodes, then measure the selected Program on 128 held-out test Episodes.",
+        "zh": "从 baseline 开始，在固定的 Red Deck、White Stake 训练 pool 上最多使用 1,024 个 Episode 优化，然后在 128 个 held-out test Episodes 上评测选中的 Program。"
+      },
+      "parameters": {
+        "run_seed": 20260729,
+        "deck": "Red Deck",
+        "stake": "White Stake",
+        "training_split": "train",
+        "episode_budget": 1024,
+        "episode_pool_size": 1024,
+        "max_submissions": 1024,
+        "max_episodes_per_submission": 128,
+        "validation_split": "validation",
+        "validation_episodes_per_candidate": 128,
+        "validation_max_candidates": 1,
+        "assessment_split": "test",
+        "assessment_episodes": 128,
+        "episode_timeout_seconds": 60,
+        "agent_timeout_seconds": 3600,
+        "optional_balatro_skill": "disabled"
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "balatro-red-deck-white-stake",
+      "display": "Balatro · Red Deck / White Stake",
+      "category": "Balatro",
+      "order": 0,
+      "primary_metric": "assessment_mean_final_score",
+      "score_direction": "maximize",
+      "configuration_ids": ["red-white-train-1024-assess-128-v1"],
+      "default_configuration_id": "red-white-train-1024-assess-128-v1",
+      "summary": {
+        "en": "Build a long-horizon Balatro strategy that clears Blinds, manages the shop and economy, and can complete a Red Deck Run at White Stake.",
+        "zh": "在 Red Deck、White Stake 下构建能够通过 Blinds、管理商店与经济并完成整局 Run 的长期 Balatro 策略。"
+      },
+      "evidence_path": "/blog/balatro-policy-evolution"
+    }
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_6_sol",
+      "display": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"balatro-red-deck-white-stake": {"red-white-train-1024-assess-128-v1": 49.52}}
+    },
+    {
+      "id": "gpt_5_6_terra",
+      "display": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"balatro-red-deck-white-stake": {"red-white-train-1024-assess-128-v1": 8.89}}
+    },
+    {
+      "id": "gpt_5_6_luna",
+      "display": "GPT-5.6 Luna",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"balatro-red-deck-white-stake": {"red-white-train-1024-assess-128-v1": 7.87}}
+    },
+    {
+      "id": "packaged_baseline",
+      "display": "Baseline",
+      "harness": "EvoPolicyGym",
+      "kind": "baseline",
+      "scores": {"balatro-red-deck-white-stake": {"red-white-train-1024-assess-128-v1": 3.70}}
+    }
+  ]
+}

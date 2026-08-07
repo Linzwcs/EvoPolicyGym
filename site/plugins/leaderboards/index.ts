@@ -79,56 +79,65 @@ export default function leaderboardsPlugin(
         );
         const sharedModules = {suite: suiteData, registry: registryData};
         const metadata = routeMetadata(context, loaded.manifestPath);
+        const canonicalBase = leaderboardBase(suite);
+        const routeBases = Array.from(
+          new Set([
+            canonicalBase,
+            `/leaderboard/suites/${suite.manifest.slug}/`,
+          ]),
+        );
 
-        actions.addRoute({
-          path: routePath(`/leaderboard/suites/${suite.manifest.slug}/`),
-          component: "@site/src/features/leaderboard/SuitePage.tsx",
-          exact: true,
-          modules: {
-            ...sharedModules,
-            content: loaded.documents.suite[locale],
-          },
-          metadata,
-        });
+        for (const routeBase of routeBases) {
+          actions.addRoute({
+            path: routePath(routeBase),
+            component: "@site/src/features/leaderboard/SuitePage.tsx",
+            exact: true,
+            modules: {
+              ...sharedModules,
+              content: loaded.documents.suite[locale],
+            },
+            metadata,
+          });
+        }
 
         for (const environment of suite.results.environments) {
           const pageData = await actions.createData(
             `leaderboard-${suite.manifest.id}-${environment.id}.json`,
             JSON.stringify({environmentId: environment.id}),
           );
-          actions.addRoute({
-            path: routePath(
-              `/leaderboard/suites/${suite.manifest.slug}/environments/${environment.id}/`,
-            ),
-            component: "@site/src/features/leaderboard/EnvironmentPage.tsx",
-            exact: true,
-            modules: {
-              ...sharedModules,
-              pageData,
-              content: loaded.documents.environment[locale],
-            },
-            metadata,
-          });
+          for (const routeBase of routeBases) {
+            actions.addRoute({
+              path: routePath(`${routeBase}environments/${environment.id}/`),
+              component: "@site/src/features/leaderboard/EnvironmentPage.tsx",
+              exact: true,
+              modules: {
+                ...sharedModules,
+                pageData,
+                content: loaded.documents.environment[locale],
+              },
+              metadata,
+            });
+          }
         }
       }
 
-      const defaultSuiteData = await actions.createData(
-        "leaderboard-default-suite.json",
-        JSON.stringify(defaultSuite.data),
-      );
       actions.addRoute({
         path: routePath("/leaderboard/"),
-        component: "@site/src/features/leaderboard/SuitePage.tsx",
+        component: "@site/src/features/leaderboard/LeaderboardIndexPage.tsx",
         exact: true,
         modules: {
-          suite: defaultSuiteData,
           registry: registryData,
-          content: defaultSuite.documents.suite[locale],
         },
         metadata: routeMetadata(context, defaultSuite.manifestPath),
       });
     },
   };
+}
+
+function leaderboardBase(suite: LeaderboardSuiteData): string {
+  const collection =
+    suite.manifest.status === "archived" ? "archive" : "distributions";
+  return `/leaderboard/${collection}/${suite.manifest.slug}/`;
 }
 
 async function loadSuites(
@@ -146,6 +155,10 @@ async function loadSuites(
 
   if (suites.filter((suite) => suite.data.manifest.default).length !== 1) {
     throw new Error("Exactly one leaderboard suite must be marked as default");
+  }
+  const defaultSuite = suites.find((suite) => suite.data.manifest.default);
+  if (defaultSuite?.data.manifest.status === "archived") {
+    throw new Error("The default leaderboard Distribution cannot be archived");
   }
   const ids = new Set<string>();
   for (const suite of suites) {

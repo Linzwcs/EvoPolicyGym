@@ -1,4 +1,5 @@
 import Link from "@docusaurus/Link";
+import type {CSSProperties} from "react";
 import {pickLocalized, useSiteLanguage} from "../../components/Localized";
 import {useLeaderboard, useLeaderboardEnvironment} from "./context";
 import {formatLeaderboardScore, rankedEntries, suitePath} from "./model";
@@ -22,8 +23,104 @@ export function EnvironmentHeader({eyebrow}: {eyebrow: string}) {
 }
 
 export function EnvironmentProfile() {
-  const {suite} = useLeaderboard();
+  const {suite, selectedConfiguration, selectConfiguration} = useLeaderboard();
+  const environment = useLeaderboardEnvironment();
   const language = useSiteLanguage();
+  const labels = useLeaderboardMessages();
+  const configurationIds = environment.configuration_ids;
+  if (configurationIds !== undefined && selectedConfiguration !== undefined) {
+    const configurations = (suite.results.test_configurations ?? []).filter(
+      (configuration) => configurationIds.includes(configuration.id),
+    );
+    const parameterLabels: Record<string, string> =
+      language === "zh"
+        ? {
+            episode_budget: "训练 Episodes",
+            max_submissions: "最大 Submissions",
+            validation_episodes_per_candidate: "Validation Episodes",
+            assessment_episodes: "Assessment Episodes",
+            finish_budget_policy: "Finish Policy",
+          }
+        : {
+            episode_budget: "Training Episodes",
+            max_submissions: "Max Submissions",
+            validation_episodes_per_candidate: "Validation Episodes",
+            assessment_episodes: "Assessment Episodes",
+            finish_budget_policy: "Finish Policy",
+          };
+    const summaryKeys = [
+      "episode_budget",
+      "max_submissions",
+      "validation_episodes_per_candidate",
+      "assessment_episodes",
+    ];
+    const summaryParameters = summaryKeys.flatMap((name) => {
+      const value = selectedConfiguration.parameters[name];
+      return value === undefined ? [] : [{name, value}];
+    });
+    const parameterName = (name: string) =>
+      parameterLabels[name] ?? name.replaceAll("_", " ");
+    const parameterValue = (value: string | number | boolean) =>
+      typeof value === "string" ? value.replaceAll("_", " ") : String(value);
+    return (
+      <section className="leaderboard-experiment-setup">
+        <div className="leaderboard-experiment-picker">
+          <label htmlFor="leaderboard-test-configuration">
+            <span>{labels.testConfiguration}</span>
+            <small>{labels.selectConfiguration}</small>
+          </label>
+          <div className="leaderboard-experiment-select-control">
+            <select
+              id="leaderboard-test-configuration"
+              value={selectedConfiguration.id}
+              onChange={(event) => selectConfiguration?.(event.target.value)}
+            >
+              {configurations.map((configuration) => (
+                <option value={configuration.id} key={configuration.id}>
+                  {pickLocalized(language, configuration.label)}
+                </option>
+              ))}
+            </select>
+            <i aria-hidden="true">⌄</i>
+          </div>
+        </div>
+
+        <article className="leaderboard-experiment-detail">
+          <header>
+            <div>
+              <span>{labels.selectedConfiguration}</span>
+              <h3>{pickLocalized(language, selectedConfiguration.label)}</h3>
+            </div>
+            <code>{selectedConfiguration.id}</code>
+          </header>
+          <p>{pickLocalized(language, selectedConfiguration.description)}</p>
+          {summaryParameters.length > 0 && (
+            <dl className="leaderboard-experiment-summary">
+              {summaryParameters.map(({name, value}) => (
+                <div key={name}>
+                  <dt>{parameterName(name)}</dt>
+                  <dd>{parameterValue(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <details>
+            <summary>{labels.configurationDetails}</summary>
+            <dl>
+              {Object.entries(selectedConfiguration.parameters).map(
+                ([name, value]) => (
+                  <div key={name}>
+                    <dt>{parameterName(name)}</dt>
+                    <dd>{parameterValue(value)}</dd>
+                  </div>
+                ),
+              )}
+            </dl>
+          </details>
+        </article>
+      </section>
+    );
+  }
   return (
     <p className="leaderboard-paper-section-profile">
       {pickLocalized(language, suite.manifest.profile.label)} · {suite.manifest.profile.budget} {suite.manifest.profile.budget_unit}
@@ -32,50 +129,125 @@ export function EnvironmentProfile() {
 }
 
 export function EnvironmentChart() {
-  const {suite} = useLeaderboard();
+  const {suite, selectedConfiguration} = useLeaderboard();
   const environment = useLeaderboardEnvironment();
   const labels = useLeaderboardMessages();
-  const scores = rankedEntries(suite, environment);
+  const scores = rankedEntries(suite, environment, selectedConfiguration?.id);
   const officialScores = scores.filter((entry) => entry.kind === "agent");
-  const baseline = scores.find((entry) => entry.kind === "baseline");
   const values = scores.map((entry) => entry.score);
   const scoreMinimum = Math.min(...values);
   const scoreMaximum = Math.max(...values);
-  const scoreSpan = Math.max(scoreMaximum - scoreMinimum, 1e-9);
+  const scaleMinimum = Math.min(0, scoreMinimum);
+  const scaleMaximum = Math.max(0, scoreMaximum);
+  const scoreSpan = Math.max(scaleMaximum - scaleMinimum, 1e-9);
+  const entryColors = ["#36a99b", "#f0765e", "#8a4cff", "#365a68", "#d29a2e"];
+
+  function exportRanking() {
+    const rankedAgents = scores.filter((entry) => entry.kind === "agent");
+    const baselines = scores.filter((entry) => entry.kind === "baseline");
+    const payload = {
+      schema: "evopolicygym/environment-ranking/v1",
+      generated_at: suite.results.generated_at,
+      distribution_id: suite.manifest.id,
+      environment_id: environment.id,
+      test_configuration: selectedConfiguration ?? {
+        id: suite.manifest.profile.id,
+        label: suite.manifest.profile.label,
+        parameters: {
+          budget: suite.manifest.profile.budget,
+          budget_unit: suite.manifest.profile.budget_unit,
+        },
+      },
+      primary_metric: environment.primary_metric,
+      score_direction: environment.score_direction,
+      ranking: rankedAgents.map((entry, index) => ({
+        rank: index + 1,
+        entry_id: entry.id,
+        display: entry.display,
+        harness: entry.harness,
+        thinking_effort: entry.thinking_effort,
+        score: entry.score,
+      })),
+      baselines: baselines.map((entry) => ({
+        entry_id: entry.id,
+        display: entry.display,
+        harness: entry.harness,
+        score: entry.score,
+      })),
+    };
+    const content = `${JSON.stringify(payload, null, 2)}\n`;
+    const objectUrl = URL.createObjectURL(
+      new Blob([content], {type: "application/json"}),
+    );
+    const link = document.createElement("a");
+    const configurationId =
+      selectedConfiguration?.id ?? suite.manifest.profile.id;
+    link.href = objectUrl;
+    link.download = `${suite.manifest.slug}-${environment.id}-${configurationId}-ranking.json`;
+    document.body.append(link);
+    try {
+      link.click();
+    } finally {
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 
   return (
-    <div className="leaderboard-paper-figure leaderboard-environment-figure">
+    <div className="leaderboard-paper-figure leaderboard-score-figure">
+      <div className="leaderboard-ranking-actions">
+        <button type="button" onClick={exportRanking}>
+          {labels.exportRanking}
+        </button>
+      </div>
+      <div className="leaderboard-score-columns" aria-hidden="true">
+        <span>{labels.rank}</span>
+        <span>{labels.entry}</span>
+        <span>{labels.scoreSignal}</span>
+        <span>{labels.rawScore}</span>
+      </div>
       <div className="leaderboard-paper-chart">
         {scores.map((entry) => {
           const isBaseline = entry.kind === "baseline";
           const rank = officialScores.findIndex((item) => item.id === entry.id);
-          const progress =
-            environment.score_direction === "maximize"
-              ? ((entry.score - scoreMinimum) / scoreSpan) * 100
-              : ((scoreMaximum - entry.score) / scoreSpan) * 100;
-          const delta = baseline
-            ? environment.score_direction === "maximize"
-              ? entry.score - baseline.score
-              : baseline.score - entry.score
-            : 0;
+          const progress = ((entry.score - scaleMinimum) / scoreSpan) * 100;
+          const entryColor = isBaseline
+            ? "#929a95"
+            : entryColors[Math.max(rank, 0) % entryColors.length];
+          const className = [
+            isBaseline ? "is-baseline" : "",
+            rank === 0 ? "is-first" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
           return (
-            <div className={isBaseline ? "is-baseline" : ""} key={entry.id}>
+            <div
+              className={className}
+              key={entry.id}
+              style={{"--leaderboard-entry-color": entryColor} as CSSProperties}
+            >
               <span className="leaderboard-paper-chart-rank">{isBaseline ? "—" : rank + 1}</span>
-              <span className="leaderboard-paper-chart-label"><strong>{entry.display}</strong><small>{entry.harness}</small></span>
-              <span className="leaderboard-paper-chart-score">{formatLeaderboardScore(entry.score)}</span>
-              <span className="leaderboard-paper-chart-bar" aria-hidden="true"><i style={{width: `${Math.max(progress, 1.5)}%`}} /></span>
-              <span className="leaderboard-paper-chart-delta">
-                {isBaseline
-                  ? labels.randomReference
-                  : `${delta >= 0 ? "+" : ""}${formatLeaderboardScore(delta)} ${labels.versusRandom}`}
+              <span className="leaderboard-paper-chart-label">
+                <i aria-hidden="true" />
+                <span>
+                  <strong>
+                    {entry.display}
+                    {entry.thinking_effort !== undefined && (
+                      <em>{entry.thinking_effort}</em>
+                    )}
+                  </strong>
+                  <small>{entry.harness}</small>
+                </span>
               </span>
+              <span className="leaderboard-paper-chart-bar" aria-hidden="true"><i style={{width: `${Math.max(progress, 1.5)}%`}} /></span>
+              <span className="leaderboard-paper-chart-score">{formatLeaderboardScore(entry.score)}</span>
             </div>
           );
         })}
         <div className="leaderboard-paper-axis" aria-hidden="true">
-          <span>{formatLeaderboardScore(scoreMinimum)}</span>
-          <span>{formatLeaderboardScore(scoreMinimum + scoreSpan / 2)}</span>
-          <span>{formatLeaderboardScore(scoreMaximum)}</span>
+          <span>{formatLeaderboardScore(scaleMinimum)}</span>
+          <span>{formatLeaderboardScore(scaleMinimum + scoreSpan / 2)}</span>
+          <span>{formatLeaderboardScore(scaleMaximum)}</span>
         </div>
       </div>
     </div>

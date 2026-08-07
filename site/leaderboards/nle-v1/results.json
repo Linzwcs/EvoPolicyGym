@@ -1,0 +1,72 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-08-03T00:00:00Z",
+  "final_reruns": 3,
+  "test_configurations": [
+    {
+      "id": "nethack-train-up-to-128-assess-256-v1",
+      "label": {
+        "en": "Up to 128 train / 256 assessment",
+        "zh": "最多 128 训练 / 256 Assessment"
+      },
+      "description": {
+        "en": "Start from the baseline, use up to 128 training Episodes in NLE NetHackScore-v0, then measure the selected Program on 256 held-out Assessment Episodes.",
+        "zh": "从 baseline 开始，在 NLE NetHackScore-v0 中最多使用 128 个训练 Episode，然后在 256 个 held-out Assessment Episodes 上评测选中的 Program。"
+      },
+      "parameters": {
+        "environment_version": "NLE 1.3.0 / NetHack 3.6.7",
+        "task": "NetHackScore-v0",
+        "action_count": 23,
+        "episode_step_limit": 5000,
+        "episode_budget": 128,
+        "training_budget_policy": "agent_may_finish_early",
+        "assessment_split": "held-out",
+        "assessment_episodes": 256,
+        "optional_nethack_skill": "disabled"
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "nethack-score-v0",
+      "display": "NetHackScore-v0",
+      "category": "Roguelike",
+      "order": 0,
+      "primary_metric": "assessment_mean_return",
+      "score_direction": "maximize",
+      "configuration_ids": ["nethack-train-up-to-128-assess-256-v1"],
+      "default_configuration_id": "nethack-train-up-to-128-assess-256-v1",
+      "summary": {
+        "en": "Build a long-horizon NetHack policy that explores procedural dungeons, handles obstacles, survives, and makes measurable game progress.",
+        "zh": "构建能够探索程序生成地下城、处理障碍、维持生存并取得可测量游戏进展的长期 NetHack Policy。"
+      },
+      "evidence_path": "/blog/nethack-policy-evolution"
+    }
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_6_sol",
+      "display": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"nethack-score-v0": {"nethack-train-up-to-128-assess-256-v1": 204.026}}
+    },
+    {
+      "id": "gpt_5_6_terra",
+      "display": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"nethack-score-v0": {"nethack-train-up-to-128-assess-256-v1": 80.237}}
+    },
+    {
+      "id": "gpt_5_6_luna",
+      "display": "GPT-5.6 Luna",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {"nethack-score-v0": {"nethack-train-up-to-128-assess-256-v1": 63.773}}
+    }
+  ]
+}

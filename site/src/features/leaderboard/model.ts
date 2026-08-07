@@ -1,6 +1,7 @@
 import type {
   LeaderboardEntry,
   LeaderboardEnvironment,
+  LeaderboardSuiteManifest,
   LeaderboardSuiteData,
 } from "../../../lib/leaderboard/types";
 
@@ -14,19 +15,41 @@ export interface AggregateEntry extends LeaderboardEntry {
   averageRank: number;
 }
 
+export function leaderboardPath(manifest: LeaderboardSuiteManifest): string {
+  const collection =
+    manifest.status === "archived" ? "archive" : "distributions";
+  return `/leaderboard/${collection}/${manifest.slug}/`;
+}
+
 export function suitePath(suite: LeaderboardSuiteData): string {
-  return `/leaderboard/suites/${suite.manifest.slug}/`;
+  return leaderboardPath(suite.manifest);
 }
 
 export function rankedEntries(
   suite: LeaderboardSuiteData,
   environment: LeaderboardEnvironment,
+  configurationId: string | undefined = environment.default_configuration_id,
 ): ScoredEntry[] {
   const multiplier = environment.score_direction === "maximize" ? -1 : 1;
   return suite.results.entries
-    .filter((entry) => Number.isFinite(entry.scores[environment.id]))
-    .map((entry) => ({...entry, score: entry.scores[environment.id]}))
+    .map((entry) => {
+      const score = scoreForEntry(entry, environment, configurationId);
+      return score === undefined ? null : {...entry, score};
+    })
+    .filter((entry): entry is ScoredEntry => entry !== null)
     .sort((left, right) => multiplier * (left.score - right.score));
+}
+
+export function scoreForEntry(
+  entry: LeaderboardEntry,
+  environment: LeaderboardEnvironment,
+  configurationId: string | undefined = environment.default_configuration_id,
+): number | undefined {
+  const score = entry.scores[environment.id];
+  if (typeof score === "number") return score;
+  if (score === undefined || configurationId === undefined) return undefined;
+  const configuredScore = score[configurationId];
+  return typeof configuredScore === "number" ? configuredScore : undefined;
 }
 
 export function aggregateEntries(
@@ -36,13 +59,14 @@ export function aggregateEntries(
   return agents
     .map((entry) => {
       const placements = suite.results.environments.map((environment) => {
-        const score = entry.scores[environment.id];
+        const score = scoreForEntry(entry, environment);
+        if (score === undefined) return suite.results.entries.length + 1;
         return (
           1 +
           agents.filter((candidate) =>
             environment.score_direction === "maximize"
-              ? candidate.scores[environment.id] > score
-              : candidate.scores[environment.id] < score,
+              ? (scoreForEntry(candidate, environment) ?? -Infinity) > score
+              : (scoreForEntry(candidate, environment) ?? Infinity) < score,
           ).length
         );
       });
@@ -61,7 +85,5 @@ export function aggregateEntries(
 }
 
 export function formatLeaderboardScore(value: number): string {
-  if (Math.abs(value) >= 100) return value.toFixed(1);
-  if (Math.abs(value) >= 10) return value.toFixed(2);
   return value.toFixed(3);
 }

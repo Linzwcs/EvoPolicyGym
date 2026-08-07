@@ -1,0 +1,47 @@
+---
+schema: evopolicygym/leaderboard-suite/v2
+id: nle-v1
+slug: nle-v1
+status: active
+default: false
+version: v1
+experiment_version: v0.3.0
+title:
+  en: NLE Distribution
+  zh: NLE Distribution
+label:
+  en: NLE
+  zh: NLE
+description:
+  en: Published policy-evolution results for NetHack Environments in the NLE ecosystem.
+  zh: NLE 生态下 NetHack Environment 已公开的 Policy 演化实验结果。
+profile:
+  id: nle-nethack-128-v1
+  label:
+    en: NetHack 128-Episode allowance
+    zh: NetHack 128-Episode 训练额度
+  budget: 128
+  budget_unit: training episode allowance / run
+content:
+  suite:
+    en: index.mdx
+    zh: index.zh-CN.mdx
+  environment:
+    en: environment.mdx
+    zh: environment.zh-CN.mdx
+results: results.json
+---
+
+<LeaderboardIntro eyebrow="Active Distribution">
+
+# NLE
+
+<SuiteFacts />
+
+</LeaderboardIntro>
+
+<LeaderboardSection number="1" title="Environment leaderboards">
+
+<EnvironmentDirectory />
+
+</LeaderboardSection>

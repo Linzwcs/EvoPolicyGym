@@ -2,54 +2,18 @@
 
 # Core16 排行榜
 
-<LeaderboardLead>十六个固定论文时期 Environment Track 上的最终 Policy 评估。</LeaderboardLead>
-
 <SuiteFacts />
-
-<LeaderboardNote title="比较规则">
-
-原始 reward 只能在同一固定 Environment Track 内比较。汇总视图仅概括名次，不会相加不兼容的 reward scale。
-
-</LeaderboardNote>
 
 </LeaderboardIntro>
 
-<LeaderboardSection
-  number="1"
-  title="综合名次汇总"
-  lead="按 Environment 胜场排序，以平均名次作为同分规则。该冻结 Suite 只报告名次，不会相加不兼容的原始分数。"
->
+<LeaderboardSection number="1" title="综合名次汇总">
 
 <AggregateTable />
 
-<LeaderboardCaption label="表 1。">该 Suite 完整条目的描述性名次汇总。</LeaderboardCaption>
-
 </LeaderboardSection>
 
-<LeaderboardSection
-  number="2"
-  title="Environment 分榜"
-  lead="这里只显示已有报告分数的 Environment；每个路由都会保留 Suite 与 Profile 上下文。"
->
+<LeaderboardSection number="2" title="Environment 分榜">
 
 <EnvironmentDirectory />
-
-</LeaderboardSection>
-
-<LeaderboardSection number="3" title="方法与范围" variant="method">
-
-### 哪些结果进入表格
-
-每个报告值都属于一次历史 Core16 Run 中由 Validation 选出的 checkpoint。档案为每条模型与 Environment 链路保留一次原 Environment 重跑。
-
-### 表格不代表什么
-
-这份冻结的论文档案不是在线 v0.3 提交服务。名次汇总仅作描述，并非通用 Policy 质量分数。
-
-<LeaderboardLinks>
-  <LeaderboardLink to="/results/">结果证据 →</LeaderboardLink>
-  <LeaderboardLink to="/docs/evaluation/">评估语义 →</LeaderboardLink>
-  <LeaderboardLink to="/environments/">Environment 目录 →</LeaderboardLink>
-</LeaderboardLinks>
 
 </LeaderboardSection>

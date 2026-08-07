@@ -1,0 +1,88 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-08-06T14:28:10.797400+00:00",
+  "final_reruns": 3,
+  "test_configurations": [
+    {
+      "id": "train-128-assess-32-v1",
+      "label": {
+        "en": "128 train / 32 assessment",
+        "zh": "128 训练 / 32 Assessment"
+      },
+      "description": {
+        "en": "Strictly exhaust 128 training Episodes, select with 32 Validation Episodes per candidate, then measure the selected Program on 32 held-out Assessment Episodes.",
+        "zh": "严格用完 128 个训练 Episode；每个候选使用 32 个 Validation Episode 选择，最后在 32 个 held-out Assessment Episode 上评测选中的 Program。"
+      },
+      "parameters": {
+        "run_seed": 20260806,
+        "training_split": "train",
+        "episode_budget": 128,
+        "episode_pool_size": 128,
+        "max_submissions": 8,
+        "max_episodes_per_submission": 32,
+        "finish_budget_policy": "require_budget_exhaustion",
+        "validation_split": "validation",
+        "validation_episodes_per_candidate": 32,
+        "validation_max_candidates": 2,
+        "assessment_split": "test",
+        "assessment_episodes": 32,
+        "episode_timeout_seconds": 120,
+        "agent_timeout_seconds": 7200
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "pick-place-v3",
+      "display": "PickPlace v3",
+      "category": "Manipulation",
+      "order": 0,
+      "primary_metric": "assessment_mean_return",
+      "score_direction": "maximize",
+      "configuration_ids": ["train-128-assess-32-v1"],
+      "default_configuration_id": "train-128-assess-32-v1",
+      "summary": {
+        "en": "Goal-observable grasp, lift, and placement with dense reward over a fixed 500-step horizon.",
+        "zh": "在固定 500 步 horizon 内完成目标可观测的抓取、抬升与放置，并按稠密 reward 计分。"
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_6_sol",
+      "display": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "pick-place-v3": {
+          "train-128-assess-32-v1": 4471.544145923103
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_terra",
+      "display": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "pick-place-v3": {
+          "train-128-assess-32-v1": 4017.7978509802274
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_luna",
+      "display": "GPT-5.6 Luna",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "pick-place-v3": {
+          "train-128-assess-32-v1": 3728.948500725324
+        }
+      }
+    }
+  ]
+}

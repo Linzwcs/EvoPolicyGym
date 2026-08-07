@@ -1,14 +1,17 @@
-import {createContext, type ReactNode, useContext} from "react";
+import {createContext, type ReactNode, useContext, useState} from "react";
 import type {
   LeaderboardEnvironment,
   LeaderboardRegistry,
   LeaderboardSuiteData,
+  LeaderboardTestConfiguration,
 } from "../../../lib/leaderboard/types";
 
 interface LeaderboardContextValue {
   suite: LeaderboardSuiteData;
   registry: LeaderboardRegistry;
   environment?: LeaderboardEnvironment;
+  selectedConfiguration?: LeaderboardTestConfiguration;
+  selectConfiguration?: (configurationId: string) => void;
 }
 
 const LeaderboardContext = createContext<LeaderboardContextValue | null>(null);
@@ -18,9 +21,35 @@ export function LeaderboardProvider({
   registry,
   environment,
   children,
-}: LeaderboardContextValue & {children: ReactNode}) {
+}: Pick<LeaderboardContextValue, "suite" | "registry" | "environment"> & {
+  children: ReactNode;
+}) {
+  const [selectedConfigurationId, setSelectedConfigurationId] = useState(
+    environment?.default_configuration_id,
+  );
+  const selectedConfiguration = suite.results.test_configurations?.find(
+    (configuration) => configuration.id === selectedConfigurationId,
+  );
+  const selectConfiguration = environment?.configuration_ids
+    ? (configurationId: string) => {
+        if (!environment.configuration_ids?.includes(configurationId)) {
+          throw new Error(
+            `Configuration ${configurationId} is unavailable for ${environment.id}`,
+          );
+        }
+        setSelectedConfigurationId(configurationId);
+      }
+    : undefined;
   return (
-    <LeaderboardContext.Provider value={{suite, registry, environment}}>
+    <LeaderboardContext.Provider
+      value={{
+        suite,
+        registry,
+        environment,
+        selectedConfiguration,
+        selectConfiguration,
+      }}
+    >
       {children}
     </LeaderboardContext.Provider>
   );

@@ -4,9 +4,10 @@ import {useState} from "react";
 import {pickLocalized, useSiteLanguage} from "../../components/Localized";
 import type {
   LeaderboardRegistry,
+  LeaderboardRegistryItem,
   LeaderboardSuiteData,
 } from "../../../lib/leaderboard/types";
-import {suitePath} from "./model";
+import {leaderboardPath} from "./model";
 import {useLeaderboardMessages} from "./messages";
 
 export function LeaderboardShell({
@@ -23,9 +24,9 @@ export function LeaderboardShell({
   return (
     <main className="leaderboard-paper">
       <div className="leaderboard-paper-shell">
-        <LeaderboardSidebar
-          suite={suite}
+        <LeaderboardNavigator
           registry={registry}
+          currentSuiteId={suite.manifest.id}
           currentEnvironmentId={currentEnvironmentId}
         />
         <article className="leaderboard-paper-article">{children}</article>
@@ -34,35 +35,108 @@ export function LeaderboardShell({
   );
 }
 
-function LeaderboardSidebar({
-  suite,
+export function LeaderboardNavigator({
   registry,
+  currentSuiteId,
   currentEnvironmentId,
 }: {
-  suite: LeaderboardSuiteData;
   registry: LeaderboardRegistry;
+  currentSuiteId?: string;
   currentEnvironmentId?: string;
 }) {
   const language = useSiteLanguage();
   const labels = useLeaderboardMessages();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const categories = Array.from(
-    new Set(suite.results.environments.map((environment) => environment.category)),
+  const [expandedDistributions, setExpandedDistributions] = useState<string[]>(
+    [currentSuiteId ?? registry.defaultSuiteId],
   );
-  const activeCategory = suite.results.environments.find(
-    (environment) => environment.id === currentEnvironmentId,
-  )?.category;
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(
-    activeCategory ? [activeCategory] : [],
+  const distributions = registry.suites.filter(
+    (item) => item.manifest.status !== "archived",
   );
-  const basePath = suitePath(suite);
+  const archives = registry.suites.filter(
+    (item) => item.manifest.status === "archived",
+  );
 
-  function toggleCategory(category: string) {
-    setExpandedCategories((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category],
+  function toggleDistribution(distributionId: string) {
+    setExpandedDistributions((current) =>
+      current.includes(distributionId)
+        ? current.filter((item) => item !== distributionId)
+        : [...current, distributionId],
+    );
+  }
+
+  function matchingEnvironments(item: LeaderboardRegistryItem) {
+    const distributionMatches = pickLocalized(language, item.manifest.label)
+      .toLocaleLowerCase()
+      .includes(normalizedQuery);
+    return item.environments.filter(
+      (environment) =>
+        !normalizedQuery ||
+        distributionMatches ||
+        environment.display.toLocaleLowerCase().includes(normalizedQuery) ||
+        environment.id.toLocaleLowerCase().includes(normalizedQuery),
+    );
+  }
+
+  function distributionGroup(
+    title: string,
+    items: LeaderboardRegistryItem[],
+  ) {
+    const visibleItems = items.filter(
+      (item) => matchingEnvironments(item).length > 0,
+    );
+    if (visibleItems.length === 0) return null;
+    return (
+      <nav className="leaderboard-sidebar-environments">
+        <p>
+          {title}
+          <span>{visibleItems.length}</span>
+        </p>
+        {visibleItems.map((item) => {
+          const environments = matchingEnvironments(item);
+          const isCurrent = item.manifest.id === currentSuiteId;
+          const isExpanded =
+            normalizedQuery.length > 0 ||
+            expandedDistributions.includes(item.manifest.id);
+          const basePath = leaderboardPath(item.manifest);
+          return (
+            <div
+              className={`leaderboard-sidebar-category leaderboard-sidebar-distribution${
+                isExpanded ? " is-expanded" : ""
+              }${isCurrent ? " is-current" : ""}`}
+              key={item.manifest.id}
+            >
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                onClick={() => toggleDistribution(item.manifest.id)}
+              >
+                <strong>{pickLocalized(language, item.manifest.label)}</strong>
+                <span>{item.environments.length}</span>
+                <i aria-hidden="true">+</i>
+              </button>
+              {isExpanded && (
+                <div className="leaderboard-sidebar-category-links">
+                  {environments.map((environment) => (
+                    <Link
+                      className={
+                        isCurrent && currentEnvironmentId === environment.id
+                          ? "is-active"
+                          : ""
+                      }
+                      to={`${basePath}environments/${environment.id}/`}
+                      key={`${item.manifest.id}:${environment.id}`}
+                    >
+                      {environment.display}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
     );
   }
 
@@ -72,15 +146,13 @@ function LeaderboardSidebar({
       aria-label={labels.navigationAria}
     >
       <div className="leaderboard-sidebar-suite">
-        <strong>{labels.leaderboard}</strong>
-      </div>
-
-      <nav className="leaderboard-sidebar-current">
-        <p>{labels.currentSuite}</p>
-        <Link className={!currentEnvironmentId ? "is-active" : ""} to={basePath}>
-          {pickLocalized(language, suite.manifest.label)}
+        <Link
+          className={!currentSuiteId ? "is-active" : ""}
+          to="/leaderboard/"
+        >
+          {labels.leaderboard}
         </Link>
-      </nav>
+      </div>
 
       <div className="leaderboard-sidebar-search">
         <label htmlFor="leaderboard-environment-search">
@@ -95,70 +167,8 @@ function LeaderboardSidebar({
         />
       </div>
 
-      <nav className="leaderboard-sidebar-environments">
-        <p>
-          {labels.byEnvironment}
-          <span>{suite.results.environments.length}</span>
-        </p>
-        {categories.map((category) => {
-          const environments = suite.results.environments.filter(
-            (environment) =>
-              environment.category === category &&
-              (!normalizedQuery ||
-                environment.display.toLocaleLowerCase().includes(normalizedQuery) ||
-                environment.id.toLocaleLowerCase().includes(normalizedQuery)),
-          );
-          if (environments.length === 0) return null;
-          const isExpanded =
-            normalizedQuery.length > 0 || expandedCategories.includes(category);
-          return (
-            <div
-              className={`leaderboard-sidebar-category${isExpanded ? " is-expanded" : ""}`}
-              key={category}
-            >
-              <button
-                type="button"
-                aria-expanded={isExpanded}
-                onClick={() => toggleCategory(category)}
-              >
-                <strong>{category}</strong>
-                <span>{environments.length}</span>
-                <i aria-hidden="true">+</i>
-              </button>
-              {isExpanded && (
-                <div className="leaderboard-sidebar-category-links">
-                  {environments.map((environment) => (
-                    <Link
-                      className={
-                        currentEnvironmentId === environment.id ? "is-active" : ""
-                      }
-                      to={`${basePath}environments/${environment.id}/`}
-                      key={environment.id}
-                    >
-                      {environment.display}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
-
-      {registry.suites.length > 1 && (
-        <nav className="leaderboard-sidebar-archives">
-          <p>{labels.suites}</p>
-          {registry.suites.map((item) => (
-            <Link
-              className={item.manifest.id === suite.manifest.id ? "is-current" : ""}
-              to={`/leaderboard/suites/${item.manifest.slug}/`}
-              key={item.manifest.id}
-            >
-              {pickLocalized(language, item.manifest.label)}
-            </Link>
-          ))}
-        </nav>
-      )}
+      {distributionGroup(labels.distributions, distributions)}
+      {distributionGroup(labels.archive, archives)}
     </aside>
   );
 }

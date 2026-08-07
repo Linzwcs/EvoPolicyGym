@@ -49,26 +49,32 @@ export function EnvironmentDirectory() {
     new Set(suite.results.environments.map((environment) => environment.category)),
   );
   return (
-    <div className="leaderboard-environment-directory">
+    <div className="leaderboard-environment-folds">
       {categories.map((category) => {
         const environments = suite.results.environments.filter(
           (environment) => environment.category === category,
         );
         return (
-          <section key={category}>
-            <header><h3>{category}</h3><span>{environments.length}</span></header>
-            {environments.map((environment) => (
-              <Link
-                to={`${suitePath(suite)}environments/${environment.id}/`}
-                key={environment.id}
-              >
-                <span>{String(environment.order + 1).padStart(2, "0")}</span>
-                <strong>{environment.display}</strong>
-                <small>{environment.primary_metric}</small>
-                <b>→</b>
-              </Link>
-            ))}
-          </section>
+          <details open={categories.length === 1} key={category}>
+            <summary>
+              <h3>{category}</h3>
+              <span>{environments.length}</span>
+              <i aria-hidden="true">+</i>
+            </summary>
+            <div>
+              {environments.map((environment) => (
+                <Link
+                  to={`${suitePath(suite)}environments/${environment.id}/`}
+                  key={environment.id}
+                >
+                  <span>{String(environment.order + 1).padStart(2, "0")}</span>
+                  <strong>{environment.display}</strong>
+                  <small>{environment.primary_metric}</small>
+                  <b>→</b>
+                </Link>
+              ))}
+            </div>
+          </details>
         );
       })}
     </div>

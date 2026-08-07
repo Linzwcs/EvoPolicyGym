@@ -100,6 +100,10 @@ flowchart LR
 The Agent can edit the Program, inspect public Feedback, and submit or finish
 through its scoped Session client. The Host owns the Episode pool, budget,
 Evaluation lifecycle, private final selection, and retained evidence.
+The Unix-socket listener only transports framed requests; the calling Host
+coordinator thread performs Environment evaluation and Feedback publication.
+CLI Runs therefore keep renderers that require macOS main-thread access off
+the transport listener thread.
 The Host task declares `evopolicygym-session submit` as the Agent's only
 authorized Benchmark Environment interaction path; directly running a local
 Benchmark implementation, environment provider, simulator, ROM, or equivalent
@@ -117,6 +121,11 @@ use separate private allocations after the Agent has finished.
 
 Episode budget makes interaction efficiency comparable within one Benchmark;
 it is not a cross-Benchmark measure of compute cost.
+
+When `max_submissions` is omitted, it defaults to `episode_budget`. This keeps
+single-Episode experiments from exhausting Submission authority before the
+Episode budget. Set it explicitly only when a Run needs a tighter limit on
+distinct candidate evaluations.
 
 `RunConfig.finish_budget_policy` controls whether the Agent may hand candidates
 to the Host before using every Episode unit. The default, `allow_early`, keeps
@@ -196,7 +205,6 @@ uv run --project environments/gymnasium/classic_control/cartpole \
   --model gpt-5.6-luna \
   --reasoning-effort high \
   --record-to runs/cartpole-001 \
-  --max-submissions 3 \
   --episode-budget 30 \
   --episode-pool-size 60 \
   --max-episodes-per-submission 10 \

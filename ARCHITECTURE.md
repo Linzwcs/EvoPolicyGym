@@ -77,6 +77,7 @@ evopolicygym/
 │   │   ├── outcomes.py         detached receipts and sanitized rejections
 │   │   ├── service.py          budget and atomic finish admission
 │   │   ├── gateway.py          Host-side Unix-socket Gateway
+│   │   ├── runner.py           coordinator-thread Session dispatch
 │   │   ├── client.py           Agent-side framed transport
 │   │   └── cli.py              Agent-facing Session presentation
 │   ├── _selection/             Host-only post-Agent phases
@@ -211,6 +212,11 @@ The rules are:
   an execution setting or provider;
 - `run/_session/client.py` and `run/_session/cli.py` do not import the Host
   Session service; framed client transport and Host authority remain separate;
+- `run/_session/gateway.py` decodes socket traffic on its listener thread but
+  queues valid requests for `run/_session/runner.py` to dispatch on the Host
+  coordinator thread. Environment construction, stepping, rendering,
+  publication, and Session state transitions therefore never run on the
+  transport listener thread;
 - `run/_selection/validation.py` owns deterministic final selection. It starts only
   after the Agent runner has reaped the process tree and the Session gateway
   has closed;
@@ -288,7 +294,9 @@ Before Agent execution, the Host derives one training-pool seed from
 exactly `episode_pool_size` `EpisodeSpec` values once, and derives one stable
 Policy seed per index under `evopolicygym/training-policy/v1`. The default pool
 size equals `episode_budget`, but callers may configure a larger selectable
-pool without increasing total authority.
+pool without increasing total authority. The default `max_submissions` also
+equals `episode_budget`, so every remaining Episode unit can still be spent as
+a singleton Submission; callers may explicitly configure a tighter limit.
 
 `submit` uses `agent-session/v3` and carries an explicit, non-empty,
 strictly-increasing `episode_indices` list. The CLI expands singleton and

@@ -63,7 +63,7 @@ class RunConfig:
     """Finite authority granted to one Program Evolution Run."""
 
     split: str = "train"
-    max_submissions: int = 20
+    max_submissions: int | None = None
     episode_budget: int = 1_000
     episode_pool_size: int | None = None
     max_episodes_per_submission: int | None = None
@@ -78,13 +78,16 @@ class RunConfig:
     def __post_init__(self) -> None:
         if type(self.split) is not str or not self.split:
             raise ValueError("split must be non-empty text")
-        for name in (
-            "max_submissions",
-            "episode_budget",
-        ):
-            value = getattr(self, name)
-            if type(value) is not int or value <= 0:
-                raise ValueError(f"{name} must be a positive integer")
+        if type(self.episode_budget) is not int or self.episode_budget <= 0:
+            raise ValueError("episode_budget must be a positive integer")
+        max_submissions = self.max_submissions
+        if max_submissions is None:
+            max_submissions = self.episode_budget
+            object.__setattr__(self, "max_submissions", max_submissions)
+        elif type(max_submissions) is not int or max_submissions <= 0:
+            raise ValueError(
+                "max_submissions must be a positive integer or None"
+            )
         pool_size = self.episode_pool_size
         if pool_size is None:
             pool_size = self.episode_budget
@@ -123,7 +126,7 @@ class RunConfig:
         if (
             self.finish_budget_policy == "require_budget_exhaustion"
             and self.episode_budget
-            > self.max_submissions * configured_submission_capacity
+            > max_submissions * configured_submission_capacity
         ):
             raise ValueError(
                 "finish_budget_policy requires an Episode budget that can be "
@@ -139,7 +142,7 @@ class RunConfig:
         if self.validation is not None:
             if type(self.validation) is not ValidationConfig:
                 raise TypeError("validation must be ValidationConfig or None")
-            if self.validation.max_candidates > self.max_submissions:
+            if self.validation.max_candidates > max_submissions:
                 raise ValueError(
                     "validation max_candidates cannot exceed max_submissions"
                 )

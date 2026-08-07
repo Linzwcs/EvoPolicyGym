@@ -27,6 +27,8 @@ class ExperimentError(RuntimeError):
 def main(arguments: list[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(arguments)
+    if namespace.max_submissions is None:
+        namespace.max_submissions = namespace.episode_budget
     if not namespace.allow_unsafe_process:
         parser.error(
             "local Agent and Policy processes are not isolated; "
@@ -344,7 +346,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-submissions",
         type=_positive_int,
-        default=16,
+        help="defaults to --episode-budget when omitted",
     )
     parser.add_argument(
         "--episode-budget",

@@ -195,7 +195,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--codex-executable", default="codex")
     parser.add_argument("--max-episode-steps", type=int, default=5_000)
     parser.add_argument("--seed", type=int, default=20260801)
-    parser.add_argument("--max-submissions", type=int, default=32)
+    parser.add_argument("--max-submissions", type=int)
     parser.add_argument("--episode-budget", type=int, default=1_024)
     parser.add_argument("--max-episodes-per-submission", type=int, default=64)
     parser.add_argument("--validation-episodes-per-candidate", type=int, default=64)

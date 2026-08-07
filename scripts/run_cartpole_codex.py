@@ -8,6 +8,8 @@ from pathlib import Path
 
 from cartpole import CartPoleBenchmark, baseline_program
 
+from evopolicygym.agents import Codex
+from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import (
     AssessmentConfig,
     ConsoleProgress,
@@ -15,8 +17,6 @@ from evopolicygym.run import (
     ValidationConfig,
     run,
 )
-from evopolicygym.agents import Codex
-from evopolicygym.execution import ProcessExecution
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -160,7 +160,7 @@ def _parser() -> argparse.ArgumentParser:
         default="train",
     )
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--max-submissions", type=int, default=2)
+    parser.add_argument("--max-submissions", type=int)
     parser.add_argument("--episode-budget", type=int, default=6)
     parser.add_argument(
         "--episode-pool-size",

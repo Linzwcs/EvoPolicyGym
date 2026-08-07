@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import queue
 import socket
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..._protocol.session import SESSION_PROTOCOL
@@ -26,6 +28,7 @@ class UnixSessionGateway:
         self._listener: socket.socket | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+        self._requests: queue.Queue[_PendingRequest] = queue.Queue()
         self.terminal = threading.Event()
 
     def start(self) -> None:
@@ -58,6 +61,27 @@ class UnixSessionGateway:
             thread.join()
         self._socket_path.unlink(missing_ok=True)
 
+    def dispatch_next(self, *, timeout_seconds: float) -> bool:
+        """Handle at most one decoded request on the calling Host thread."""
+
+        if type(timeout_seconds) is not float or timeout_seconds < 0.0:
+            raise ValueError("timeout_seconds must be a non-negative float")
+        try:
+            pending = self._requests.get(timeout=timeout_seconds)
+        except queue.Empty:
+            return False
+        try:
+            pending.response = _handle_request(self._session, pending.request)
+        except Exception:
+            self._session.fail()
+            pending.response = _error(
+                "session_failed",
+                "the Host Session failed",
+            )
+        finally:
+            pending.ready.set()
+        return True
+
     def _serve(self) -> None:
         listener = self._listener
         assert listener is not None
@@ -78,20 +102,27 @@ class UnixSessionGateway:
                         "the Session request could not be decoded",
                     )
                 else:
-                    try:
-                        response = _handle_request(self._session, request)
-                    except Exception:
-                        self._session.fail()
-                        response = _error(
-                            "session_failed",
-                            "the Host Session failed",
-                        )
+                    pending = _PendingRequest(request=request)
+                    self._requests.put(pending)
+                    while not pending.ready.wait(timeout=0.1):
+                        if self._stop.is_set():
+                            return
+                    pending_response = pending.response
+                    assert pending_response is not None
+                    response = pending_response
                 try:
                     send_session_message(connection, response)
                 except (OSError, ValueError):
                     pass
             if self._session.agent_authority_closed:
                 self.terminal.set()
+
+
+@dataclass(slots=True)
+class _PendingRequest:
+    request: dict[str, object]
+    response: dict[str, object] | None = None
+    ready: threading.Event = field(default_factory=threading.Event)
 
 
 def _handle_request(

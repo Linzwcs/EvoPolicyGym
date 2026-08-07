@@ -79,6 +79,7 @@ def run_process_agent(
     from ._selection.assessment import ProgramAssessor
     from ._selection.validation import CandidateSelector
     from ._session.gateway import UnixSessionGateway
+    from ._session.runner import SessionDispatchingAgentRunner
     from ._session.service import SubmissionSession
     from ._workspace import (
         WorkspaceProgramSource,
@@ -140,7 +141,7 @@ def run_process_agent(
                 episode_pool=episode_pool,
             )
             gateway = UnixSessionGateway(paths.socket, session)
-            runner = ProcessAgentRunner(
+            process_runner = ProcessAgentRunner(
                 command=invocation.command,
                 workspace=paths.workspace,
                 environment=build_agent_environment(
@@ -150,6 +151,10 @@ def run_process_agent(
                 ),
                 stdout_path=paths.agent / "stdout.log",
                 stderr_path=paths.agent / "stderr.log",
+            )
+            runner = SessionDispatchingAgentRunner(
+                agent_runner=process_runner,
+                dispatcher=gateway,
             )
             evolution = ProgramEvolutionRun(
                 benchmark_id=selected_spec.id,

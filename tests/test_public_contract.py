@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 from collections.abc import Sequence
 from pathlib import Path
@@ -447,6 +448,8 @@ description: Improve counter policies.
         self.assertEqual(evaluation.episodes, 2)
         self.assertEqual(run.max_submissions, 4)
         self.assertEqual(run.episode_budget, 20)
+        self.assertEqual(RunConfig(episode_budget=20).max_submissions, 20)
+        self.assertEqual(RunConfig().max_submissions, 1_000)
         self.assertEqual(run.episode_pool_size, 20)
         self.assertIsNone(run.max_episodes_per_submission)
         self.assertEqual(run.finish_budget_policy, "allow_early")
@@ -487,6 +490,8 @@ description: Improve counter policies.
         self.assertEqual(agent.model, "gpt-5")
         with self.assertRaises(ValueError):
             RunConfig(episode_budget=0)
+        with self.assertRaises(ValueError):
+            RunConfig(max_submissions=0)
         with self.assertRaises(ValueError):
             RunConfig(
                 episode_budget=2,
@@ -724,6 +729,7 @@ class RecordingBenchmark:
         environment_failure: bool = False,
     ) -> None:
         self.environments: list[RecordingEnvironment] = []
+        self.environment_threads: list[threading.Thread] = []
         self.environment_failure = environment_failure
 
     @property
@@ -758,6 +764,7 @@ class RecordingBenchmark:
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
         del episode
+        self.environment_threads.append(threading.current_thread())
         environment = RecordingEnvironment(fail=self.environment_failure)
         self.environments.append(environment)
         return environment
@@ -1235,6 +1242,13 @@ print("fake-agent-finished")
             control_exists = (run_directory / "control").exists()
 
         self.assertEqual(result.terminal_reason, "finished")
+        self.assertTrue(benchmark.environment_threads)
+        self.assertTrue(
+            all(
+                thread is threading.main_thread()
+                for thread in benchmark.environment_threads
+            )
+        )
         self.assertEqual(result.final_submission_id, "submission-000002")
         self.assertEqual(
             result.candidate_submission_ids,

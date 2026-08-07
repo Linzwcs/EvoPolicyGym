@@ -172,7 +172,7 @@ def _parser() -> argparse.ArgumentParser:
         default="train",
     )
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--max-submissions", type=int, default=16)
+    parser.add_argument("--max-submissions", type=int)
     parser.add_argument("--episode-budget", type=int, default=1_024)
     parser.add_argument("--episode-pool-size", type=int)
     parser.add_argument("--max-episodes-per-submission", type=int)

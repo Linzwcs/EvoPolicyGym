@@ -100,6 +100,10 @@ class SubmissionSession:
         self._config = config
         self._recorder = recorder
         self._episode_pool = episode_pool
+        max_submissions = config.max_submissions
+        if max_submissions is None:
+            raise AssertionError("RunConfig must resolve max_submissions")
+        self._max_submissions = max_submissions
         self._submission_episode_limit = min(
             SESSION_MAX_EPISODE_INDICES,
             len(episode_pool),
@@ -112,7 +116,7 @@ class SubmissionSession:
         if (
             config.finish_budget_policy == "require_budget_exhaustion"
             and config.episode_budget
-            > config.max_submissions * self._submission_episode_limit
+            > self._max_submissions * self._submission_episode_limit
         ):
             raise ValueError(
                 "finish_budget_policy requires an Episode budget that can be "
@@ -146,7 +150,7 @@ class SubmissionSession:
     def authority_exhausted(self) -> bool:
         return (
             self._episodes_remaining == 0
-            or len(self._submissions) >= self._config.max_submissions
+            or len(self._submissions) >= self._max_submissions
         )
 
     def submit(self, episode_indices: object) -> SubmissionOutcome:
@@ -185,7 +189,7 @@ class SubmissionSession:
                 "episode_limit",
                 "episode_indices exceeds the Session protocol limit",
             )
-        if len(self._submissions) >= self._config.max_submissions:
+        if len(self._submissions) >= self._max_submissions:
             return _error("submission_limit", "the submission limit is exhausted")
         submission_limit = self._config.max_episodes_per_submission
         if submission_limit is not None and episodes > submission_limit:
@@ -198,7 +202,7 @@ class SubmissionSession:
         if self._config.finish_budget_policy == "require_budget_exhaustion":
             remaining_after = self._episodes_remaining - episodes
             submission_slots_after = (
-                self._config.max_submissions - len(self._submissions) - 1
+                self._max_submissions - len(self._submissions) - 1
             )
             future_capacity = (
                 submission_slots_after * self._submission_episode_limit

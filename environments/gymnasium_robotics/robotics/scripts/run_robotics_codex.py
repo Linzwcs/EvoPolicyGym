@@ -21,6 +21,11 @@ from robotics_benchmarks import (
 def main(arguments: list[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(arguments)
+    max_submissions = (
+        namespace.episode_budget
+        if namespace.max_submissions is None
+        else namespace.max_submissions
+    )
     if not namespace.allow_unsafe_process:
         parser.error(
             "local Agent and Policy processes are not isolated; "
@@ -51,7 +56,7 @@ def main(arguments: list[str] | None = None) -> int:
             validation=ValidationConfig(
                 split="validation",
                 episodes_per_candidate=namespace.validation_episodes_per_candidate,
-                max_candidates=min(2, namespace.max_submissions),
+                max_candidates=min(2, max_submissions),
             ),
             assessment=AssessmentConfig(
                 split="test",
@@ -101,7 +106,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--reasoning-effort", default="high")
     parser.add_argument("--codex-executable", default="codex")
     parser.add_argument("--seed", type=int, default=20260804)
-    parser.add_argument("--max-submissions", type=int, default=2)
+    parser.add_argument("--max-submissions", type=int)
     parser.add_argument("--episode-budget", type=int, default=4)
     parser.add_argument("--episode-pool-size", type=int, default=8)
     parser.add_argument("--max-episodes-per-submission", type=int, default=2)

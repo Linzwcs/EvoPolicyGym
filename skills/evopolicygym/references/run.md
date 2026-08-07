@@ -44,7 +44,6 @@ result = run(
     ),
     config=RunConfig(
         split="train",
-        max_submissions=16,
         episode_budget=48,
         episode_pool_size=96,
         max_episodes_per_submission=4,
@@ -67,7 +66,9 @@ result = run(
 ```
 
 - Never reuse or pre-create the Run directory.
-- Set finite submission, Episode, and time budgets.
+- Set finite Episode and time budgets. `max_submissions` defaults to
+  `episode_budget`; configure it explicitly only when the Run needs a tighter
+  Submission cap.
 - Use an explicit per-Submission Episode cap when the selected Benchmark has
   trace-heavy or otherwise batch-sensitive Feedback.
 - Choose `episode_pool_size` independently from `episode_budget` when the

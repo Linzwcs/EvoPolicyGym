@@ -8,6 +8,9 @@ from pathlib import Path
 
 from balatro import BalatroBenchmark, baseline_program
 
+from evopolicygym.agents import Codex
+from evopolicygym.errors import AgentSkillError
+from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import (
     AssessmentConfig,
     ConsoleProgress,
@@ -15,9 +18,6 @@ from evopolicygym.run import (
     ValidationConfig,
     run,
 )
-from evopolicygym.agents import Codex
-from evopolicygym.errors import AgentSkillError
-from evopolicygym.execution import ProcessExecution
 from evopolicygym.skills import AgentSkill
 
 
@@ -169,7 +169,7 @@ def _parser() -> argparse.ArgumentParser:
         default="train",
     )
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--max-submissions", type=int, default=16)
+    parser.add_argument("--max-submissions", type=int)
     parser.add_argument("--episode-budget", type=int, default=48)
     parser.add_argument(
         "--episode-pool-size",

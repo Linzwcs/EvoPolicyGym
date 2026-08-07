@@ -1,25 +1,25 @@
 ---
 schema: evopolicygym/leaderboard-suite/v2
-id: metaworld-v1
-slug: metaworld-v1
+id: gymnasium-v1
+slug: gymnasium-v1
 status: active
-default: false
+default: true
 version: v1
 experiment_version: v0.3.0
 title:
-  en: MetaWorld Distribution
-  zh: MetaWorld Distribution
+  en: Gymnasium Distribution
+  zh: Gymnasium Distribution
 label:
-  en: MetaWorld
-  zh: MetaWorld
+  en: Gymnasium
+  zh: Gymnasium
 description:
-  en: Independent Environment leaderboards for MetaWorld manipulation tasks under one 128-Episode evaluation profile.
-  zh: 在统一的 128-Episode 评测配置下，为 MetaWorld 操作任务提供独立的 Environment 排行榜。
+  en: Independent Environment leaderboards for published Gymnasium control experiments.
+  zh: 已公开 Gymnasium 控制实验的独立 Environment 排行榜。
 profile:
-  id: metaworld-128-v1
+  id: gymnasium-128-v1
   label:
-    en: MetaWorld 128 profile
-    zh: MetaWorld 128 配置
+    en: Gymnasium 128-Episode profile
+    zh: Gymnasium 128-Episode 配置
   budget: 128
   budget_unit: training episodes / run
 content:
@@ -34,7 +34,7 @@ results: results.json
 
 <LeaderboardIntro eyebrow="Active Distribution">
 
-# MetaWorld
+# Gymnasium
 
 <SuiteFacts />
 

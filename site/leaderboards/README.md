@@ -40,11 +40,11 @@ and is rendered with the model, never as part of the test configuration.
 
 The active site is publication-scoped. A result is added only when its complete
 experiment and configuration are documented in a public EvoPolicyGym Blog
-article, or when it belongs to the explicitly published MetaWorld leaderboard
-experiment. Diagnostic and smoke runs remain local evidence and are not
-promoted to public rankings. Numbers transcribed from an article must preserve
-the article's published precision, even when a retained machine report contains
-additional decimal places.
+article or explicitly published as a leaderboard experiment. Diagnostic and
+smoke runs remain local evidence and are not promoted to public rankings.
+Numbers transcribed from an article must preserve the article's published
+precision, even when a retained machine report contains additional decimal
+places.
 
 Exactly one active Distribution version must set `default: true`. Directory
 names must match the manifest slug, content and result paths must remain inside

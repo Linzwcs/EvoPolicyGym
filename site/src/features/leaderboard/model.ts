@@ -84,6 +84,9 @@ export function aggregateEntries(
     );
 }
 
-export function formatLeaderboardScore(value: number): string {
-  return value.toFixed(3);
+export function formatLeaderboardScore(
+  value: number,
+  decimalPlaces = 3,
+): string {
+  return value.toFixed(decimalPlaces);
 }

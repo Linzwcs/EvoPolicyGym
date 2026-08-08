@@ -1,27 +1,29 @@
 {
   "schema": "evopolicygym/leaderboard-results/v1",
-  "generated_at": "2026-08-07T13:42:57Z",
+  "generated_at": "2026-08-08T08:13:25Z",
   "final_reruns": 3,
   "test_configurations": [
     {
-      "id": "keycorridor-train-128-assess-128-v1",
+      "id": "keycorridor-strict-128-1-128-v1",
       "label": {
-        "en": "128 train / 128 assessment · 8 submissions",
-        "zh": "128 训练 / 128 Assessment · 8 Submissions"
+        "en": "Strict · 128 train / 1 validation / 128 assessment",
+        "zh": "严格模式 · 128 训练 / 1 Validation / 128 Assessment"
       },
       "description": {
-        "en": "Start from the packaged KeyCorridor baseline, use up to 128 training Episodes and 8 submissions, then measure the selected Program on 128 held-out test Episodes.",
-        "zh": "从 KeyCorridor packaged baseline 开始，最多使用 128 个训练 Episode 和 8 次 Submission，然后在 128 个 held-out test Episodes 上评测选中的 Program。"
+        "en": "Use all 128 training Episodes, select one Program with 1 Validation Episode, then measure it on 128 held-out Assessment Episodes.",
+        "zh": "用完 128 个训练 Episode，通过 1 个 Validation Episode 选择一个 Program，再在 128 个 held-out Assessment Episodes 上评测。"
       },
       "parameters": {
         "run_seed": 20260807,
         "training_split": "train",
         "episode_budget": 128,
         "episode_pool_size": 128,
-        "max_submissions": 8,
+        "max_submissions": 128,
         "max_episodes_per_submission": 32,
-        "finish_budget_policy": "allow_early",
-        "validation": "disabled",
+        "finish_budget_policy": "require_budget_exhaustion",
+        "validation_split": "validation",
+        "validation_episodes_per_candidate": 1,
+        "validation_max_candidates": 1,
         "assessment_split": "test",
         "assessment_episodes": 128,
         "episode_timeout_seconds": 60,
@@ -37,8 +39,9 @@
       "order": 0,
       "primary_metric": "assessment_mean_return",
       "score_direction": "maximize",
-      "configuration_ids": ["keycorridor-train-128-assess-128-v1"],
-      "default_configuration_id": "keycorridor-train-128-assess-128-v1",
+      "score_decimal_places": 4,
+      "configuration_ids": ["keycorridor-strict-128-1-128-v1"],
+      "default_configuration_id": "keycorridor-strict-128-1-128-v1",
       "summary": {
         "en": "Partially observable multi-room key retrieval and door unlocking, ranked by mean held-out return.",
         "zh": "部分可观测的多房间取钥匙与开门任务，按 held-out mean return 排名。"
@@ -52,7 +55,7 @@
       "harness": "Codex",
       "kind": "agent",
       "thinking_effort": "xhigh",
-      "scores": {"keycorridor-s4r3": {"keycorridor-train-128-assess-128-v1": 0.935078125}}
+      "scores": {"keycorridor-s4r3": {"keycorridor-strict-128-1-128-v1": 0.9284}}
     },
     {
       "id": "gpt_5_6_luna",
@@ -60,7 +63,7 @@
       "harness": "Codex",
       "kind": "agent",
       "thinking_effort": "xhigh",
-      "scores": {"keycorridor-s4r3": {"keycorridor-train-128-assess-128-v1": 0.930244140625}}
+      "scores": {"keycorridor-s4r3": {"keycorridor-strict-128-1-128-v1": 0.9260}}
     },
     {
       "id": "gpt_5_6_terra",
@@ -68,7 +71,7 @@
       "harness": "Codex",
       "kind": "agent",
       "thinking_effort": "xhigh",
-      "scores": {"keycorridor-s4r3": {"keycorridor-train-128-assess-128-v1": 0.9256005859375}}
+      "scores": {"keycorridor-s4r3": {"keycorridor-strict-128-1-128-v1": 0.9261}}
     }
   ]
 }

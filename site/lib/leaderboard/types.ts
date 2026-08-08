@@ -34,6 +34,7 @@ export interface LeaderboardEnvironment {
   order: number;
   primary_metric: string;
   score_direction: "maximize" | "minimize";
+  score_decimal_places?: number;
   summary: LocalizedValue;
   configuration_ids?: string[];
   default_configuration_id?: string;

@@ -123,6 +123,16 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
     if (!isScoreDirection(item.score_direction)) {
       throw new Error(`${filePath}: invalid score direction`);
     }
+    if (
+      item.score_decimal_places !== undefined &&
+      (!Number.isInteger(item.score_decimal_places) ||
+        Number(item.score_decimal_places) < 0 ||
+        Number(item.score_decimal_places) > 12)
+    ) {
+      throw new Error(
+        `${filePath}: environment.score_decimal_places must be an integer from 0 to 12`,
+      );
+    }
     const configured = item.configuration_ids !== undefined;
     if (configured !== (item.default_configuration_id !== undefined)) {
       throw new Error(

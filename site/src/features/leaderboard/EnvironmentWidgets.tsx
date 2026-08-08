@@ -131,6 +131,7 @@ export function EnvironmentProfile() {
 export function EnvironmentChart() {
   const {suite, selectedConfiguration} = useLeaderboard();
   const environment = useLeaderboardEnvironment();
+  const scoreDecimalPlaces = environment.score_decimal_places ?? 3;
   const labels = useLeaderboardMessages();
   const scores = rankedEntries(suite, environment, selectedConfiguration?.id);
   const officialScores = scores.filter((entry) => entry.kind === "agent");
@@ -240,14 +241,14 @@ export function EnvironmentChart() {
                 </span>
               </span>
               <span className="leaderboard-paper-chart-bar" aria-hidden="true"><i style={{width: `${Math.max(progress, 1.5)}%`}} /></span>
-              <span className="leaderboard-paper-chart-score">{formatLeaderboardScore(entry.score)}</span>
+              <span className="leaderboard-paper-chart-score">{formatLeaderboardScore(entry.score, scoreDecimalPlaces)}</span>
             </div>
           );
         })}
         <div className="leaderboard-paper-axis" aria-hidden="true">
-          <span>{formatLeaderboardScore(scaleMinimum)}</span>
-          <span>{formatLeaderboardScore(scaleMinimum + scoreSpan / 2)}</span>
-          <span>{formatLeaderboardScore(scaleMaximum)}</span>
+          <span>{formatLeaderboardScore(scaleMinimum, scoreDecimalPlaces)}</span>
+          <span>{formatLeaderboardScore(scaleMinimum + scoreSpan / 2, scoreDecimalPlaces)}</span>
+          <span>{formatLeaderboardScore(scaleMaximum, scoreDecimalPlaces)}</span>
         </div>
       </div>
     </div>

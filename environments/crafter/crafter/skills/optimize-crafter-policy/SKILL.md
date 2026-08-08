@@ -1,13 +1,13 @@
 ---
 name: optimize-crafter-policy
-description: Improve an EvoPolicyGym Policy Program for the canonical RGB Crafter achievement Benchmark.
+description: Improve an EvoPolicyGym Policy Program for the additive RGB Crafter survival-development Benchmark.
 ---
 
 # Optimize a Crafter Policy
 
-Maximize the official Crafter score across deterministic but hidden procedural
-worlds. The Policy receives only a `TensorValue` containing a `64 x 64 x 3`
-uint8 RGB frame. It never receives the Environment seed, global semantic map,
+Maximize additive long-horizon survival and development across deterministic
+but hidden procedural worlds. The Policy receives only a `TensorValue`
+containing a `64 x 64 x 3` uint8 RGB frame. It never receives the Environment seed, global semantic map,
 player position, achievement counters, reward, or privileged inventory data.
 
 ## Respect the ABI
@@ -84,7 +84,7 @@ least these concepts:
 
 Make the state machine auditable through behavior. For each revision, inspect
 the achievement event order in the per-Episode `trajectory.jsonl.gz` Artifacts
-and use `artifact-manifest.json` to locate the lossless observation chunks.
+and use `artifact-manifest.json` to locate the lossless NPZ observation chunks.
 Verify dependencies such as `collect_wood` before `place_table`, and
 `place_table` before `make_wood_pickaxe`. Re-evaluate a promising unchanged
 Program across additional Episodes before trusting a small batch score.
@@ -95,16 +95,22 @@ resource and facility preconditions were perceived and maintained.
 
 ## Optimize the actual score
 
-Each achievement's success rate is measured across all evaluated Episodes.
-The scalar score is:
+Each transition after which the player remains alive earns one survival point
+and up to `0.1` weakest-vital credit. The complete return is:
 
 ```text
-exp(mean(log(1 + success_percent))) - 1
+survival + weakest-vital quality
++ absolute first-unlock dependency progress
++ bounded repeated productivity
 ```
 
-The shifted geometric mean rewards breadth. Improving a rare missing
-achievement can matter more than repeating an easy achievement. A Policy
-failure receives zero achievement credit for that Episode.
+Every additional survived step remains valuable through the configured
+horizon. First-unlock dependency weights remain exponential, so later tools
+and materials are much more valuable than opening achievements. Repeated
+successful events add at most 25 points and have public caps and diminishing
+returns. A Policy failure returns `-max_episode_steps` for that Episode. Treat
+differences inside the published 95%
+sampling interval as inconclusive rather than as demonstrated improvement.
 
 ## Audit inherited controller bias
 
@@ -121,8 +127,8 @@ In particular, do not inherit:
   evidence.
 
 Exploration should react to visible walkability, resources, facilities,
-creatures, and recent Episode-local movement evidence. Inspect lossless RGB
-observations and the Action sequence after each revision. Repeated local loops
+creatures, and recent Episode-local movement evidence. Inspect selected NPZ
+frames and the Action sequence after each revision. Repeated local loops
 or a dominant Action-frequency pattern are controller defects unless the
 current observation and state explicitly justify them.
 
@@ -130,7 +136,7 @@ current observation and state explicitly justify them.
 
 1. Submit the packaged baseline on a small batch.
 2. Inspect the complete compressed trajectories, achievement success table,
-   and selected lossless RGB observations.
+   and selected frames from the complete lossless NPZ observations.
 3. Eliminate invalid Actions, exceptions, and timeouts first.
 4. Add visual parsing for nearby terrain, creatures, facing direction, and
    inventory icons.

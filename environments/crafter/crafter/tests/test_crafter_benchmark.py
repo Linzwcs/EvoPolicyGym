@@ -30,6 +30,9 @@ from crafter_benchmarks import (
     ACHIEVEMENTS,
     ACTIONS,
     CrafterBenchmark,
+    CrafterCanonicalStrongSurvivalRepeatBenchmark,
+    CrafterCanonicalSurvivalBenchmark,
+    CrafterCanonicalSurvivalRepeatBenchmark,
     CrafterConfig,
     CrafterLongHorizonBenchmark,
     CrafterSurvivalDevelopmentBenchmark,
@@ -429,6 +432,7 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             manifest["visual_evidence"]["frame_sampling"], "none"
         )
+
         self.assertIs(manifest["visual_evidence"]["pixel_exact"], True)
         self.assertIs(
             manifest["visual_evidence"]["mp4_replays"]["enabled"],
@@ -456,6 +460,145 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertNotIn(b"policy_seed", public)
         self.assertNotIn(b"player_pos", public)
         self.assertNotIn(b"semantic", public)
+
+    def test_canonical_survival_feedback_adds_mean_effective_steps(self) -> None:
+        survived = _event_record(
+            steps=4,
+            unlocked=("collect_wood",),
+            event_counts={"collect_wood": 1},
+        )
+        failed = EpisodeRecord(
+            episode=EpisodeSpec(environment_seed=11),
+            policy_seed=21,
+            initial_observation=_ZERO_OBSERVATION,
+            transitions=(),
+            policy_failure="invalid_action",
+        )
+
+        canonical = CrafterBenchmark().feedback((survived, failed))
+        feedback = CrafterCanonicalSurvivalBenchmark().feedback(
+            (survived, failed)
+        )
+
+        self.assertAlmostEqual(feedback.score, canonical.score + 0.02)
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(
+            feedback.content["canonical_survival_score"], feedback.score
+        )
+        self.assertEqual(
+            feedback.content["crafter_score_percent"], canonical.score
+        )
+        self.assertEqual(
+            feedback.content["mean_effective_survival_steps"], 2.0
+        )
+        self.assertEqual(feedback.content["survival_bonus"], 0.02)
+        self.assertEqual(feedback.content["survival_bonus_divisor"], 100.0)
+        self.assertEqual(feedback.artifacts[-1].retention, "permanent")
+
+    def test_canonical_survival_repeat_feedback_is_additive(self) -> None:
+        repeated_drink = _event_record(
+            steps=300,
+            unlocked=("collect_drink",),
+            event_counts={"collect_drink": 17},
+        )
+        failed = EpisodeRecord(
+            episode=EpisodeSpec(environment_seed=11),
+            policy_seed=21,
+            initial_observation=_ZERO_OBSERVATION,
+            transitions=(),
+            policy_failure="invalid_action",
+        )
+
+        canonical_survival = CrafterCanonicalSurvivalBenchmark().feedback(
+            (repeated_drink, failed)
+        )
+        feedback = CrafterCanonicalSurvivalRepeatBenchmark().feedback(
+            (repeated_drink, failed)
+        )
+        expected_episode_credit = (
+            25.0 * 3.0 / 40.0 * math.log1p(16) / math.log1p(8)
+        )
+        expected_mean_credit = expected_episode_credit / 2
+
+        self.assertAlmostEqual(
+            feedback.score,
+            canonical_survival.score + expected_mean_credit,
+        )
+        assert isinstance(feedback.content, dict)
+        self.assertEqual(
+            feedback.content["canonical_survival_repeat_score"],
+            feedback.score,
+        )
+        mean_repeat_score = feedback.content[
+            "mean_repeated_achievement_score"
+        ]
+        assert isinstance(mean_repeat_score, float)
+        self.assertAlmostEqual(
+            mean_repeat_score,
+            expected_mean_credit,
+        )
+        repeated = feedback.content["repeated_achievement"]
+        assert isinstance(repeated, dict)
+        self.assertIs(repeated["single_event_saturation"], False)
+        repeat_counts = repeated["repeat_counts"]
+        assert isinstance(repeat_counts, dict)
+        self.assertEqual(repeat_counts["collect_drink"], 16)
+        self.assertEqual(repeated["episodes_with_limit_applied"], 0)
+
+    def test_canonical_repeat_limit_is_continuous_across_300_steps(self) -> None:
+        benchmark = CrafterCanonicalSurvivalRepeatBenchmark()
+        canonical = CrafterCanonicalSurvivalBenchmark()
+        repeat_credits: list[float] = []
+        for steps in (299, 300, 301):
+            record = _event_record(
+                steps=steps,
+                unlocked=("collect_diamond",),
+                event_counts={"collect_diamond": 1_000_000_001},
+            )
+            feedback = benchmark.feedback((record,))
+            base = canonical.feedback((record,))
+            repeat_credits.append(feedback.score - base.score)
+            self.assertAlmostEqual(
+                repeat_credits[-1],
+                25.0 * steps / 300.0,
+            )
+            assert isinstance(feedback.content, dict)
+            repeated = feedback.content["repeated_achievement"]
+            assert isinstance(repeated, dict)
+            self.assertEqual(repeated["episodes_with_limit_applied"], 1)
+
+        self.assertAlmostEqual(repeat_credits[1] - repeat_credits[0], 1 / 12)
+        self.assertAlmostEqual(repeat_credits[2] - repeat_credits[1], 1 / 12)
+
+    def test_strong_survival_repeat_uses_divisor_20(self) -> None:
+        record = _event_record(
+            steps=300,
+            unlocked=("collect_drink",),
+            event_counts={"collect_drink": 17},
+        )
+        regular = CrafterCanonicalSurvivalRepeatBenchmark().feedback(
+            (record,)
+        )
+        strong = CrafterCanonicalStrongSurvivalRepeatBenchmark().feedback(
+            (record,)
+        )
+
+        self.assertAlmostEqual(strong.score - regular.score, 12.0)
+        assert isinstance(strong.content, dict)
+        self.assertEqual(strong.content["survival_bonus"], 15.0)
+        self.assertEqual(strong.content["survival_bonus_divisor"], 20.0)
+        self.assertEqual(
+            strong.content["canonical_strong_survival_repeat_score"],
+            strong.score,
+        )
+        self.assertEqual(
+            strong.content["score_formula"],
+            (
+                "crafter_score_percent + "
+                "mean_effective_survival_steps / 20 + "
+                "mean(repeated_achievement_score)"
+            ),
+        )
 
     def test_feedback_artifacts_remain_bounded_for_large_batches(self) -> None:
         record = _record(("collect_wood",), reward=1.0)
@@ -1319,6 +1462,71 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             survival_development.spec.environment_parameters["reward_profile"],
             "survival-development-v3",
+        )
+
+        canonical_survival = CrafterCanonicalSurvivalBenchmark()
+        self.assertEqual(
+            canonical_survival.spec.id,
+            (
+                "crafter/CrafterReward-v1/"
+                "achievement-score-plus-survival-v1"
+            ),
+        )
+        self.assertEqual(
+            canonical_survival.spec.primary_metric,
+            "canonical_survival_score",
+        )
+        self.assertEqual(
+            canonical_survival.spec.environment_parameters,
+            benchmark.spec.environment_parameters,
+        )
+
+        canonical_survival_repeat = (
+            CrafterCanonicalSurvivalRepeatBenchmark()
+        )
+        self.assertEqual(
+            canonical_survival_repeat.spec.id,
+            (
+                "crafter/CrafterReward-v1/"
+                "achievement-score-plus-survival-repeat-v1"
+            ),
+        )
+        self.assertEqual(
+            canonical_survival_repeat.spec.primary_metric,
+            "canonical_survival_repeat_score",
+        )
+        self.assertEqual(
+            canonical_survival_repeat.spec.environment_parameters,
+            benchmark.spec.environment_parameters,
+        )
+        repeat_metadata = canonical_survival_repeat.spec.metadata[
+            "repeated_achievement"
+        ]
+        assert isinstance(repeat_metadata, dict)
+        self.assertEqual(repeat_metadata["reference_score"], 25.0)
+        self.assertIs(repeat_metadata["single_event_saturation"], False)
+
+        strong_survival_repeat = (
+            CrafterCanonicalStrongSurvivalRepeatBenchmark()
+        )
+        self.assertEqual(
+            strong_survival_repeat.spec.id,
+            (
+                "crafter/CrafterReward-v1/"
+                "achievement-score-plus-strong-survival-repeat-v1"
+            ),
+        )
+        self.assertEqual(
+            strong_survival_repeat.spec.primary_metric,
+            "canonical_strong_survival_repeat_score",
+        )
+        self.assertEqual(
+            strong_survival_repeat.spec.metadata["survival_bonus_divisor"],
+            20.0,
+        )
+        self.assertEqual(
+            strong_survival_repeat.spec.environment_parameters,
+            benchmark.spec.environment_parameters,
         )
 
     def test_baseline_direct_evaluation(self) -> None:

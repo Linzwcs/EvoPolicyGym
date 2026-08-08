@@ -4,15 +4,24 @@ This independently installable distribution adapts
 [danijar/crafter](https://github.com/danijar/crafter) `1.8.3` to the public
 EvoPolicyGym authoring SDK.
 
-The distribution exposes three scoring profiles over the same environment:
+The distribution exposes four primary comparison profiles and two retained
+legacy profiles over the same environment:
 
 - `CrafterBenchmark` preserves the canonical achievement evaluation;
+- `CrafterCanonicalSurvivalBenchmark` adds mean effective survival steps
+  divided by `100` to the canonical score;
+- `CrafterCanonicalSurvivalRepeatBenchmark` additionally rewards repeated,
+  confirmed sustainable achievement events with logarithmic diminishing
+  returns and a survival-scaled continuous limit;
+- `CrafterCanonicalStrongSurvivalRepeatBenchmark` keeps the repeated-event
+  term but strengthens survival from effective steps divided by `100` to
+  effective steps divided by `20`;
 - `CrafterLongHorizonBenchmark` makes survival the gate for sustained
   production and new capabilities (legacy v2);
 - `CrafterSurvivalDevelopmentBenchmark` uses an additive per-step survival,
   vital-maintenance, first-unlock, and bounded repeated-productivity return.
 
-All three profiles run:
+All six profiles run:
 
 - one fresh seeded `64 x 64` procedural world per Episode;
 - `64 x 64 x 3` uint8 RGB Policy observations;
@@ -26,6 +35,9 @@ The Benchmark IDs are:
 
 ```text
 crafter/CrafterReward-v1/achievement-score-v1
+crafter/CrafterReward-v1/achievement-score-plus-survival-v1
+crafter/CrafterReward-v1/achievement-score-plus-survival-repeat-v1
+crafter/CrafterReward-v1/achievement-score-plus-strong-survival-repeat-v1
 crafter/CrafterReward-v1/long-horizon-development-v2
 crafter/CrafterReward-v1/mean-survival-development-return-v3
 ```
@@ -81,6 +93,102 @@ alternating reverse run, and repeated short action cycles with periods from one
 through eight. They make stationary spam, two-action oscillation, and small
 square-route controller loops visible without changing the official Crafter
 score.
+
+## Canonical achievement plus survival scoring
+
+`CrafterCanonicalSurvivalBenchmark` keeps the original environment, upstream
+transition reward, 22 achievement success rates, and official shifted-geometric
+Crafter score unchanged. It changes only the scalar aggregate used to compare
+Programs:
+
+```text
+canonical_survival_score = (
+    crafter_score_percent + mean_effective_survival_steps / 100
+)
+```
+
+For a completed Episode, effective survival is its number of transitions minus
+the natural terminal transition. All transitions of a horizon-truncated
+Episode count; a Policy-failed Episode contributes zero survival steps and no
+achievement success. Feedback publishes the two components, divisor, and exact
+formula separately. This profile provides a small survival incentive without
+replacing the canonical achievement objective or changing what the Policy sees.
+
+## Canonical achievement plus survival and repeated achievements
+
+`CrafterCanonicalSurvivalRepeatBenchmark` retains the canonical environment,
+upstream transition reward, and both components above. For each Episode and
+included event `e`, let `n_e` be its confirmed successful event count and
+`r_e = max(n_e - 1, 0)`. The first event remains exclusively part of the
+canonical achievement objective. Its uncapped repeated-event credit is:
+
+```text
+raw_e = 25 * weight_e / 40
+        * log(1 + r_e) / log(1 + normalization_repeats_e)
+```
+
+`normalization_repeats_e` is not a maximum and does not stop further credit.
+It is the repeat count at which the event reaches its standard share of the
+25-point reference scale. Further repeats continue to score with logarithmic
+diminishing returns. The included event weights and normalization counts are
+the public survival-development v3 repeated-event schedule; repeated tool
+crafting and `wake_up` are excluded.
+
+Let `L` be effective survival steps. The sum across events receives a
+continuous survival-scaled limit:
+
+```text
+repeated_achievement_score = min(sum(raw_e), 25 * L / 300)
+```
+
+The limit is `24.9167`, `25`, and `25.0833` at 299, 300, and 301 effective
+steps respectively. It never resets at a 300-step boundary. A Policy failure
+contributes zero effective steps and zero repeated-achievement credit. The
+submission score is:
+
+```text
+canonical_survival_repeat_score =
+    crafter_score_percent
+    + mean_effective_survival_steps / 100
+    + mean(repeated_achievement_score)
+```
+
+Feedback publishes raw and credited repeat scores, per-event counts and mean
+credits, weights, normalization counts, the number of limited Episodes, and
+the exact formulas. This aggregate shaping does not replace the upstream
+Crafter `Step.reward` seen in trajectories.
+
+## Canonical achievement plus strong survival and repeated achievements
+
+`CrafterCanonicalStrongSurvivalRepeatBenchmark` is the fourth primary metric
+variant. It is identical to the preceding profile except for the survival
+divisor:
+
+```text
+canonical_strong_survival_repeat_score =
+    crafter_score_percent
+    + mean_effective_survival_steps / 20
+    + mean(repeated_achievement_score)
+```
+
+The survival component is therefore `5`, `10`, `15`, `30`, and `45` points at
+100, 200, 300, 600, and 900 effective steps. In particular, 300 effective
+steps contribute `15` survival points. The repeated-achievement formula and
+its continuous `25 * L / 300` limit do not change. The upstream environment
+reward, Episode pools, observation contract, and Artifact behavior also remain
+identical.
+
+The local Codex launcher selects the four primary metrics and the two legacy
+metrics through `--profile`:
+
+| Launcher value | Metric |
+| --- | --- |
+| `canonical` | Official achievement score |
+| `canonical-survival` | Official score plus effective steps divided by 100 |
+| `canonical-survival-repeat` | Previous row plus repeated achievements |
+| `canonical-strong-survival-repeat` | Official score plus effective steps divided by 20 and repeated achievements |
+| `long-horizon` | Retained legacy survival-gated v2 |
+| `survival-development` | Retained additive survival-development v3 |
 
 ## Long-horizon development scoring
 
@@ -167,7 +275,7 @@ cycle diagnostics. The complete formula and tables are recorded in
 
 ## Complete training evidence
 
-For training submissions of at most 64 Episodes, all three profiles encode
+For training submissions of at most 64 Episodes, all six profiles encode
 every public transition and publish every Policy observation as lossless NPZ.
 There is no score-based Episode selection, first-Episode preference, temporal
 frame sampling, contact sheet, or hidden human-observer channel. The NPZ stream

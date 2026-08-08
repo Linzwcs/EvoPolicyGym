@@ -3,6 +3,9 @@
 from .baseline import baseline_program
 from .benchmark import (
     CrafterBenchmark,
+    CrafterCanonicalStrongSurvivalRepeatBenchmark,
+    CrafterCanonicalSurvivalBenchmark,
+    CrafterCanonicalSurvivalRepeatBenchmark,
     CrafterLongHorizonBenchmark,
     CrafterSurvivalDevelopmentBenchmark,
 )
@@ -13,6 +16,9 @@ __all__ = [
     "ACHIEVEMENTS",
     "ACTIONS",
     "CrafterBenchmark",
+    "CrafterCanonicalStrongSurvivalRepeatBenchmark",
+    "CrafterCanonicalSurvivalBenchmark",
+    "CrafterCanonicalSurvivalRepeatBenchmark",
     "CrafterConfig",
     "CrafterLongHorizonBenchmark",
     "CrafterSurvivalDevelopmentBenchmark",

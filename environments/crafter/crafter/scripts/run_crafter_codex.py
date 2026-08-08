@@ -21,6 +21,9 @@ from evopolicygym.skills import AgentSkill
 
 from crafter_benchmarks import (
     CrafterBenchmark,
+    CrafterCanonicalStrongSurvivalRepeatBenchmark,
+    CrafterCanonicalSurvivalBenchmark,
+    CrafterCanonicalSurvivalRepeatBenchmark,
     CrafterConfig,
     CrafterLongHorizonBenchmark,
     CrafterSurvivalDevelopmentBenchmark,
@@ -234,6 +237,13 @@ def main(arguments: list[str] | None = None) -> int:
     )
     benchmark_types = {
         "canonical": CrafterBenchmark,
+        "canonical-survival": CrafterCanonicalSurvivalBenchmark,
+        "canonical-survival-repeat": (
+            CrafterCanonicalSurvivalRepeatBenchmark
+        ),
+        "canonical-strong-survival-repeat": (
+            CrafterCanonicalStrongSurvivalRepeatBenchmark
+        ),
         "long-horizon": CrafterLongHorizonBenchmark,
         "survival-development": CrafterSurvivalDevelopmentBenchmark,
     }
@@ -366,7 +376,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--record-to", type=Path, required=True)
     parser.add_argument(
         "--profile",
-        choices=("survival-development", "long-horizon", "canonical"),
+        choices=(
+            "survival-development",
+            "long-horizon",
+            "canonical",
+            "canonical-survival",
+            "canonical-survival-repeat",
+            "canonical-strong-survival-repeat",
+        ),
         default="survival-development",
     )
     parser.add_argument("--max-episode-steps", type=int, default=10_000)

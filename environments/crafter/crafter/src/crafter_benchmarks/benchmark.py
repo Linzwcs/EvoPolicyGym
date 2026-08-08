@@ -90,6 +90,10 @@ _PRODUCTIVITY_EVENT_CAPS = {
     "place_stone": 8,
 }
 _V3_SCORE_TOLERANCE = 1e-12
+_CANONICAL_SURVIVAL_DIVISOR = 100.0
+_CANONICAL_STRONG_SURVIVAL_DIVISOR = 20.0
+_CANONICAL_REPEAT_REFERENCE_SCORE = 25.0
+_CANONICAL_REPEAT_SURVIVAL_STEPS = 300
 
 
 class CrafterBenchmark:
@@ -189,6 +193,198 @@ class CrafterBenchmark:
             artifacts=artifacts,
         )
         return feedback
+
+
+class CrafterCanonicalSurvivalBenchmark(CrafterBenchmark):
+    """Official achievement score plus a small mean-survival bonus."""
+
+    _survival_bonus_divisor = _CANONICAL_SURVIVAL_DIVISOR
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_spec(self._config)
+
+    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
+        records = tuple(episodes)
+        canonical = super().feedback(records)
+        if type(canonical.content) is not dict:
+            raise RuntimeError("canonical Crafter Feedback content is invalid")
+
+        effective_steps = tuple(
+            0
+            if record.policy_failure is not None
+            else record.steps - int(_terminated(record))
+            for record in records
+        )
+        mean_survival_steps = statistics.fmean(effective_steps)
+        divisor = self._survival_bonus_divisor
+        survival_bonus = mean_survival_steps / divisor
+        score = canonical.score + survival_bonus
+        content = dict(canonical.content)
+        content.update(
+            {
+                "summary": (
+                    f"Canonical-survival score {score:.3f} across "
+                    f"{len(records)} Episodes; canonical Crafter score "
+                    f"{canonical.score:.3f}% and mean effective survival "
+                    f"{mean_survival_steps:.3f} steps."
+                ),
+                "canonical_survival_score": score,
+                "mean_effective_survival_steps": mean_survival_steps,
+                "survival_bonus": survival_bonus,
+                "survival_bonus_divisor": divisor,
+                "score_formula": (
+                    "crafter_score_percent + "
+                    f"mean_effective_survival_steps / {divisor:g}"
+                ),
+            }
+        )
+        return Feedback(
+            score=score,
+            content=content,
+            artifacts=canonical.artifacts,
+        )
+
+
+class CrafterCanonicalSurvivalRepeatBenchmark(
+    CrafterCanonicalSurvivalBenchmark
+):
+    """Official achievement score plus survival and sustained production."""
+
+    _primary_score_field = "canonical_survival_repeat_score"
+    _summary_profile_name = "Canonical-survival-repeat"
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_repeat_spec(self._config)
+
+    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
+        records = tuple(episodes)
+        canonical_survival = super().feedback(records)
+        if type(canonical_survival.content) is not dict:
+            raise RuntimeError("canonical-survival Feedback content is invalid")
+
+        analyses = tuple(
+            _canonical_repeat_episode_analysis(record) for record in records
+        )
+        mean_repeat_score = statistics.fmean(
+            item.credited_score for item in analyses
+        )
+        score = canonical_survival.score + mean_repeat_score
+        content = dict(canonical_survival.content)
+        canonical_score = content["crafter_score_percent"]
+        survival_bonus = content["survival_bonus"]
+        if not isinstance(canonical_score, float) or not isinstance(
+            survival_bonus, float
+        ):
+            raise RuntimeError("canonical-survival score components are invalid")
+
+        event_counts = {
+            name: sum(item.event_counts[name] for item in analyses)
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        repeat_counts = {
+            name: sum(item.repeat_counts[name] for item in analyses)
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        public_event_counts: dict[str, PolicyValue] = dict(event_counts)
+        public_repeat_counts: dict[str, PolicyValue] = dict(repeat_counts)
+        mean_event_credits: dict[str, PolicyValue] = {
+            name: statistics.fmean(
+                item.raw_credit_by_event[name] for item in analyses
+            )
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        weights: dict[str, PolicyValue] = {
+            name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
+        }
+        normalization_counts: dict[str, PolicyValue] = {
+            name: count for name, count in REPEAT_EVENT_CAPS.items()
+        }
+        episode_scores: list[PolicyValue] = [
+            {
+                "episode_index": index,
+                "effective_survival_steps": item.effective_survival_steps,
+                "raw_repeat_score": item.raw_score,
+                "repeat_score_limit": item.score_limit,
+                "credited_repeat_score": item.credited_score,
+                "limit_applied": item.credited_score < item.raw_score,
+            }
+            for index, item in enumerate(analyses)
+        ]
+        content.update(
+            {
+                "summary": (
+                    f"{self._summary_profile_name} score {score:.3f} across "
+                    f"{len(records)} Episodes; canonical Crafter score "
+                    f"{canonical_score:.3f}%, survival bonus "
+                    f"{survival_bonus:.3f}, and mean repeated-achievement "
+                    f"score {mean_repeat_score:.3f}."
+                ),
+                self._primary_score_field: score,
+                "mean_repeated_achievement_score": mean_repeat_score,
+                "score_formula": (
+                    "crafter_score_percent + "
+                    "mean_effective_survival_steps / "
+                    f"{self._survival_bonus_divisor:g} + "
+                    "mean(repeated_achievement_score)"
+                ),
+                "repeated_achievement": {
+                    "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                    "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
+                    "repeats_only": True,
+                    "single_event_saturation": False,
+                    "raw_event_credit_formula": (
+                        "25 * weight / 40 * log1p(repeats) / "
+                        "log1p(normalization_repeats)"
+                    ),
+                    "score_limit_formula": (
+                        "25 * effective_survival_steps / 300"
+                    ),
+                    "score_limit_per_survival_steps": {
+                        "score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                        "steps": _CANONICAL_REPEAT_SURVIVAL_STEPS,
+                    },
+                    "event_weights": weights,
+                    "normalization_repeat_counts": normalization_counts,
+                    "event_counts": public_event_counts,
+                    "repeat_counts": public_repeat_counts,
+                    "mean_raw_credit_by_event": mean_event_credits,
+                    "mean_raw_repeat_score": statistics.fmean(
+                        item.raw_score for item in analyses
+                    ),
+                    "mean_credited_repeat_score": mean_repeat_score,
+                    "episodes_with_limit_applied": sum(
+                        item.credited_score < item.raw_score
+                        for item in analyses
+                    ),
+                    "episode_scores": episode_scores,
+                },
+            }
+        )
+        return Feedback(
+            score=score,
+            content=content,
+            artifacts=canonical_survival.artifacts,
+        )
+
+
+class CrafterCanonicalStrongSurvivalRepeatBenchmark(
+    CrafterCanonicalSurvivalRepeatBenchmark
+):
+    """Canonical and repeated achievements with a stronger survival bonus."""
+
+    _survival_bonus_divisor = _CANONICAL_STRONG_SURVIVAL_DIVISOR
+    _primary_score_field = "canonical_strong_survival_repeat_score"
+    _summary_profile_name = "Canonical-strong-survival-repeat"
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_repeat_spec(
+            self._config,
+            survival_divisor=self._survival_bonus_divisor,
+            strong_survival=True,
+        )
 
 
 class CrafterLongHorizonBenchmark(CrafterBenchmark):
@@ -405,6 +601,127 @@ def _long_horizon_spec(config: CrafterConfig) -> BenchmarkSpec:
         environment_parameters=dict(canonical.environment_parameters),
         max_episode_steps=canonical.max_episode_steps,
         primary_metric="long_horizon_development_score",
+        score_direction="maximize",
+    )
+
+
+def _canonical_survival_spec(
+    config: CrafterConfig,
+    *,
+    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
+) -> BenchmarkSpec:
+    canonical = _spec(config)
+    metadata = dict(canonical.metadata)
+    metadata.update(
+        {
+            "objective_profile": "canonical-achievement-plus-survival-v1",
+            "canonical_comparison_metric": "crafter_score_percent",
+            "score_formula": (
+                "crafter_score_percent + "
+                f"mean_effective_survival_steps / {survival_divisor:g}"
+            ),
+            "survival_bonus_divisor": survival_divisor,
+            "policy_failure_survival_steps": 0,
+            "effective_survival_steps": (
+                "Episode steps minus the natural terminal transition; "
+                "all truncated steps count"
+            ),
+        }
+    )
+    return BenchmarkSpec(
+        id=(
+            "crafter/CrafterReward-v1/"
+            "achievement-score-plus-survival-v1"
+        ),
+        description=(
+            "Unlock Crafter's 22 achievements from canonical RGB observations "
+            "while retaining a small incentive for longer survival. Maximize "
+            "the official shifted-geometric achievement score plus mean "
+            "effective survival steps divided by 100."
+        ),
+        observation_space=canonical.observation_space,
+        action_space=canonical.action_space,
+        metadata=metadata,
+        environment_parameters=dict(canonical.environment_parameters),
+        max_episode_steps=canonical.max_episode_steps,
+        primary_metric="canonical_survival_score",
+        score_direction="maximize",
+    )
+
+
+def _canonical_survival_repeat_spec(
+    config: CrafterConfig,
+    *,
+    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
+    strong_survival: bool = False,
+) -> BenchmarkSpec:
+    canonical = _canonical_survival_spec(
+        config,
+        survival_divisor=survival_divisor,
+    )
+    metadata = dict(canonical.metadata)
+    repeat_weights: dict[str, PolicyValue] = {
+        name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
+    }
+    normalization_counts: dict[str, PolicyValue] = {
+        name: count for name, count in REPEAT_EVENT_CAPS.items()
+    }
+    metadata.update(
+        {
+            "objective_profile": (
+                "canonical-achievement-plus-strong-survival-repeat-v1"
+                if strong_survival
+                else "canonical-achievement-plus-survival-repeat-v1"
+            ),
+            "score_formula": (
+                "crafter_score_percent + "
+                f"mean_effective_survival_steps / {survival_divisor:g} + "
+                "mean(repeated_achievement_score)"
+            ),
+            "repeated_achievement": {
+                "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
+                "repeats_only": True,
+                "single_event_saturation": False,
+                "raw_event_credit_formula": (
+                    "25 * weight / 40 * log1p(repeats) / "
+                    "log1p(normalization_repeats)"
+                ),
+                "score_limit_formula": (
+                    "25 * effective_survival_steps / 300"
+                ),
+                "event_weights": repeat_weights,
+                "normalization_repeat_counts": normalization_counts,
+            },
+            "policy_failure_repeat_score": 0,
+        }
+    )
+    return BenchmarkSpec(
+        id=(
+            "crafter/CrafterReward-v1/"
+            + (
+                "achievement-score-plus-strong-survival-repeat-v1"
+                if strong_survival
+                else "achievement-score-plus-survival-repeat-v1"
+            )
+        ),
+        description=(
+            "Unlock Crafter's canonical achievements, survive longer with "
+            f"effective survival steps divided by {survival_divisor:g}, and "
+            "sustain confirmed gathering, maintenance, combat, farming, and "
+            "construction events. Repeated-achievement credit has logarithmic "
+            "diminishing returns and a survival-scaled continuous limit."
+        ),
+        observation_space=canonical.observation_space,
+        action_space=canonical.action_space,
+        metadata=metadata,
+        environment_parameters=dict(canonical.environment_parameters),
+        max_episode_steps=canonical.max_episode_steps,
+        primary_metric=(
+            "canonical_strong_survival_repeat_score"
+            if strong_survival
+            else "canonical_survival_repeat_score"
+        ),
         score_direction="maximize",
     )
 
@@ -774,6 +1091,68 @@ def _survival_score(effective_steps: int) -> float:
     )
     maximum = 300 * sum(_SURVIVAL_BAND_WEIGHTS)
     return 100.0 * weighted_steps / maximum
+
+
+@dataclass(frozen=True, slots=True)
+class _CanonicalRepeatEpisodeAnalysis:
+    effective_survival_steps: int
+    event_counts: dict[str, int]
+    repeat_counts: dict[str, int]
+    raw_credit_by_event: dict[str, float]
+    raw_score: float
+    score_limit: float
+    credited_score: float
+
+
+def _canonical_repeat_episode_analysis(
+    record: EpisodeRecord,
+) -> _CanonicalRepeatEpisodeAnalysis:
+    if record.policy_failure is not None:
+        zeros = {name: 0 for name in REPEAT_EVENT_WEIGHTS}
+        return _CanonicalRepeatEpisodeAnalysis(
+            effective_survival_steps=0,
+            event_counts=dict(zeros),
+            repeat_counts=dict(zeros),
+            raw_credit_by_event={name: 0.0 for name in zeros},
+            raw_score=0.0,
+            score_limit=0.0,
+            credited_score=0.0,
+        )
+
+    effective_steps = record.steps - int(_terminated(record))
+    all_event_counts = _episode_event_counts(record)
+    event_counts = {
+        name: all_event_counts[name] for name in REPEAT_EVENT_WEIGHTS
+    }
+    repeat_counts = {
+        name: max(count - 1, 0) for name, count in event_counts.items()
+    }
+    raw_credit_by_event = {
+        name: (
+            _CANONICAL_REPEAT_REFERENCE_SCORE
+            * REPEAT_EVENT_WEIGHTS[name]
+            / sum(REPEAT_EVENT_WEIGHTS.values())
+            * math.log1p(repeat_counts[name])
+            / math.log1p(REPEAT_EVENT_CAPS[name])
+        )
+        for name in REPEAT_EVENT_WEIGHTS
+    }
+    raw_score = math.fsum(raw_credit_by_event.values())
+    score_limit = (
+        _CANONICAL_REPEAT_REFERENCE_SCORE
+        * effective_steps
+        / _CANONICAL_REPEAT_SURVIVAL_STEPS
+    )
+    credited_score = min(raw_score, score_limit)
+    return _CanonicalRepeatEpisodeAnalysis(
+        effective_survival_steps=effective_steps,
+        event_counts=event_counts,
+        repeat_counts=repeat_counts,
+        raw_credit_by_event=raw_credit_by_event,
+        raw_score=raw_score,
+        score_limit=score_limit,
+        credited_score=credited_score,
+    )
 
 
 def _episode_event_counts(record: EpisodeRecord) -> dict[str, int]:

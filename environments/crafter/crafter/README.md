@@ -4,15 +4,24 @@ This independently installable distribution adapts
 [danijar/crafter](https://github.com/danijar/crafter) `1.8.3` to the public
 EvoPolicyGym authoring SDK.
 
-The distribution exposes three scoring profiles over the same environment:
+The distribution exposes four primary comparison profiles and two retained
+legacy profiles over the same environment:
 
 - `CrafterBenchmark` preserves the canonical achievement evaluation;
+- `CrafterCanonicalSurvivalBenchmark` adds mean effective survival steps
+  divided by `100` to the canonical score;
+- `CrafterCanonicalSurvivalRepeatBenchmark` additionally rewards repeated,
+  confirmed sustainable achievement events with logarithmic diminishing
+  returns and a survival-scaled continuous limit;
+- `CrafterCanonicalStrongSurvivalRepeatBenchmark` keeps the repeated-event
+  term but strengthens survival from effective steps divided by `100` to
+  effective steps divided by `20`;
 - `CrafterLongHorizonBenchmark` makes survival the gate for sustained
   production and new capabilities (legacy v2);
 - `CrafterSurvivalDevelopmentBenchmark` uses an additive per-step survival,
   vital-maintenance, first-unlock, and bounded repeated-productivity return.
 
-All three profiles run:
+All six profiles run:
 
 - one fresh seeded `64 x 64` procedural world per Episode;
 - `64 x 64 x 3` uint8 RGB Policy observations;
@@ -26,12 +35,17 @@ The Benchmark IDs are:
 
 ```text
 crafter/CrafterReward-v1/achievement-score-v1
+crafter/CrafterReward-v1/achievement-score-plus-survival-v1
+crafter/CrafterReward-v1/achievement-score-plus-survival-repeat-v1
+crafter/CrafterReward-v1/achievement-score-plus-strong-survival-repeat-v1
 crafter/CrafterReward-v1/long-horizon-development-v2
 crafter/CrafterReward-v1/mean-survival-development-return-v3
 ```
 
-`CrafterConfig(max_episode_steps=...)` can select a shorter bounded profile for
-development. The selected horizon is published in `environment_parameters`,
+`CrafterConfig(max_episode_steps=..., include_mp4_feedback=...)` can select a
+shorter bounded profile and independently enable derived MP4 training feedback.
+MP4 is disabled by default. These settings are published in
+`environment_parameters`,
 so EvoPolicyGym gives it a distinct Environment digest. Scores from shortened
 profiles are not directly comparable with the canonical 10,000-step profile.
 The long-horizon profile requires at least 900 steps so that its three scored
@@ -79,6 +93,102 @@ alternating reverse run, and repeated short action cycles with periods from one
 through eight. They make stationary spam, two-action oscillation, and small
 square-route controller loops visible without changing the official Crafter
 score.
+
+## Canonical achievement plus survival scoring
+
+`CrafterCanonicalSurvivalBenchmark` keeps the original environment, upstream
+transition reward, 22 achievement success rates, and official shifted-geometric
+Crafter score unchanged. It changes only the scalar aggregate used to compare
+Programs:
+
+```text
+canonical_survival_score = (
+    crafter_score_percent + mean_effective_survival_steps / 100
+)
+```
+
+For a completed Episode, effective survival is its number of transitions minus
+the natural terminal transition. All transitions of a horizon-truncated
+Episode count; a Policy-failed Episode contributes zero survival steps and no
+achievement success. Feedback publishes the two components, divisor, and exact
+formula separately. This profile provides a small survival incentive without
+replacing the canonical achievement objective or changing what the Policy sees.
+
+## Canonical achievement plus survival and repeated achievements
+
+`CrafterCanonicalSurvivalRepeatBenchmark` retains the canonical environment,
+upstream transition reward, and both components above. For each Episode and
+included event `e`, let `n_e` be its confirmed successful event count and
+`r_e = max(n_e - 1, 0)`. The first event remains exclusively part of the
+canonical achievement objective. Its uncapped repeated-event credit is:
+
+```text
+raw_e = 25 * weight_e / 40
+        * log(1 + r_e) / log(1 + normalization_repeats_e)
+```
+
+`normalization_repeats_e` is not a maximum and does not stop further credit.
+It is the repeat count at which the event reaches its standard share of the
+25-point reference scale. Further repeats continue to score with logarithmic
+diminishing returns. The included event weights and normalization counts are
+the public survival-development v3 repeated-event schedule; repeated tool
+crafting and `wake_up` are excluded.
+
+Let `L` be effective survival steps. The sum across events receives a
+continuous survival-scaled limit:
+
+```text
+repeated_achievement_score = min(sum(raw_e), 25 * L / 300)
+```
+
+The limit is `24.9167`, `25`, and `25.0833` at 299, 300, and 301 effective
+steps respectively. It never resets at a 300-step boundary. A Policy failure
+contributes zero effective steps and zero repeated-achievement credit. The
+submission score is:
+
+```text
+canonical_survival_repeat_score =
+    crafter_score_percent
+    + mean_effective_survival_steps / 100
+    + mean(repeated_achievement_score)
+```
+
+Feedback publishes raw and credited repeat scores, per-event counts and mean
+credits, weights, normalization counts, the number of limited Episodes, and
+the exact formulas. This aggregate shaping does not replace the upstream
+Crafter `Step.reward` seen in trajectories.
+
+## Canonical achievement plus strong survival and repeated achievements
+
+`CrafterCanonicalStrongSurvivalRepeatBenchmark` is the fourth primary metric
+variant. It is identical to the preceding profile except for the survival
+divisor:
+
+```text
+canonical_strong_survival_repeat_score =
+    crafter_score_percent
+    + mean_effective_survival_steps / 20
+    + mean(repeated_achievement_score)
+```
+
+The survival component is therefore `5`, `10`, `15`, `30`, and `45` points at
+100, 200, 300, 600, and 900 effective steps. In particular, 300 effective
+steps contribute `15` survival points. The repeated-achievement formula and
+its continuous `25 * L / 300` limit do not change. The upstream environment
+reward, Episode pools, observation contract, and Artifact behavior also remain
+identical.
+
+The local Codex launcher selects the four primary metrics and the two legacy
+metrics through `--profile`:
+
+| Launcher value | Metric |
+| --- | --- |
+| `canonical` | Official achievement score |
+| `canonical-survival` | Official score plus effective steps divided by 100 |
+| `canonical-survival-repeat` | Previous row plus repeated achievements |
+| `canonical-strong-survival-repeat` | Official score plus effective steps divided by 20 and repeated achievements |
+| `long-horizon` | Retained legacy survival-gated v2 |
+| `survival-development` | Retained additive survival-development v3 |
 
 ## Long-horizon development scoring
 
@@ -137,13 +247,13 @@ survival point plus:
 ```
 
 The naturally terminal transition earns neither term. The raw energy meter is
-reported as a diagnostic but is not scored. First achievement unlocks use a
-public absolute dependency-stage schedule from `1` through `1024`; the complete
-22-achievement schedule is worth at most `1829` per Episode. Repeated confirmed
-drinking, eating, gathering, combat, planting, and construction events add at
-most `25` further points using public event weights, caps, and logarithmic
-diminishing returns. Attempts do not score unless Crafter increments the
-corresponding event counter.
+reported as a diagnostic but is not scored. First achievement
+unlocks use a public absolute dependency-stage schedule from `1` through
+`1024`; the complete 22-achievement schedule is worth at most `1829` per
+Episode. Repeated confirmed drinking, eating, gathering, combat, planting, and
+construction events add at most `25` further points using public event weights,
+caps, and logarithmic diminishing returns. Attempts do not score unless Crafter
+increments the corresponding event counter.
 
 The shaped delta is the Environment `Step.reward`, while the pinned upstream
 reward remains available as `Step.metrics["upstream_reward"]`. A completed
@@ -156,7 +266,8 @@ survival + vital + first-unlock progress + repeated productivity
 A Policy failure instead returns `-max_episode_steps` and discards partial
 credit. Natural death merely ends future earning; it does not erase earlier
 legitimate progress. `Feedback.score` is the arithmetic mean Episode return.
-Feedback publishes the component reconstruction, Episode return distribution,
+Feedback publishes the component reconstruction, Episode return variance, standard
+deviation, standard error, normal-approximation 95% confidence interval,
 `survival@300/600/900`, weakest-vital exposure, terminal vital profile,
 achievement/event detail, canonical Crafter comparison, and unscored Action
 cycle diagnostics. The complete formula and tables are recorded in
@@ -164,11 +275,22 @@ cycle diagnostics. The complete formula and tables are recorded in
 
 ## Complete training evidence
 
-For training submissions of at most 16 Episodes, all three profiles encode
-every public transition and every RGB observation from every Episode. They also
-publish a directly viewable MP4 for every Episode. There is no score-based
-Episode selection, first-Episode preference, temporal sampling, contact sheet,
-or hidden human-observer channel.
+For training submissions of at most 64 Episodes, all six profiles encode
+every public transition and publish every Policy observation as lossless NPZ.
+There is no score-based Episode selection, first-Episode preference, temporal
+frame sampling, contact sheet, or hidden human-observer channel. The NPZ stream
+is always the primary Agent-facing visual evidence and is byte-exact with the
+`TensorValue.data` received by the Policy; the trajectory preserves the exact
+Action/reward chronology.
+
+When `CrafterConfig(include_mp4_feedback=True)` is selected, the same feedback
+also contains one `replays/episode-N/replay.mp4` per Episode. Each replay covers
+all `steps + 1` observations in order, uses 10 FPS playback, nearest-neighbor
+scaling to 256 x 256, H.264/YUV420 encoding with a 96 kbit/s target and
+112 kbit/s maximum video rate, and no audio or overlays. MP4 is a lossy derived
+viewing aid; it never replaces, samples, or changes the lossless NPZ evidence.
+The local launcher exposes this switch as
+`--include-mp4-feedback` and leaves it off when the flag is absent.
 
 The published layout is:
 
@@ -178,12 +300,12 @@ artifacts/
 ├── trajectories/
 │   ├── episode-000000/trajectory-000000.jsonl.gz
 │   └── episode-000001/trajectory-000000.jsonl.gz
-├── replays/
-│   ├── episode-000000/replay-000000.mp4
-│   └── episode-000001/replay-000000.mp4
-└── bulk/
-    ├── observations-000000.npz
-    └── observations-000001.npz
+├── observations/
+│   ├── episode-000000/observations-000000.npz
+│   └── episode-000001/observations-000000.npz
+└── replays/                                      # only when enabled
+    ├── episode-000000/replay.mp4
+    └── episode-000001/replay.mp4
 ```
 
 Each gzip JSONL trajectory contains an Episode header followed by every
@@ -194,58 +316,96 @@ the four shaped-reward components and the separate upstream reward. It never rec
 Environment seed, Policy seed, pool identity, Host path, process evidence, or
 privileged Crafter state.
 
-Observation chunks contain at most 1,024 frames and can be loaded without
-pickle:
+`artifact-manifest.json` is compact permanent metadata that lists every NPZ
+chunk, its Episode-local observation-index range and compressed size, the complete
+Episode/transition/frame counts, and the alignment contract. Complete
+trajectories are also permanent; their small compressed size preserves the
+action/reward history even after old observation chunks expire.
+
+Each Episode's NPZ files contain all `steps + 1` observations in order. Every
+chunk has `observations` (`uint8 [N, 64, 64, 3]`) and
+`observation_indices` (`uint32 [N]`). Transition `t` therefore remains aligned
+as `observation[t] -> action[t] -> observation[t + 1]`. Chunks contain at most
+1,024 consecutive observations, do not cross Episode boundaries, and use
+lossless ZIP compression without resizing, cropping, overlays, seeds, or private
+state. Read them without object deserialization:
 
 ```python
 import numpy as np
 
-with np.load("observations-000000.npz", allow_pickle=False) as data:
-    frames = data["observations"]          # uint8 [N, 64, 64, 3]
-    episode_ids = data["episode_indices"] # uint32 [N]
-    frame_ids = data["observation_indices"] # uint32 [N]
+with np.load(path, allow_pickle=False) as data:
+    frames = data["observations"]
+    indices = data["observation_indices"]
 ```
 
-The frames are byte-identical to the RGB `TensorValue.data` received by the
-Policy: no resizing, cropping, labels, overlays, or lossy encoding. Indices
-preserve every relation
-`observation[t] -> action[t] -> observation[t + 1]`.
-`artifact-manifest.json` is compact permanent metadata that lists every chunk,
-its frame range and compressed size, the complete Episode/transition/frame
-counts, and the alignment contract. Complete trajectories are also permanent;
-their small compressed size preserves the action/reward history even after old
-lossless observation chunks expire.
+The Crafter uv environment includes NumPy and Pillow. NumPy is declared in this
+independent distribution's `pyproject.toml` under `[project].dependencies` and
+is locked by the adjacent `uv.lock`; it is not a Kernel dependency. Packages
+required only by future Agent-side analysis tools belong in this distribution's
+`[project.optional-dependencies].agent-tools` extra, following the same
+package boundary. Development-only linters and type checkers remain in `dev`.
 
-Each Episode replay contains all `steps + 1` observations in order. Video frame
-`i` is observation `i`; therefore transition `t` remains aligned as
-`frame[t] -> action[t] -> frame[t + 1]`. The default presentation is H.264 MP4,
-10 FPS, 256 x 256, nearest-neighbor expansion from the source image, with no
-audio, text, border, coordinate overlay, seed, or private state. Replay FPS and
-size are public `CrafterConfig` presentation settings. Episodes longer than
-2,048 observations use consecutive MP4 segments listed in the manifest so each
-Artifact remains within the Kernel's per-file limit. MP4 is a convenient lossy
-browsing layer; NPZ remains the byte-exact observation evidence.
+The launcher tells the Agent to run analysis scripts with `python` directly.
+That command resolves to the Python interpreter from the uv environment used to
+start the launcher and can import NumPy and Pillow. A bare `uv run python` from
+the Run workspace is not equivalent: uv walks upward, discovers the repository
+root Kernel project, and selects its intentionally minimal environment, where
+NumPy is absent. The Agent may select frames, build contact sheets, or create
+other derived visual analyses under `workspace/analysis/`; the Benchmark does
+not choose a visualization or impose one on the optimization process.
 
-The Agent cannot address seeds or stable cases. `submit --episodes N` consumes
-the next `N` Episodes from the hidden train pool and exposes only submission and
-Episode ordinals. Submitting an unchanged Program evaluates new Episodes; this
-format does not introduce same-seed replay or a private identity side channel.
+The Agent can address only opaque Run-local training Episode indices, never
+Environment or Policy seeds. The Host plans one fixed pool before the Run, and
+every selected index consumes one Episode budget unit. Exact allocation remains
+part of the Agent's optimization behavior rather than a Crafter gameplay rule.
+
+Recommended Crafter launch instructions must describe legal selectors and
+budget accounting neutrally. They should not explicitly suggest that the Agent
+repeatedly evaluate the Episode associated with any particular index. In other
+words: 建议启动命令不要明示 Agent 重复使用某一个 index 对应的 Episode。
+This documentation rule does not remove any operation allowed by EvoPolicyGym;
+it avoids adding a Crafter-specific optimization bias to the startup task.
+
 Validation and Assessment remain Host-only aggregate phases and publish no
 detailed evidence to the Agent workspace. Their Host reports retain the same
 Benchmark-defined aggregate Feedback content, including the survival profile,
 but never construct or copy trajectory, NPZ, or MP4 Artifacts, regardless of
 their Episode count. The private Episode plan carries only a Boolean Artifact
 mode to `feedback()`; neither the split nor that marker crosses the Policy or
-Agent boundary. Train evaluations larger than the documented 16-Episode
+Agent boundary. Train evaluations larger than the documented 64-Episode
 detailed-feedback limit likewise return complete aggregate metrics without
 constructing per-Episode Artifact files. These rules avoid unnecessary Host
 work and the Kernel's 1,024-Artifact bound without selecting or sampling
 particular Episodes, and do not change scoring.
 
+The 64-Episode submission ceiling is Crafter-specific, not an EvoPolicyGym
+protocol rule. At the 10,000-step horizon, each Episode needs one trajectory
+Artifact, at most ten 1,024-observation NPZ chunks, and at most one optional
+MP4. A full 64-Episode submission therefore has at most
+`64 * (1 + 10 + 1) + 1 = 769` Artifacts including the manifest, below the
+Kernel's 1,024-Artifact Feedback limit. The raw RGB
+payload in the theoretical all-Episodes-survive-to-horizon case is about
+7.3 GiB before compression, however, so the Artifact-count proof is not a
+1-GiB storage guarantee. The newest submission remains protected when it alone
+exceeds the configured bulk capacity; operators must calibrate capacity from
+representative optimized Policies.
+
+In a 2026-08-07
+Terra pilot, a 128-Episode submission took about 115 seconds. The Codex command
+execution stopped remaining synchronously attached while the Session command
+continued in the background; the Agent then queued additional unchanged
+submissions before detecting the live processes. The 64-Episode ceiling is a
+conservative feedback-cadence mitigation for that observed integration
+failure. It cannot guarantee a short wall time when stronger Policies survive
+longer, so the caller must still provide a command environment that preserves
+long-running synchronous Session calls. The Agent chooses each non-empty batch
+size up to this limit.
+
 ## Temporal evidence-retention protocol
 
-Lossless RGB chunks and MP4 replays are classified as `bulk`; complete
-trajectories, scores, `feedback.json`, Episode summaries, hashes,
+Lossless observation NPZ files and optional MP4 replays are classified as
+`bulk`; complete trajectories, scores,
+`feedback.json`, Episode summaries, hashes,
 `artifact-manifest.json`, and availability metadata are permanent. The Run
 applies one configurable capacity to the actual bytes occupied by bulk files
 across both copies:
@@ -257,7 +417,7 @@ RUN/workspace/feedback/submissions/...      # Agent-visible mirror
 
 After a new submission is published to both locations, capacity enforcement
 walks older submission IDs in chronological order. It removes only old
-observation NPZ and replay MP4 bulk files from both views;
+observation NPZ and MP4 bulk files from both views;
 it does not remove whole submission records or compact Feedback. The newest
 successfully published submission is always protected. If that submission
 alone exceeds the configured capacity, the data stays complete and
@@ -270,15 +430,13 @@ names, sizes, and SHA-256 hashes remain in `feedback.json` and the availability
 document. Retention failures are reported in `retention.json` and do not turn a
 successfully evaluated submission into a Policy failure.
 
-The Agent owns `workspace/analysis/` for selected frames, derived summaries,
-diagnostic scripts, and other working material. This directory is not part of
+The Agent owns `workspace/analysis/` for selected frames, derived
+summaries, diagnostic scripts, and other working material. This directory is not part of
 the submitted Program and is never pruned by bulk retention. The Benchmark,
-not the Agent, chooses the lossless wire compression; the Agent chooses what to
-decode and what derived evidence to preserve in `analysis/` before a later
-submission makes older bulk data eligible for eviction. To keep a replay, copy
-it to a path that retains its public association, for example
-`analysis/selected-replays/submission-000008/episode-000000.mp4`. This creates
-Agent-owned analysis; it does not pin or modify the original read-only
+not the Agent, chooses the lossless chunk format; the Agent chooses what to
+inspect and what derived evidence to preserve in `analysis/` before a later
+submission makes older bulk data eligible for eviction. Derived files are
+Agent-owned analysis; they do not pin or modify the original read-only
 Feedback Artifact.
 
 Formal `RUN/submissions/SUBMISSION_ID/program/` snapshots are always retained
@@ -296,11 +454,11 @@ submission plus the desired amount of recent history. Raising or lowering this
 storage value does not change scoring, Episode assignment, or Policy behavior.
 
 On 2026-08-02, a local 16-Episode baseline measurement at the 10,000-step
-horizon produced 2,694 transitions and 2,710 observations. That measurement
-predated public MP4 publication and its Episodes ended after 47–242 steps, so
-it is not a current storage calibration. The 1-GiB default deliberately leaves
-substantial headroom; it must be revisited using
-`bulk_compressed_bytes` from representative optimized submissions.
+horizon produced 2,694 transitions and 2,710 observations. Its Episodes ended
+after 47–242 steps, so it is not a long-survival storage calibration. The
+1-GiB default deliberately leaves substantial headroom for current Policies;
+it must be revisited using `bulk_compressed_bytes` from representative
+optimized submissions.
 
 ## Recommended model-comparison protocol
 
@@ -308,10 +466,14 @@ The current cost-balanced formal Crafter comparison uses:
 
 ```text
 train Episodes:       1,024
+train pool:           1,024 fixed Run-local indices
 Validation Episodes: 256 per candidate
 test Episodes:        512
 Run seed:             one explicit fixed value shared by every model
-submission size:      Agent-selected, at most 16 Episodes
+submission size:      Agent-selected; hard maximum 64, ordinarily about 32 Episodes
+candidate evidence:   normally at least 64 Episodes for an exact Program revision
+Episode allocation:   Agent-selected; each train index has at most 2 uses by default
+finish policy:        early finish allowed; 1,024 Episodes is an upper bound
 historical Policies:  Host-retained, never Agent-visible
 ```
 
@@ -319,25 +481,46 @@ The 1,024-Episode train budget gives a Coding Agent room for early visual
 diagnosis and later Policy refinement; it is a fixed comparison budget, not a
 claim that learning saturates exactly at 1,024. The Agent remains responsible
 for choosing each submission size because evidence allocation and feedback
-cadence are part of the end-to-end optimization behavior. It is an upper bound:
-the Agent may finish earlier, and every comparison must report the actual
-Episodes consumed.
+cadence are part of the end-to-end optimization behavior. The formal launcher
+defaults to `allow_early`: an Agent may finish when it no longer expects another
+evaluation to justify a Policy change, and every report must include actual
+Episode consumption. This keeps unused evidence budget from being converted
+into unchanged submissions. Controlled stress tests may opt in to
+`require_budget_exhaustion`, but that is not the default comparison protocol.
+
+The 64-Episode submission limit is a Host safety and Artifact-size bound, not
+the preferred size of every evaluation. Local retained-run measurements found
+per-Episode score standard deviations around 55--62 under the raw-return
+profile. At that noise level, an 8-Episode mean has an approximate 95% sampling
+half-width near 42 score points, compared with about 21 at 32 Episodes and 15
+at 64 Episodes. Therefore the formal launcher recommends about 32 Episodes for
+an ordinary comparison, reserves smaller batches for smoke tests or targeted
+diagnosis, and asks the Agent to accumulate at least 64 total Episode results
+for an exact submitted Program revision before rejecting a promising direction
+or concluding that further improvement is unjustified. Those 64 results may
+span submissions. This is recorded statistical guidance rather than a Kernel
+quota: the Agent still controls evidence allocation and may finish early.
+
+Comparisons should combine deliberate matched-index evidence with fresh unseen
+indices. A matched comparison is valid only for the exact same submitted
+Program revision; manually recreating or approximately reverting source creates
+a different Policy even when the intended behavior is similar.
 
 The evaluation sizes follow a local five-panel audit of three retained
-Policies. Moving from test32 to test256 reduced empirical finite-pool variance
-by 76.6%--86.4%, but 256 remained close to the desired cross-pool mean-SD
-boundary of ten score points. Validation256 and test512 therefore add margin
-for candidate selection and final reporting. This reduces procedural-world
-sampling noise; it does not remove stochastic variation between independent
-Coding-Agent optimization trajectories.
+Policies under this raw-return metric. Moving from test32 to test256 reduced
+empirical finite-pool variance by 76.6%--86.4%. Validation256 and test512
+retain that sampling margin, and Feedback publishes uncertainty statistics for
+every evaluated batch. The sizes reduce procedural-world sampling noise; they
+do not remove variation between independent Coding-Agent optimization runs.
 
 All compared models must receive the same explicit Run seed, Environment
 configuration, horizon, scoring profile, initial Program, limits, and Agent
-instructions. Their Validation and test Episodes are then exactly paired.
-Train Episode planning is submission-scoped, so Agents that choose different
-submission-size sequences may receive different train sequences even with the
-same Run seed. This is intentional in the end-to-end protocol and must be
-reported rather than mistaken for identical training evidence.
+instructions. Their fixed Run-local train pools, Validation Episodes, and test
+Episodes are then exactly paired. Agents may nevertheless select different
+train indices, so equal Episode consumption does not imply equal unique rollout
+coverage. Reports must include both consumed Episode units and the number of
+distinct train indices used; this is intentional end-to-end optimization
+behavior, not identical training exposure.
 
 Historical Policy source is excluded from Agent Feedback. Earlier controlled
 Runs showed a directional advantage for the no-history arm, while one Run per
@@ -347,30 +530,43 @@ unchanged, and the workspace avoids an unproven source of restoration bias and
 attention anchoring. Any future history ablation should be a separate repeated
 experiment rather than a switch in the formal comparison.
 
+### Reproducible uv and Python environment
+
 From the repository root, one protocol-conforming survival-development Run can
 be launched with:
 
 ```console
 UV=/data/home/lilianhsong/.local/bin/uv
-$UV venv /data/tmp/evopolicygym-agent-tools --python 3.12
-$UV pip install \
-  --python /data/tmp/evopolicygym-agent-tools/bin/python \
-  '.[agent-tools]' \
-  'imageio>=2.37,<3' \
-  'imageio-ffmpeg>=0.6,<0.7'
+$UV sync \
+  --project environments/crafter/crafter \
+  --extra dev \
+  --locked
 ```
 
-This is one Agent work-and-analysis environment: the CLI, NumPy, Pillow,
-ImageIO, and imageio-ffmpeg are all available to policy-development scripts.
-The Crafter package keeps the
-same NumPy/Pillow guarantees for formal Policy execution, while Codex is
-started with its local-image viewing tool enabled. The separate process
-boundary protects Benchmark ownership and hidden Episode identity; it no
-longer creates an artificial tooling mismatch. The non-editable install also
-keeps repository source outside the isolated Agent environment.
+The reproducible tool-environment contract has three distinct stages:
+
+1. The Host runs the locked sync above against Crafter's own `pyproject.toml`
+   and `uv.lock`; an unlocked sync or the repository-root Kernel project is not
+   an equivalent environment.
+2. The Host starts the launcher with Crafter's `.venv/bin/python`, as below, or
+   with `uv run --project environments/crafter/crafter --locked`. It must not
+   start the launcher through an unrelated Python installation.
+3. Inside the Run workspace, the Agent invokes `python` directly. The Kernel
+   places the launcher's interpreter directory first on the Agent `PATH`, so
+   this is the same uv-managed environment. Bare `uv run` from the workspace is
+   prohibited because it discovers the repository-root Kernel project.
+
+This produces one Crafter Agent work-and-analysis environment: the CLI, NumPy,
+and Pillow are available to policy-development scripts. Codex is started with
+its local-image viewing tool enabled, so it can extract selected PNG frames or
+contact sheets from the lossless NPZ observations and inspect those images.
+The separate process lifecycle preserves logical Benchmark ownership and
+publication boundaries for compliant code; it does not enforce secrecy or
+operating-system isolation against a hostile Agent or Policy.
 
 ```console
-environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
+environments/crafter/crafter/.venv/bin/python \
+  environments/crafter/crafter/scripts/run_crafter_codex.py \
   --model gpt-5.6-sol \
   --record-to runs/crafter-survival-development1024-sol-<run-id> \
   --profile survival-development \
@@ -378,7 +574,11 @@ environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
   --seed 20260804 \
   --max-submissions 1024 \
   --episode-budget 1024 \
-  --max-episodes-per-submission 16 \
+  --max-episodes-per-submission 64 \
+  --recommended-episodes-per-submission 32 \
+  --minimum-candidate-evidence 64 \
+  --max-train-index-uses 2 \
+  --finish-budget-policy allow_early \
   --bulk-feedback-retention-bytes 1073741824 \
   --validation-episodes-per-candidate 256 \
   --validation-max-candidates 3 \
@@ -389,15 +589,71 @@ environments/crafter/crafter/.venv/bin/python scripts/run_crafter_codex.py \
   --allow-unsafe-process
 ```
 
+Add `--include-mp4-feedback` to that launcher command when the experiment should
+publish MP4 alongside NPZ. Omit it (the default), or pass
+`--no-include-mp4-feedback`, for NPZ-only feedback.
+
 The packaged Benchmark skill stays disabled unless `--benchmark-skill` is
-passed. `--codex-executable` can select the caller-owned isolated Codex wrapper
-used by local experiments. The launcher treats `episode_budget` as an upper
-bound and records actual consumption. EvoPolicyGym's
-`ProcessExecution.unsafe()` remains
-explicitly non-sandboxed. The Run directory split enforces data ownership and
-publication semantics, but is not an operating-system security boundary; a
-formal source-access prohibition still requires caller-owned whole-process
-isolation.
+passed. `--codex-executable` can select a caller-owned Codex executable or
+wrapper, but command selection alone does not isolate the whole Run or the
+Policy processes that the Host creates. By default,
+`--max-train-index-uses 2` adds a launcher-level Codex instruction that permits
+each Run-local train Episode index to be selected at most twice: its first
+evaluation plus at most one deliberate matched-Policy retry. While unseen
+indices remain, each new submission must include unseen indices, and Codex is
+asked to maintain an index-usage record under `analysis/`. Set another positive
+integer externally, for example `--max-train-index-uses 3`, to change the
+limit, or pass `--max-train-index-uses none` to omit the training-index
+instruction entirely.
+This is an auditable Agent instruction retained in `agent/invocation.json`, not
+a Kernel-enforced rejection rule; reports must still calculate actual unique
+index coverage from Run records.
+
+The companion `--recommended-episodes-per-submission 32` and
+`--minimum-candidate-evidence 64` options publish the sampling guidance above
+in the same recorded invocation. Both accept another positive integer or
+`none`; the recommendation cannot exceed the hard per-submission maximum, and
+the minimum evidence cannot exceed the whole Run's Episode budget. Disabling
+either option removes only that guidance, not the Benchmark limit or scoring
+logic.
+
+Keep `--record-to` short enough that its absolute
+`control/session.sock` path is below Linux's 108-byte Unix-domain socket limit.
+The launcher rejects longer paths before creating the Run; concise identifiers
+under `runs/` are recommended.
+
+The same recorded launcher instruction identifies `python` as the supported
+Agent analysis interpreter. In particular, it warns against bare `uv run` from
+the Run workspace because that command discovers the Kernel project rather
+than this independent Crafter distribution.
+
+Neither launcher instruction changes `finish_budget_policy`. The index-use
+instruction does not prescribe a selector, and the batch-evidence instruction
+states recommendations rather than enforcing submission sizes. The default
+launcher treats `episode_budget` as an upper bound and permits an earlier
+successful finish.
+
+### Execution isolation
+
+EvoPolicyGym 0.3 exposes only `ProcessExecution.unsafe()` for Evaluation and
+Runs. `--allow-unsafe-process` acknowledges that choice; it does not enable a
+sandbox. The profile does not provide namespace, seccomp, cgroup, container,
+microVM, CPU, memory, PID, disk, descriptor, or network confinement, and both
+Agent and Policy processes retain the authority of the current operating-system
+user. The separately installable Firecracker package is alpha groundwork, not
+a qualified isolation profile.
+
+Consequently, local `ProcessExecution.unsafe()` is suitable only for trusted
+Agent, Program, and Benchmark code. If Host protection or a formal source-access
+boundary is required, the caller must start the entire Crafter launcher inside
+a caller-owned container, virtual machine, or remote workload boundary. That
+boundary should use an unprivileged identity, expose only required read-only
+inputs and the intended Run output, omit Host credentials and unrelated source,
+and independently constrain network, CPU, memory, processes, and disk. Wrapping
+only the Codex executable is insufficient because Policy evaluation remains a
+Host-created local subprocess. A future formal execution profile must be
+selected explicitly and must never silently fall back to
+`ProcessExecution.unsafe()`.
 
 ## Upstream and license
 

@@ -51,8 +51,10 @@ _SPLITS = frozenset({"train", "validation", "test"})
 _OBSERVATION_SHAPE = (64, 64, 3)
 _OBSERVATION_BYTES = 64 * 64 * 3
 _OBSERVATION_CHUNK_FRAMES = 1_024
-_REPLAY_SEGMENT_FRAMES = 2_048
-_DETAILED_FEEDBACK_MAX_EPISODES = 16
+_MP4_REPLAY_FPS = 10
+_MP4_REPLAY_SIZE = 256
+_MP4_REPLAY_BITRATE = "96k"
+_DETAILED_FEEDBACK_MAX_EPISODES = 64
 _AGENT_SKILL_NAME = "optimize-crafter-policy"
 _MOVEMENT_ACTIONS = frozenset({1, 2, 3, 4})
 _OPPOSITE_MOVEMENT = {
@@ -88,6 +90,10 @@ _PRODUCTIVITY_EVENT_CAPS = {
     "place_stone": 8,
 }
 _V3_SCORE_TOLERANCE = 1e-12
+_CANONICAL_SURVIVAL_DIVISOR = 100.0
+_CANONICAL_STRONG_SURVIVAL_DIVISOR = 20.0
+_CANONICAL_REPEAT_REFERENCE_SCORE = 25.0
+_CANONICAL_REPEAT_SURVIVAL_STEPS = 300
 
 
 class CrafterBenchmark:
@@ -159,9 +165,8 @@ class CrafterBenchmark:
         action_diagnostics = _action_diagnostics(records)
         artifacts, artifact_summary = _complete_feedback_artifacts(
             records,
-            replay_fps=self._config.replay_fps,
-            replay_size=self._config.replay_size,
             detailed_artifacts=_detailed_artifacts_enabled(records),
+            include_mp4=self._config.include_mp4_feedback,
         )
 
         feedback = Feedback(
@@ -188,6 +193,198 @@ class CrafterBenchmark:
             artifacts=artifacts,
         )
         return feedback
+
+
+class CrafterCanonicalSurvivalBenchmark(CrafterBenchmark):
+    """Official achievement score plus a small mean-survival bonus."""
+
+    _survival_bonus_divisor = _CANONICAL_SURVIVAL_DIVISOR
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_spec(self._config)
+
+    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
+        records = tuple(episodes)
+        canonical = super().feedback(records)
+        if type(canonical.content) is not dict:
+            raise RuntimeError("canonical Crafter Feedback content is invalid")
+
+        effective_steps = tuple(
+            0
+            if record.policy_failure is not None
+            else record.steps - int(_terminated(record))
+            for record in records
+        )
+        mean_survival_steps = statistics.fmean(effective_steps)
+        divisor = self._survival_bonus_divisor
+        survival_bonus = mean_survival_steps / divisor
+        score = canonical.score + survival_bonus
+        content = dict(canonical.content)
+        content.update(
+            {
+                "summary": (
+                    f"Canonical-survival score {score:.3f} across "
+                    f"{len(records)} Episodes; canonical Crafter score "
+                    f"{canonical.score:.3f}% and mean effective survival "
+                    f"{mean_survival_steps:.3f} steps."
+                ),
+                "canonical_survival_score": score,
+                "mean_effective_survival_steps": mean_survival_steps,
+                "survival_bonus": survival_bonus,
+                "survival_bonus_divisor": divisor,
+                "score_formula": (
+                    "crafter_score_percent + "
+                    f"mean_effective_survival_steps / {divisor:g}"
+                ),
+            }
+        )
+        return Feedback(
+            score=score,
+            content=content,
+            artifacts=canonical.artifacts,
+        )
+
+
+class CrafterCanonicalSurvivalRepeatBenchmark(
+    CrafterCanonicalSurvivalBenchmark
+):
+    """Official achievement score plus survival and sustained production."""
+
+    _primary_score_field = "canonical_survival_repeat_score"
+    _summary_profile_name = "Canonical-survival-repeat"
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_repeat_spec(self._config)
+
+    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
+        records = tuple(episodes)
+        canonical_survival = super().feedback(records)
+        if type(canonical_survival.content) is not dict:
+            raise RuntimeError("canonical-survival Feedback content is invalid")
+
+        analyses = tuple(
+            _canonical_repeat_episode_analysis(record) for record in records
+        )
+        mean_repeat_score = statistics.fmean(
+            item.credited_score for item in analyses
+        )
+        score = canonical_survival.score + mean_repeat_score
+        content = dict(canonical_survival.content)
+        canonical_score = content["crafter_score_percent"]
+        survival_bonus = content["survival_bonus"]
+        if not isinstance(canonical_score, float) or not isinstance(
+            survival_bonus, float
+        ):
+            raise RuntimeError("canonical-survival score components are invalid")
+
+        event_counts = {
+            name: sum(item.event_counts[name] for item in analyses)
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        repeat_counts = {
+            name: sum(item.repeat_counts[name] for item in analyses)
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        public_event_counts: dict[str, PolicyValue] = dict(event_counts)
+        public_repeat_counts: dict[str, PolicyValue] = dict(repeat_counts)
+        mean_event_credits: dict[str, PolicyValue] = {
+            name: statistics.fmean(
+                item.raw_credit_by_event[name] for item in analyses
+            )
+            for name in REPEAT_EVENT_WEIGHTS
+        }
+        weights: dict[str, PolicyValue] = {
+            name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
+        }
+        normalization_counts: dict[str, PolicyValue] = {
+            name: count for name, count in REPEAT_EVENT_CAPS.items()
+        }
+        episode_scores: list[PolicyValue] = [
+            {
+                "episode_index": index,
+                "effective_survival_steps": item.effective_survival_steps,
+                "raw_repeat_score": item.raw_score,
+                "repeat_score_limit": item.score_limit,
+                "credited_repeat_score": item.credited_score,
+                "limit_applied": item.credited_score < item.raw_score,
+            }
+            for index, item in enumerate(analyses)
+        ]
+        content.update(
+            {
+                "summary": (
+                    f"{self._summary_profile_name} score {score:.3f} across "
+                    f"{len(records)} Episodes; canonical Crafter score "
+                    f"{canonical_score:.3f}%, survival bonus "
+                    f"{survival_bonus:.3f}, and mean repeated-achievement "
+                    f"score {mean_repeat_score:.3f}."
+                ),
+                self._primary_score_field: score,
+                "mean_repeated_achievement_score": mean_repeat_score,
+                "score_formula": (
+                    "crafter_score_percent + "
+                    "mean_effective_survival_steps / "
+                    f"{self._survival_bonus_divisor:g} + "
+                    "mean(repeated_achievement_score)"
+                ),
+                "repeated_achievement": {
+                    "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                    "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
+                    "repeats_only": True,
+                    "single_event_saturation": False,
+                    "raw_event_credit_formula": (
+                        "25 * weight / 40 * log1p(repeats) / "
+                        "log1p(normalization_repeats)"
+                    ),
+                    "score_limit_formula": (
+                        "25 * effective_survival_steps / 300"
+                    ),
+                    "score_limit_per_survival_steps": {
+                        "score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                        "steps": _CANONICAL_REPEAT_SURVIVAL_STEPS,
+                    },
+                    "event_weights": weights,
+                    "normalization_repeat_counts": normalization_counts,
+                    "event_counts": public_event_counts,
+                    "repeat_counts": public_repeat_counts,
+                    "mean_raw_credit_by_event": mean_event_credits,
+                    "mean_raw_repeat_score": statistics.fmean(
+                        item.raw_score for item in analyses
+                    ),
+                    "mean_credited_repeat_score": mean_repeat_score,
+                    "episodes_with_limit_applied": sum(
+                        item.credited_score < item.raw_score
+                        for item in analyses
+                    ),
+                    "episode_scores": episode_scores,
+                },
+            }
+        )
+        return Feedback(
+            score=score,
+            content=content,
+            artifacts=canonical_survival.artifacts,
+        )
+
+
+class CrafterCanonicalStrongSurvivalRepeatBenchmark(
+    CrafterCanonicalSurvivalRepeatBenchmark
+):
+    """Canonical and repeated achievements with a stronger survival bonus."""
+
+    _survival_bonus_divisor = _CANONICAL_STRONG_SURVIVAL_DIVISOR
+    _primary_score_field = "canonical_strong_survival_repeat_score"
+    _summary_profile_name = "Canonical-strong-survival-repeat"
+
+    def __init__(self, config: CrafterConfig | None = None) -> None:
+        super().__init__(config)
+        self._spec = _canonical_survival_repeat_spec(
+            self._config,
+            survival_divisor=self._survival_bonus_divisor,
+            strong_survival=True,
+        )
 
 
 class CrafterLongHorizonBenchmark(CrafterBenchmark):
@@ -266,9 +463,8 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
             records,
             score_profile="survival-development-v3",
             failure_return=-float(self._config.max_episode_steps),
-            replay_fps=self._config.replay_fps,
-            replay_size=self._config.replay_size,
             detailed_artifacts=_detailed_artifacts_enabled(records),
+            include_mp4=self._config.include_mp4_feedback,
         )
         content["detailed_feedback"] = artifact_summary
         return Feedback(
@@ -309,15 +505,30 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
             "official_score_formula": (
                 "exp(mean(log(1 + success_percent))) - 1"
             ),
-            "public_replays": {
-                "format": "H.264 MP4 without audio or overlays",
-                "frames_per_second": config.replay_fps,
-                "frame_size": [config.replay_size, config.replay_size],
-                "source_alignment": "video frame i is observation i",
+            "public_observations": {
+                "format": "compressed NumPy NPZ",
+                "dtype": "uint8",
+                "shape": [64, 64, 3],
+                "layout": "HWC RGB",
+                "observations_per_artifact": _OBSERVATION_CHUNK_FRAMES,
+                "source_alignment": "observation index is exact Policy input",
+                "frame_sampling": "none",
+                "pixel_exact": True,
                 "complete_artifact_episode_limit": (
                     _DETAILED_FEEDBACK_MAX_EPISODES
                 ),
                 "detailed_artifact_splits": ["train"],
+                "optional_mp4": {
+                    "enabled": config.include_mp4_feedback,
+                    "format": "H.264 MP4",
+                    "frames_per_second": _MP4_REPLAY_FPS,
+                    "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
+                    "target_bitrate": _MP4_REPLAY_BITRATE,
+                    "frame_sampling": "none",
+                    "pixel_exact": False,
+                    "audio": False,
+                    "role": "derived viewing aid; NPZ remains authoritative",
+                },
             },
             "privileged_information_exposed": False,
         },
@@ -327,8 +538,7 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
             "image_size": [64, 64],
             "reward": True,
             "max_episode_steps": config.max_episode_steps,
-            "replay_fps": config.replay_fps,
-            "replay_size": config.replay_size,
+            "include_mp4_feedback": config.include_mp4_feedback,
         },
         max_episode_steps=config.max_episode_steps,
         primary_metric="crafter_score_percent",
@@ -395,6 +605,127 @@ def _long_horizon_spec(config: CrafterConfig) -> BenchmarkSpec:
     )
 
 
+def _canonical_survival_spec(
+    config: CrafterConfig,
+    *,
+    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
+) -> BenchmarkSpec:
+    canonical = _spec(config)
+    metadata = dict(canonical.metadata)
+    metadata.update(
+        {
+            "objective_profile": "canonical-achievement-plus-survival-v1",
+            "canonical_comparison_metric": "crafter_score_percent",
+            "score_formula": (
+                "crafter_score_percent + "
+                f"mean_effective_survival_steps / {survival_divisor:g}"
+            ),
+            "survival_bonus_divisor": survival_divisor,
+            "policy_failure_survival_steps": 0,
+            "effective_survival_steps": (
+                "Episode steps minus the natural terminal transition; "
+                "all truncated steps count"
+            ),
+        }
+    )
+    return BenchmarkSpec(
+        id=(
+            "crafter/CrafterReward-v1/"
+            "achievement-score-plus-survival-v1"
+        ),
+        description=(
+            "Unlock Crafter's 22 achievements from canonical RGB observations "
+            "while retaining a small incentive for longer survival. Maximize "
+            "the official shifted-geometric achievement score plus mean "
+            "effective survival steps divided by 100."
+        ),
+        observation_space=canonical.observation_space,
+        action_space=canonical.action_space,
+        metadata=metadata,
+        environment_parameters=dict(canonical.environment_parameters),
+        max_episode_steps=canonical.max_episode_steps,
+        primary_metric="canonical_survival_score",
+        score_direction="maximize",
+    )
+
+
+def _canonical_survival_repeat_spec(
+    config: CrafterConfig,
+    *,
+    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
+    strong_survival: bool = False,
+) -> BenchmarkSpec:
+    canonical = _canonical_survival_spec(
+        config,
+        survival_divisor=survival_divisor,
+    )
+    metadata = dict(canonical.metadata)
+    repeat_weights: dict[str, PolicyValue] = {
+        name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
+    }
+    normalization_counts: dict[str, PolicyValue] = {
+        name: count for name, count in REPEAT_EVENT_CAPS.items()
+    }
+    metadata.update(
+        {
+            "objective_profile": (
+                "canonical-achievement-plus-strong-survival-repeat-v1"
+                if strong_survival
+                else "canonical-achievement-plus-survival-repeat-v1"
+            ),
+            "score_formula": (
+                "crafter_score_percent + "
+                f"mean_effective_survival_steps / {survival_divisor:g} + "
+                "mean(repeated_achievement_score)"
+            ),
+            "repeated_achievement": {
+                "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
+                "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
+                "repeats_only": True,
+                "single_event_saturation": False,
+                "raw_event_credit_formula": (
+                    "25 * weight / 40 * log1p(repeats) / "
+                    "log1p(normalization_repeats)"
+                ),
+                "score_limit_formula": (
+                    "25 * effective_survival_steps / 300"
+                ),
+                "event_weights": repeat_weights,
+                "normalization_repeat_counts": normalization_counts,
+            },
+            "policy_failure_repeat_score": 0,
+        }
+    )
+    return BenchmarkSpec(
+        id=(
+            "crafter/CrafterReward-v1/"
+            + (
+                "achievement-score-plus-strong-survival-repeat-v1"
+                if strong_survival
+                else "achievement-score-plus-survival-repeat-v1"
+            )
+        ),
+        description=(
+            "Unlock Crafter's canonical achievements, survive longer with "
+            f"effective survival steps divided by {survival_divisor:g}, and "
+            "sustain confirmed gathering, maintenance, combat, farming, and "
+            "construction events. Repeated-achievement credit has logarithmic "
+            "diminishing returns and a survival-scaled continuous limit."
+        ),
+        observation_space=canonical.observation_space,
+        action_space=canonical.action_space,
+        metadata=metadata,
+        environment_parameters=dict(canonical.environment_parameters),
+        max_episode_steps=canonical.max_episode_steps,
+        primary_metric=(
+            "canonical_strong_survival_repeat_score"
+            if strong_survival
+            else "canonical_survival_repeat_score"
+        ),
+        score_direction="maximize",
+    )
+
+
 def _survival_development_spec(config: CrafterConfig) -> BenchmarkSpec:
     canonical = _spec(config)
     metadata = dict(canonical.metadata)
@@ -436,7 +767,7 @@ def _survival_development_spec(config: CrafterConfig) -> BenchmarkSpec:
                 "event_caps": repeat_caps,
             },
             "policy_failure_return": -float(config.max_episode_steps),
-            "trajectory_schema": "crafter/complete-feedback-manifest/v3",
+            "trajectory_schema": "crafter/complete-feedback-manifest/v6",
             "upstream_reward_field": "upstream_reward",
         }
     )
@@ -762,6 +1093,68 @@ def _survival_score(effective_steps: int) -> float:
     return 100.0 * weighted_steps / maximum
 
 
+@dataclass(frozen=True, slots=True)
+class _CanonicalRepeatEpisodeAnalysis:
+    effective_survival_steps: int
+    event_counts: dict[str, int]
+    repeat_counts: dict[str, int]
+    raw_credit_by_event: dict[str, float]
+    raw_score: float
+    score_limit: float
+    credited_score: float
+
+
+def _canonical_repeat_episode_analysis(
+    record: EpisodeRecord,
+) -> _CanonicalRepeatEpisodeAnalysis:
+    if record.policy_failure is not None:
+        zeros = {name: 0 for name in REPEAT_EVENT_WEIGHTS}
+        return _CanonicalRepeatEpisodeAnalysis(
+            effective_survival_steps=0,
+            event_counts=dict(zeros),
+            repeat_counts=dict(zeros),
+            raw_credit_by_event={name: 0.0 for name in zeros},
+            raw_score=0.0,
+            score_limit=0.0,
+            credited_score=0.0,
+        )
+
+    effective_steps = record.steps - int(_terminated(record))
+    all_event_counts = _episode_event_counts(record)
+    event_counts = {
+        name: all_event_counts[name] for name in REPEAT_EVENT_WEIGHTS
+    }
+    repeat_counts = {
+        name: max(count - 1, 0) for name, count in event_counts.items()
+    }
+    raw_credit_by_event = {
+        name: (
+            _CANONICAL_REPEAT_REFERENCE_SCORE
+            * REPEAT_EVENT_WEIGHTS[name]
+            / sum(REPEAT_EVENT_WEIGHTS.values())
+            * math.log1p(repeat_counts[name])
+            / math.log1p(REPEAT_EVENT_CAPS[name])
+        )
+        for name in REPEAT_EVENT_WEIGHTS
+    }
+    raw_score = math.fsum(raw_credit_by_event.values())
+    score_limit = (
+        _CANONICAL_REPEAT_REFERENCE_SCORE
+        * effective_steps
+        / _CANONICAL_REPEAT_SURVIVAL_STEPS
+    )
+    credited_score = min(raw_score, score_limit)
+    return _CanonicalRepeatEpisodeAnalysis(
+        effective_survival_steps=effective_steps,
+        event_counts=event_counts,
+        repeat_counts=repeat_counts,
+        raw_credit_by_event=raw_credit_by_event,
+        raw_score=raw_score,
+        score_limit=score_limit,
+        credited_score=credited_score,
+    )
+
+
 def _episode_event_counts(record: EpisodeRecord) -> dict[str, int]:
     counts = {name: 0 for name in ACHIEVEMENTS}
     for transition in record.transitions:
@@ -1031,6 +1424,10 @@ def _survival_development_profile(
     returns = tuple(item.scored_return for item in analyses)
     effective_steps = tuple(item.effective_survival_steps for item in analyses)
     score = statistics.fmean(returns)
+    return_variance = statistics.variance(returns) if episodes > 1 else 0.0
+    return_standard_deviation = math.sqrt(return_variance)
+    return_standard_error = return_standard_deviation / math.sqrt(episodes)
+    confidence_half_width = 1.96 * return_standard_error
     mean_survival = statistics.fmean(item.survival_credit for item in analyses)
     mean_vital = statistics.fmean(item.vital_credit for item in analyses)
     mean_progress = statistics.fmean(item.progress_credit for item in analyses)
@@ -1176,6 +1573,17 @@ def _survival_development_profile(
         },
         "episode_returns": {
             "mean": score,
+            "variance": return_variance,
+            "standard_deviation": return_standard_deviation,
+            "standard_error": return_standard_error,
+            "confidence_interval_95": {
+                "lower": score - confidence_half_width,
+                "upper": score + confidence_half_width,
+                "half_width": confidence_half_width,
+                "method": (
+                    "normal approximation using sample standard deviation"
+                ),
+            },
             "median": statistics.median(returns),
             "p10": _nearest_rank_number(returns, 0.10),
             "p90": _nearest_rank_number(returns, 0.90),
@@ -1517,81 +1925,44 @@ def _complete_feedback_artifacts(
     *,
     score_profile: str = "upstream",
     failure_return: float | None = None,
-    replay_fps: int = 10,
-    replay_size: int = 256,
     detailed_artifacts: bool = True,
+    include_mp4: bool = False,
 ) -> tuple[tuple[Artifact, ...], dict[str, PolicyValue]]:
-    if score_profile not in {"upstream", "survival-development-v3"}:
+    if score_profile not in {
+        "upstream",
+        "survival-development-v3",
+    }:
         raise ValueError("Crafter Artifact score profile is invalid")
-    if score_profile == "survival-development-v3" and failure_return is None:
+    if (
+        score_profile == "survival-development-v3"
+        and failure_return is None
+    ):
         raise ValueError("Crafter v3 Artifacts require a failure return")
     if type(detailed_artifacts) is not bool:
         raise TypeError("detailed_artifacts must be bool")
+    if type(include_mp4) is not bool:
+        raise TypeError("include_mp4 must be bool")
     if not detailed_artifacts:
         return (), _aggregate_only_artifact_summary(
             records,
             score_profile=score_profile,
             reason="split_disables_detailed_artifacts",
+            include_mp4=include_mp4,
         )
     if len(records) > _DETAILED_FEEDBACK_MAX_EPISODES:
         return (), _aggregate_only_artifact_summary(
             records,
             score_profile=score_profile,
             reason="episode_count_exceeds_detailed_artifact_limit",
+            include_mp4=include_mp4,
         )
     artifacts: list[Artifact] = []
     trajectory_entries: list[dict[str, object]] = []
     observation_entries: list[dict[str, object]] = []
     replay_entries: list[dict[str, object]] = []
-    replay_cache: dict[tuple[int, int, tuple[bytes, ...]], bytes] = {}
+    replay_cache: dict[tuple[bytes, ...], bytes] = {}
     total_observations = 0
     total_transitions = 0
-
-    frames: list[NDArray[np.uint8]] = []
-    episode_indices: list[int] = []
-    observation_indices: list[int] = []
-    chunk_index = 0
-
-    def flush_observations() -> None:
-        nonlocal chunk_index
-        if not frames:
-            return
-        output = io.BytesIO()
-        np.savez_compressed(
-            output,
-            observations=np.stack(frames),
-            episode_indices=np.asarray(episode_indices, dtype=np.uint32),
-            observation_indices=np.asarray(observation_indices, dtype=np.uint32),
-        )
-        name = f"bulk/observations-{chunk_index:06d}.npz"
-        content = output.getvalue()
-        artifacts.append(
-            Artifact(
-                name=name,
-                media_type="application/x-npz",
-                content=content,
-                retention="bulk",
-            )
-        )
-        observation_entries.append(
-            {
-                "artifact": name,
-                "frames": len(frames),
-                "compressed_bytes": len(content),
-                "first": {
-                    "episode_index": episode_indices[0],
-                    "observation_index": observation_indices[0],
-                },
-                "last": {
-                    "episode_index": episode_indices[-1],
-                    "observation_index": observation_indices[-1],
-                },
-            }
-        )
-        frames.clear()
-        episode_indices.clear()
-        observation_indices.clear()
-        chunk_index += 1
 
     for episode_index, record in enumerate(records):
         trajectory = _trajectory_artifact(
@@ -1609,50 +1980,71 @@ def _complete_feedback_artifacts(
                 "compressed_bytes": trajectory.size,
             }
         )
-        episode_replays, episode_replay_entries = _replay_artifacts(
+        episode_observations, episode_observation_entries = _observation_artifacts(
             record,
             episode_index=episode_index,
-            frames_per_second=replay_fps,
-            frame_size=replay_size,
-            cache=replay_cache,
         )
-        artifacts.extend(episode_replays)
-        replay_entries.extend(episode_replay_entries)
+        artifacts.extend(episode_observations)
+        observation_entries.extend(episode_observation_entries)
+        if include_mp4:
+            replay, replay_entry = _mp4_replay_artifact(
+                record,
+                episode_index=episode_index,
+                cache=replay_cache,
+            )
+            artifacts.append(replay)
+            replay_entries.append(replay_entry)
         total_transitions += record.steps
-        for observation_index, observation in enumerate(_observations(record)):
-            frames.append(_observation_array(observation))
-            episode_indices.append(episode_index)
-            observation_indices.append(observation_index)
-            total_observations += 1
-            if len(frames) == _OBSERVATION_CHUNK_FRAMES:
-                flush_observations()
-    flush_observations()
+        total_observations += record.steps + 1
 
     bulk_bytes = sum(
         artifact.size for artifact in artifacts if artifact.retention == "bulk"
     )
-    replay_bytes = sum(
+    observation_bytes = sum(
         artifact.size
         for artifact in artifacts
-        if artifact.media_type == "video/mp4"
+        if artifact.media_type == "application/x-npz"
     )
     trajectory_bytes = sum(
         artifact.size
         for artifact in artifacts
         if artifact.media_type == "application/gzip"
     )
+    replay_bytes = sum(
+        artifact.size
+        for artifact in artifacts
+        if artifact.media_type == "video/mp4"
+    )
     manifest = {
-        "schema": (
-            "crafter/complete-feedback-manifest/v3"
-            if score_profile == "survival-development-v3"
-            else "crafter/complete-feedback-manifest/v2"
-        ),
+        "schema": "crafter/complete-feedback-manifest/v6",
         "complete": True,
+        "score_profile": score_profile,
         "source_observation": {
             "color_space": "RGB",
             "dtype": "uint8",
             "shape": list(_OBSERVATION_SHAPE),
             "layout": "HWC",
+        },
+        "visual_evidence": {
+            "format": "compressed NumPy NPZ",
+            "arrays": {
+                "observations": "uint8 [frame_count, 64, 64, 3]",
+                "observation_indices": "uint32 [frame_count]",
+            },
+            "frame_sampling": "none",
+            "pixel_exact": True,
+            "resizing": "none",
+            "mp4_replays": {
+                "enabled": include_mp4,
+                "format": "H.264 MP4",
+                "frames_per_second": _MP4_REPLAY_FPS,
+                "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
+                "target_bitrate": _MP4_REPLAY_BITRATE,
+                "frame_sampling": "none",
+                "pixel_exact": False,
+                "audio": False,
+                "role": "derived viewing aid; NPZ remains authoritative",
+            },
         },
         "alignment": (
             "observation[t] -> action[t] -> observation[t + 1]"
@@ -1665,12 +2057,13 @@ def _complete_feedback_artifacts(
         "replay_artifacts": replay_entries,
         "bulk_compressed_bytes": bulk_bytes,
         "trajectory_compressed_bytes": trajectory_bytes,
+        "observation_compressed_bytes": observation_bytes,
         "replay_compressed_bytes": replay_bytes,
         "retention": {
+            "trajectories": "permanent",
             "observations": (
                 "bulk capacity; newest submission is protected"
             ),
-            "trajectories": "permanent",
             "replays": (
                 "bulk capacity; newest submission is protected"
             ),
@@ -1698,20 +2091,22 @@ def _complete_feedback_artifacts(
         )
     )
     return tuple(artifacts), {
-        "schema": (
-            "crafter/complete-feedback-summary/v2"
-            if score_profile == "survival-development-v3"
-            else "crafter/complete-feedback-summary/v1"
-        ),
+        "schema": "crafter/complete-feedback-summary/v5",
         "complete": True,
+        "score_profile": score_profile,
         "episodes": len(records),
         "transitions": total_transitions,
         "observations": total_observations,
+        "visual_evidence": "full-frame-sequence-lossless-npz",
+        "mp4_replays_enabled": include_mp4,
+        "frame_sampling": "none",
+        "pixel_exact": True,
         "bulk_compressed_bytes": bulk_bytes,
         "trajectory_compressed_bytes": trajectory_bytes,
+        "observation_compressed_bytes": observation_bytes,
         "replay_compressed_bytes": replay_bytes,
-        "observation_chunks": len(observation_entries),
         "trajectory_artifacts": len(trajectory_entries),
+        "observation_artifacts": len(observation_entries),
         "replay_artifacts": len(replay_entries),
     }
 
@@ -1721,14 +2116,12 @@ def _aggregate_only_artifact_summary(
     *,
     score_profile: str,
     reason: str,
+    include_mp4: bool,
 ) -> dict[str, PolicyValue]:
     return {
-        "schema": (
-            "crafter/complete-feedback-summary/v2"
-            if score_profile == "survival-development-v3"
-            else "crafter/complete-feedback-summary/v1"
-        ),
+        "schema": "crafter/complete-feedback-summary/v5",
         "complete": False,
+        "score_profile": score_profile,
         "detail_scope": "aggregate-only",
         "reason": reason,
         "detailed_artifact_episode_limit": (
@@ -1739,10 +2132,12 @@ def _aggregate_only_artifact_summary(
         "observations": sum(record.steps + 1 for record in records),
         "bulk_compressed_bytes": 0,
         "trajectory_compressed_bytes": 0,
+        "observation_compressed_bytes": 0,
         "replay_compressed_bytes": 0,
-        "observation_chunks": 0,
         "trajectory_artifacts": 0,
+        "observation_artifacts": 0,
         "replay_artifacts": 0,
+        "mp4_replays_enabled": include_mp4,
     }
 
 
@@ -1843,46 +2238,34 @@ def _trajectory_artifact(
     )
 
 
-def _replay_artifacts(
+def _observation_artifacts(
     record: EpisodeRecord,
     *,
     episode_index: int,
-    frames_per_second: int,
-    frame_size: int,
-    cache: dict[tuple[int, int, tuple[bytes, ...]], bytes],
 ) -> tuple[list[Artifact], list[dict[str, object]]]:
     observations = _observations(record)
     artifacts: list[Artifact] = []
     entries: list[dict[str, object]] = []
-    for segment_index, start in enumerate(
-        range(0, len(observations), _REPLAY_SEGMENT_FRAMES)
+    for chunk_index, start in enumerate(
+        range(0, len(observations), _OBSERVATION_CHUNK_FRAMES)
     ):
-        stop = min(start + _REPLAY_SEGMENT_FRAMES, len(observations))
-        segment = observations[start:stop]
-        cache_key = None
-        if len(segment) <= 4:
-            cache_key = (
-                frames_per_second,
-                frame_size,
-                tuple(_observation_array(item).tobytes() for item in segment),
-            )
-        content = None if cache_key is None else cache.get(cache_key)
-        if content is None:
-            content = _encode_replay(
-                segment,
-                frames_per_second=frames_per_second,
-                frame_size=frame_size,
-            )
-            if cache_key is not None:
-                cache[cache_key] = content
+        stop = min(start + _OBSERVATION_CHUNK_FRAMES, len(observations))
+        output = io.BytesIO()
+        np.savez_compressed(
+            output,
+            observations=np.stack(
+                tuple(_observation_array(item) for item in observations[start:stop])
+            ),
+            observation_indices=np.arange(start, stop, dtype=np.uint32),
+        )
         name = (
-            f"replays/episode-{episode_index:06d}/"
-            f"replay-{segment_index:06d}.mp4"
+            f"observations/episode-{episode_index:06d}/"
+            f"observations-{chunk_index:06d}.npz"
         )
         artifact = Artifact(
             name=name,
-            media_type="video/mp4",
-            content=content,
+            media_type="application/x-npz",
+            content=output.getvalue(),
             retention="bulk",
         )
         artifacts.append(artifact)
@@ -1890,53 +2273,93 @@ def _replay_artifacts(
             {
                 "episode_index": episode_index,
                 "artifact": name,
-                "segment_index": segment_index,
-                "video_frames": stop - start,
+                "chunk_index": chunk_index,
+                "observations": stop - start,
                 "first_observation_index": start,
                 "last_observation_index": stop - 1,
-                "frames_per_second": frames_per_second,
-                "frame_size": [frame_size, frame_size],
-                "codec": "h264",
-                "audio": False,
                 "compressed_bytes": artifact.size,
             }
         )
     return artifacts, entries
 
 
-def _encode_replay(
-    observations: Sequence[PolicyValue],
+def _mp4_replay_artifact(
+    record: EpisodeRecord,
     *,
-    frames_per_second: int,
-    frame_size: int,
-) -> bytes:
-    with tempfile.TemporaryDirectory(prefix="evopolicygym-crafter-replay-") as temporary:
+    episode_index: int,
+    cache: dict[tuple[bytes, ...], bytes],
+) -> tuple[Artifact, dict[str, object]]:
+    observations = _observations(record)
+    cache_key = None
+    if len(observations) <= 4:
+        cache_key = tuple(
+            _observation_array(observation).tobytes()
+            for observation in observations
+        )
+    content = None if cache_key is None else cache.get(cache_key)
+    if content is None:
+        content = _encode_mp4_replay(observations)
+        if cache_key is not None:
+            cache[cache_key] = content
+    name = f"replays/episode-{episode_index:06d}/replay.mp4"
+    artifact = Artifact(
+        name=name,
+        media_type="video/mp4",
+        content=content,
+        retention="bulk",
+    )
+    return artifact, {
+        "episode_index": episode_index,
+        "artifact": name,
+        "video_frames": len(observations),
+        "first_observation_index": 0,
+        "last_observation_index": len(observations) - 1,
+        "frames_per_second": _MP4_REPLAY_FPS,
+        "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
+        "target_bitrate": _MP4_REPLAY_BITRATE,
+        "codec": "h264",
+        "audio": False,
+        "compressed_bytes": artifact.size,
+    }
+
+
+def _encode_mp4_replay(observations: Sequence[PolicyValue]) -> bytes:
+    with tempfile.TemporaryDirectory(
+        prefix="evopolicygym-crafter-replay-"
+    ) as temporary:
         path = Path(temporary) / "replay.mp4"
         writer = imageio_ffmpeg.write_frames(
             path,
-            (frame_size, frame_size),
+            (_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE),
             pix_fmt_in="rgb24",
             pix_fmt_out="yuv420p",
-            fps=frames_per_second,
-            quality=7,
+            fps=_MP4_REPLAY_FPS,
+            bitrate=_MP4_REPLAY_BITRATE,
             codec="libx264",
             macro_block_size=16,
             ffmpeg_log_level="error",
-            output_params=["-an", "-movflags", "+faststart"],
+            output_params=[
+                "-maxrate",
+                "112k",
+                "-bufsize",
+                "224k",
+                "-an",
+                "-movflags",
+                "+faststart",
+            ],
         )
         writer.send(None)
         try:
             for observation in observations:
                 frame = _observation_array(observation)
-                if frame_size != _OBSERVATION_SHAPE[0]:
-                    frame = np.asarray(
-                        Image.fromarray(frame).resize(
-                            (frame_size, frame_size),
-                            resample=Image.Resampling.NEAREST,
-                        ),
-                        dtype=np.uint8,
-                    )
-                writer.send(np.ascontiguousarray(frame))
+                resized = np.asarray(
+                    Image.fromarray(frame).resize(
+                        (_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE),
+                        resample=Image.Resampling.NEAREST,
+                    ),
+                    dtype=np.uint8,
+                )
+                writer.send(np.ascontiguousarray(resized))
         finally:
             writer.close()
         return path.read_bytes()

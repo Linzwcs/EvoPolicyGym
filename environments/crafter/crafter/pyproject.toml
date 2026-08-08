@@ -49,6 +49,7 @@ packages = ["src/crafter_benchmarks"]
 include = [
     "/README.md",
     "/pyproject.toml",
+    "/scripts",
     "/skills",
     "/src",
     "/tests",
@@ -63,15 +64,11 @@ python_version = "3.12"
 strict = true
 show_error_codes = true
 warn_unused_configs = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 [[tool.mypy.overrides]]
-module = ["crafter"]
+module = ["crafter", "imageio_ffmpeg"]
 follow_imports = "skip"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["imageio_ffmpeg"]
 ignore_missing_imports = true
 
 [tool.ruff]

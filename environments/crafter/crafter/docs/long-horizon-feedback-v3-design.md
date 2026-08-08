@@ -27,7 +27,7 @@ The profile does not change:
 - the 17-Action Policy ABI;
 - the hidden, split-scoped Episode seeds;
 - the fresh Policy process and instance per Episode;
-- the lossless RGB observation Artifacts;
+- the complete, unsampled, pixel-exact NPZ observation sequence for training Episodes;
 - temporal bulk retention;
 - Agent-owned analysis authority;
 - Host-only Validation and Assessment evidence boundaries.
@@ -524,10 +524,11 @@ failure code remains the Kernel-owned public failure classification.
 
 ## 9. Trajectory scoring fields
 
-The lossless RGB observation format and alignment remain unchanged. Because
-v3 changes the meaning of Environment reward under a new benchmark identity,
-its trajectory and manifest declare a new schema version. Each training
-trajectory transition records:
+The visual/Action alignment remains unchanged. Each training Episode publishes
+every Policy observation in temporal order as pixel-exact, losslessly
+compressed NPZ chunks with Episode-local observation indices.
+Because v3 changes the meaning of Environment reward under a new benchmark
+identity, each training trajectory transition records:
 
 ```json
 {
@@ -606,8 +607,8 @@ The implementation test suite covers these contracts:
 11. compact content and trajectory fields contain no seed, path, Case identity,
     raw inventory dictionary, or process evidence;
 12. canonical comparison metrics remain unchanged;
-13. Artifact count, per-Artifact size, retention class, and observation bytes
-    remain within the existing contract;
+13. Artifact count, per-Artifact size, retention class, and complete lossless
+    observation coverage remain within the existing contract;
 14. in v3, `Step.reward` equals the shaped score delta and the pinned upstream
     reward is preserved separately;
 15. failed-Episode partial transition rewards are retained as unscored

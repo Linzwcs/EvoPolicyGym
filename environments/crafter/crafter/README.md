@@ -362,7 +362,8 @@ train pool:           1,024 fixed Run-local indices
 Validation Episodes: 256 per candidate
 test Episodes:        512
 Run seed:             one explicit fixed value shared by every model
-submission size:      Agent-selected, at most 64 Episodes
+submission size:      Agent-selected; hard maximum 64, ordinarily about 32 Episodes
+candidate evidence:   normally at least 64 Episodes for an exact Program revision
 Episode allocation:   Agent-selected; each train index has at most 2 uses by default
 finish policy:        early finish allowed; 1,024 Episodes is an upper bound
 historical Policies:  Host-retained, never Agent-visible
@@ -378,6 +379,24 @@ evaluation to justify a Policy change, and every report must include actual
 Episode consumption. This keeps unused evidence budget from being converted
 into unchanged submissions. Controlled stress tests may opt in to
 `require_budget_exhaustion`, but that is not the default comparison protocol.
+
+The 64-Episode submission limit is a Host safety and Artifact-size bound, not
+the preferred size of every evaluation. Local retained-run measurements found
+per-Episode score standard deviations around 55--62 under the raw-return
+profile. At that noise level, an 8-Episode mean has an approximate 95% sampling
+half-width near 42 score points, compared with about 21 at 32 Episodes and 15
+at 64 Episodes. Therefore the formal launcher recommends about 32 Episodes for
+an ordinary comparison, reserves smaller batches for smoke tests or targeted
+diagnosis, and asks the Agent to accumulate at least 64 total Episode results
+for an exact submitted Program revision before rejecting a promising direction
+or concluding that further improvement is unjustified. Those 64 results may
+span submissions. This is recorded statistical guidance rather than a Kernel
+quota: the Agent still controls evidence allocation and may finish early.
+
+Comparisons should combine deliberate matched-index evidence with fresh unseen
+indices. A matched comparison is valid only for the exact same submitted
+Program revision; manually recreating or approximately reverting source creates
+a different Policy even when the intended behavior is similar.
 
 The evaluation sizes follow a local five-panel audit of three retained
 Policies under this raw-return metric. Moving from test32 to test256 reduced
@@ -448,6 +467,8 @@ environments/crafter/crafter/.venv/bin/python \
   --max-submissions 1024 \
   --episode-budget 1024 \
   --max-episodes-per-submission 64 \
+  --recommended-episodes-per-submission 32 \
+  --minimum-candidate-evidence 64 \
   --max-train-index-uses 2 \
   --finish-budget-policy allow_early \
   --bulk-feedback-retention-bytes 1073741824 \
@@ -480,6 +501,14 @@ This is an auditable Agent instruction retained in `agent/invocation.json`, not
 a Kernel-enforced rejection rule; reports must still calculate actual unique
 index coverage from Run records.
 
+The companion `--recommended-episodes-per-submission 32` and
+`--minimum-candidate-evidence 64` options publish the sampling guidance above
+in the same recorded invocation. Both accept another positive integer or
+`none`; the recommendation cannot exceed the hard per-submission maximum, and
+the minimum evidence cannot exceed the whole Run's Episode budget. Disabling
+either option removes only that guidance, not the Benchmark limit or scoring
+logic.
+
 Keep `--record-to` short enough that its absolute
 `control/session.sock` path is below Linux's 108-byte Unix-domain socket limit.
 The launcher rejects longer paths before creating the Run; concise identifiers
@@ -490,9 +519,11 @@ Agent analysis interpreter. In particular, it warns against bare `uv run` from
 the Run workspace because that command discovers the Kernel project rather
 than this independent Crafter distribution.
 
-The index-use instruction does not prescribe selectors or submission sizes and
-does not change `finish_budget_policy`. The default launcher treats
-`episode_budget` as an upper bound and permits an earlier successful finish.
+Neither launcher instruction changes `finish_budget_policy`. The index-use
+instruction does not prescribe a selector, and the batch-evidence instruction
+states recommendations rather than enforcing submission sizes. The default
+launcher treats `episode_budget` as an upper bound and permits an earlier
+successful finish.
 
 ### Execution isolation
 

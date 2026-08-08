@@ -35,12 +35,21 @@ class _CrafterCodex:
     model: str
     reasoning_effort: str
     executable: str
+    recommended_episodes_per_submission: int | None
+    minimum_candidate_evidence: int | None
     max_train_index_uses: int | None
 
     def __post_init__(self) -> None:
-        value = self.max_train_index_uses
-        if value is not None and (type(value) is not int or value <= 0):
-            raise ValueError("max_train_index_uses must be a positive integer or None")
+        for field, value in (
+            (
+                "recommended_episodes_per_submission",
+                self.recommended_episodes_per_submission,
+            ),
+            ("minimum_candidate_evidence", self.minimum_candidate_evidence),
+            ("max_train_index_uses", self.max_train_index_uses),
+        ):
+            if value is not None and (type(value) is not int or value <= 0):
+                raise ValueError(f"{field} must be a positive integer or None")
 
     def build_invocation(self, task: AgentTask) -> AgentInvocation:
         base = Codex(
@@ -51,6 +60,18 @@ class _CrafterCodex:
         ).build_invocation(task)
         limit = self.max_train_index_uses
         instructions = [_agent_analysis_python_instruction()]
+        if (
+            self.recommended_episodes_per_submission is not None
+            or self.minimum_candidate_evidence is not None
+        ):
+            instructions.append(
+                _training_batch_evidence_instruction(
+                    recommended_episodes_per_submission=(
+                        self.recommended_episodes_per_submission
+                    ),
+                    minimum_candidate_evidence=self.minimum_candidate_evidence,
+                )
+            )
         if limit is not None:
             instructions.append(_training_index_diversity_instruction(limit))
         instruction = "\n".join(instructions)
@@ -60,6 +81,14 @@ class _CrafterCodex:
         )
         identity = dict(base.identity)
         identity["agent_python_tools"] = "numpy,pillow"
+        if self.recommended_episodes_per_submission is not None:
+            identity["recommended_episodes_per_submission"] = str(
+                self.recommended_episodes_per_submission
+            )
+        if self.minimum_candidate_evidence is not None:
+            identity["minimum_candidate_evidence"] = str(
+                self.minimum_candidate_evidence
+            )
         if limit is not None:
             identity["max_train_index_uses"] = str(limit)
         return AgentInvocation(
@@ -87,6 +116,49 @@ Crafter environment, and that Kernel environment intentionally does not own
 Crafter's dependencies. This tooling guidance does not prescribe which
 evidence to inspect or how to change the Policy.
 """
+
+
+def _training_batch_evidence_instruction(
+    *,
+    recommended_episodes_per_submission: int | None,
+    minimum_candidate_evidence: int | None,
+) -> str:
+    guidance: list[str] = [
+        "Crafter training returns have substantial between-Episode variance. "
+        "Batches of 8 or fewer Episodes are useful for smoke tests and targeted "
+        "diagnosis, but differences between their raw means are weak evidence "
+        "about Policy quality."
+    ]
+    if recommended_episodes_per_submission is not None:
+        guidance.append(
+            "For ordinary candidate comparisons, normally use about "
+            f"{recommended_episodes_per_submission} Episodes per submission."
+        )
+    if minimum_candidate_evidence is not None:
+        guidance.append(
+            "Before rejecting a promising Policy direction or deciding that no "
+            "further Policy improvement is justified, normally accumulate at "
+            f"least {minimum_candidate_evidence} total training Episode results "
+            "for that exact submitted Program revision; this evidence may span "
+            "multiple submissions."
+        )
+    guidance.extend(
+        [
+            "Combine deliberate matched-index comparisons with fresh, unseen "
+            "indices for generalization evidence. A matched comparison requires "
+            "the exact same submitted Program revision; a hand-written recreation "
+            "or approximate revert is a different Policy.",
+            "These are statistical evidence guidelines, not Kernel-enforced "
+            "submission sizes. You remain responsible for allocating the finite "
+            "training budget, may use smaller diagnostic batches when justified, "
+            "and may finish early under the Host finish policy.",
+        ]
+    )
+    return (
+        "Training batch evidence guidance for this Run. "
+        + " ".join(guidance)
+        + "\n"
+    )
 
 
 def _training_index_diversity_instruction(max_uses: int) -> str:
@@ -122,6 +194,22 @@ policy.
 def main(arguments: list[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(arguments)
+    if (
+        namespace.recommended_episodes_per_submission is not None
+        and namespace.recommended_episodes_per_submission
+        > namespace.max_episodes_per_submission
+    ):
+        parser.error(
+            "--recommended-episodes-per-submission cannot exceed "
+            "--max-episodes-per-submission"
+        )
+    if (
+        namespace.minimum_candidate_evidence is not None
+        and namespace.minimum_candidate_evidence > namespace.episode_budget
+    ):
+        parser.error(
+            "--minimum-candidate-evidence cannot exceed --episode-budget"
+        )
     if not namespace.allow_unsafe_process:
         parser.error(
             "local Agent and Policy processes are not isolated by "
@@ -163,6 +251,10 @@ def main(arguments: list[str] | None = None) -> int:
             model=namespace.model,
             reasoning_effort=namespace.reasoning_effort,
             executable=namespace.codex_executable,
+            recommended_episodes_per_submission=(
+                namespace.recommended_episodes_per_submission
+            ),
+            minimum_candidate_evidence=namespace.minimum_candidate_evidence,
             max_train_index_uses=namespace.max_train_index_uses,
         ),
         execution=ProcessExecution.unsafe(),
@@ -298,6 +390,28 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--episode-budget", type=int, default=1024)
     parser.add_argument("--max-episodes-per-submission", type=int, default=64)
     parser.add_argument(
+        "--recommended-episodes-per-submission",
+        type=_recommended_episodes_per_submission,
+        default=32,
+        metavar="N|none",
+        help=(
+            "tell Codex to normally use about N Episodes for an ordinary "
+            "candidate comparison (default: 32); use 'none' to omit this "
+            "launcher-level guidance"
+        ),
+    )
+    parser.add_argument(
+        "--minimum-candidate-evidence",
+        type=_minimum_candidate_evidence,
+        default=64,
+        metavar="N|none",
+        help=(
+            "tell Codex to normally collect at least N total train Episode "
+            "results for an exact candidate before rejecting it or finishing "
+            "(default: 64); use 'none' to omit this launcher-level guidance"
+        ),
+    )
+    parser.add_argument(
         "--max-train-index-uses",
         type=_max_train_index_uses,
         default=2,
@@ -373,17 +487,31 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _max_train_index_uses(value: str) -> int | None:
+    return _optional_positive_integer(value, label="max train index uses")
+
+
+def _recommended_episodes_per_submission(value: str) -> int | None:
+    return _optional_positive_integer(
+        value, label="recommended episodes per submission"
+    )
+
+
+def _minimum_candidate_evidence(value: str) -> int | None:
+    return _optional_positive_integer(value, label="minimum candidate evidence")
+
+
+def _optional_positive_integer(value: str, *, label: str) -> int | None:
     if value.lower() == "none":
         return None
     try:
         parsed = int(value)
     except ValueError:
         raise argparse.ArgumentTypeError(
-            "max train index uses must be a positive integer or 'none'"
+            f"{label} must be a positive integer or 'none'"
         ) from None
     if parsed <= 0:
         raise argparse.ArgumentTypeError(
-            "max train index uses must be a positive integer or 'none'"
+            f"{label} must be a positive integer or 'none'"
         )
     return parsed
 

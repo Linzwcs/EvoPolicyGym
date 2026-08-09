@@ -1,6 +1,6 @@
 {
   "schema": "evopolicygym/leaderboard-results/v1",
-  "generated_at": "2026-08-08T08:13:25Z",
+  "generated_at": "2026-08-09T02:53:01Z",
   "final_reruns": 3,
   "test_configurations": [
     {
@@ -72,6 +72,41 @@
       "kind": "agent",
       "thinking_effort": "xhigh",
       "scores": {"keycorridor-s4r3": {"keycorridor-strict-128-1-128-v1": 0.9261}}
+    }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "keycorridor-s4r3",
+      "configuration_id": "keycorridor-strict-128-1-128-v1",
+      "artifact": "/media/leaderboard/minigrid-v1/keycorridor-s4r3/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "agent-view-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 0.960625
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "keycorridor-s4r3",
+      "configuration_id": "keycorridor-strict-128-1-128-v1",
+      "artifact": "/media/leaderboard/minigrid-v1/keycorridor-s4r3/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "agent-view-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 0.9625
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "keycorridor-s4r3",
+      "configuration_id": "keycorridor-strict-128-1-128-v1",
+      "artifact": "/media/leaderboard/minigrid-v1/keycorridor-s4r3/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "agent-view-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 0.9625
     }
   ]
 }

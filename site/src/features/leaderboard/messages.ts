@@ -28,6 +28,12 @@ const messages = {
     trackWins: "Environment wins",
     podiums: "Podiums",
     meanRank: "Mean rank",
+    topPolicies: "Top 3 policy rollouts",
+    topPoliciesLead:
+      "The final selected Programs on the same held-out Assessment Episode.",
+    assessmentEpisode: "Assessment Episode",
+    episodeScore: "Episode score",
+    openRollout: "Open rollout",
   },
   zh: {
     navigationAria: "排行榜导航",
@@ -56,6 +62,11 @@ const messages = {
     trackWins: "Environment 胜场",
     podiums: "前三",
     meanRank: "平均名次",
+    topPolicies: "Top 3 策略 Rollout",
+    topPoliciesLead: "最终选中 Program 在同一个 held-out Assessment Episode 上的表现。",
+    assessmentEpisode: "Assessment Episode",
+    episodeScore: "Episode 分数",
+    openRollout: "打开 Rollout",
   },
 } as const;
 

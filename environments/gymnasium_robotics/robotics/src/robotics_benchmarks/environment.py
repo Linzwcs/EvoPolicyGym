@@ -26,6 +26,8 @@ from .video import (
     VIDEO_FRAME_SHAPE,
     VIDEO_FRAME_WIDTH,
     VIDEO_INITIAL_FRAME_METRIC,
+    FreeCamera,
+    VideoCamera,
     video_camera,
     video_capture_interval,
 )
@@ -119,7 +121,7 @@ class RoboticsEnvironment:
         self._cumulative_state_motion = 0.0
         self._no_state_change_count = 0
         self._completed_tasks: set[str] = set()
-        self._video_camera = video_camera(config.profile)
+        self._video_camera = _renderer_camera(video_camera(config.profile))
         self._video_capture_failed = False
         self._video_capture_interval = video_capture_interval(config.max_episode_steps)
         self._video_renderer: mujoco.Renderer | None = None
@@ -367,6 +369,20 @@ class RoboticsEnvironment:
             renderer.close()
         except Exception:
             self._video_capture_failed = True
+
+
+def _renderer_camera(camera: VideoCamera) -> str | int | mujoco.MjvCamera:
+    if type(camera) is not FreeCamera:
+        return camera
+    selected = mujoco.MjvCamera()
+    selected.type = mujoco.mjtCamera.mjCAMERA_FREE
+    selected.fixedcamid = -1
+    selected.trackbodyid = -1
+    selected.lookat[:] = camera.lookat
+    selected.distance = camera.distance
+    selected.azimuth = camera.azimuth
+    selected.elevation = camera.elevation
+    return selected
 
 
 def _action(value: PolicyValue, *, config: RoboticsConfig) -> RoboticsAction:

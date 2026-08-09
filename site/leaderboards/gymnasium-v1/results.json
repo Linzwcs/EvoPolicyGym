@@ -122,5 +122,67 @@
         "car-racing-v3": {"car-racing-strict-128-1-64-v1": 339.888}
       }
     }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "half-cheetah-v5",
+      "configuration_id": "half-cheetah-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/half-cheetah-v5/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 1162.4791379404999
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "half-cheetah-v5",
+      "configuration_id": "half-cheetah-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/half-cheetah-v5/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 771.3925620323367
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "half-cheetah-v5",
+      "configuration_id": "half-cheetah-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/half-cheetah-v5/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 79.5588341563364
+    },
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "car-racing-v3",
+      "configuration_id": "car-racing-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/car-racing-v3/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 900.8999999999807
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "car-racing-v3",
+      "configuration_id": "car-racing-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/car-racing-v3/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 234.55882352940847
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "car-racing-v3",
+      "configuration_id": "car-racing-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/gymnasium-v1/car-racing-v3/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "split": "test",
+      "episode_index": 0,
+      "score": 238.23529411763496
+    }
   ]
 }

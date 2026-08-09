@@ -6,6 +6,7 @@ import type {
   LeaderboardSuiteData,
 } from "../../../lib/leaderboard/types";
 import {LeaderboardProvider} from "./context";
+import {EnvironmentTopPolicies} from "./EnvironmentWidgets";
 import {LeaderboardShell} from "./LeaderboardShell";
 import {environmentDocumentComponents, type LeaderboardDocument} from "./mdx";
 
@@ -45,6 +46,7 @@ export default function EnvironmentPage({
           <MDXContent>
             <Content components={environmentDocumentComponents} />
           </MDXContent>
+          <EnvironmentTopPolicies />
         </LeaderboardShell>
       </LeaderboardProvider>
     </Layout>

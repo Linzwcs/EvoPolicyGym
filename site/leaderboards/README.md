@@ -38,6 +38,15 @@ Legacy archive results may retain the original flat Environment-to-score map.
 Agent entries may declare `thinking_effort`; it belongs to the model invocation
 and is rendered with the model, never as part of the test configuration.
 
+Published visual Environments may also declare `policy_rollouts`. Each rollout
+binds one Agent entry, Environment, and optional test configuration to a
+site-absolute GIF under `public/`, plus its split, Episode index, raw Episode
+score, and optional camera label. The Environment page derives its Top 3 from
+the selected configuration's ranking and renders the section only when every
+ranked Top 3 Agent has a matching rollout. Comparable cards should use the final
+selected Programs on the same held-out Assessment Episode; the build rejects
+missing media files and invalid references.
+
 The active site is publication-scoped. A result is added only when its complete
 experiment and configuration are documented in a public EvoPolicyGym Blog
 article or explicitly published as a leaderboard experiment. Diagnostic and

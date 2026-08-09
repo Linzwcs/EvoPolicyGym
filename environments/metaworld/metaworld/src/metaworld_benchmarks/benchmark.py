@@ -243,7 +243,7 @@ class MetaWorldBenchmark:
                 "rendered_frame_evidence_episodes": frame_evidence_episode_count,
                 "rendered_frame_evidence_format": "lossless NPZ",
                 "video_capture_unavailable_episodes": video_unavailable,
-                "video_camera": VIDEO_CAMERA,
+                "video_camera": VIDEO_CAMERA.name,
                 "video_frame_shape": list(VIDEO_FRAME_SHAPE),
                 "video_capture_interval_steps": capture_interval,
                 "video_frame_cap_per_episode": VIDEO_MAX_FRAMES_PER_EPISODE,
@@ -344,6 +344,13 @@ def _spec(config: MetaWorldConfig) -> BenchmarkSpec:
             "horizon": (
                 "All tasks continue for at most 500 steps because terminate_on_success is disabled."
             ),
+            "feedback_video_camera": {
+                "name": VIDEO_CAMERA.name,
+                "lookat": list(VIDEO_CAMERA.lookat),
+                "distance": VIDEO_CAMERA.distance,
+                "azimuth": VIDEO_CAMERA.azimuth,
+                "elevation": VIDEO_CAMERA.elevation,
+            },
             "feedback_diagnostics": (
                 "Upstream near_object, grasp_reward, in_place_reward, "
                 "obj_to_target, grasp_success, and unscaled_reward are traced "

@@ -1,0 +1,47 @@
+---
+schema: evopolicygym/leaderboard-suite/v2
+id: vizdoom-v1
+slug: vizdoom-v1
+status: active
+default: false
+version: v1
+experiment_version: v0.3.0
+title:
+  en: ViZDoom Distribution
+  zh: ViZDoom Distribution
+label:
+  en: ViZDoom
+  zh: ViZDoom
+description:
+  en: Independent Environment leaderboards for published ViZDoom control experiments.
+  zh: 已公开 ViZDoom 控制实验的独立 Environment 排行榜。
+profile:
+  id: vizdoom-128-v1
+  label:
+    en: ViZDoom 128-Episode profile
+    zh: ViZDoom 128-Episode 配置
+  budget: 128
+  budget_unit: training episodes / run
+content:
+  suite:
+    en: index.mdx
+    zh: index.zh-CN.mdx
+  environment:
+    en: environment.mdx
+    zh: environment.zh-CN.mdx
+results: results.json
+---
+
+<LeaderboardIntro eyebrow="Active Distribution">
+
+# ViZDoom
+
+<SuiteFacts />
+
+</LeaderboardIntro>
+
+<LeaderboardSection number="1" title="Environment leaderboards">
+
+<EnvironmentDirectory />
+
+</LeaderboardSection>

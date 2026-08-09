@@ -13,7 +13,25 @@ from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
-VIDEO_CAMERA = "corner2"
+
+@dataclass(frozen=True, slots=True)
+class VideoCamera:
+    """Versioned free-camera parameters for comparable visual evidence."""
+
+    name: str
+    lookat: tuple[float, float, float]
+    distance: float
+    azimuth: float
+    elevation: float
+
+
+VIDEO_CAMERA = VideoCamera(
+    name="overview-v1",
+    lookat=(0.0, 0.65, 0.12),
+    distance=1.35,
+    azimuth=160.0,
+    elevation=-22.0,
+)
 VIDEO_FRAME_HEIGHT = 128
 VIDEO_FRAME_WIDTH = 128
 VIDEO_FRAME_SHAPE = (VIDEO_FRAME_HEIGHT, VIDEO_FRAME_WIDTH, 3)
@@ -61,7 +79,7 @@ def video_feedback(
                     "frames_artifact": None,
                     "evidence_artifact": None,
                     "preview_artifact": None,
-                    "camera": VIDEO_CAMERA,
+                    "camera": VIDEO_CAMERA.name,
                     "source": "host_camera",
                     "color_space": "RGB",
                     "frame_dtype": "uint8",
@@ -78,7 +96,7 @@ def video_feedback(
         frame_evidence = _frame_evidence_artifact(frames, name=frames_name)
         artifacts.append(frame_evidence)
         selected, content, scale = _encode_bounded_gif(frames, profile=profile)
-        name = f"episode-{episode_index:03d}/corner2.gif"
+        name = f"episode-{episode_index:03d}/{VIDEO_CAMERA.name}.gif"
         artifacts.append(
             Artifact(
                 name=name,
@@ -99,7 +117,7 @@ def video_feedback(
                 "evidence_artifact_bytes": frame_evidence.size,
                 "preview_artifact": name,
                 "preview_media_type": "image/gif",
-                "camera": VIDEO_CAMERA,
+                "camera": VIDEO_CAMERA.name,
                 "source": "host_camera",
                 "color_space": "RGB",
                 "frame_dtype": "uint8",
@@ -307,6 +325,7 @@ __all__ = [
     "VIDEO_FRAME_WIDTH",
     "VIDEO_INITIAL_FRAME_METRIC",
     "VIDEO_MAX_FRAMES_PER_EPISODE",
+    "VideoCamera",
     "trace_metrics",
     "video_capture_interval",
     "video_feedback",

@@ -1,6 +1,6 @@
 {
   "schema": "evopolicygym/leaderboard-results/v1",
-  "generated_at": "2026-07-29T00:00:00Z",
+  "generated_at": "2026-08-09T02:53:01Z",
   "final_reruns": 4,
   "test_configurations": [
     {
@@ -81,6 +81,41 @@
       "harness": "EvoPolicyGym",
       "kind": "baseline",
       "scores": {"balatro-red-deck-white-stake": {"red-white-train-1024-assess-128-v1": 3.70}}
+    }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "balatro-red-deck-white-stake",
+      "configuration_id": "red-white-train-1024-assess-128-v1",
+      "artifact": "/media/leaderboard/jackdaw-v1/balatro-red-deck-white-stake/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "semantic-table-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 6.0
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "balatro-red-deck-white-stake",
+      "configuration_id": "red-white-train-1024-assess-128-v1",
+      "artifact": "/media/leaderboard/jackdaw-v1/balatro-red-deck-white-stake/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "semantic-table-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 11.0
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "balatro-red-deck-white-stake",
+      "configuration_id": "red-white-train-1024-assess-128-v1",
+      "artifact": "/media/leaderboard/jackdaw-v1/balatro-red-deck-white-stake/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "semantic-table-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 7.0
     }
   ]
 }

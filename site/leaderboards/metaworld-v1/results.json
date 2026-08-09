@@ -84,5 +84,40 @@
         }
       }
     }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "pick-place-v3",
+      "configuration_id": "train-128-assess-32-v1",
+      "artifact": "/media/leaderboard/metaworld-v1/pick-place-v3/sol-assessment-episode-000-overview.gif",
+      "media_type": "image/gif",
+      "camera": "overview-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 4494.108904023939
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "pick-place-v3",
+      "configuration_id": "train-128-assess-32-v1",
+      "artifact": "/media/leaderboard/metaworld-v1/pick-place-v3/terra-assessment-episode-000-overview.gif",
+      "media_type": "image/gif",
+      "camera": "overview-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 4069.3573807605
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "pick-place-v3",
+      "configuration_id": "train-128-assess-32-v1",
+      "artifact": "/media/leaderboard/metaworld-v1/pick-place-v3/luna-assessment-episode-000-overview.gif",
+      "media_type": "image/gif",
+      "camera": "overview-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 3788.615851671249
+    }
   ]
 }

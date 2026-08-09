@@ -1,4 +1,4 @@
-import {readdir, readFile} from "node:fs/promises";
+import {access, readdir, readFile} from "node:fs/promises";
 import path from "node:path";
 import type {LoadContext, Plugin, RouteMetadata} from "@docusaurus/types";
 import {aliasedSitePath, parseMarkdownFile} from "@docusaurus/utils";
@@ -196,6 +196,7 @@ async function loadSuite(
     JSON.parse(await readFile(resultsPath, "utf8")) as unknown,
     resultsPath,
   );
+  await validatePolicyRolloutArtifacts(context, results, resultsPath);
   validateSuiteCoverage(manifest, results, resultsPath);
 
   const documents = {
@@ -207,6 +208,39 @@ async function loadSuite(
     ),
   };
   return {data: {manifest, results}, documents, manifestPath};
+}
+
+function policyArtifactPath(
+  context: LoadContext,
+  artifact: string,
+  resultsPath: string,
+): string {
+  const publicRoot = path.resolve(context.siteDir, "public");
+  const publicPrefix = `${publicRoot}${path.sep}`;
+  const artifactPath = path.resolve(publicRoot, artifact.replace(/^\/+/, ""));
+  if (!artifactPath.startsWith(publicPrefix)) {
+    throw new Error(`${resultsPath}: policy artifact leaves the public directory`);
+  }
+  return artifactPath;
+}
+
+async function validatePolicyRolloutArtifacts(
+  context: LoadContext,
+  results: LeaderboardSuiteData["results"],
+  resultsPath: string,
+): Promise<void> {
+  await Promise.all(
+    (results.policy_rollouts ?? []).map(async (rollout) => {
+      const artifactPath = policyArtifactPath(context, rollout.artifact, resultsPath);
+      try {
+        await access(artifactPath);
+      } catch {
+        throw new Error(
+          `${resultsPath}: policy rollout artifact does not exist: ${rollout.artifact}`,
+        );
+      }
+    }),
+  );
 }
 
 async function resolveDocuments(

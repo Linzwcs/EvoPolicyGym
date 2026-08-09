@@ -44,8 +44,12 @@ least one valid transition preserves every captured 128x128 camera frame
 losslessly in `rendered-frames.npz`, together with step indices, rewards,
 reward presence, and cumulative returns. A bounded animated GIF is derived
 from the same frames for convenient inspection; it is not the sole visual
-evidence. Fetch, AntMaze, Adroit, and FrankaKitchen use stable named cameras;
-PointMaze and Shadow Hand use the free camera.
+evidence. Fetch, AntMaze, and Adroit use stable named cameras. FrankaKitchen
+uses the versioned `franka-kitchen-overview-v1` free-camera pose so the robot,
+burners, sink, microwave, cabinets, and kettle remain visible in one fixed
+view. PointMaze and Shadow Hand use the simulator's free camera. Exact feedback
+camera parameters are part of the public Environment parameters and therefore
+the Environment digest.
 
 The Host captures the initial state, first result, terminal result, and an
 adaptive stride of intermediate results, with at most 42 frames per Episode.

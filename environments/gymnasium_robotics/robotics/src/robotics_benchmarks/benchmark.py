@@ -28,6 +28,7 @@ from .video import (
     trace_metrics,
     video_camera,
     video_camera_label,
+    video_camera_parameters,
     video_capture_interval,
     video_feedback,
 )
@@ -300,6 +301,7 @@ def _spec(config: RoboticsConfig, *, failure_return: float) -> BenchmarkSpec:
             ),
             "reward_semantics": _reward_semantics(config),
             "success_condition": _success_condition(config),
+            "feedback_video_camera": video_camera_parameters(config.profile),
             "goal_diagnostics": (
                 "Distances are computed only from Policy-visible goal/state "
                 "tensors. Manipulation goal_distance is 10*position_error + "

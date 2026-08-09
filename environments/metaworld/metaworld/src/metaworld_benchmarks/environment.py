@@ -22,6 +22,7 @@ from .video import (
     VIDEO_FRAME_SHAPE,
     VIDEO_FRAME_WIDTH,
     VIDEO_INITIAL_FRAME_METRIC,
+    VideoCamera,
     video_capture_interval,
 )
 
@@ -103,6 +104,7 @@ class MetaWorldEnvironment:
         self._video_capture_failed = False
         self._video_capture_interval = video_capture_interval(_MAX_EPISODE_STEPS)
         self._video_renderer: mujoco.Renderer | None = None
+        self._video_camera = _video_camera(VIDEO_CAMERA)
 
     def reset(self) -> PolicyValue:
         if self._closed:
@@ -310,7 +312,7 @@ class MetaWorldEnvironment:
                     height=VIDEO_FRAME_HEIGHT,
                     width=VIDEO_FRAME_WIDTH,
                 )
-            self._video_renderer.update_scene(self._data, camera=VIDEO_CAMERA)
+            self._video_renderer.update_scene(self._data, camera=self._video_camera)
             raw = self._video_renderer.render()
             frame = numpy.asarray(raw)
             if frame.shape != VIDEO_FRAME_SHAPE or frame.dtype != numpy.dtype(numpy.uint8):
@@ -364,6 +366,16 @@ def _task_index(value: PolicyValue, *, task_count: int) -> int:
     if type(index) is not int or not 0 <= index < task_count:
         raise ValueError("Episode task_index is out of range")
     return index
+
+
+def _video_camera(parameters: VideoCamera) -> mujoco.MjvCamera:
+    camera = mujoco.MjvCamera()
+    camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+    camera.lookat[:] = parameters.lookat
+    camera.distance = parameters.distance
+    camera.azimuth = parameters.azimuth
+    camera.elevation = parameters.elevation
+    return camera
 
 
 def _action(value: PolicyValue) -> NDArray[numpy.float32]:

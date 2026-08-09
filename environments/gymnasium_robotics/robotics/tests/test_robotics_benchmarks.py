@@ -69,6 +69,17 @@ class RoboticsBenchmarkTests(unittest.TestCase):
             kitchen.spec.environment_parameters["profile"],
             "franka-kitchen",
         )
+        self.assertEqual(
+            kitchen.spec.environment_parameters["feedback_video_camera"],
+            {
+                "kind": "free",
+                "label": "franka-kitchen-overview-v1",
+                "lookat": [-0.2, 0.65, 1.9],
+                "distance": 3.5,
+                "azimuth": 120.0,
+                "elevation": -28.0,
+            },
+        )
         self.assertEqual(kitchen.spec.max_episode_steps, 280)
 
     def test_camera_feedback_renders_from_episode_worker_thread(self) -> None:

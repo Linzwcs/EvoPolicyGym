@@ -1,7 +1,9 @@
 import Link from "@docusaurus/Link";
-import type {CSSProperties} from "react";
+import useBaseUrl from "@docusaurus/useBaseUrl";
+import {type CSSProperties} from "react";
 import {pickLocalized, useSiteLanguage} from "../../components/Localized";
 import {useLeaderboard, useLeaderboardEnvironment} from "./context";
+import {LeaderboardSection} from "./DocumentComponents";
 import {formatLeaderboardScore, rankedEntries, suitePath} from "./model";
 import {useLeaderboardMessages} from "./messages";
 
@@ -252,6 +254,90 @@ export function EnvironmentChart() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function EnvironmentTopPolicies() {
+  const {suite, selectedConfiguration} = useLeaderboard();
+  const environment = useLeaderboardEnvironment();
+  const labels = useLeaderboardMessages();
+  const baseUrl = useBaseUrl("/");
+  const scoreDecimalPlaces = environment.score_decimal_places ?? 3;
+  const entryColors = ["#36a99b", "#f0765e", "#8a4cff"];
+  const topEntries = rankedEntries(
+    suite,
+    environment,
+    selectedConfiguration?.id,
+  )
+    .filter((entry) => entry.kind === "agent")
+    .slice(0, 3);
+  const cards = topEntries.flatMap((entry, rank) => {
+    const rollout = suite.results.policy_rollouts?.find(
+      (item) =>
+        item.entry_id === entry.id &&
+        item.environment_id === environment.id &&
+        item.configuration_id === selectedConfiguration?.id,
+    );
+    return rollout === undefined ? [] : [{entry, rank, rollout}];
+  });
+  if (cards.length === 0 || cards.length !== topEntries.length) return null;
+
+  return (
+    <LeaderboardSection
+      number="3"
+      title={labels.topPolicies}
+      lead={labels.topPoliciesLead}
+    >
+      <div className="leaderboard-policy-rollouts">
+        {cards.map(({entry, rank, rollout}) => {
+          const artifact = `${baseUrl}${rollout.artifact.replace(/^\/+/, "")}`;
+          const color = entryColors[rank % entryColors.length];
+          return (
+            <article
+              className="leaderboard-policy-rollout"
+              key={entry.id}
+              style={{"--leaderboard-entry-color": color} as CSSProperties}
+            >
+              <header>
+                <span>#{rank + 1}</span>
+                <div>
+                  <strong>{entry.display}</strong>
+                  <small>
+                    {entry.harness}
+                    {entry.thinking_effort !== undefined &&
+                      ` · ${entry.thinking_effort}`}
+                  </small>
+                </div>
+                <b>{formatLeaderboardScore(entry.score, scoreDecimalPlaces)}</b>
+              </header>
+              <a
+                className="leaderboard-policy-rollout-media"
+                href={artifact}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${labels.openRollout}: ${entry.display}`}
+              >
+                <img
+                  src={artifact}
+                  alt={`${entry.display}, ${labels.assessmentEpisode} ${rollout.episode_index}`}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <footer>
+                <span>
+                  {labels.assessmentEpisode} {rollout.episode_index}
+                  {rollout.camera !== undefined && ` · ${rollout.camera}`}
+                </span>
+                <span>
+                  {labels.episodeScore} <strong>{formatLeaderboardScore(rollout.score, scoreDecimalPlaces)}</strong>
+                </span>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
+    </LeaderboardSection>
   );
 }
 

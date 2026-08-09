@@ -34,7 +34,29 @@ class _ReplayFrame:
     cumulative_return: float
 
 
-def video_camera(profile: str) -> str | int:
+@dataclass(frozen=True, slots=True)
+class FreeCamera:
+    """One deterministic MuJoCo free-camera pose used only for Feedback."""
+
+    label: str
+    lookat: tuple[float, float, float]
+    distance: float
+    azimuth: float
+    elevation: float
+
+
+type VideoCamera = str | int | FreeCamera
+
+_FRANKA_KITCHEN_OVERVIEW = FreeCamera(
+    label="franka-kitchen-overview-v1",
+    lookat=(-0.2, 0.65, 1.9),
+    distance=3.5,
+    azimuth=120.0,
+    elevation=-28.0,
+)
+
+
+def video_camera(profile: str) -> VideoCamera:
     """Select one stable public camera for each Robotics task family."""
 
     if profile.startswith("fetch-"):
@@ -46,12 +68,36 @@ def video_camera(profile: str) -> str | int:
     if profile.startswith("adroit-hand-"):
         return "fixed"
     if profile == "franka-kitchen":
-        return "left_cap"
+        return _FRANKA_KITCHEN_OVERVIEW
     return -1
 
 
-def video_camera_label(camera: str | int) -> str:
-    return camera if type(camera) is str else "free"
+def video_camera_label(camera: VideoCamera) -> str:
+    if type(camera) is str:
+        return camera
+    if type(camera) is FreeCamera:
+        return camera.label
+    return "free"
+
+
+def video_camera_parameters(profile: str) -> PolicyValue:
+    """Publish the exact feedback camera as part of Benchmark identity."""
+
+    camera = video_camera(profile)
+    if type(camera) is str:
+        return {"kind": "fixed", "name": camera}
+    if type(camera) is FreeCamera:
+        return {
+            "kind": "free",
+            "label": camera.label,
+            "lookat": list(camera.lookat),
+            "distance": camera.distance,
+            "azimuth": camera.azimuth,
+            "elevation": camera.elevation,
+        }
+    if type(camera) is int:
+        return {"kind": "free", "camera_id": camera}
+    raise AssertionError("unreachable video camera type")
 
 
 def video_feedback(
@@ -326,9 +372,12 @@ __all__ = [
     "VIDEO_FRAME_WIDTH",
     "VIDEO_INITIAL_FRAME_METRIC",
     "VIDEO_MAX_FRAMES_PER_EPISODE",
+    "FreeCamera",
+    "VideoCamera",
     "trace_metrics",
     "video_camera",
     "video_camera_label",
+    "video_camera_parameters",
     "video_capture_interval",
     "video_feedback",
 ]

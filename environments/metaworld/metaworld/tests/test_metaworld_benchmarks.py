@@ -143,12 +143,14 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         action_handling = spec.environment_parameters["action_handling"]
         horizon = spec.environment_parameters["horizon"]
         feedback_diagnostics = spec.environment_parameters["feedback_diagnostics"]
+        video_camera = spec.environment_parameters["feedback_video_camera"]
         tensor_encoding = spec.environment_parameters["tensor_encoding"]
         assert isinstance(reward_mode, str)
         assert isinstance(success_persistence, str)
         assert isinstance(action_handling, str)
         assert isinstance(horizon, str)
         assert isinstance(feedback_diagnostics, str)
+        assert isinstance(video_camera, dict)
         assert isinstance(tensor_encoding, str)
 
         self.assertIn("dense shaped", reward_mode)
@@ -156,6 +158,8 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         self.assertIn("rejected", action_handling)
         self.assertIn("500 steps", horizon)
         self.assertIn("obj_to_target", feedback_diagnostics)
+        self.assertEqual(video_camera["name"], "overview-v1")
+        self.assertEqual(video_camera["lookat"], [0.0, 0.65, 0.12])
         self.assertIn("not iterable", tensor_encoding)
         self.assertIn("struct.iter_unpack", tensor_encoding)
 
@@ -288,7 +292,7 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
             ]
             assert isinstance(initial_frame, TensorValue)
             self.assertEqual(archive["frames"][0].tobytes(), initial_frame.data)
-        self.assertEqual(feedback.artifacts[2].name, "episode-000/corner2.gif")
+        self.assertEqual(feedback.artifacts[2].name, "episode-000/overview-v1.gif")
         self.assertTrue(feedback.artifacts[2].read_bytes().startswith(b"GIF89a"))
 
     def test_feedback_saves_frame_evidence_and_preview_per_episode(self) -> None:
@@ -319,11 +323,11 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
             [
                 "trace.jsonl",
                 "episode-000/rendered-frames.npz",
-                "episode-000/corner2.gif",
+                "episode-000/overview-v1.gif",
                 "episode-001/rendered-frames.npz",
-                "episode-001/corner2.gif",
+                "episode-001/overview-v1.gif",
                 "episode-002/rendered-frames.npz",
-                "episode-002/corner2.gif",
+                "episode-002/overview-v1.gif",
             ],
         )
         assert isinstance(feedback.content, dict)
@@ -340,7 +344,7 @@ class MetaWorldBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             first_manifest["preview_artifact"],
-            "episode-000/corner2.gif",
+            "episode-000/overview-v1.gif",
         )
 
     def test_zero_step_failure_has_explicit_unavailable_video_result(self) -> None:

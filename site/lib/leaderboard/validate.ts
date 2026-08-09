@@ -231,6 +231,80 @@ export function validateResults(value: unknown, filePath: string): LeaderboardRe
       }
     }
   }
+  if (value.policy_rollouts !== undefined) {
+    if (!Array.isArray(value.policy_rollouts)) {
+      throw new Error(`${filePath}: policy_rollouts must be an array`);
+    }
+    const rolloutKeys = new Set<string>();
+    for (const item of value.policy_rollouts) {
+      if (!isRecord(item)) {
+        throw new Error(`${filePath}: invalid policy rollout`);
+      }
+      for (const name of ["entry_id", "environment_id", "artifact", "split"]) {
+        requireText(item[name], `${filePath}: policy_rollout.${name}`);
+      }
+      if (!entryIds.has(String(item.entry_id))) {
+        throw new Error(
+          `${filePath}: policy rollout references unknown entry ${String(item.entry_id)}`,
+        );
+      }
+      const environmentId = String(item.environment_id);
+      if (!environmentIds.has(environmentId)) {
+        throw new Error(
+          `${filePath}: policy rollout references unknown environment ${environmentId}`,
+        );
+      }
+      const selectedConfigurationIds = environmentConfigurationIds.get(environmentId);
+      if (selectedConfigurationIds === undefined) {
+        if (item.configuration_id !== undefined) {
+          throw new Error(
+            `${filePath}: unconfigured policy rollout cannot select a configuration`,
+          );
+        }
+      } else {
+        requireText(
+          item.configuration_id,
+          `${filePath}: policy_rollout.configuration_id`,
+        );
+        if (!selectedConfigurationIds.has(item.configuration_id)) {
+          throw new Error(
+            `${filePath}: policy rollout references unavailable configuration ${item.configuration_id}`,
+          );
+        }
+      }
+      if (
+        !String(item.artifact).startsWith("/") ||
+        String(item.artifact).includes("..")
+      ) {
+        throw new Error(
+          `${filePath}: policy rollout artifact must be a safe site-absolute path`,
+        );
+      }
+      if (item.media_type !== "image/gif") {
+        throw new Error(`${filePath}: policy rollout media_type must be image/gif`);
+      }
+      if (item.camera !== undefined) {
+        requireText(item.camera, `${filePath}: policy_rollout.camera`);
+      }
+      if (!Number.isInteger(item.episode_index) || Number(item.episode_index) < 0) {
+        throw new Error(
+          `${filePath}: policy rollout episode_index must be non-negative`,
+        );
+      }
+      if (typeof item.score !== "number" || !Number.isFinite(item.score)) {
+        throw new Error(`${filePath}: policy rollout score must be finite`);
+      }
+      const rolloutKey = [
+        item.entry_id,
+        environmentId,
+        item.configuration_id ?? "",
+      ].join("\0");
+      if (rolloutKeys.has(rolloutKey)) {
+        throw new Error(`${filePath}: duplicate policy rollout ${rolloutKey}`);
+      }
+      rolloutKeys.add(rolloutKey);
+    }
+  }
   return value as unknown as LeaderboardResults;
 }
 

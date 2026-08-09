@@ -43,7 +43,7 @@ steps, with retained and omitted counts reported explicitly. ML1/ML10/ML45 are
 reserved until the Kernel has an explicit Trial abstraction.
 
 Every Episode with at least one valid transition also preserves every captured
-128x128 frame from MetaWorld's `corner2` MuJoCo camera losslessly in
+128x128 frame from the versioned `overview-v1` MuJoCo free camera losslessly in
 `rendered-frames.npz`, together with step indices, rewards, reward presence,
 and cumulative returns. A bounded animated GIF is derived from the same frames
 for convenient inspection; it is not the sole visual evidence. The Host
@@ -54,6 +54,11 @@ JSONL traces, and never become Policy observations. The lossless frame
 evidence and derived GIF use `retention="bulk"`. Each manifest states whether
 capture is complete for the configured sampling schedule and whether it covers
 every Episode step.
+
+`overview-v1` is fixed at look-at `(0.0, 0.65, 0.12)`, distance `1.35`,
+azimuth `160`, and elevation `-22` degrees. These camera parameters are part of
+the public Environment identity so visual evidence remains comparable across
+Runs.
 
 Feedback includes one visual-evidence manifest for every Episode. A zero-step Policy
 failure has no public post-reset artifact channel, so it is retained as an

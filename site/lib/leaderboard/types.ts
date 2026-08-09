@@ -61,6 +61,18 @@ export interface LeaderboardEntry {
   scores: Record<string, LeaderboardScore>;
 }
 
+export interface LeaderboardPolicyRollout {
+  entry_id: string;
+  environment_id: string;
+  configuration_id?: string;
+  artifact: string;
+  media_type: "image/gif";
+  camera?: string;
+  split: string;
+  episode_index: number;
+  score: number;
+}
+
 export interface LeaderboardResults {
   schema: "evopolicygym/leaderboard-results/v1";
   generated_at: string;
@@ -68,6 +80,7 @@ export interface LeaderboardResults {
   test_configurations?: LeaderboardTestConfiguration[];
   environments: LeaderboardEnvironment[];
   entries: LeaderboardEntry[];
+  policy_rollouts?: LeaderboardPolicyRollout[];
 }
 
 export interface LeaderboardSuiteData {

@@ -1,0 +1,9 @@
+@media (min-width: 997px) {
+  .menu {
+    flex-grow: 1;
+  }
+
+  .menuWithAnnouncementBar {
+    margin-bottom: var(--docusaurus-announcement-bar-height);
+  }
+}

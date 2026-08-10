@@ -23,9 +23,9 @@
     "message": "排行榜",
     "description": "The label of footer link with label=Leaderboard linking to /leaderboard/"
   },
-  "link.item.label.Research results": {
-    "message": "研究结果",
-    "description": "The label of footer link with label=Research results linking to /results/"
+  "link.item.label.Previous": {
+    "message": "历史记录",
+    "description": "The label of footer link with label=Previous linking to /results/"
   },
   "link.item.label.Blog": {
     "message": "研究日志",

@@ -2,7 +2,11 @@ import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Layout from "@theme/Layout";
 import {Localized} from "../components/Localized";
-import {paperMeta} from "../data/project";
+import {
+  environmentDistributionCount,
+  environmentTaskProfileCount,
+} from "../data/environmentCatalog";
+import {paperMeta, projectMeta} from "../data/project";
 
 const notes = [
   {
@@ -107,6 +111,24 @@ export default function HomePage() {
                 <Localized en="Paper" zh="论文" /> ↗
               </a>
             </div>
+            <dl className="home-research-register">
+              <div>
+                <dt><Localized en="Package" zh="Package" /></dt>
+                <dd>v{projectMeta.packageVersion}</dd>
+              </div>
+              <div>
+                <dt><Localized en="Policy boundary" zh="Policy 边界" /></dt>
+                <dd>{projectMeta.protocolVersion}</dd>
+              </div>
+              <div>
+                <dt><Localized en="Distributions" zh="Distributions" /></dt>
+                <dd>{environmentDistributionCount}</dd>
+              </div>
+              <div>
+                <dt><Localized en="Named tasks" zh="具名任务" /></dt>
+                <dd>{environmentTaskProfileCount}</dd>
+              </div>
+            </dl>
           </div>
 
           <div className="home-hero-demo">

@@ -19,9 +19,9 @@
     "message": "排行榜",
     "description": "Navbar item with label Leaderboard"
   },
-  "item.label.Results": {
-    "message": "结果",
-    "description": "Navbar item with label Results"
+  "item.label.Previous": {
+    "message": "历史记录",
+    "description": "Navbar item with label Previous"
   },
   "item.label.Blog": {
     "message": "研究日志",

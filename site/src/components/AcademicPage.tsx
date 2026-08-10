@@ -27,7 +27,7 @@ export function AcademicPage({
     <Layout title={title} description={description}>
       <main className={`epg-page ${className}`.trim()}>
         <header className="epg-page-hero epg-wide">
-          <div>
+          <div className="epg-page-hero-copy">
             {eyebrow && <p className="epg-eyebrow">{eyebrow}</p>}
             <h1>{heading}</h1>
             <div className="epg-lead">{lead}</div>

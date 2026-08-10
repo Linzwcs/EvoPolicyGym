@@ -132,7 +132,7 @@ const config: Config = {
         },
         {
           to: "/results/",
-          label: "Results",
+          label: "Previous",
           position: "left",
         },
         {
@@ -172,7 +172,7 @@ const config: Config = {
           to: "/leaderboard/",
         },
         {
-          label: "Results",
+          label: "Previous",
           to: "/results/",
         },
         {

@@ -11,6 +11,28 @@ export function EnvironmentHeader({eyebrow}: {eyebrow: string}) {
   const {suite} = useLeaderboard();
   const environment = useLeaderboardEnvironment();
   const language = useSiteLanguage();
+  const copy =
+    language === "zh"
+      ? {
+          distribution: "Distribution",
+          metric: "主指标",
+          direction: "排序方向",
+          updated: "记录时间",
+          maximize: "越高越好",
+          minimize: "越低越好",
+        }
+      : {
+          distribution: "Distribution",
+          metric: "Primary metric",
+          direction: "Direction",
+          updated: "Record date",
+          maximize: "Higher is better",
+          minimize: "Lower is better",
+        };
+  const generatedAt = new Intl.DateTimeFormat(
+    language === "zh" ? "zh-CN" : "en-GB",
+    {day: "2-digit", month: "short", year: "numeric", timeZone: "UTC"},
+  ).format(new Date(suite.results.generated_at));
   return (
     <>
       <p className="leaderboard-paper-label">
@@ -20,6 +42,28 @@ export function EnvironmentHeader({eyebrow}: {eyebrow: string}) {
       <p className="leaderboard-paper-lead">
         {pickLocalized(language, environment.summary)}
       </p>
+      <dl className="leaderboard-cover-register leaderboard-environment-register">
+        <div>
+          <dt>{copy.distribution}</dt>
+          <dd>{pickLocalized(language, suite.manifest.label)}</dd>
+        </div>
+        <div>
+          <dt>{copy.metric}</dt>
+          <dd>{environment.primary_metric}</dd>
+        </div>
+        <div>
+          <dt>{copy.direction}</dt>
+          <dd>
+            {environment.score_direction === "maximize"
+              ? copy.maximize
+              : copy.minimize}
+          </dd>
+        </div>
+        <div>
+          <dt>{copy.updated}</dt>
+          <dd>{generatedAt}</dd>
+        </div>
+      </dl>
     </>
   );
 }

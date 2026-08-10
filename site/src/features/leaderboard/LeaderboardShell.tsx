@@ -30,8 +30,20 @@ export function LeaderboardShell({
           currentEnvironmentId={currentEnvironmentId}
         />
         <article className="leaderboard-paper-article">{children}</article>
+        <LeaderboardPublicationRail />
       </div>
     </main>
+  );
+}
+
+export function LeaderboardPublicationRail() {
+  return (
+    <aside className="leaderboard-publication-rail" aria-hidden="true">
+      <span>EPG / 03</span>
+      <i />
+      <strong>Open evaluation records</strong>
+      <small>Research index · 2026</small>
+    </aside>
   );
 }
 
@@ -152,6 +164,10 @@ export function LeaderboardNavigator({
         >
           {labels.leaderboard}
         </Link>
+        <span className="leaderboard-sidebar-status">
+          <i aria-hidden="true" />
+          {language === "zh" ? "公开研究索引" : "Public research index"}
+        </span>
       </div>
 
       <div className="leaderboard-sidebar-search">

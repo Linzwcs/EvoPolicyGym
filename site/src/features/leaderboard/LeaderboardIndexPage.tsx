@@ -5,7 +5,10 @@ import type {
   LeaderboardRegistry,
   LeaderboardRegistryItem,
 } from "../../../lib/leaderboard/types";
-import {LeaderboardNavigator} from "./LeaderboardShell";
+import {
+  LeaderboardNavigator,
+  LeaderboardPublicationRail,
+} from "./LeaderboardShell";
 import {leaderboardPath} from "./model";
 
 export default function LeaderboardIndexPage({
@@ -30,6 +33,10 @@ export default function LeaderboardIndexPage({
           activeLead: "当前可继续加入 Environment 与评测结果的榜单集合。",
           archive: "Archive",
           archiveLead: "历史论文结果只读保存，不与当前 Distribution 混排。",
+          activeCount: "活跃版本",
+          environmentCount: "环境分榜",
+          recordStatus: "记录状态",
+          publicRecord: "公开",
           environments: "Environments",
           profile: "测试 Profile",
           open: "打开 Distribution",
@@ -46,6 +53,10 @@ export default function LeaderboardIndexPage({
           archive: "Archive",
           archiveLead:
             "Historical paper results remain read-only and never mix with active Distribution rankings.",
+          activeCount: "Active editions",
+          environmentCount: "Environment boards",
+          recordStatus: "Record status",
+          publicRecord: "Public",
           environments: "Environments",
           profile: "Test profile",
           open: "Open Distribution",
@@ -65,6 +76,27 @@ export default function LeaderboardIndexPage({
               </p>
               <h1>{copy.title}</h1>
               <p className="leaderboard-paper-lead">{copy.description}</p>
+              <dl className="leaderboard-cover-register">
+                <div>
+                  <dt>{copy.activeCount}</dt>
+                  <dd>{active.length.toString().padStart(2, "0")}</dd>
+                </div>
+                <div>
+                  <dt>{copy.environmentCount}</dt>
+                  <dd>
+                    {active
+                      .reduce((total, item) => total + item.environments.length, 0)
+                      .toString()
+                      .padStart(2, "0")}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{copy.recordStatus}</dt>
+                  <dd className="is-status">
+                    <i aria-hidden="true" /> {copy.publicRecord}
+                  </dd>
+                </div>
+              </dl>
             </section>
 
             <DistributionCollection
@@ -90,6 +122,7 @@ export default function LeaderboardIndexPage({
               />
             )}
           </article>
+          <LeaderboardPublicationRail />
         </div>
       </main>
     </Layout>

@@ -21,8 +21,8 @@ Crafter 是一款开放世界生存游戏。Agent 必须在探索、采集资源
 
 对于负责演化 Policy 的编程 Agent，这构成了两个相互交织的挑战：
 
-1. **感知：**从 observation 中恢复附近地形、生物、背包与玩家状态。
-2. **长程控制：**把这些状态组织成涵盖生存、探索、战斗与发展的连贯策略。
+1. **感知：** 从 observation 中恢复附近地形、生物、背包与玩家状态。
+2. **长程控制：** 把这些状态组织成涵盖生存、探索、战斗与发展的连贯策略。
 
 在本次实验中，我们尝试拆分这两种困难。GPT-5.6 Sol、Terra 与 Luna 面对相同的
 Crafter 任务，但它们演化出的 Policy 分别接收原始 RGB observation，或同一可见
@@ -95,7 +95,7 @@ Crafter 的 canonical score 主要围绕成就设计。在 Policy 演化场景�
 两类 Policy：一种偶尔能够到达高级成就，另一种则能稳定存活，并在生存过程中持续
 发展。
 
-因此，我们采用**长程生存分（Long-Horizon Survival Score，LHS Score）**作为主要
+因此，我们采用 **长程生存分（Long-Horizon Survival Score，LHS Score）** 作为主要
 Benchmark metric。
 
 在每一步中，生存部分包含两个信号：

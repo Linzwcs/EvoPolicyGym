@@ -1,0 +1,126 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-08-11T07:35:31Z",
+  "final_reruns": 1,
+  "test_configurations": [
+    {
+      "id": "manipulator-bring-ball-strict-128-1-64-v1",
+      "label": {
+        "en": "Strict · 128 train / 1 validation / 64 assessment",
+        "zh": "严格模式 · 128 训练 / 1 Validation / 64 Assessment"
+      },
+      "description": {
+        "en": "Use all 128 training Episodes, select one Program with 1 Validation Episode, then measure it on 64 held-out Assessment Episodes.",
+        "zh": "用完 128 个训练 Episode，通过 1 个 Validation Episode 选择一个 Program，再在 64 个 held-out Assessment Episodes 上评测。"
+      },
+      "parameters": {
+        "run_seed": 20260811,
+        "training_split": "train",
+        "episode_budget": 128,
+        "episode_pool_size": 128,
+        "max_submissions": 128,
+        "max_episodes_per_submission": 8,
+        "finish_budget_policy": "require_budget_exhaustion",
+        "validation_split": "validation",
+        "validation_episodes_per_candidate": 1,
+        "validation_max_candidates": 1,
+        "assessment_split": "test",
+        "assessment_episodes": 64,
+        "episode_timeout_seconds": 1800,
+        "agent_timeout_seconds": 21600
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "manipulator-bring-ball",
+      "display": "Manipulator Bring Ball",
+      "category": "Continuous manipulation",
+      "order": 0,
+      "primary_metric": "assessment_mean_return",
+      "score_direction": "maximize",
+      "score_decimal_places": 6,
+      "configuration_ids": [
+        "manipulator-bring-ball-strict-128-1-64-v1"
+      ],
+      "default_configuration_id": "manipulator-bring-ball-strict-128-1-64-v1",
+      "summary": {
+        "en": "State-observation manipulator control for bringing a ball to its target, ranked by mean return across 64 held-out Episodes.",
+        "zh": "通过状态观测控制机械臂将球移动到目标位置，按 64 个 held-out Episode 的 mean return 排名。"
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_6_sol",
+      "display": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "manipulator-bring-ball": {
+          "manipulator-bring-ball-strict-128-1-64-v1": 63.43361695858097
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_terra",
+      "display": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "manipulator-bring-ball": {
+          "manipulator-bring-ball-strict-128-1-64-v1": 0.8136882536456326
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_luna",
+      "display": "GPT-5.6 Luna",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "manipulator-bring-ball": {
+          "manipulator-bring-ball-strict-128-1-64-v1": 0.8015639173651068
+        }
+      }
+    }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "manipulator-bring-ball",
+      "configuration_id": "manipulator-bring-ball-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/dm-control-v1/manipulator-bring-ball/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "default-camera-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 1.2018520101989408e-49
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "manipulator-bring-ball",
+      "configuration_id": "manipulator-bring-ball-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/dm-control-v1/manipulator-bring-ball/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "default-camera-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 3.2052486176661552e-68
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "manipulator-bring-ball",
+      "configuration_id": "manipulator-bring-ball-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/dm-control-v1/manipulator-bring-ball/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "default-camera-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 2.8035351141431263e-68
+    }
+  ]
+}

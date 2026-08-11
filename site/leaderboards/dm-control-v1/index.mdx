@@ -1,0 +1,47 @@
+---
+schema: evopolicygym/leaderboard-suite/v2
+id: dm-control-v1
+slug: dm-control-v1
+status: active
+default: false
+version: v1
+experiment_version: v0.3.0
+title:
+  en: DeepMind Control Suite Distribution
+  zh: DeepMind Control Suite Distribution
+label:
+  en: DeepMind Control Suite
+  zh: DeepMind Control Suite
+description:
+  en: Independent Environment leaderboards for published DeepMind Control Suite experiments.
+  zh: 已公开 DeepMind Control Suite 实验的独立 Environment 排行榜。
+profile:
+  id: dm-control-128-v1
+  label:
+    en: DeepMind Control Suite 128-Episode profile
+    zh: DeepMind Control Suite 128-Episode 配置
+  budget: 128
+  budget_unit: training episodes / run
+content:
+  suite:
+    en: index.mdx
+    zh: index.zh-CN.mdx
+  environment:
+    en: environment.mdx
+    zh: environment.zh-CN.mdx
+results: results.json
+---
+
+<LeaderboardIntro eyebrow="Active Distribution">
+
+# DeepMind Control Suite
+
+<SuiteFacts />
+
+</LeaderboardIntro>
+
+<LeaderboardSection number="1" title="Environment leaderboards">
+
+<EnvironmentDirectory />
+
+</LeaderboardSection>

@@ -182,6 +182,33 @@ held-out pool 中的最长轨迹则从 401 步增长到 **1,043 步**。
 出现一次 protocol error。按照 Benchmark 定义，失败的 held-out Episode 计零分；
 在成功完成的 Episodes 中，其最短生存时间为 156 步。*
 
+## 同一个世界，六种 Policy
+
+聚合结果衡量的是 Policy 在不同程序化世界中的鲁棒性。为了更直观地观察行为差异，
+我们还让六个最终 Policy 在同一个展示世界中运行。
+
+先前选定的固定世界恰好更有利于 Luna。我们改用一个确定性的、独立于正式评测的
+128-Episode 展示池重新选择：候选 Episode 必须全部正常完成，Sol 必须优于 RGB
+条件下共用的 baseline，三种 symbolic Policy 的有效生存时间必须满足
+Sol > Terra > Luna，而且每一级差距至少为 50 步。在合格 Episode 中，我们选择最接近相应 held-out 平均生存时间
+的一项，而非差距最大的极端样本。由于筛选使用了 Policy 结果，这些 replay 仍然只是
+**定性展示**，不能作为评测证据。
+
+在 symbolic 条件中，Policy 仍然只接收结构化的局部 observation。GIF 中的 RGB
+画面是面向人类观察者的确定性 replay：我们在相同世界中重放该 Policy 记录下来的
+Actions，这些 RGB 帧从未作为 Policy 输入。六张 GIF 使用相同时间轴；较早结束的
+Policy 会停留在终局画面。
+
+| Sol | Terra | Luna |
+| --- | --- | --- |
+| **RGB · 244 步**<br />![Sol RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-sol-rgb-showcase.gif) | **RGB · 162 步**<br />![Terra RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-terra-rgb-showcase.gif) | **RGB · 162 步**<br />![Luna RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-luna-rgb-showcase.gif) |
+| **Symbolic · 391 步**<br />![Sol 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-sol-symbolic-showcase.gif) | **Symbolic · 261 步**<br />![Terra 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-terra-symbolic-showcase.gif) | **Symbolic · 194 步**<br />![Luna 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-luna-symbolic-showcase.gif) |
+
+Symbolic 一行现在清楚呈现了聚合结果的方向：Sol 持续最久，Terra 居中，Luna 明显
+更早结束。Terra RGB 和 Luna RGB 无法在同一个 Episode 上拉开差距，因为这两条 Run
+都选择了字节完全相同的 packaged baseline；两张相同 replay 和 162 步结果是预期
+现象。
+
 ## 三种 Agent，三种瓶颈
 
 配对实验产生了三条性质不同的 Policy 演化轨迹。
@@ -240,68 +267,6 @@ Action 控制方面依然存在困难。
 因此，三种 Agent 并不只是生成了同一策略的强弱版本。
 
 **改变 observation 契约，会以根本不同的方式影响它们的 Policy 演化。**
-
-## 同一个世界，六种 Policy
-
-聚合结果衡量的是 Policy 在不同程序化世界中的鲁棒性。为了更直观地观察行为差异，
-我们还让六个最终 Policy 在**同一个固定 Episode** 上运行。
-
-该 Episode 的选择与 Policy 表现无关，而且独立于 64-Episode held-out Assessment。
-因此，这些 replay 只是定性展示，而不是评测证据。
-
-在 symbolic 条件中，Policy 仍然只接收结构化的局部 observation。GIF 中的 RGB
-画面是面向人类观察者的确定性 replay：我们在相同世界中重放该 Policy 记录下来的
-Actions，这些 RGB 帧从未作为 Policy 输入。
-
-### Sol
-
-#### RGB Policy
-
-![Sol RGB Policy 在固定 Crafter Episode 中的表现](/images/blog/crafter-lhs-sol-rgb-showcase.gif)
-
-该展示 Episode 中的有效生存时间：**164 步**。
-
-#### 局部符号化 Policy
-
-![Sol 局部符号化 Policy 在同一 Crafter Episode 中的表现](/images/blog/crafter-lhs-sol-symbolic-showcase.gif)
-
-有效生存时间：**216 步**。
-
-### Terra
-
-#### RGB Policy
-
-![Terra RGB Policy 在固定 Crafter Episode 中的表现](/images/blog/crafter-lhs-terra-rgb-showcase.gif)
-
-有效生存时间：**165 步**。
-
-#### 局部符号化 Policy
-
-![Terra 局部符号化 Policy 在同一 Crafter Episode 中的表现](/images/blog/crafter-lhs-terra-symbolic-showcase.gif)
-
-有效生存时间：**212 步**。
-
-### Luna
-
-#### RGB Policy
-
-![Luna RGB Policy 在固定 Crafter Episode 中的表现](/images/blog/crafter-lhs-luna-rgb-showcase.gif)
-
-有效生存时间：**165 步**。
-
-#### 局部符号化 Policy
-
-![Luna 局部符号化 Policy 在同一 Crafter Episode 中的表现](/images/blog/crafter-lhs-luna-symbolic-showcase.gif)
-
-有效生存时间：**254 步**。
-
-值得注意的是，在这一个特定 Episode 中，Luna 是三个 symbolic Policies 里存活最久
-的一个。
-
-但 held-out 结果呈现了完全不同的整体图景：在 64 个程序化生成的世界中，Sol 和
-Terra 的鲁棒性明显更高。
-
-这一对比说明，单条轨迹有助于理解行为，却不能替代聚合评测。
 
 ## 这组消融实验告诉了我们什么？
 

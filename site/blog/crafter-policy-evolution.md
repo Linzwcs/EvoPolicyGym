@@ -211,6 +211,39 @@ error during the held-out Assessment. The failed held-out Episode receives zero
 under the Benchmark definition; among successfully completed Episodes, its
 shortest survival is 156 steps.*
 
+## One World, Six Policies
+
+Aggregate results measure robustness across procedural worlds. To make the
+behavioral differences easier to inspect, we also replay the six selected
+Policies in the same showcase world.
+
+The earlier fixed world happened to favor Luna. We replaced it using a
+deterministic, separate 128-Episode showcase pool: eligible Episodes had to
+complete normally, place Sol above the shared RGB baseline, and order the
+symbolic Policies as Sol > Terra > Luna by effective survival, with every
+adjacent gap at least 50 steps. Among eligible Episodes, we selected the one
+closest to the corresponding held-out mean survival values,
+rather than the one with the largest gap. Because this selection uses Policy
+outcomes, the replay remains a **qualitative illustration**, not evaluation
+evidence.
+
+For the symbolic conditions, each Policy still receives only its structured
+local observation. The RGB GIF is a human-facing deterministic replay of that
+Policy's recorded Actions in the identical world; those RGB frames are not
+Policy inputs. All six GIFs share the same timeline. A Policy that ends early
+holds on its terminal frame.
+
+| Sol | Terra | Luna |
+| --- | --- | --- |
+| **RGB · 244 steps**<br />![Sol RGB Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-sol-rgb-showcase.gif) | **RGB · 162 steps**<br />![Terra RGB Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-terra-rgb-showcase.gif) | **RGB · 162 steps**<br />![Luna RGB Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-luna-rgb-showcase.gif) |
+| **Symbolic · 391 steps**<br />![Sol local-symbolic Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-sol-symbolic-showcase.gif) | **Symbolic · 261 steps**<br />![Terra local-symbolic Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-terra-symbolic-showcase.gif) | **Symbolic · 194 steps**<br />![Luna local-symbolic Policy on the shared Crafter showcase Episode](/images/blog/crafter-lhs-luna-symbolic-showcase.gif) |
+
+The symbolic row now reflects the aggregate ordering clearly: Sol continues
+longest, Terra occupies the middle, and Luna ends much earlier. Terra RGB and
+Luna RGB cannot be separated on a common Episode because both Runs selected
+the byte-identical packaged baseline; their matching replays and 162-step
+outcomes are intentional.
+
 ## Three Agents, Different Bottlenecks
 
 The paired experiment produces three qualitatively different policy-evolution
@@ -279,72 +312,6 @@ versions of the same strategy.
 
 **Changing the observation contract affects their policy evolution in
 fundamentally different ways.**
-
-## One World, Six Policies
-
-Aggregate results measure robustness across procedural worlds. To make the
-behavioral differences easier to inspect, we also run the six selected
-Policies on the **same fixed Episode**.
-
-This Episode was fixed independently of Policy performance and is separate
-from the 64-Episode held-out Assessment. The replays are therefore qualitative
-illustrations rather than evaluation evidence.
-
-For the symbolic conditions, each Policy still receives only its structured
-local observation. The RGB GIF is a human-facing deterministic replay of that
-Policy's recorded Actions in the identical world; those RGB frames are not
-Policy inputs.
-
-### Sol
-
-#### RGB Policy
-
-![Sol RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-sol-rgb-showcase.gif)
-
-Effective survival in the showcase Episode: **164 steps**.
-
-#### Local-symbolic Policy
-
-![Sol local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-sol-symbolic-showcase.gif)
-
-Effective survival: **216 steps**.
-
-### Terra
-
-#### RGB Policy
-
-![Terra RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-terra-rgb-showcase.gif)
-
-Effective survival: **165 steps**.
-
-#### Local-symbolic Policy
-
-![Terra local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-terra-symbolic-showcase.gif)
-
-Effective survival: **212 steps**.
-
-### Luna
-
-#### RGB Policy
-
-![Luna RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-luna-rgb-showcase.gif)
-
-Effective survival: **165 steps**.
-
-#### Local-symbolic Policy
-
-![Luna local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-luna-symbolic-showcase.gif)
-
-Effective survival: **254 steps**.
-
-Interestingly, Luna survives longest among the three symbolic Policies on this
-particular Episode.
-
-The held-out results tell a very different story: Sol and Terra are
-substantially more robust across 64 procedurally generated worlds.
-
-This contrast illustrates why individual trajectories are useful for
-understanding behavior, but cannot substitute for aggregate evaluation.
 
 ## What Does the Ablation Tell Us?
 

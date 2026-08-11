@@ -45,4 +45,67 @@ ACHIEVEMENTS = (
     "wake_up",
 )
 
-__all__ = ["ACHIEVEMENTS", "ACTIONS"]
+SYMBOLIC_TERRAIN_NAMES = (
+    "unknown",
+    "water",
+    "grass",
+    "stone",
+    "path",
+    "sand",
+    "tree",
+    "lava",
+    "coal",
+    "iron",
+    "diamond",
+    "table",
+    "furnace",
+)
+
+SYMBOLIC_ENTITY_NAMES = (
+    "none",
+    "player",
+    "cow",
+    "zombie",
+    "skeleton",
+    "arrow_left",
+    "arrow_right",
+    "arrow_up",
+    "arrow_down",
+    "plant_young",
+    "plant_ripe",
+    "fence",
+)
+
+SYMBOLIC_INVENTORY_KEYS = (
+    "health",
+    "food",
+    "drink",
+    "energy",
+    "sapling",
+    "wood",
+    "stone",
+    "coal",
+    "iron",
+    "diamond",
+    "wood_pickaxe",
+    "stone_pickaxe",
+    "iron_pickaxe",
+    "wood_sword",
+    "stone_sword",
+    "iron_sword",
+)
+
+SYMBOLIC_FACING_NAMES = ("left", "right", "up", "down")
+SYMBOLIC_VIEW_SHAPE = (7, 9)
+SYMBOLIC_PLAYER_CENTER = (3, 4)
+
+__all__ = [
+    "ACHIEVEMENTS",
+    "ACTIONS",
+    "SYMBOLIC_ENTITY_NAMES",
+    "SYMBOLIC_FACING_NAMES",
+    "SYMBOLIC_INVENTORY_KEYS",
+    "SYMBOLIC_PLAYER_CENTER",
+    "SYMBOLIC_TERRAIN_NAMES",
+    "SYMBOLIC_VIEW_SHAPE",
+]

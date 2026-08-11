@@ -1,11 +1,11 @@
 ---
 locale: zh
 page: crafter-policy-evolution
-title: "生存、建造、循环：Crafter 中的 Policy 演化与奖励塑形"
-description: "成就、生存与重复生产 Feedback 如何改变 Crafter 中可执行 Policy 的演化方向。"
-lead: "GPT-5.6 Luna、Terra 与 Sol 的奖励消融实验，揭示了延长生存与推进 Crafter 科技树之间的张力。"
-publishedAt: "2026-08-09"
-date: "2026-08-09"
+title: "感知还是规划？Crafter 中的 Policy 演化"
+description: "一组 RGB 与局部符号化配对实验，揭示 Crafter Policy 演化中不同的感知与长程控制瓶颈。"
+lead: "当局部视觉识别与长程生存发展被拆分后，GPT-5.6 Sol、Terra 与 Luna 演化出了显著不同的 Crafter Policy。"
+publishedAt: "2026-08-11"
+date: "2026-08-11"
 authors: [evopolicygym]
 tags:
   - Benchmark
@@ -15,208 +15,250 @@ tags:
 status: published
 ---
 
-## Crafter 是什么？
+Crafter 是一款开放世界生存游戏。Agent 必须在探索、采集资源、对抗敌人和推进合成
+科技树的同时维持生存。与目标短而明确的环境不同，Crafter 要求许多决策在数百步的
+尺度上持续协调。
 
-Crafter 是一款围绕探索、资源采集、合成、战斗与生存构建的开放世界游戏。每个
-Episode 都发生在随机生成的世界中。玩家必须寻找食物和水，躲避或对抗生物，收集
-材料，并逐步从木石工具发展到铁和钻石。
+对于负责演化 Policy 的编程 Agent，这构成了两个相互交织的挑战：
+
+1. **感知：** 从 observation 中恢复附近地形、生物、背包与玩家状态。
+2. **长程控制：** 把这些状态组织成涵盖生存、探索、战斗与发展的连贯策略。
+
+在本次实验中，我们尝试拆分这两种困难。GPT-5.6 Sol、Terra 与 Luna 面对相同的
+Crafter 任务，但它们演化出的 Policy 分别接收原始 RGB observation，或同一可见
+状态的局部符号化表示。
+
+这一变化对 **Sol 和 Terra** 的影响非常显著，对 **Luna** 的影响则小得多。移除大部分
+视觉识别工作之后，三种编程 Agent 所演化 Policy 的不同瓶颈也随之显现。
 
 <!-- truncate -->
 
-一个简化的推进循环如下：
+## 作为 Policy 演化环境的 Crafter
 
-```text
-探索世界
-    ↓
-收集食物、水和材料
-    ↓
-存活到足以制作工具
-    ↓
-解锁新的资源与能力
-    ↓
-完成更困难的成就
-```
+Crafter 会为每个 Episode 程序化生成一个全新世界。玩家开局没有工具或资源，必须在
+眼前的生存需求和长期发展之间取得平衡。
 
-Crafter 评测 22 项有明确语义的成就，覆盖资源、生物、工具、种植与建筑。标准分数
-对各项成就的成功率计算平移后的几何平均，因此奖励科技树上的广泛推进，而不是
-反复完成某个简单任务。
+一个有能力的 Policy 需要协调多种行为：
 
-这形成了一个策略难题：推进需要生存，但只优化生存又可能产生过度保守、始终无法
-进入科技树深处的行为。
+- 维持食物、饮水和生命；
+- 探索最初完全未知的世界；
+- 收集逐级提升的资源；
+- 制作并放置工具与设施；
+- 躲避或攻击危险生物；
+- 保留足够的局部信息，以便重新找到有价值的地点。
 
-## 将 Crafter 接入 EvoPolicyGym
+这些目标会相互竞争。探索带来发展机会，也让玩家暴露在更多危险之中。制作工具需要
+资源，而资源可能远离安全区域。只关注眼前生存的 Policy 容易停滞；过度激进地推进
+科技，又可能因为忽略基本需求而迅速崩溃。
 
-该 Benchmark 使用 Crafter 1.8.3，Episode 上限为 10,000 步。Policy 只接收
-`64 × 64 × 3` RGB observation，并从 17 个离散 Actions 中选择。生命、食物、水和
-背包只能通过渲染画面读取；玩家坐标、语义图和 Environment seed 不会作为结构化
-Policy 输入暴露。
+因此，Crafter 检验的是编程 Agent 能否演化出一个**协调一致的长程程序**，而不只是
+发现一条在局部有效的动作规则。
 
-标准 Crafter 分数能够衡量成就广度，却不能直接区分“形成了可持续的长期生存循环”
-与“短暂解锁几项成就后立即死亡”。因此，我们比较了四种聚合 Feedback profile：
+## RGB 与局部符号化 Observation
 
-| Profile | Feedback score | 目的 |
-| --- | --- | --- |
-| **M1 · 成就** | `C` | 标准 Crafter 成就推进 |
-| **M2 · 生存** | `C + L / 100` | 加入较弱的生存激励 |
-| **M3 · 生存 + 重复** | `C + L / 100 + R` | 平衡推进、生存与可重复生产 |
-| **M4 · 强生存 + 重复** | `C + L / 20 + R` | 显著提高生存优先级 |
+两组条件使用相同的模拟器、程序化世界、Action 空间、reward metric、Episode pool
+和评测配置。唯一发生变化的是 Policy 获得的 observation。
 
-`C` 是标准 Crafter 成就分，`L` 是平均有效存活长度，`R` 奖励经过环境确认的重复
-采集、喝水、进食、建造和击败生物等活动。某项成就的第一次成功仍只属于 `C`，
-之后的成功才进入 `R`。重复分按对数增长，并受到随 Episode 长度连续增长的约束，
-因此短命 Policy 不能依靠一个简单循环取得任意高分。
+### RGB
 
-这四种 profile 都**不会修改 Crafter 原始的逐步 reward**，改变的只是用于比较
-submitted Programs 的聚合 Feedback。
+RGB Policy 接收 Crafter 渲染得到的 `64 × 64 × 3` 画面。
 
-## 从视觉轨迹中学习
+它必须自行推断：
 
-聚合分数可以说明 Policy 是否提升，但许多 Crafter 失败更容易通过视觉理解。Policy
-可能在一小片区域绕圈，忽略食物或水，长期停留在低级资源阶段，或者发现一个生产
-循环后不再继续发展。
+- 颜色和纹理对应的地形；
+- sprite 对应的生物和物体；
+- HUD 中的背包与生命状态；
+- 画面中的玩家位置和朝向；
+- 光照变化下的有效状态，包括夜晚的昏暗画面。
 
-因此，每次训练 Submission 后，Agent 都会获得完整的 Policy 可见 Action 轨迹和
-无损 RGB observations；Validation 与 held-out test 轨迹保持私有。Coding Agent
-可以使用 NumPy、Pillow 和图片查看工具检查 Policy 实际看到和执行的内容，再修改
-可执行策略。Environment 只提供证据；选择检查什么、如何解释证据，仍属于 Agent
-自身的工作。
+### 局部符号化
+
+Symbolic Policy 得到的是**同一局部区域**的结构化信息：
+
+- 局部地形与实体 ID；
+- 生命、食物、饮水、能量、资源和工具；
+- 朝向、睡眠状态和日照强度。
+
+这种表示消除了大部分物体识别、HUD 读取和夜间视觉歧义。
+
+但它**不会**暴露拥有特权的全局状态。Policy 依然无法获得全局语义地图、绝对坐标、
+Environment seed、生物隐藏状态，以及局部 observation 之外的其他信息。
+
+它仍然必须探索世界、记忆有用地点、处理碰撞、安排资源顺序、把握交互时机、对抗
+敌人，并协调生存与发展。
+
+因此，这组配对实验简化的是**状态识别**，同时保留了大部分**长程决策问题**。
+
+## 长程生存分
+
+Crafter 的 canonical score 主要围绕成就设计。在 Policy 演化场景中，我们还希望区分
+两类 Policy：一种偶尔能够到达高级成就，另一种则能稳定存活，并在生存过程中持续
+发展。
+
+因此，我们采用 **长程生存分（Long-Horizon Survival Score，LHS Score）** 作为主要
+Benchmark metric。
+
+在每一步中，生存部分包含两个信号：
+
+- 角色保持存活所获得的 **alive reward**；
+- 由生命、食物和饮水中的最弱一项决定的 **vital-quality reward**。
+
+选择最弱状态是一项有意的设计：如果 Policy 即将因缺水死亡，那么充足的食物和生命
+不应抵消这一危险。
+
+LHS 同时保留有上限的次要发展激励：
+
+- 首次解锁一项新成就；
+- 实际恢复食物或饮水；
+- 采集资源、战斗和种植等可重复生产行为。
+
+重复行为受滚动窗口额度约束，避免简单的采集或维护循环主导总分。
+
+在跨 Episode 聚合时，LHS 会进一步强调鲁棒性。最终分数综合：
+
+- 平均健康生存 return；
+- 对**表现最弱的四分之一 Episodes**额外加权；
+- 有界的发展与维护 return。
+
+从概念上看：
+
+`LHS = 平均生存 + 弱尾部鲁棒性 + 有界发展`
+
+而不是只奖励表现最好的轨迹。
+
+这意味着，少数成就丰富但迅速死亡的 Episodes 无法弥补脆弱的生存策略；与此同时，
+Agent 仍然有动力越过被动生存，继续推进发展。
+
+Canonical Crafter score 会作为科技树推进程度的独立诊断指标报告。
 
 ## 实验
 
-我们通过 Codex 分别运行 GPT-5.6 Luna、Terra 和 Sol。每个 Agent 都从同一个
-packaged baseline 开始，并在四种 reward profile 下独立优化。12 个 Runs 使用相同
-的 Environment、split 构造和 Run seed；在每条模型路线内，实验变量是 reward
-profile。可选的 Benchmark Skill 保持关闭。
+我们评测 GPT-5.6 **Sol**、**Terra** 和 **Luna**。
 
-| 设置 | 值 |
-| --- | --- |
-| Environment | Crafter 1.8.3 |
-| Policy 输入 | `64 × 64 × 3` RGB |
-| Actions | 17 |
-| Episode horizon | 10,000 steps |
-| 训练额度 | 最多 256 Episodes |
-| 单次 Submission 上限 | 16 Episodes |
-| Validation | 每个 candidate 32 Episodes |
-| 最终 Assessment | 64 个 held-out Episodes |
-| Agent harness | Codex，high reasoning effort |
-| 可选 Benchmark Skill | 关闭 |
+对于每一种编程 Agent，我们分别运行一条 RGB observation 和一条局部符号化
+observation 下的 Policy 演化轨迹。六个 Runs 使用相同的长程生存目标。
 
-训练额度是上限，不要求必须用完，因此 Agent 可以在使用完 256 Episodes 之前结束。
+每个 Run 结束时选出的候选 Policy，都会在 **64 个 held-out Episodes** 上进行最终
+评测。
 
-在固定 held-out pool 上，baseline 的 Crafter 成就分为 `1.025`，平均有效存活
-`163.4` 步，仅有 `5/22` 种成就取得非零成功率。其行为主要集中在获取木材、喝水
-和收集树苗。
+除 LHS 之外，我们还报告：
+
+- 平均和最长有效生存时间；
+- 至少存活 300 步的 Episode 比例；
+- canonical Crafter score；
+- 成就覆盖数。
+
+这些指标能够帮助我们区分平均鲁棒性、极长的单条轨迹和科技发展程度。
 
 ## 结果
 
-三个 Agent 在各自 Run 所使用的聚合目标上都超过了 packaged baseline，但不同
-Agent 和目标产生的最终 Policy 有明显差异。
+简化感知对三种 Agent 的影响截然不同。
 
-| Metric | Agent | 最终分数 | 成就 `C` | 生存 `L` | 重复 `R` | 成就覆盖 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| **M1 · 成就** | **Sol** | **12.748** | **12.748** | 183.8 | — | **17/22** |
-|  | Luna | 3.461 | 3.461 | 163.3 | — | 11/22 |
-|  | Terra | 1.655 | 1.655 | 176.8 | — | 7/22 |
-| **M2 · + 生存** | **Sol** | **10.110** | **8.308** | **180.2** | — | **15/22** |
-|  | Luna | 3.563 | 1.803 | 176.0 | — | 8/22 |
-|  | Terra | 3.918 | 2.134 | 178.5 | — | 7/22 |
-| **M3 · + 生存 + 重复** | Sol | 7.073 | 4.007 | 177.8 | 1.288 | 10/22 |
-|  | Luna | 6.651 | 2.305 | 177.7 | **2.570** | 9/22 |
-|  | **Terra** | **7.997** | **4.092** | **186.8** | 2.037 | **11/22** |
-| **M4 · 强生存 + 重复** | **Sol** | **15.501** | **4.717** | 176.5 | 1.957 | **14/22** |
-|  | Luna | 14.193 | 2.253 | **185.9** | 2.647 | 10/22 |
-|  | Terra | 13.055 | 1.023 | 184.7 | **2.799** | 5/22 |
+| Agent | LHS Score | 平均生存 | 最长生存 | 存活 ≥300 | Crafter C | 成就覆盖 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Sol** | 5.70 → **11.53** | 195 → **316** | 401 → **1043** | 3.1% → **39.1%** | 3.91 → **19.47** | 10 → **18/22** |
+| **Terra** | 4.58 → **9.88** | 164 → **291** | 288 → **871** | 0.0% → **31.2%** | 1.12 → **11.31** | 5 → **14/22** |
+| **Luna** | 4.58 → **4.97** | 164 → **178** | 288 → **401** | 0.0% → **3.1%** | 1.12 → **3.44** | 5 → **11/22** |
 
-最终分数只能和对应 profile 下的 baseline 比较，不能直接跨 profile 排序：M4 为
-每个存活步赋予的分数本来就高于 M1–M3。
+*每个单元格均为 RGB → 局部符号化 observation。*
 
-M1 产生了最广的科技树推进。Sol 达到 `17/22` 项成就和 **12.748** 的标准 Crafter
-分数，而 Luna 和 Terra 分别达到 `11/22` 与 `7/22`。M2 让三个 Agent 的 Policy
-都延长了生存，同时 Sol 仍然保持了明显更广的成就推进。
+对于 **Sol**，LHS 从 5.70 提升到 11.53，平均生存时间从 195 步提高到 316 步，
+held-out pool 中的最长轨迹则从 401 步增长到 **1,043 步**。
 
-M3 得到了最均衡的结果。在该 profile 内，Terra 以 **7.997** 取得最高最终分数，
-同时达到 `C = 4.092`、平均有效存活 `186.8` 步，并在 `11/22` 项成就上获得非零
-成功率。它的重复分来自木材和石头采集、放置石头、吃牛与喝水等多种活动，而不是
-只依赖一种维持行为。
+**Terra** 的变化同样突出：LHS 增长一倍以上，平均生存增加 127 步，最长轨迹达到
+**871 步**。
 
-三个 M4 Run 的平均生存更长，但各 Policy 并不都具备广泛推进能力。Sol 仍达到
-`14/22` 项成就，而 Terra 只有 `5/22`，与 baseline 相同。Terra 的标准成就分
-`1.023` 也略低于 baseline，尽管其 M4 聚合总分高出很多。
+**Luna** 的变化小得多。Symbolic observation 让成就覆盖数从 5 项显著增加到 11 项，
+但平均生存只提高了 13 步，LHS 也仅提升约 8%。
 
-随着生存激励增强，三个 Agent 的宏平均呈现出一致的取舍：
+这种差距在稳健的长程生存上尤其明显。采用 symbolic observation 后，Sol 有
+**39.1%** 的 Episodes、Terra 有 **31.2%** 的 Episodes 至少存活 300 步，而 Luna
+只有 **3.1%**。
 
-| Metric | 平均成就 `C` | 平均生存 `L` | 平均重复 `R` |
-| --- | ---: | ---: | ---: |
-| M1 | **5.955** | 174.6 | — |
-| M2 | 4.082 | 178.2 | — |
-| M3 | 3.468 | 180.8 | 1.965 |
-| M4 | 2.664 | **182.4** | **2.468** |
+因此，对 Sol 和 Terra 而言，简化感知不仅改变了最佳情况，也改变了更广泛的生存
+分布。
 
-平均存活长度从 `174.6` 单调上升至 `182.4` 步，同时平均标准 Crafter 分数从
-`5.955` 降至 `2.664`。这说明奖励塑形改变了 Policy evolution 的方向，而不是
-仅仅重新缩放了相同行为的显示分数。
+*Terra symbolic Run 在 Validation 中出现一次协议失败，在 held-out Assessment 中
+出现一次 protocol error。按照 Benchmark 定义，失败的 held-out Episode 计零分；
+在成功完成的 Episodes 中，其最短生存时间为 156 步。*
 
-![Validation 选中的 Sol、Luna 与 Terra Policy 在三段代表性 M3 训练 Episode
-中的逐步对齐并排回放。三个 Policy 在不同的生成世界中进行探索、采集、制作与
-生存。](/images/blog/crafter-m3-policy-replay-comparison.gif)
+## 同一个世界，六种 Policy
 
-*三段代表性、非同 seed 的 M3 训练轨迹。Sol 展示 Submission 000010 的 train
-index 159，在 296 步内完成 7 项成就；Luna 展示 Submission 000004 的 index 62，
-在 194 步内完成 7 项成就；Terra 展示 Submission 000008 的 index 120，在 294
-步内完成 8 项成就。回放在共享 step 时间轴上每三个 Policy steps 显示一帧；某个
-Episode 结束后，其终止 observation 会继续保留。这些 Episodes 不属于 held-out
-Assessment。*
+聚合结果衡量的是 Policy 在不同程序化世界中的鲁棒性。为了更直观地观察行为差异，
+我们还让六个最终 Policy 在同一个展示世界中运行。
 
-## Baseline 的能力边界
+先前选定的固定世界恰好更有利于 Luna。我们改用一个确定性的、独立于正式评测的
+128-Episode 展示池重新选择：候选 Episode 必须全部正常完成，Sol 必须优于 RGB
+条件下共用的 baseline，三种 symbolic Policy 的有效生存时间必须满足
+Sol > Terra > Luna，而且每一级差距至少为 50 步。在合格 Episode 中，我们选择最接近相应 held-out 平均生存时间
+的一项，而非差距最大的极端样本。由于筛选使用了 Policy 结果，这些 replay 仍然只是
+**定性展示**，不能作为评测证据。
 
-Baseline 能够回答一个游戏前期的问题：
+在 symbolic 条件中，Policy 仍然只接收结构化的局部 observation。GIF 中的 RGB
+画面是面向人类观察者的确定性 replay：我们在相同世界中重放该 Policy 记录下来的
+Actions，这些 RGB 帧从未作为 Policy 输入。六张 GIF 使用相同时间轴；较早结束的
+Policy 会停留在终局画面。
 
-> 如何获取附近资源并满足眼前的生存需求？
+| Sol | Terra | Luna |
+| --- | --- | --- |
+| **RGB · 244 步**<br />![Sol RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-sol-rgb-showcase.gif) | **RGB · 162 步**<br />![Terra RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-terra-rgb-showcase.gif) | **RGB · 162 步**<br />![Luna RGB Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-luna-rgb-showcase.gif) |
+| **Symbolic · 391 步**<br />![Sol 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-sol-symbolic-showcase.gif) | **Symbolic · 261 步**<br />![Terra 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-terra-symbolic-showcase.gif) | **Symbolic · 194 步**<br />![Luna 局部符号化 Policy 在同一个 Crafter 展示 Episode 中的表现](/images/blog/crafter-lhs-luna-symbolic-showcase.gif) |
 
-但完整的 Crafter 问题是：
+Symbolic 一行现在清楚呈现了聚合结果的方向：Sol 持续最久，Terra 居中，Luna 明显
+更早结束。Terra RGB 和 Luna RGB 无法在同一个 Episode 上拉开差距，因为这两条 Run
+都选择了字节完全相同的 packaged baseline；两张相同 replay 和 162 步结果是预期
+现象。
 
-> 如何在一个很长的 Episode 中协调生存、探索、生产与科技树推进？
+## 三种 Agent，三种瓶颈
 
-`5/22` 的成就覆盖说明 baseline 可以进入游戏前期，却很少形成广泛的推进链条。
-Policy evolution 不仅要改进单个 Action，还要决定何时继续采集熟悉资源、何时探索、
-何时投资工具和建筑，以及应当投入多少精力维持生存。
+配对结果揭示了三种 Agent 各自不同的主要瓶颈。
 
-## 奖励塑形如何改变 Policy evolution
+### Sol：RGB 下已能推进，symbolic 再带来一次跃升
 
-**M1 偏向科技树广度。** 没有显式生存奖励时，完成新的成就类型是提升分数的主要
-途径。
+Sol 在 RGB 下已经超过 packaged baseline，使用 symbolic 输入后又进一步提升：LHS
+从 **5.70 提高到 11.53**，平均生存从 **195 步提高到 316 步**，成就覆盖从
+**10/22 扩大到 18/22**。它能够同时改进感知与控制，但更可靠的状态识别仍会带来
+显著收益。
 
-**M2 在不大幅改变任务的前提下加入生存。** 三个 Agent 的平均存活长度比 baseline
-增加约 15 步，同时成就分均高于 baseline。
+### Terra：感知是主要瓶颈
 
-**M3 奖励可持续推进。** 一项成就首次完成后，重复生产、食物、战斗和建筑仍可提供
-反馈；较弱的生存项则减少立即死亡，又没有压过原始成就目标。
+Terra 的 RGB Run 最终回退到原始 baseline；改用 symbolic 输入后，LHS 从
+**4.58 提高到 9.88**，平均生存从 **164 步提高到 291 步**，成就覆盖从
+**5/22 扩大到 14/22**。因此，视觉状态提取是这条 Run 中最主要的瓶颈。
 
-**M4 将取舍推得过远。** 相比 M3，它只增加约 `1.6` 个平均存活步，却损失约 `0.8`
-个平均成就分。喝水一项就占 Sol、Luna、Terra 重复分的约 65%、86% 和 83%。更强
-的生存项使低风险维持循环具有了过高吸引力。
+### Luna：更准确的识别没有解决协调问题
 
-这也是可执行 Policy Benchmark 中一种值得研究的失败模式：Coding Agent 能够发现
-并编码利用 Environment 持久激励的行为。
+Luna 在 RGB 下也回退到 baseline。Symbolic 输入虽然让成就覆盖从 **5/22 扩大到
+11/22**，但 LHS 仅从 **4.58 提高到 4.97**，平均生存也只从 **164 步提高到
+178 步**。其主要限制已不只是识别，而是长程行为协调。
 
-## 发现与边界
+**改变 observation 契约，会以根本不同的方式影响它们的 Policy 演化。**
 
-在这四种 profile 中，**M3 是最有价值的长生存变体**。它获得了 M4 大部分的生存
-提升，同时保留更多成就推进，并支持更丰富的可重复活动。M1 仍适合作为标准 Crafter
-对照，M2 是简单的生存 hybrid，M4 则适合作为强生存消融。
+## 这组消融实验告诉了我们什么？
 
-这仍是一次初步奖励消融。每个“模型 × profile”组合只有一条主要 Coding Agent
-trajectory，而且 Agent 使用的训练额度并不相同。这些结果说明奖励设计在这些 Runs
-中系统性地改变了 Policy evolution，但不能视为 Luna、Terra 和 Sol 的普遍排名。
+乍看之下，Crafter 似乎只有一个问题：演化出一个能在开放世界中生存并发展的 Policy。
 
-更广泛地说，Crafter 为 EvoPolicyGym 展示了一个关键张力：**好的 metric 应奖励
-Policy 活得足够久以形成策略，又不能让生存本身比推进更容易优化。**
+配对实验表明，困难可能产生于不同阶段。
 
-## 代码与说明
+对于 **Sol 和 Terra**，局部视觉状态提取是挑战的重要组成部分。移除物体识别、HUD
+读取和夜间视觉歧义后，其生存能力和科技推进都显著增强。
 
-- [Crafter 上游 Environment](https://github.com/danijar/crafter)
-- [EvoPolicyGym Crafter Benchmark](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/crafter/crafter)
-- [Evaluation 与 Runs](/docs/evaluation/)
-- [Policy 边界](/docs/policy/)
+对于 **Luna**，感知只是问题的一部分。更清晰的状态信息带来了更广的发展，但演化
+出的 Policy 仍然难以把这些能力转化为可靠的长程生存。
 
-EvoPolicyGym adapter 使用 MIT 许可证。Crafter 是独立依赖，并受其自身许可证约束。
+这正是我们希望 Crafter 这类环境能够揭示的差异。
+
+最终的标量分数可以告诉我们哪个 Program 表现更好；而对 observation 接口进行受控
+改变，还能进一步揭示 **Policy 演化停止提升的位置**。
+
+因此，Crafter 评测的不只是编程 Agent 能否写出游戏 Policy。它还提供了一种方法，
+帮助我们区分感知失败与长程规划、控制和程序协调失败。
+
+这六个 Runs 是六条独立的 Policy 演化轨迹，而非重复统计实验；它们消耗的训练
+Episodes 也不完全相同。因此，我们不会把结果解释为 Sol、Terra 与 Luna 的一般性
+排名。
+
+更窄、也更有信息量的结论是：
+
+> **移除局部视觉识别，彻底改变了 Sol 和 Terra 所演化的 Policy，却只小幅改善了
+> Luna 的生存表现——这揭示了长程 Policy 演化背后不同的能力瓶颈。**

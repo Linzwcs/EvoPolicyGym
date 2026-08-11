@@ -1,7 +1,7 @@
 [project]
 name = "evopolicygym-benchmark-crafter"
 version = "0.1.0"
-description = "Canonical and survival-development Crafter Benchmark profiles for EvoPolicyGym."
+description = "Canonical and Long-Horizon Survival Crafter Benchmark profiles for EvoPolicyGym."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
@@ -44,6 +44,7 @@ packages = ["src/crafter_benchmarks"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "skills/optimize-crafter-policy" = "crafter_benchmarks/skills/optimize-crafter-policy"
+"skills/optimize-crafter-local-symbolic-policy" = "crafter_benchmarks/skills/optimize-crafter-local-symbolic-policy"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -67,7 +68,7 @@ warn_unused_configs = true
 files = ["src", "tests", "scripts"]
 
 [[tool.mypy.overrides]]
-module = ["crafter", "imageio_ffmpeg"]
+module = ["crafter", "crafter.*", "imageio_ffmpeg"]
 follow_imports = "skip"
 ignore_missing_imports = true
 

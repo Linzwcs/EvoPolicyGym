@@ -14,14 +14,22 @@ from evopolicygym.policy import PolicyValue, TensorValue
 
 from .config import CrafterConfig
 from .constants import ACHIEVEMENTS, ACTIONS
-from .scoring import score_delta, transition_score_components
+from .lhs_scoring import (
+    LHS_REWARD_PROFILE,
+    LHSScoringState,
+    lhs_score_delta,
+)
+from .symbolic import local_symbolic_observation
 
 _AREA = (64, 64)
 _VIEW = (9, 9)
 _OBSERVATION_SHAPE = (64, 64, 3)
 _ACTION_IDS = frozenset(range(len(ACTIONS)))
 
-type RewardProfile = Literal["upstream", "survival-development-v3"]
+type RewardProfile = Literal[
+    "upstream",
+    "lhs",
+]
 
 
 class _CrafterEnv(Protocol):
@@ -61,14 +69,14 @@ class _InsertionOrderedObjectSet(MutableSet[object]):
 
 
 class CrafterEnvironment:
-    """Strict seeded adapter around the canonical RGB Crafter profile."""
+    """Strict seeded adapter around the selected Crafter observation profile."""
 
     def __init__(
         self,
         episode: EpisodeSpec,
         *,
         config: CrafterConfig,
-        reward_profile: RewardProfile = "upstream",
+        reward_profile: RewardProfile = LHS_REWARD_PROFILE,
     ) -> None:
         if type(episode) is not EpisodeSpec:
             raise TypeError("episode must be EpisodeSpec")
@@ -76,7 +84,7 @@ class CrafterEnvironment:
             raise TypeError("config must be CrafterConfig")
         if episode.scenario is not None:
             raise ValueError("Crafter configuration belongs in CrafterConfig")
-        if reward_profile not in {"upstream", "survival-development-v3"}:
+        if reward_profile not in {"upstream", LHS_REWARD_PROFILE}:
             raise ValueError("reward_profile is invalid")
 
         environment = cast(
@@ -95,9 +103,10 @@ class CrafterEnvironment:
 
         self._environment: _CrafterEnv | None = environment
         self._max_episode_steps = config.max_episode_steps
+        self._observation_profile = config.observation_profile
         self._reward_profile = reward_profile
         self._achievements = {name: 0 for name in ACHIEVEMENTS}
-        self._event_totals = {name: 0 for name in ACHIEVEMENTS}
+        self._lhs_scoring = LHSScoringState()
         self._started = False
         self._done = False
         self._closed = False
@@ -112,7 +121,11 @@ class CrafterEnvironment:
         observation = environment.reset()
         _stabilize_chunk_iteration(environment)
         self._started = True
-        return _observation(observation)
+        return _policy_observation(
+            environment,
+            observation,
+            profile=self._observation_profile,
+        )
 
     def step(self, action: PolicyValue) -> Step:
         if self._closed:
@@ -174,27 +187,32 @@ class CrafterEnvironment:
             "maintenance_vitals": public_maintenance_vitals,
         }
         step_reward = upstream_reward
-        if self._reward_profile == "survival-development-v3":
-            components, updated_totals = transition_score_components(
+        if self._reward_profile == LHS_REWARD_PROFILE:
+            components, repeat_diagnostics = self._lhs_scoring.transition(
                 terminated=terminated,
                 unlocked=unlocked,
                 event_counts=event_counts,
-                event_totals=self._event_totals,
                 vitals=maintenance_vitals,
             )
-            self._event_totals = updated_totals
             public_metrics.update(
                 {
-                    "energy": _energy(information),
                     "upstream_reward": upstream_reward,
-                    "score_delta_components": {
+                    "lhs_score_delta_components": {
                         name: value for name, value in components.items()
                     },
+                    "lhs_repeat_diagnostics": cast(
+                        PolicyValue,
+                        repeat_diagnostics,
+                    ),
                 }
             )
-            step_reward = score_delta(components)
+            step_reward = lhs_score_delta(components)
         return Step(
-            observation=_observation(observation),
+            observation=_policy_observation(
+                self._get_environment(),
+                observation,
+                profile=self._observation_profile,
+            ),
             reward=step_reward,
             terminated=terminated,
             truncated=truncated,
@@ -213,7 +231,21 @@ class CrafterEnvironment:
         return self._environment
 
 
-def _observation(value: object) -> TensorValue:
+def _policy_observation(
+    environment: _CrafterEnv,
+    value: object,
+    *,
+    profile: str,
+) -> PolicyValue:
+    rgb = _rgb_observation(value)
+    if profile == "rgb":
+        return rgb
+    if profile == "local-symbolic-v1":
+        return local_symbolic_observation(environment)
+    raise RuntimeError("Crafter observation profile is invalid")
+
+
+def _rgb_observation(value: object) -> TensorValue:
     if (
         type(value) is not numpy.ndarray
         or value.dtype != numpy.dtype("uint8")
@@ -303,16 +335,6 @@ def _maintenance_vitals(information: Mapping[str, object]) -> dict[str, int]:
             raise RuntimeError("Crafter returned invalid maintenance vitals")
         vitals[name] = amount
     return vitals
-
-
-def _energy(information: Mapping[str, object]) -> int:
-    value = information.get("inventory")
-    if type(value) is not dict:
-        raise RuntimeError("Crafter returned invalid inventory")
-    amount = value.get("energy")
-    if type(amount) is not int or not 0 <= amount <= 9:
-        raise RuntimeError("Crafter returned invalid energy")
-    return amount
 
 
 def _number(value: object, name: str) -> float:

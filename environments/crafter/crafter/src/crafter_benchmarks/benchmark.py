@@ -28,22 +28,49 @@ from evopolicygym.policy import PolicyValue, TensorValue
 from numpy.typing import NDArray
 from PIL import Image
 
-from .config import CrafterConfig
-from .constants import ACHIEVEMENTS, ACTIONS
-from .environment import CrafterEnvironment
-from .scoring import (
-    FIRST_UNLOCK_REWARDS,
-    PRODUCTIVITY_CREDIT_MAX,
-    PROGRESS_CREDIT_MAX,
-    REPEAT_EVENT_CAPS,
-    REPEAT_EVENT_WEIGHTS,
-    SURVIVAL_CREDIT_PER_ALIVE_STEP,
-    VITAL_CREDIT_SCALE,
-    repeat_event_credit,
-    score_delta,
-    transition_score_components,
-    vital_quality,
+from .config import CrafterConfig, ObservationProfile
+from .constants import (
+    ACHIEVEMENTS,
+    ACTIONS,
+    SYMBOLIC_ENTITY_NAMES,
+    SYMBOLIC_FACING_NAMES,
+    SYMBOLIC_INVENTORY_KEYS,
+    SYMBOLIC_PLAYER_CENTER,
+    SYMBOLIC_TERRAIN_NAMES,
+    SYMBOLIC_VIEW_SHAPE,
 )
+from .environment import CrafterEnvironment
+from .lhs_scoring import (
+    LHS_ALIVE_ALPHA,
+    LHS_COMPONENT_NAMES,
+    LHS_FEEDBACK_SURVIVAL_LOWER_TAIL_WEIGHT,
+    LHS_FEEDBACK_SURVIVAL_MEAN_WEIGHT,
+    LHS_FEEDBACK_SURVIVAL_TAIL_FRACTION,
+    LHS_FIRST_UNLOCK_BASE_CREDIT,
+    LHS_FIRST_UNLOCK_CREDIT_MAX,
+    LHS_FIRST_UNLOCK_CREDITS,
+    LHS_HEALTHY_WINDOW_CREDIT,
+    LHS_HEALTHY_WINDOW_STEPS,
+    LHS_MAINTENANCE_RESOURCE_SHARES,
+    LHS_MAINTENANCE_RESTORE,
+    LHS_MAINTENANCE_RESTORE_UNIT_CAPS,
+    LHS_MAINTENANCE_UNIT_CREDITS,
+    LHS_MAINTENANCE_WINDOW_CREDIT,
+    LHS_POLICY_FAILURE_RETURN,
+    LHS_PRODUCTIVITY_REPEAT_FRACTION,
+    LHS_PRODUCTIVITY_REPEAT_QUOTAS,
+    LHS_REPEAT_WINDOW_STEPS,
+    LHS_REWARD_PROFILE,
+    LHS_SECONDARY_COMPONENT_NAMES,
+    LHS_SURVIVAL_COMPONENT_NAMES,
+    LHS_SURVIVAL_THRESHOLDS,
+    LHS_VITAL_AGE_BANDS,
+    LHS_VITAL_ALPHA,
+    LHSScoringState,
+    lhs_feedback_score,
+    lhs_score_delta,
+)
+from .symbolic import symbolic_observation_arrays
 
 _EPISODE_SEED_DOMAIN = b"evopolicygym-crafter/episode-seed/v1\0"
 _EPISODE_ARTIFACT_SCENARIO_KEY = "publish_detailed_artifacts"
@@ -68,36 +95,13 @@ _SHORT_ACTION_CYCLE_MIN_PERIOD = 2
 _SHORT_ACTION_CYCLE_MAX_PERIOD = 8
 _LONG_SHORT_ACTION_CYCLE_RUN = 16
 _LONG_SAME_ACTION_RUN = 16
-_SURVIVAL_THRESHOLDS = (300, 600, 900)
-_SURVIVAL_BAND_WEIGHTS = (1.0, 2.0, 4.0)
-_SURVIVAL_WEIGHT = 0.70
-_MAINTENANCE_WEIGHT = 0.15
-_PRODUCTIVITY_WEIGHT = 0.10
-_INNOVATION_WEIGHT = 0.05
-_MAINTENANCE_VITALS = ("health", "food", "drink")
-_MAINTENANCE_WARNING_THRESHOLD = 5
-_MAINTENANCE_RECOVERY_CAP = 3
-_PRODUCTIVITY_EVENT_CAPS = {
-    "collect_wood": 8,
-    "collect_sapling": 4,
-    "collect_stone": 8,
-    "collect_coal": 4,
-    "collect_iron": 3,
-    "collect_diamond": 2,
-    "defeat_zombie": 4,
-    "defeat_skeleton": 2,
-    "place_plant": 4,
-    "place_stone": 8,
-}
 _V3_SCORE_TOLERANCE = 1e-12
-_CANONICAL_SURVIVAL_DIVISOR = 100.0
-_CANONICAL_STRONG_SURVIVAL_DIVISOR = 20.0
-_CANONICAL_REPEAT_REFERENCE_SCORE = 25.0
-_CANONICAL_REPEAT_SURVIVAL_STEPS = 300
 
 
 class CrafterBenchmark:
     """Official shifted-geometric achievement score over seeded Episodes."""
+
+    _artifact_score_profile = "upstream"
 
     def __init__(self, config: CrafterConfig | None = None) -> None:
         selected = CrafterConfig() if config is None else config
@@ -139,6 +143,7 @@ class CrafterBenchmark:
         return CrafterEnvironment(
             _environment_episode(episode),
             config=self._config,
+            reward_profile="upstream",
         )
 
     def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
@@ -165,8 +170,10 @@ class CrafterBenchmark:
         action_diagnostics = _action_diagnostics(records)
         artifacts, artifact_summary = _complete_feedback_artifacts(
             records,
+            score_profile=self._artifact_score_profile,
             detailed_artifacts=_detailed_artifacts_enabled(records),
             include_mp4=self._config.include_mp4_feedback,
+            observation_profile=self._config.observation_profile,
         )
 
         feedback = Feedback(
@@ -195,238 +202,12 @@ class CrafterBenchmark:
         return feedback
 
 
-class CrafterCanonicalSurvivalBenchmark(CrafterBenchmark):
-    """Official achievement score plus a small mean-survival bonus."""
-
-    _survival_bonus_divisor = _CANONICAL_SURVIVAL_DIVISOR
+class CrafterLongHorizonSurvivalBenchmark(CrafterBenchmark):
+    """Default Long-Horizon Survival Score with a survival-selected tail."""
 
     def __init__(self, config: CrafterConfig | None = None) -> None:
         super().__init__(config)
-        self._spec = _canonical_survival_spec(self._config)
-
-    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
-        records = tuple(episodes)
-        canonical = super().feedback(records)
-        if type(canonical.content) is not dict:
-            raise RuntimeError("canonical Crafter Feedback content is invalid")
-
-        effective_steps = tuple(
-            0
-            if record.policy_failure is not None
-            else record.steps - int(_terminated(record))
-            for record in records
-        )
-        mean_survival_steps = statistics.fmean(effective_steps)
-        divisor = self._survival_bonus_divisor
-        survival_bonus = mean_survival_steps / divisor
-        score = canonical.score + survival_bonus
-        content = dict(canonical.content)
-        content.update(
-            {
-                "summary": (
-                    f"Canonical-survival score {score:.3f} across "
-                    f"{len(records)} Episodes; canonical Crafter score "
-                    f"{canonical.score:.3f}% and mean effective survival "
-                    f"{mean_survival_steps:.3f} steps."
-                ),
-                "canonical_survival_score": score,
-                "mean_effective_survival_steps": mean_survival_steps,
-                "survival_bonus": survival_bonus,
-                "survival_bonus_divisor": divisor,
-                "score_formula": (
-                    "crafter_score_percent + "
-                    f"mean_effective_survival_steps / {divisor:g}"
-                ),
-            }
-        )
-        return Feedback(
-            score=score,
-            content=content,
-            artifacts=canonical.artifacts,
-        )
-
-
-class CrafterCanonicalSurvivalRepeatBenchmark(
-    CrafterCanonicalSurvivalBenchmark
-):
-    """Official achievement score plus survival and sustained production."""
-
-    _primary_score_field = "canonical_survival_repeat_score"
-    _summary_profile_name = "Canonical-survival-repeat"
-
-    def __init__(self, config: CrafterConfig | None = None) -> None:
-        super().__init__(config)
-        self._spec = _canonical_survival_repeat_spec(self._config)
-
-    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
-        records = tuple(episodes)
-        canonical_survival = super().feedback(records)
-        if type(canonical_survival.content) is not dict:
-            raise RuntimeError("canonical-survival Feedback content is invalid")
-
-        analyses = tuple(
-            _canonical_repeat_episode_analysis(record) for record in records
-        )
-        mean_repeat_score = statistics.fmean(
-            item.credited_score for item in analyses
-        )
-        score = canonical_survival.score + mean_repeat_score
-        content = dict(canonical_survival.content)
-        canonical_score = content["crafter_score_percent"]
-        survival_bonus = content["survival_bonus"]
-        if not isinstance(canonical_score, float) or not isinstance(
-            survival_bonus, float
-        ):
-            raise RuntimeError("canonical-survival score components are invalid")
-
-        event_counts = {
-            name: sum(item.event_counts[name] for item in analyses)
-            for name in REPEAT_EVENT_WEIGHTS
-        }
-        repeat_counts = {
-            name: sum(item.repeat_counts[name] for item in analyses)
-            for name in REPEAT_EVENT_WEIGHTS
-        }
-        public_event_counts: dict[str, PolicyValue] = dict(event_counts)
-        public_repeat_counts: dict[str, PolicyValue] = dict(repeat_counts)
-        mean_event_credits: dict[str, PolicyValue] = {
-            name: statistics.fmean(
-                item.raw_credit_by_event[name] for item in analyses
-            )
-            for name in REPEAT_EVENT_WEIGHTS
-        }
-        weights: dict[str, PolicyValue] = {
-            name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
-        }
-        normalization_counts: dict[str, PolicyValue] = {
-            name: count for name, count in REPEAT_EVENT_CAPS.items()
-        }
-        episode_scores: list[PolicyValue] = [
-            {
-                "episode_index": index,
-                "effective_survival_steps": item.effective_survival_steps,
-                "raw_repeat_score": item.raw_score,
-                "repeat_score_limit": item.score_limit,
-                "credited_repeat_score": item.credited_score,
-                "limit_applied": item.credited_score < item.raw_score,
-            }
-            for index, item in enumerate(analyses)
-        ]
-        content.update(
-            {
-                "summary": (
-                    f"{self._summary_profile_name} score {score:.3f} across "
-                    f"{len(records)} Episodes; canonical Crafter score "
-                    f"{canonical_score:.3f}%, survival bonus "
-                    f"{survival_bonus:.3f}, and mean repeated-achievement "
-                    f"score {mean_repeat_score:.3f}."
-                ),
-                self._primary_score_field: score,
-                "mean_repeated_achievement_score": mean_repeat_score,
-                "score_formula": (
-                    "crafter_score_percent + "
-                    "mean_effective_survival_steps / "
-                    f"{self._survival_bonus_divisor:g} + "
-                    "mean(repeated_achievement_score)"
-                ),
-                "repeated_achievement": {
-                    "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
-                    "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
-                    "repeats_only": True,
-                    "single_event_saturation": False,
-                    "raw_event_credit_formula": (
-                        "25 * weight / 40 * log1p(repeats) / "
-                        "log1p(normalization_repeats)"
-                    ),
-                    "score_limit_formula": (
-                        "25 * effective_survival_steps / 300"
-                    ),
-                    "score_limit_per_survival_steps": {
-                        "score": _CANONICAL_REPEAT_REFERENCE_SCORE,
-                        "steps": _CANONICAL_REPEAT_SURVIVAL_STEPS,
-                    },
-                    "event_weights": weights,
-                    "normalization_repeat_counts": normalization_counts,
-                    "event_counts": public_event_counts,
-                    "repeat_counts": public_repeat_counts,
-                    "mean_raw_credit_by_event": mean_event_credits,
-                    "mean_raw_repeat_score": statistics.fmean(
-                        item.raw_score for item in analyses
-                    ),
-                    "mean_credited_repeat_score": mean_repeat_score,
-                    "episodes_with_limit_applied": sum(
-                        item.credited_score < item.raw_score
-                        for item in analyses
-                    ),
-                    "episode_scores": episode_scores,
-                },
-            }
-        )
-        return Feedback(
-            score=score,
-            content=content,
-            artifacts=canonical_survival.artifacts,
-        )
-
-
-class CrafterCanonicalStrongSurvivalRepeatBenchmark(
-    CrafterCanonicalSurvivalRepeatBenchmark
-):
-    """Canonical and repeated achievements with a stronger survival bonus."""
-
-    _survival_bonus_divisor = _CANONICAL_STRONG_SURVIVAL_DIVISOR
-    _primary_score_field = "canonical_strong_survival_repeat_score"
-    _summary_profile_name = "Canonical-strong-survival-repeat"
-
-    def __init__(self, config: CrafterConfig | None = None) -> None:
-        super().__init__(config)
-        self._spec = _canonical_survival_repeat_spec(
-            self._config,
-            survival_divisor=self._survival_bonus_divisor,
-            strong_survival=True,
-        )
-
-
-class CrafterLongHorizonBenchmark(CrafterBenchmark):
-    """Long-horizon survival gated by productive and novel development."""
-
-    def __init__(self, config: CrafterConfig | None = None) -> None:
-        super().__init__(config)
-        if self._config.max_episode_steps < _SURVIVAL_THRESHOLDS[-1]:
-            raise ValueError(
-                "long-horizon Crafter requires max_episode_steps of at least 900"
-            )
-        self._spec = _long_horizon_spec(self._config)
-
-    def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
-        records = tuple(episodes)
-        canonical = super().feedback(records)
-        if type(canonical.content) is not dict:
-            raise RuntimeError("canonical Crafter Feedback content is invalid")
-        content = dict(canonical.content)
-        profile = _long_horizon_profile(records)
-        score_value = profile["long_horizon_development_score"]
-        if not isinstance(score_value, float):
-            raise RuntimeError("long-horizon Crafter score is invalid")
-        content.update(profile)
-        content["summary"] = (
-            f"Long-horizon development score {score_value:.3f}% across "
-            f"{len(records)} Episodes; canonical Crafter score "
-            f"{canonical.score:.3f}%."
-        )
-        return Feedback(
-            score=score_value,
-            content=content,
-            artifacts=canonical.artifacts,
-        )
-
-
-class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
-    """Additive survival, maintenance, and development reward profile."""
-
-    def __init__(self, config: CrafterConfig | None = None) -> None:
-        super().__init__(config)
-        self._spec = _survival_development_spec(self._config)
+        self._spec = _long_horizon_survival_spec(self._config)
 
     def make_environment(self, episode: EpisodeSpec) -> Environment:
         if type(episode) is not EpisodeSpec:
@@ -434,7 +215,7 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
         return CrafterEnvironment(
             _environment_episode(episode),
             config=self._config,
-            reward_profile="survival-development-v3",
+            reward_profile=LHS_REWARD_PROFILE,
         )
 
     def feedback(self, episodes: Sequence[EpisodeRecord]) -> Feedback:
@@ -444,27 +225,18 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
         if any(type(record) is not EpisodeRecord for record in records):
             raise TypeError("episodes must contain EpisodeRecord values")
 
-        analyses = tuple(
-            _survival_development_episode_analysis(
-                record,
-                max_episode_steps=self._config.max_episode_steps,
-            )
-            for record in records
-        )
-        content = _survival_development_profile(
-            records,
-            analyses,
-            max_episode_steps=self._config.max_episode_steps,
-        )
-        score_value = content["mean_survival_development_return"]
+        analyses = tuple(_lhs_episode_analysis(record) for record in records)
+        content = _lhs_profile(records, analyses)
+        score_value = content["long_horizon_survival_score"]
         if not isinstance(score_value, float):
-            raise RuntimeError("survival-development Crafter score is invalid")
+            raise RuntimeError("Crafter LHS score is invalid")
         artifacts, artifact_summary = _complete_feedback_artifacts(
             records,
-            score_profile="survival-development-v3",
-            failure_return=-float(self._config.max_episode_steps),
+            score_profile=LHS_REWARD_PROFILE,
+            failure_return=LHS_POLICY_FAILURE_RETURN,
             detailed_artifacts=_detailed_artifacts_enabled(records),
             include_mp4=self._config.include_mp4_feedback,
+            observation_profile=self._config.observation_profile,
         )
         content["detailed_feedback"] = artifact_summary
         return Feedback(
@@ -474,20 +246,199 @@ class CrafterSurvivalDevelopmentBenchmark(CrafterBenchmark):
         )
 
 
-def _spec(config: CrafterConfig) -> BenchmarkSpec:
-    return BenchmarkSpec(
-        id="crafter/CrafterReward-v1/achievement-score-v1",
-        description=(
-            "Survive and unlock Crafter's 22 achievements from canonical "
-            "64x64 RGB observations. Maximize the official shifted-geometric "
-            "achievement success score."
-        ),
-        observation_space={
+def _profiled_benchmark_id(config: CrafterConfig, metric: str) -> str:
+    prefix = "crafter/CrafterReward-v1"
+    if config.observation_profile == "local-symbolic-v1":
+        return f"{prefix}/local-symbolic-v1/{metric}"
+    return f"{prefix}/{metric}"
+
+
+def _observation_description(config: CrafterConfig) -> str:
+    if config.observation_profile == "rgb":
+        return "canonical 64x64 RGB observations"
+    return "a player-centered 7x9 local-symbolic projection"
+
+
+def _trajectory_schema(config: CrafterConfig, rgb_schema: str) -> str:
+    if config.observation_profile == "local-symbolic-v1":
+        return "crafter/local-symbolic-feedback-manifest/v1"
+    return rgb_schema
+
+
+def _observation_space(config: CrafterConfig) -> dict[str, PolicyValue]:
+    if config.observation_profile == "rgb":
+        return {
             "type": "tensor",
             "dtype": "uint8",
             "shape": [64, 64, 3],
             "color_space": "RGB",
+        }
+    return {
+        "type": "mapping",
+        "fields": {
+            "terrain": {
+                "policy_carrier": "TensorValue",
+                "dtype": "uint8",
+                "shape": list(SYMBOLIC_VIEW_SHAPE),
+                "layout": "row-major [row, column]",
+                "value_meanings": {
+                    str(index): (
+                        "crafting table" if name == "table" else name
+                    )
+                    for index, name in enumerate(SYMBOLIC_TERRAIN_NAMES)
+                },
+            },
+            "entities": {
+                "policy_carrier": "TensorValue",
+                "dtype": "uint8",
+                "shape": list(SYMBOLIC_VIEW_SHAPE),
+                "layout": "row-major [row, column]",
+                "value_meanings": {
+                    str(index): name
+                    for index, name in enumerate(SYMBOLIC_ENTITY_NAMES)
+                },
+            },
+            "inventory": {
+                "policy_carrier": "mapping of exact int",
+                "keys": list(SYMBOLIC_INVENTORY_KEYS),
+                "minimum": 0,
+                "maximum": 9,
+            },
+            "facing": {
+                "policy_carrier": "str",
+                "values": list(SYMBOLIC_FACING_NAMES),
+            },
+            "sleeping": {"policy_carrier": "bool"},
+            "daylight": {
+                "policy_carrier": "float",
+                "minimum": 0.0,
+                "maximum": 1.0,
+            },
         },
+    }
+
+
+def _public_observations(config: CrafterConfig) -> dict[str, PolicyValue]:
+    common: dict[str, PolicyValue] = {
+        "format": "compressed NumPy NPZ",
+        "observations_per_artifact": _OBSERVATION_CHUNK_FRAMES,
+        "source_alignment": "observation index is exact Policy input",
+        "complete_artifact_episode_limit": _DETAILED_FEEDBACK_MAX_EPISODES,
+        "detailed_artifact_splits": ["train"],
+    }
+    if config.observation_profile == "rgb":
+        common.update(
+            {
+                "dtype": "uint8",
+                "shape": [64, 64, 3],
+                "layout": "HWC RGB",
+                "frame_sampling": "none",
+                "pixel_exact": True,
+                "optional_mp4": {
+                    "enabled": config.include_mp4_feedback,
+                    "format": "H.264 MP4",
+                    "frames_per_second": _MP4_REPLAY_FPS,
+                    "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
+                    "target_bitrate": _MP4_REPLAY_BITRATE,
+                    "frame_sampling": "none",
+                    "pixel_exact": False,
+                    "audio": False,
+                    "role": "derived viewing aid; NPZ remains authoritative",
+                },
+            }
+        )
+        return common
+    common.update(
+        {
+            "observation_profile": "local-symbolic-v1",
+            "arrays": {
+                "terrain": "uint8 [observation, 7, 9]",
+                "entities": "uint8 [observation, 7, 9]",
+                "inventory": "uint8 [observation, 16]",
+                "facing": "uint8 [observation]",
+                "sleeping": "bool [observation]",
+                "daylight": "float64 [observation]",
+                "observation_indices": "uint32 [observation]",
+            },
+            "inventory_order": list(SYMBOLIC_INVENTORY_KEYS),
+            "facing_ids": {
+                str(index): name
+                for index, name in enumerate(SYMBOLIC_FACING_NAMES)
+            },
+            "lossless": True,
+            "optional_mp4": {"enabled": False, "supported": False},
+        }
+    )
+    return common
+
+
+def _environment_parameters(config: CrafterConfig) -> dict[str, PolicyValue]:
+    parameters: dict[str, PolicyValue] = {
+        "area": [64, 64],
+        "view": [9, 9],
+        "image_size": [64, 64],
+        "reward": True,
+        "max_episode_steps": config.max_episode_steps,
+        "include_mp4_feedback": config.include_mp4_feedback,
+    }
+    if config.observation_profile == "local-symbolic-v1":
+        parameters.update(
+            {
+                "observation_profile": "local-symbolic-v1",
+                "symbolic_view_rows": SYMBOLIC_VIEW_SHAPE[0],
+                "symbolic_view_columns": SYMBOLIC_VIEW_SHAPE[1],
+                "symbolic_player_row": SYMBOLIC_PLAYER_CENTER[0],
+                "symbolic_player_column": SYMBOLIC_PLAYER_CENTER[1],
+            }
+        )
+    return parameters
+
+
+def _symbolic_metadata(config: CrafterConfig) -> dict[str, PolicyValue]:
+    if config.observation_profile == "rgb":
+        return {}
+    return {
+        "observation_profile": "local-symbolic-v1",
+        "observation_source": (
+            "Benchmark-authored local projection of pinned Crafter 1.8.3; "
+            "not an upstream Crafter registration and not Craftax"
+        ),
+        "symbolic_geometry": {
+            "shape": list(SYMBOLIC_VIEW_SHAPE),
+            "player_center": list(SYMBOLIC_PLAYER_CENTER),
+            "row_axis": "up-to-down",
+            "column_axis": "left-to-right",
+        },
+        "terrain_ids": {
+            str(index): name
+            for index, name in enumerate(SYMBOLIC_TERRAIN_NAMES)
+        },
+        "entity_ids": {
+            str(index): name
+            for index, name in enumerate(SYMBOLIC_ENTITY_NAMES)
+        },
+        "inventory_keys": list(SYMBOLIC_INVENTORY_KEYS),
+        "privacy_boundary": {
+            "global_semantic_map": "forbidden",
+            "absolute_player_position": "forbidden",
+            "environment_seed": "forbidden",
+            "world_rng": "forbidden",
+            "achievement_counters": "forbidden as observation",
+            "hidden_life_counters": "forbidden",
+            "entity_health_and_cooldowns": "forbidden",
+        },
+    }
+
+
+def _spec(config: CrafterConfig) -> BenchmarkSpec:
+    return BenchmarkSpec(
+        id=_profiled_benchmark_id(config, "achievement-score-v1"),
+        description=(
+            "Survive and unlock Crafter's 22 achievements from "
+            f"{_observation_description(config)}. Maximize the official shifted-geometric "
+            "achievement success score."
+        ),
+        observation_space=_observation_space(config),
         action_space={
             "type": "discrete",
             "values": list(range(len(ACTIONS))),
@@ -505,290 +456,134 @@ def _spec(config: CrafterConfig) -> BenchmarkSpec:
             "official_score_formula": (
                 "exp(mean(log(1 + success_percent))) - 1"
             ),
-            "public_observations": {
-                "format": "compressed NumPy NPZ",
-                "dtype": "uint8",
-                "shape": [64, 64, 3],
-                "layout": "HWC RGB",
-                "observations_per_artifact": _OBSERVATION_CHUNK_FRAMES,
-                "source_alignment": "observation index is exact Policy input",
-                "frame_sampling": "none",
-                "pixel_exact": True,
-                "complete_artifact_episode_limit": (
-                    _DETAILED_FEEDBACK_MAX_EPISODES
-                ),
-                "detailed_artifact_splits": ["train"],
-                "optional_mp4": {
-                    "enabled": config.include_mp4_feedback,
-                    "format": "H.264 MP4",
-                    "frames_per_second": _MP4_REPLAY_FPS,
-                    "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
-                    "target_bitrate": _MP4_REPLAY_BITRATE,
-                    "frame_sampling": "none",
-                    "pixel_exact": False,
-                    "audio": False,
-                    "role": "derived viewing aid; NPZ remains authoritative",
-                },
-            },
+            **_symbolic_metadata(config),
+            "public_observations": _public_observations(config),
             "privileged_information_exposed": False,
         },
-        environment_parameters={
-            "area": [64, 64],
-            "view": [9, 9],
-            "image_size": [64, 64],
-            "reward": True,
-            "max_episode_steps": config.max_episode_steps,
-            "include_mp4_feedback": config.include_mp4_feedback,
-        },
+        environment_parameters=_environment_parameters(config),
         max_episode_steps=config.max_episode_steps,
         primary_metric="crafter_score_percent",
         score_direction="maximize",
     )
 
 
-def _long_horizon_spec(config: CrafterConfig) -> BenchmarkSpec:
+def _long_horizon_survival_spec(config: CrafterConfig) -> BenchmarkSpec:
     canonical = _spec(config)
     metadata = dict(canonical.metadata)
-    productivity_caps: dict[str, PolicyValue] = {
-        name: cap for name, cap in _PRODUCTIVITY_EVENT_CAPS.items()
+    maintenance_restore: dict[str, PolicyValue] = {
+        name: {"resource": resource, "nominal_units": units}
+        for name, (resource, units) in LHS_MAINTENANCE_RESTORE.items()
     }
     metadata.update(
         {
-            "objective_profile": "long-horizon-development-v2",
-            "canonical_comparison_metric": "crafter_score_percent",
-            "survival_threshold_steps": list(_SURVIVAL_THRESHOLDS),
-            "survival_score_formula": (
-                "100 * (min(L, 300) + 2 * clamp(L - 300, 0, 300) "
-                "+ 4 * clamp(L - 600, 0, 300)) / 2100"
-            ),
-            "episode_score_formula": (
-                "survival * (0.70 + 0.15 * maintenance / 100 "
-                "+ 0.10 * productivity / 100 "
-                "+ 0.05 * innovation / 100)"
-            ),
-            "score_component_weights": {
-                "survival": _SURVIVAL_WEIGHT,
-                "maintenance": _MAINTENANCE_WEIGHT,
-                "productivity": _PRODUCTIVITY_WEIGHT,
-                "innovation": _INNOVATION_WEIGHT,
-            },
-            "maintenance": {
-                "vitals": list(_MAINTENANCE_VITALS),
-                "warning_threshold": _MAINTENANCE_WARNING_THRESHOLD,
-                "recovery_cap_per_vital": _MAINTENANCE_RECOVERY_CAP,
-                "credit": (
-                    "low-state increases only; log1p(min(recoveries, cap)) "
-                    "/ log1p(cap)"
-                ),
-            },
-            "productivity": {
-                "repeats_only": True,
-                "credit": "log1p(min(repeats, cap)) / log1p(cap)",
-                "event_caps": productivity_caps,
-            },
-        }
-    )
-    return BenchmarkSpec(
-        id="crafter/CrafterReward-v1/long-horizon-development-v2",
-        description=(
-            "Develop one RGB Crafter Policy that survives repeated day-night "
-            "cycles while sustaining useful production and unlocking new "
-            "capabilities. Survival gates every scored Episode."
-        ),
-        observation_space=canonical.observation_space,
-        action_space=canonical.action_space,
-        metadata=metadata,
-        environment_parameters=dict(canonical.environment_parameters),
-        max_episode_steps=canonical.max_episode_steps,
-        primary_metric="long_horizon_development_score",
-        score_direction="maximize",
-    )
-
-
-def _canonical_survival_spec(
-    config: CrafterConfig,
-    *,
-    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
-) -> BenchmarkSpec:
-    canonical = _spec(config)
-    metadata = dict(canonical.metadata)
-    metadata.update(
-        {
-            "objective_profile": "canonical-achievement-plus-survival-v1",
-            "canonical_comparison_metric": "crafter_score_percent",
-            "score_formula": (
-                "crafter_score_percent + "
-                f"mean_effective_survival_steps / {survival_divisor:g}"
-            ),
-            "survival_bonus_divisor": survival_divisor,
-            "policy_failure_survival_steps": 0,
-            "effective_survival_steps": (
-                "Episode steps minus the natural terminal transition; "
-                "all truncated steps count"
-            ),
-        }
-    )
-    return BenchmarkSpec(
-        id=(
-            "crafter/CrafterReward-v1/"
-            "achievement-score-plus-survival-v1"
-        ),
-        description=(
-            "Unlock Crafter's 22 achievements from canonical RGB observations "
-            "while retaining a small incentive for longer survival. Maximize "
-            "the official shifted-geometric achievement score plus mean "
-            "effective survival steps divided by 100."
-        ),
-        observation_space=canonical.observation_space,
-        action_space=canonical.action_space,
-        metadata=metadata,
-        environment_parameters=dict(canonical.environment_parameters),
-        max_episode_steps=canonical.max_episode_steps,
-        primary_metric="canonical_survival_score",
-        score_direction="maximize",
-    )
-
-
-def _canonical_survival_repeat_spec(
-    config: CrafterConfig,
-    *,
-    survival_divisor: float = _CANONICAL_SURVIVAL_DIVISOR,
-    strong_survival: bool = False,
-) -> BenchmarkSpec:
-    canonical = _canonical_survival_spec(
-        config,
-        survival_divisor=survival_divisor,
-    )
-    metadata = dict(canonical.metadata)
-    repeat_weights: dict[str, PolicyValue] = {
-        name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
-    }
-    normalization_counts: dict[str, PolicyValue] = {
-        name: count for name, count in REPEAT_EVENT_CAPS.items()
-    }
-    metadata.update(
-        {
-            "objective_profile": (
-                "canonical-achievement-plus-strong-survival-repeat-v1"
-                if strong_survival
-                else "canonical-achievement-plus-survival-repeat-v1"
-            ),
-            "score_formula": (
-                "crafter_score_percent + "
-                f"mean_effective_survival_steps / {survival_divisor:g} + "
-                "mean(repeated_achievement_score)"
-            ),
-            "repeated_achievement": {
-                "reference_score": _CANONICAL_REPEAT_REFERENCE_SCORE,
-                "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
-                "repeats_only": True,
-                "single_event_saturation": False,
-                "raw_event_credit_formula": (
-                    "25 * weight / 40 * log1p(repeats) / "
-                    "log1p(normalization_repeats)"
-                ),
-                "score_limit_formula": (
-                    "25 * effective_survival_steps / 300"
-                ),
-                "event_weights": repeat_weights,
-                "normalization_repeat_counts": normalization_counts,
-            },
-            "policy_failure_repeat_score": 0,
-        }
-    )
-    return BenchmarkSpec(
-        id=(
-            "crafter/CrafterReward-v1/"
-            + (
-                "achievement-score-plus-strong-survival-repeat-v1"
-                if strong_survival
-                else "achievement-score-plus-survival-repeat-v1"
-            )
-        ),
-        description=(
-            "Unlock Crafter's canonical achievements, survive longer with "
-            f"effective survival steps divided by {survival_divisor:g}, and "
-            "sustain confirmed gathering, maintenance, combat, farming, and "
-            "construction events. Repeated-achievement credit has logarithmic "
-            "diminishing returns and a survival-scaled continuous limit."
-        ),
-        observation_space=canonical.observation_space,
-        action_space=canonical.action_space,
-        metadata=metadata,
-        environment_parameters=dict(canonical.environment_parameters),
-        max_episode_steps=canonical.max_episode_steps,
-        primary_metric=(
-            "canonical_strong_survival_repeat_score"
-            if strong_survival
-            else "canonical_survival_repeat_score"
-        ),
-        score_direction="maximize",
-    )
-
-
-def _survival_development_spec(config: CrafterConfig) -> BenchmarkSpec:
-    canonical = _spec(config)
-    metadata = dict(canonical.metadata)
-    first_rewards: dict[str, PolicyValue] = {
-        name: reward for name, reward in FIRST_UNLOCK_REWARDS.items()
-    }
-    repeat_weights: dict[str, PolicyValue] = {
-        name: weight for name, weight in REPEAT_EVENT_WEIGHTS.items()
-    }
-    repeat_caps: dict[str, PolicyValue] = {
-        name: cap for name, cap in REPEAT_EVENT_CAPS.items()
-    }
-    metadata.update(
-        {
-            "objective_profile": "mean-survival-development-return-v3",
+            "objective_profile": LHS_REWARD_PROFILE,
             "canonical_comparison_metric": "crafter_score_percent",
             "step_reward_formula": (
-                "alive + 0.1 * alive * min(health, food, drink) / 9 "
-                "+ first_unlock_delta + repeated_productivity_delta"
+                "0.01 * alive + 0.03 * alive * "
+                "min(health, food, drink) / 9 + first_unlock_delta + "
+                "maintenance_repeat_delta + productivity_repeat_delta"
             ),
-            "episode_score_formula": (
-                "sum(step_reward), except Policy failure returns "
-                "-max_episode_steps"
+            "episode_return_formula": "sum(step_reward)",
+            "feedback_score_formula": (
+                "0.75 * mean(survival_return) + 0.25 * "
+                "mean(bottom ceil(0.25*N) survival returns) + "
+                "mean(secondary_return)"
             ),
-            "survival_credit_per_alive_step": SURVIVAL_CREDIT_PER_ALIVE_STEP,
-            "vital_credit_scale": VITAL_CREDIT_SCALE,
-            "vital_quality_formula": "min(health, food, drink) / 9",
-            "energy_scored": False,
-            "first_unlock_absolute_rewards": first_rewards,
-            "progress_credit_max": PROGRESS_CREDIT_MAX,
-            "productivity": {
-                "maximum_credit_per_episode": PRODUCTIVITY_CREDIT_MAX,
-                "repeats_only": True,
-                "credit": (
-                    "25 * weight / 40 * log1p(min(repeats, cap)) "
-                    "/ log1p(cap)"
+            "survival": {
+                "alive_alpha": LHS_ALIVE_ALPHA,
+                "vital_alpha": LHS_VITAL_ALPHA,
+                "vital_quality": "min(health, food, drink) / 9",
+                "energy_scored": False,
+                "healthy_window_steps": LHS_HEALTHY_WINDOW_STEPS,
+                "healthy_window_credit": LHS_HEALTHY_WINDOW_CREDIT,
+                "survival_component_names": list(
+                    LHS_SURVIVAL_COMPONENT_NAMES
                 ),
-                "event_weights": repeat_weights,
-                "event_caps": repeat_caps,
             },
-            "policy_failure_return": -float(config.max_episode_steps),
-            "trajectory_schema": "crafter/complete-feedback-manifest/v6",
+            "first_unlock": {
+                "credit_formula": "0.10 * log2(1 + raw_weight)",
+                "base_credit": LHS_FIRST_UNLOCK_BASE_CREDIT,
+                "credits": dict(LHS_FIRST_UNLOCK_CREDITS),
+                "maximum_credit": LHS_FIRST_UNLOCK_CREDIT_MAX,
+            },
+            "maintenance_repeat": {
+                "window_steps": LHS_REPEAT_WINDOW_STEPS,
+                "window_credit": LHS_MAINTENANCE_WINDOW_CREDIT,
+                "resource_shares": dict(
+                    LHS_MAINTENANCE_RESOURCE_SHARES
+                ),
+                "credited_restore_unit_caps": dict(
+                    LHS_MAINTENANCE_RESTORE_UNIT_CAPS
+                ),
+                "credit_per_restore_unit": dict(
+                    LHS_MAINTENANCE_UNIT_CREDITS
+                ),
+                "event_restore": maintenance_restore,
+                "repeats_only": True,
+                "actual_restoration_only": True,
+            },
+            "productivity_repeat": {
+                "window_steps": LHS_REPEAT_WINDOW_STEPS,
+                "fraction_of_first_unlock_credit": (
+                    LHS_PRODUCTIVITY_REPEAT_FRACTION
+                ),
+                "credited_event_quotas": dict(
+                    LHS_PRODUCTIVITY_REPEAT_QUOTAS
+                ),
+                "repeats_only": True,
+            },
+            "feedback_aggregation": {
+                "survival_mean_weight": (
+                    LHS_FEEDBACK_SURVIVAL_MEAN_WEIGHT
+                ),
+                "survival_lower_tail_weight": (
+                    LHS_FEEDBACK_SURVIVAL_LOWER_TAIL_WEIGHT
+                ),
+                "survival_tail_fraction": (
+                    LHS_FEEDBACK_SURVIVAL_TAIL_FRACTION
+                ),
+                "secondary_mean_weight": 1.0,
+                "upper_tail_weight": 0.0,
+                "tail_selection": "survival_return_only",
+                "tail_count": "max(1, ceil(0.25 * Episodes))",
+            },
+            "policy_failure_return": LHS_POLICY_FAILURE_RETURN,
+            "policy_failure_trace": (
+                "partial trajectory retained for diagnosis; partial score "
+                "discarded and formal Episode return is zero"
+            ),
+            "upstream_reward_scored": False,
             "upstream_reward_field": "upstream_reward",
+            "trajectory_schema": _trajectory_schema(
+                config, "crafter/complete-feedback-manifest/v8"
+            ),
         }
     )
     environment_parameters = dict(canonical.environment_parameters)
-    environment_parameters["reward_profile"] = "survival-development-v3"
+    environment_parameters.update(
+        {
+            "reward_profile": LHS_REWARD_PROFILE,
+            "alive_survival_alpha": LHS_ALIVE_ALPHA,
+            "vital_survival_alpha": LHS_VITAL_ALPHA,
+            "repeat_window_steps": LHS_REPEAT_WINDOW_STEPS,
+        }
+    )
     return BenchmarkSpec(
-        id=(
-            "crafter/CrafterReward-v1/"
-            "mean-survival-development-return-v3"
+        id=_profiled_benchmark_id(
+            config, "long-horizon-survival-score-v1"
         ),
         description=(
-            "Survive across the full RGB Crafter horizon while maintaining "
-            "health, food, and drink, unlocking exponentially weighted later "
-            "capabilities, and repeatedly completing bounded productive events."
+            "Prioritize robust long survival with independent alive and "
+            "weakest-vital transition credit. Select the lower tail using "
+            "survival alone, while retaining mean cadence-bounded maintenance "
+            "and compressed development credit without an upper-tail bonus."
         ),
         observation_space=canonical.observation_space,
         action_space=canonical.action_space,
         metadata=metadata,
         environment_parameters=environment_parameters,
         max_episode_steps=canonical.max_episode_steps,
-        primary_metric="mean_survival_development_return",
+        primary_metric="long_horizon_survival_score",
         score_direction="maximize",
     )
 
@@ -860,7 +655,8 @@ def _transition_metrics(
         "achievement_event_counts",
         "energy",
         "maintenance_vitals",
-        "score_delta_components",
+        "lhs_repeat_diagnostics",
+        "lhs_score_delta_components",
         "upstream_reward",
     }
     if (
@@ -872,7 +668,8 @@ def _transition_metrics(
     _transition_maintenance_vitals(metrics)
     _transition_energy(metrics)
     _transition_upstream_reward(metrics)
-    _transition_score_delta_components(metrics)
+    _transition_lhs_repeat_diagnostics(metrics)
+    _transition_lhs_score_delta_components(metrics)
     value = metrics["achievements_unlocked"]
     if type(value) is not list:
         raise ValueError("Crafter transition achievements are invalid")
@@ -909,10 +706,11 @@ def _transition_maintenance_vitals(
     if "maintenance_vitals" not in metrics:
         return None
     value = metrics["maintenance_vitals"]
-    if type(value) is not dict or set(value) != set(_MAINTENANCE_VITALS):
+    vital_names = ("health", "food", "drink")
+    if type(value) is not dict or set(value) != set(vital_names):
         raise ValueError("Crafter maintenance vitals are invalid")
     vitals: dict[str, int] = {}
-    for name in _MAINTENANCE_VITALS:
+    for name in vital_names:
         amount = value[name]
         if type(amount) is not int or not 0 <= amount <= 9:
             raise ValueError("Crafter maintenance vitals are invalid")
@@ -946,19 +744,19 @@ def _transition_upstream_reward(metrics: PolicyValue) -> float | None:
     return float(value)
 
 
-def _transition_score_delta_components(
+def _transition_lhs_score_delta_components(
     metrics: PolicyValue,
 ) -> dict[str, float] | None:
     if type(metrics) is not dict:
         raise ValueError("Crafter transition metrics are invalid")
-    if "score_delta_components" not in metrics:
+    if "lhs_score_delta_components" not in metrics:
         return None
-    value = metrics["score_delta_components"]
-    expected = {"survival", "vital", "progress", "productivity"}
+    value = metrics["lhs_score_delta_components"]
+    expected = set(LHS_COMPONENT_NAMES)
     if type(value) is not dict or set(value) != expected:
-        raise ValueError("Crafter score delta components are invalid")
+        raise ValueError("Crafter LHS score delta components are invalid")
     components: dict[str, float] = {}
-    for name in expected:
+    for name in LHS_COMPONENT_NAMES:
         amount = value[name]
         if (
             isinstance(amount, bool)
@@ -966,9 +764,47 @@ def _transition_score_delta_components(
             or not math.isfinite(float(amount))
             or float(amount) < 0.0
         ):
-            raise ValueError("Crafter score delta components are invalid")
+            raise ValueError("Crafter LHS score delta components are invalid")
         components[name] = float(amount)
     return components
+
+
+def _transition_lhs_repeat_diagnostics(
+    metrics: PolicyValue,
+) -> dict[str, dict[str, int]] | None:
+    if type(metrics) is not dict:
+        raise ValueError("Crafter transition metrics are invalid")
+    if "lhs_repeat_diagnostics" not in metrics:
+        return None
+    value = metrics["lhs_repeat_diagnostics"]
+    expected = {
+        "maintenance_credited_units",
+        "productivity_credited_events",
+    }
+    if type(value) is not dict or set(value) != expected:
+        raise ValueError("Crafter LHS repeat diagnostics are invalid")
+    maintenance = value["maintenance_credited_units"]
+    productivity = value["productivity_credited_events"]
+    if type(maintenance) is not dict or set(maintenance) != {"drink", "food"}:
+        raise ValueError("Crafter LHS maintenance diagnostics are invalid")
+    if type(productivity) is not dict or not set(productivity).issubset(
+        LHS_PRODUCTIVITY_REPEAT_QUOTAS
+    ):
+        raise ValueError("Crafter LHS productivity diagnostics are invalid")
+    parsed_maintenance: dict[str, int] = {}
+    parsed_productivity: dict[str, int] = {}
+    for name, amount in maintenance.items():
+        if type(amount) is not int or amount < 0:
+            raise ValueError("Crafter LHS maintenance diagnostics are invalid")
+        parsed_maintenance[name] = amount
+    for name, amount in productivity.items():
+        if type(name) is not str or type(amount) is not int or amount <= 0:
+            raise ValueError("Crafter LHS productivity diagnostics are invalid")
+        parsed_productivity[name] = amount
+    return {
+        "maintenance_credited_units": parsed_maintenance,
+        "productivity_credited_events": parsed_productivity,
+    }
 
 
 def _crafter_score(success_rates: Sequence[float]) -> float:
@@ -979,475 +815,281 @@ def _crafter_score(success_rates: Sequence[float]) -> float:
     return math.expm1(statistics.fmean(math.log1p(rate) for rate in success_rates))
 
 
-def _long_horizon_profile(
-    records: Sequence[EpisodeRecord],
-) -> dict[str, PolicyValue]:
-    episode_components = tuple(
-        _long_horizon_episode_components(record) for record in records
-    )
-    effective_steps = tuple(component[0] for component in episode_components)
-    survival_scores = tuple(component[1] for component in episode_components)
-    maintenance_scores = tuple(component[2] for component in episode_components)
-    productivity_scores = tuple(component[3] for component in episode_components)
-    innovation_scores = tuple(component[4] for component in episode_components)
-    episode_scores = tuple(component[5] for component in episode_components)
-    event_totals = {name: 0 for name in ACHIEVEMENTS}
-    for record in records:
-        if record.policy_failure is not None:
-            continue
-        for name, count in _episode_event_counts(record).items():
-            event_totals[name] += count
-    maintenance_totals = {name: 0 for name in _MAINTENANCE_VITALS}
-    for record in records:
-        if record.policy_failure is None:
-            for name, count in _maintenance_recovery_counts(record).items():
-                maintenance_totals[name] += count
-    survival_at_steps: dict[str, PolicyValue] = {}
-    for threshold in _SURVIVAL_THRESHOLDS:
-        count = sum(steps >= threshold for steps in effective_steps)
-        survival_at_steps[str(threshold)] = {
-            "count": count,
-            "percent": 100.0 * count / len(records),
-        }
-    score = statistics.fmean(episode_scores)
-    public_event_totals: dict[str, PolicyValue] = {
-        name: count for name, count in event_totals.items()
-    }
-    public_productivity_caps: dict[str, PolicyValue] = {
-        name: cap for name, cap in _PRODUCTIVITY_EVENT_CAPS.items()
-    }
-    public_maintenance_totals: dict[str, PolicyValue] = {
-        name: count for name, count in maintenance_totals.items()
-    }
-    return {
-        "long_horizon_development_score": score,
-        "score_profile": "long-horizon-development-v2",
-        "score_components": {
-            "survival_score_percent": statistics.fmean(survival_scores),
-            "maintenance_score_percent": statistics.fmean(maintenance_scores),
-            "productivity_score_percent": statistics.fmean(productivity_scores),
-            "innovation_score_percent": statistics.fmean(innovation_scores),
-            "weights": {
-                "survival": _SURVIVAL_WEIGHT,
-                "maintenance": _MAINTENANCE_WEIGHT,
-                "productivity": _PRODUCTIVITY_WEIGHT,
-                "innovation": _INNOVATION_WEIGHT,
-            },
-            "aggregation": (
-                "mean(survival * (0.70 + 0.15 * maintenance / 100 "
-                "+ 0.10 * productivity / 100 "
-                "+ 0.05 * innovation / 100))"
-            ),
-        },
-        "survival_at_steps": survival_at_steps,
-        "survival_steps": {
-            "mean": statistics.fmean(effective_steps),
-            "median": statistics.median(effective_steps),
-            "p10": _nearest_rank(effective_steps, 0.10),
-            "p90": _nearest_rank(effective_steps, 0.90),
-            "max": max(effective_steps),
-        },
-        "achievement_event_counts": public_event_totals,
-        "maintenance_recovery_counts": public_maintenance_totals,
-        "maintenance_warning_threshold": _MAINTENANCE_WARNING_THRESHOLD,
-        "maintenance_recovery_cap_per_vital": _MAINTENANCE_RECOVERY_CAP,
-        "productivity_event_caps": public_productivity_caps,
-        "productivity_repeats_only": True,
-    }
-
-
-def _long_horizon_episode_components(
-    record: EpisodeRecord,
-) -> tuple[int, float, float, float, float, float]:
-    if record.policy_failure is not None:
-        return (0, 0.0, 0.0, 0.0, 0.0, 0.0)
-    effective_steps = record.steps - int(_terminated(record))
-    survival = _survival_score(effective_steps)
-    event_counts = _episode_event_counts(record)
-    maintenance = _maintenance_score(_maintenance_recovery_counts(record))
-    productivity = _productivity_score(event_counts)
-    innovation = 100.0 * len(_scored_achievements(record)) / len(ACHIEVEMENTS)
-    combined = survival * (
-        _SURVIVAL_WEIGHT
-        + _MAINTENANCE_WEIGHT * maintenance / 100.0
-        + _PRODUCTIVITY_WEIGHT * productivity / 100.0
-        + _INNOVATION_WEIGHT * innovation / 100.0
-    )
-    return (
-        effective_steps,
-        survival,
-        maintenance,
-        productivity,
-        innovation,
-        combined,
-    )
-
-
-def _survival_score(effective_steps: int) -> float:
-    starts = (0, 300, 600)
-    weighted_steps = sum(
-        weight * max(min(effective_steps - start, 300), 0)
-        for start, weight in zip(starts, _SURVIVAL_BAND_WEIGHTS, strict=True)
-    )
-    maximum = 300 * sum(_SURVIVAL_BAND_WEIGHTS)
-    return 100.0 * weighted_steps / maximum
-
-
 @dataclass(frozen=True, slots=True)
-class _CanonicalRepeatEpisodeAnalysis:
-    effective_survival_steps: int
-    event_counts: dict[str, int]
-    repeat_counts: dict[str, int]
-    raw_credit_by_event: dict[str, float]
-    raw_score: float
-    score_limit: float
-    credited_score: float
-
-
-def _canonical_repeat_episode_analysis(
-    record: EpisodeRecord,
-) -> _CanonicalRepeatEpisodeAnalysis:
-    if record.policy_failure is not None:
-        zeros = {name: 0 for name in REPEAT_EVENT_WEIGHTS}
-        return _CanonicalRepeatEpisodeAnalysis(
-            effective_survival_steps=0,
-            event_counts=dict(zeros),
-            repeat_counts=dict(zeros),
-            raw_credit_by_event={name: 0.0 for name in zeros},
-            raw_score=0.0,
-            score_limit=0.0,
-            credited_score=0.0,
-        )
-
-    effective_steps = record.steps - int(_terminated(record))
-    all_event_counts = _episode_event_counts(record)
-    event_counts = {
-        name: all_event_counts[name] for name in REPEAT_EVENT_WEIGHTS
-    }
-    repeat_counts = {
-        name: max(count - 1, 0) for name, count in event_counts.items()
-    }
-    raw_credit_by_event = {
-        name: (
-            _CANONICAL_REPEAT_REFERENCE_SCORE
-            * REPEAT_EVENT_WEIGHTS[name]
-            / sum(REPEAT_EVENT_WEIGHTS.values())
-            * math.log1p(repeat_counts[name])
-            / math.log1p(REPEAT_EVENT_CAPS[name])
-        )
-        for name in REPEAT_EVENT_WEIGHTS
-    }
-    raw_score = math.fsum(raw_credit_by_event.values())
-    score_limit = (
-        _CANONICAL_REPEAT_REFERENCE_SCORE
-        * effective_steps
-        / _CANONICAL_REPEAT_SURVIVAL_STEPS
-    )
-    credited_score = min(raw_score, score_limit)
-    return _CanonicalRepeatEpisodeAnalysis(
-        effective_survival_steps=effective_steps,
-        event_counts=event_counts,
-        repeat_counts=repeat_counts,
-        raw_credit_by_event=raw_credit_by_event,
-        raw_score=raw_score,
-        score_limit=score_limit,
-        credited_score=credited_score,
-    )
-
-
-def _episode_event_counts(record: EpisodeRecord) -> dict[str, int]:
-    counts = {name: 0 for name in ACHIEVEMENTS}
-    for transition in record.transitions:
-        for name, count in _transition_event_counts(
-            transition.step.metrics
-        ).items():
-            counts[name] += count
-    return counts
-
-
-def _maintenance_recovery_counts(record: EpisodeRecord) -> dict[str, int]:
-    counts = {name: 0 for name in _MAINTENANCE_VITALS}
-    previous: dict[str, int] | None = None
-    for transition in record.transitions:
-        current = _transition_maintenance_vitals(transition.step.metrics)
-        if current is None:
-            continue
-        if previous is not None:
-            for name in _MAINTENANCE_VITALS:
-                if (
-                    previous[name] <= _MAINTENANCE_WARNING_THRESHOLD
-                    and current[name] > previous[name]
-                ):
-                    counts[name] += 1
-        previous = current
-    return counts
-
-
-def _maintenance_score(recovery_counts: dict[str, int]) -> float:
-    credits = [
-        math.log1p(min(recovery_counts[name], _MAINTENANCE_RECOVERY_CAP))
-        / math.log1p(_MAINTENANCE_RECOVERY_CAP)
-        for name in _MAINTENANCE_VITALS
-    ]
-    return 100.0 * statistics.fmean(credits)
-
-
-def _productivity_score(event_counts: dict[str, int]) -> float:
-    credits = []
-    for name, cap in _PRODUCTIVITY_EVENT_CAPS.items():
-        repeats = max(event_counts[name] - 1, 0)
-        credits.append(
-            math.log1p(min(repeats, cap)) / math.log1p(cap)
-        )
-    return 100.0 * statistics.fmean(credits)
-
-
-@dataclass(frozen=True, slots=True)
-class _SurvivalDevelopmentEpisodeAnalysis:
+class _LHSEpisodeAnalysis:
     status: str
+    failure: str | None
     terminated: bool
     truncated: bool
-    failure: str | None
     steps: int
     effective_survival_steps: int
     scored_return: float
     partial_return: float
-    survival_credit: float
-    vital_credit: float
-    progress_credit: float
-    productivity_credit: float
-    failure_adjustment: float
+    components: dict[str, float]
+    partial_components: dict[str, float]
     upstream_return: float
     unlocked: frozenset[str]
+    partial_unlocked: frozenset[str]
     event_totals: dict[str, int]
-    progress_by_achievement: dict[str, float]
-    productivity_by_event: dict[str, float]
+    partial_event_totals: dict[str, int]
+    maintenance_units: dict[str, int]
+    productivity_events: dict[str, int]
     alive_vital_steps: int
     vital_quality_sum: float
     minimum_vital_sum: int
     zero_min_vital_steps: int
     low_vital_steps: dict[int, dict[str, int]]
+    vital_age_bands: dict[str, tuple[int, float, int]]
     terminal_vitals: dict[str, int] | None
 
 
-def _survival_development_episode_analysis(
-    record: EpisodeRecord,
-    *,
-    max_episode_steps: int,
-) -> _SurvivalDevelopmentEpisodeAnalysis:
-    event_totals = {name: 0 for name in ACHIEVEMENTS}
-    unlocked_seen: set[str] = set()
-    progress_by_achievement = {name: 0.0 for name in ACHIEVEMENTS}
-    productivity_by_event = {
-        name: 0.0 for name in REPEAT_EVENT_WEIGHTS
-    }
+def _lhs_episode_analysis(record: EpisodeRecord) -> _LHSEpisodeAnalysis:
+    state = LHSScoringState()
     component_values: dict[str, list[float]] = {
-        "survival": [],
-        "vital": [],
-        "progress": [],
-        "productivity": [],
+        name: [] for name in LHS_COMPONENT_NAMES
     }
     upstream_rewards: list[float] = []
     transition_rewards: list[float] = []
+    unlocked_seen: set[str] = set()
+    maintenance_units = {"drink": 0, "food": 0}
+    productivity_events = {
+        name: 0 for name in LHS_PRODUCTIVITY_REPEAT_QUOTAS
+    }
     alive_vital_steps = 0
     vital_quality_sum = 0.0
     minimum_vital_sum = 0
     zero_min_vital_steps = 0
     low_vital_steps = {
-        threshold: {
-            "health": 0,
-            "food": 0,
-            "drink": 0,
-            "energy": 0,
-        }
+        threshold: {"health": 0, "food": 0, "drink": 0}
         for threshold in (2, 5)
     }
+    age_steps = {label: 0 for label, _, _ in LHS_VITAL_AGE_BANDS}
+    age_quality = {label: 0.0 for label, _, _ in LHS_VITAL_AGE_BANDS}
+    age_minimum = {label: 0 for label, _, _ in LHS_VITAL_AGE_BANDS}
     terminal_vitals: dict[str, int] | None = None
 
-    for transition in record.transitions:
+    for transition_index, transition in enumerate(record.transitions):
         metrics = transition.step.metrics
         unlocked, event_counts = _transition_metrics(metrics)
         vitals = _transition_maintenance_vitals(metrics)
-        energy = _transition_energy(metrics)
         upstream_reward = _transition_upstream_reward(metrics)
-        reported_components = _transition_score_delta_components(metrics)
+        reported_components = _transition_lhs_score_delta_components(metrics)
+        reported_diagnostics = _transition_lhs_repeat_diagnostics(metrics)
         if (
             vitals is None
-            or energy is None
             or upstream_reward is None
             or reported_components is None
+            or reported_diagnostics is None
         ):
             raise ValueError(
-                "survival-development transitions require v3 scoring metrics"
+                "Crafter LHS transitions require shaped reward metrics"
             )
-        if unlocked_seen.intersection(unlocked):
-            raise ValueError("Crafter v3 achievement unlocked more than once")
-        unlocked_seen.update(unlocked)
-
-        before_totals = event_totals
-        expected_components, event_totals = transition_score_components(
+        expected_components, expected_diagnostics = state.transition(
             terminated=transition.step.terminated,
             unlocked=unlocked,
             event_counts=event_counts,
-            event_totals=before_totals,
             vitals=vitals,
         )
-        for name, expected in expected_components.items():
+        for name in LHS_COMPONENT_NAMES:
+            expected = expected_components[name]
             if not math.isclose(
                 reported_components[name],
                 expected,
                 rel_tol=0.0,
                 abs_tol=_V3_SCORE_TOLERANCE,
             ):
-                raise ValueError("Crafter v3 reported score component drifted")
+                raise ValueError("Crafter LHS reported score component drifted")
             component_values[name].append(expected)
-        expected_reward = score_delta(expected_components)
+        if reported_diagnostics != expected_diagnostics:
+            raise ValueError("Crafter LHS repeat diagnostics drifted")
+        expected_reward = lhs_score_delta(expected_components)
         if not math.isclose(
             transition.step.reward,
             expected_reward,
             rel_tol=0.0,
             abs_tol=_V3_SCORE_TOLERANCE,
         ):
-            raise ValueError("Crafter v3 Step.reward does not match its components")
+            raise ValueError(
+                "Crafter LHS Step.reward does not match its components"
+            )
         transition_rewards.append(transition.step.reward)
         upstream_rewards.append(upstream_reward)
+        unlocked_seen.update(unlocked)
 
-        for name in unlocked:
-            progress_by_achievement[name] += FIRST_UNLOCK_REWARDS[name]
-        for name in REPEAT_EVENT_WEIGHTS:
-            productivity_by_event[name] += repeat_event_credit(
-                name,
-                event_totals[name],
-            ) - repeat_event_credit(name, before_totals[name])
+        maintenance = cast(
+            dict[str, int],
+            expected_diagnostics["maintenance_credited_units"],
+        )
+        productivity = cast(
+            dict[str, int],
+            expected_diagnostics["productivity_credited_events"],
+        )
+        for name, units in maintenance.items():
+            maintenance_units[name] += units
+        for name, count in productivity.items():
+            productivity_events[name] += count
 
         if not transition.step.terminated:
             alive_vital_steps += 1
-            quality = vital_quality(vitals)
             minimum = min(vitals.values())
+            quality = minimum / 9.0
             vital_quality_sum += quality
             minimum_vital_sum += minimum
             zero_min_vital_steps += minimum == 0
-            all_vitals = {**vitals, "energy": energy}
             for threshold in low_vital_steps:
-                for name, amount in all_vitals.items():
+                for name, amount in vitals.items():
                     low_vital_steps[threshold][name] += amount <= threshold
-        if transition.step.terminated:
-            terminal_vitals = {**vitals, "energy": energy}
+            for label, start, stop in LHS_VITAL_AGE_BANDS:
+                if transition_index >= start and (
+                    stop is None or transition_index < stop
+                ):
+                    age_steps[label] += 1
+                    age_quality[label] += quality
+                    age_minimum[label] += minimum
+                    break
+        else:
+            terminal_vitals = dict(vitals)
 
-    partial_return = sum(transition_rewards)
-    if record.policy_failure is not None:
-        zeros = {name: 0 for name in ACHIEVEMENTS}
-        return _SurvivalDevelopmentEpisodeAnalysis(
-            status="policy_failed",
-            terminated=False,
-            truncated=False,
-            failure=record.policy_failure,
-            steps=record.steps,
-            effective_survival_steps=0,
-            scored_return=-float(max_episode_steps),
-            partial_return=partial_return,
-            survival_credit=0.0,
-            vital_credit=0.0,
-            progress_credit=0.0,
-            productivity_credit=0.0,
-            failure_adjustment=-float(max_episode_steps),
-            upstream_return=0.0,
-            unlocked=frozenset(),
-            event_totals=zeros,
-            progress_by_achievement={name: 0.0 for name in ACHIEVEMENTS},
-            productivity_by_event={
-                name: 0.0 for name in REPEAT_EVENT_WEIGHTS
-            },
-            alive_vital_steps=0,
-            vital_quality_sum=0.0,
-            minimum_vital_sum=0,
-            zero_min_vital_steps=0,
-            low_vital_steps={
-                threshold: {name: 0 for name in counts}
-                for threshold, counts in low_vital_steps.items()
-            },
-            terminal_vitals=None,
-        )
-
-    survival_credit = math.fsum(component_values["survival"])
-    vital_credit = math.fsum(component_values["vital"])
-    progress_credit = math.fsum(component_values["progress"])
-    productivity_credit = math.fsum(component_values["productivity"])
-    scored_return = sum(transition_rewards)
-    reconstructed = math.fsum(
-        (survival_credit, vital_credit, progress_credit, productivity_credit)
-    )
+    partial_components = {
+        name: math.fsum(component_values[name])
+        for name in LHS_COMPONENT_NAMES
+    }
+    partial_return = math.fsum(transition_rewards)
+    reconstructed_partial = math.fsum(partial_components.values())
     if not math.isclose(
-        scored_return,
-        reconstructed,
+        partial_return,
+        reconstructed_partial,
         rel_tol=0.0,
         abs_tol=1e-9,
     ):
-        raise ValueError("Crafter v3 Episode return does not reconstruct")
-    return _SurvivalDevelopmentEpisodeAnalysis(
-        status="completed",
-        terminated=_terminated(record),
-        truncated=_truncated(record),
-        failure=None,
+        raise ValueError("Crafter LHS Episode return does not reconstruct")
+    if not math.isclose(
+        record.total_reward,
+        partial_return,
+        rel_tol=0.0,
+        abs_tol=1e-9,
+    ):
+        raise ValueError("Crafter LHS Episode total reward drifted")
+
+    failed = record.policy_failure is not None
+    zero_components = {name: 0.0 for name in LHS_COMPONENT_NAMES}
+    zero_events = {name: 0 for name in ACHIEVEMENTS}
+    zero_age_bands = {
+        label: (0, 0.0, 0) for label, _, _ in LHS_VITAL_AGE_BANDS
+    }
+    return _LHSEpisodeAnalysis(
+        status="policy_failed" if failed else "completed",
+        failure=record.policy_failure,
+        terminated=False if failed else _terminated(record),
+        truncated=False if failed else _truncated(record),
         steps=record.steps,
-        effective_survival_steps=record.steps - int(_terminated(record)),
-        scored_return=scored_return,
+        effective_survival_steps=(
+            0 if failed else record.steps - int(_terminated(record))
+        ),
+        scored_return=LHS_POLICY_FAILURE_RETURN if failed else partial_return,
         partial_return=partial_return,
-        survival_credit=survival_credit,
-        vital_credit=vital_credit,
-        progress_credit=progress_credit,
-        productivity_credit=productivity_credit,
-        failure_adjustment=0.0,
-        upstream_return=sum(upstream_rewards),
-        unlocked=frozenset(unlocked_seen),
-        event_totals=event_totals,
-        progress_by_achievement=progress_by_achievement,
-        productivity_by_event=productivity_by_event,
-        alive_vital_steps=alive_vital_steps,
-        vital_quality_sum=vital_quality_sum,
-        minimum_vital_sum=minimum_vital_sum,
-        zero_min_vital_steps=zero_min_vital_steps,
-        low_vital_steps=low_vital_steps,
-        terminal_vitals=terminal_vitals,
+        components=zero_components if failed else dict(partial_components),
+        partial_components=partial_components,
+        upstream_return=math.fsum(upstream_rewards),
+        unlocked=frozenset() if failed else frozenset(unlocked_seen),
+        partial_unlocked=frozenset(unlocked_seen),
+        event_totals=zero_events if failed else dict(state.event_totals),
+        partial_event_totals=dict(state.event_totals),
+        maintenance_units=(
+            {"drink": 0, "food": 0} if failed else maintenance_units
+        ),
+        productivity_events=(
+            {name: 0 for name in LHS_PRODUCTIVITY_REPEAT_QUOTAS}
+            if failed
+            else productivity_events
+        ),
+        alive_vital_steps=0 if failed else alive_vital_steps,
+        vital_quality_sum=0.0 if failed else vital_quality_sum,
+        minimum_vital_sum=0 if failed else minimum_vital_sum,
+        zero_min_vital_steps=0 if failed else zero_min_vital_steps,
+        low_vital_steps=(
+            {
+                threshold: {name: 0 for name in counts}
+                for threshold, counts in low_vital_steps.items()
+            }
+            if failed
+            else low_vital_steps
+        ),
+        vital_age_bands=(
+            zero_age_bands
+            if failed
+            else {
+                label: (
+                    age_steps[label],
+                    age_quality[label],
+                    age_minimum[label],
+                )
+                for label, _, _ in LHS_VITAL_AGE_BANDS
+            }
+        ),
+        terminal_vitals=None if failed else terminal_vitals,
     )
 
 
-def _survival_development_profile(
+def _lhs_profile(
     records: Sequence[EpisodeRecord],
-    analyses: Sequence[_SurvivalDevelopmentEpisodeAnalysis],
-    *,
-    max_episode_steps: int,
+    analyses: Sequence[_LHSEpisodeAnalysis],
 ) -> dict[str, PolicyValue]:
     if len(records) != len(analyses) or not analyses:
-        raise ValueError("Crafter v3 analyses do not align with Episodes")
+        raise ValueError("Crafter LHS analyses do not align with Episodes")
     episodes = len(analyses)
     returns = tuple(item.scored_return for item in analyses)
-    effective_steps = tuple(item.effective_survival_steps for item in analyses)
-    score = statistics.fmean(returns)
-    return_variance = statistics.variance(returns) if episodes > 1 else 0.0
-    return_standard_deviation = math.sqrt(return_variance)
-    return_standard_error = return_standard_deviation / math.sqrt(episodes)
-    confidence_half_width = 1.96 * return_standard_error
-    mean_survival = statistics.fmean(item.survival_credit for item in analyses)
-    mean_vital = statistics.fmean(item.vital_credit for item in analyses)
-    mean_progress = statistics.fmean(item.progress_credit for item in analyses)
-    mean_productivity = statistics.fmean(
-        item.productivity_credit for item in analyses
+    survival_returns = tuple(
+        math.fsum(item.components[name] for name in LHS_SURVIVAL_COMPONENT_NAMES)
+        for item in analyses
     )
-    mean_failure = statistics.fmean(
-        item.failure_adjustment for item in analyses
+    secondary_returns = tuple(
+        math.fsum(item.components[name] for name in LHS_SECONDARY_COMPONENT_NAMES)
+        for item in analyses
     )
-    reconstructed = math.fsum(
-        (
-            mean_survival,
-            mean_vital,
-            mean_progress,
-            mean_productivity,
-            mean_failure,
-        )
+    (
+        mean_survival,
+        lower_survival,
+        mean_secondary,
+        tail_count,
+        score,
+    ) = lhs_feedback_score(survival_returns, secondary_returns)
+    ordered_indices = sorted(
+        range(episodes), key=lambda index: (survival_returns[index], index)
     )
-    reconstruction_error = score - reconstructed
+    lower_indices = ordered_indices[:tail_count]
 
+    component_aggregates: dict[str, PolicyValue] = {}
+    reconstructed_score = 0.0
+    for name in LHS_COMPONENT_NAMES:
+        mean_component = statistics.fmean(
+            item.components[name] for item in analyses
+        )
+        if name in LHS_SURVIVAL_COMPONENT_NAMES:
+            lower_component = statistics.fmean(
+                analyses[index].components[name] for index in lower_indices
+            )
+            contribution = math.fsum(
+                (
+                    LHS_FEEDBACK_SURVIVAL_MEAN_WEIGHT * mean_component,
+                    LHS_FEEDBACK_SURVIVAL_LOWER_TAIL_WEIGHT
+                    * lower_component,
+                )
+            )
+            component_aggregates[name] = {
+                "mean": mean_component,
+                "survival_lower_tail_mean": lower_component,
+                "feedback_contribution": contribution,
+            }
+        else:
+            contribution = mean_component
+            component_aggregates[name] = {
+                "mean": mean_component,
+                "feedback_contribution": contribution,
+            }
+        reconstructed_score += contribution
+
+    effective_steps = tuple(item.effective_survival_steps for item in analyses)
     success_rates: dict[str, PolicyValue] = {
         name: 100.0 * sum(name in item.unlocked for item in analyses) / episodes
         for name in ACHIEVEMENTS
@@ -1459,130 +1101,144 @@ def _survival_development_profile(
         name: sum(item.event_totals[name] for item in analyses)
         for name in ACHIEVEMENTS
     }
-    achievement_mean_credit: dict[str, PolicyValue] = {
-        name: statistics.fmean(
-            item.progress_by_achievement[name] for item in analyses
-        )
-        for name in ACHIEVEMENTS
+    maintenance_units = {
+        resource: sum(item.maintenance_units[resource] for item in analyses)
+        for resource in LHS_MAINTENANCE_RESTORE_UNIT_CAPS
     }
-    event_mean_credit: dict[str, PolicyValue] = {
-        name: statistics.fmean(
-            item.productivity_by_event[name] for item in analyses
-        )
-        for name in REPEAT_EVENT_WEIGHTS
+    productivity_events = {
+        name: sum(item.productivity_events[name] for item in analyses)
+        for name in LHS_PRODUCTIVITY_REPEAT_QUOTAS
     }
-    event_saturation_percent: dict[str, PolicyValue] = {
-        name: 100.0
-        * sum(
-            max(item.event_totals[name] - 1, 0) >= REPEAT_EVENT_CAPS[name]
-            for item in analyses
-        )
-        / episodes
-        for name in REPEAT_EVENT_WEIGHTS
-    }
+    mean_return = statistics.fmean(returns)
+    return_variance = statistics.variance(returns) if episodes > 1 else 0.0
+    return_standard_deviation = math.sqrt(return_variance)
+    return_standard_error = return_standard_deviation / math.sqrt(episodes)
+    confidence_half_width = 1.96 * return_standard_error
     survival_at_steps: dict[str, PolicyValue] = {}
-    for threshold in _SURVIVAL_THRESHOLDS:
+    for threshold in LHS_SURVIVAL_THRESHOLDS:
         count = sum(value >= threshold for value in effective_steps)
         survival_at_steps[str(threshold)] = {
             "count": count,
             "percent": 100.0 * count / episodes,
         }
-
     alive_vital_steps = sum(item.alive_vital_steps for item in analyses)
     vital_quality_sum = math.fsum(item.vital_quality_sum for item in analyses)
     minimum_vital_sum = sum(item.minimum_vital_sum for item in analyses)
-    zero_min_vital_steps = sum(
-        item.zero_min_vital_steps for item in analyses
-    )
-    low_vital_steps: dict[str, PolicyValue] = {}
-    for threshold in (2, 5):
-        low_vital_steps[str(threshold)] = {
-            name: sum(item.low_vital_steps[threshold][name] for item in analyses)
-            for name in ("health", "food", "drink", "energy")
-        }
-
-    deaths = tuple(item for item in analyses if item.terminated)
-    terminal_vital_means: dict[str, PolicyValue] = {
-        name: (
-            statistics.fmean(
-                cast(dict[str, int], item.terminal_vitals)[name]
-                for item in deaths
+    low_vital_steps: dict[str, PolicyValue] = {
+        str(threshold): {
+            name: sum(
+                item.low_vital_steps[threshold][name] for item in analyses
             )
-            if deaths
-            else None
-        )
-        for name in ("health", "food", "drink", "energy")
-    }
-    episode_summaries: list[PolicyValue] = [
-        {
-            "episode_index": index,
-            "status": item.status,
-            "terminated": item.terminated,
-            "truncated": item.truncated,
-            "failure": item.failure,
-            "steps": item.steps,
-            "effective_survival_steps": item.effective_survival_steps,
-            "return": item.scored_return,
-            "partial_return": item.partial_return,
-            "components": {
-                "survival_credit": item.survival_credit,
-                "vital_credit": item.vital_credit,
-                "progress_credit": item.progress_credit,
-                "productivity_credit": item.productivity_credit,
-                "failure_adjustment": item.failure_adjustment,
-            },
+            for name in ("health", "food", "drink")
         }
-        for index, item in enumerate(analyses)
-    ]
-    first_rewards: dict[str, PolicyValue] = {
-        name: value for name, value in FIRST_UNLOCK_REWARDS.items()
+        for threshold in (2, 5)
     }
-    repeat_weights: dict[str, PolicyValue] = {
-        name: value for name, value in REPEAT_EVENT_WEIGHTS.items()
-    }
-    repeat_caps: dict[str, PolicyValue] = {
-        name: value for name, value in REPEAT_EVENT_CAPS.items()
-    }
+    vital_quality_by_age: dict[str, PolicyValue] = {}
+    for label, start, stop in LHS_VITAL_AGE_BANDS:
+        band_steps = sum(item.vital_age_bands[label][0] for item in analyses)
+        band_quality = math.fsum(
+            item.vital_age_bands[label][1] for item in analyses
+        )
+        band_minimum = sum(
+            item.vital_age_bands[label][2] for item in analyses
+        )
+        vital_quality_by_age[label] = {
+            "start_step_inclusive": start,
+            "stop_step_exclusive": stop,
+            "alive_steps": band_steps,
+            "mean_vital_quality": (
+                band_quality / band_steps if band_steps else 0.0
+            ),
+            "mean_min_vital": (
+                band_minimum / band_steps if band_steps else 0.0
+            ),
+        }
+    deaths = tuple(item for item in analyses if item.terminated)
+    failure_counts: dict[str, int] = {}
+    for item in analyses:
+        if item.failure is not None:
+            code = _policy_failure_detail(item.failure, item.steps)["code"]
+            assert isinstance(code, str)
+            failure_counts[code] = failure_counts.get(code, 0) + 1
+
+    episode_summaries: list[PolicyValue] = []
+    for index, item in enumerate(analyses):
+        survival_return = math.fsum(
+            item.components[name] for name in LHS_SURVIVAL_COMPONENT_NAMES
+        )
+        secondary_return = math.fsum(
+            item.components[name] for name in LHS_SECONDARY_COMPONENT_NAMES
+        )
+        episode_summaries.append(
+            {
+                "episode_index": index,
+                "status": item.status,
+                "terminated": item.terminated,
+                "truncated": item.truncated,
+                "failure": (
+                    None
+                    if item.failure is None
+                    else _policy_failure_detail(item.failure, item.steps)
+                ),
+                "steps": item.steps,
+                "effective_survival_steps": item.effective_survival_steps,
+                "return": item.scored_return,
+                "survival_return": survival_return,
+                "secondary_return": secondary_return,
+                "partial_return": item.partial_return,
+                "partial_credit_discarded": item.failure is not None,
+                "components": dict(item.components),
+                "partial_components": dict(item.partial_components),
+            }
+        )
+
     return {
-        "schema": "crafter/mean-survival-development-feedback/v3",
-        "score_profile": "mean-survival-development-return-v3",
+        "schema": "crafter/long-horizon-survival-feedback/v1",
+        "score_profile": LHS_REWARD_PROFILE,
         "summary": (
-            f"Mean survival-development return {score:.3f} across "
-            f"{episodes} Episodes; canonical Crafter score "
+            f"Long-Horizon Survival Score {score:.3f} across {episodes} "
+            f"Episodes; mean survival return {mean_survival:.3f}, "
+            f"survival lower-tail mean {lower_survival:.3f}, mean secondary "
+            f"return {mean_secondary:.3f}, and canonical Crafter score "
             f"{canonical_score:.3f}%."
         ),
-        "mean_survival_development_return": score,
-        "scoring_parameters": {
-            "survival_credit_per_alive_step": SURVIVAL_CREDIT_PER_ALIVE_STEP,
-            "vital_credit_scale": VITAL_CREDIT_SCALE,
-            "vital_quality_formula": "min(health, food, drink) / 9",
-            "progress_credit_max": PROGRESS_CREDIT_MAX,
-            "productivity_credit_max": PRODUCTIVITY_CREDIT_MAX,
-        },
-        "score_components": {
-            "mean_survival_credit": mean_survival,
-            "mean_vital_credit": mean_vital,
-            "mean_progress_credit": mean_progress,
-            "mean_productivity_credit": mean_productivity,
-            "mean_failure_adjustment": mean_failure,
-            "reconstructed_mean_return": reconstructed,
-            "reconstruction_error": reconstruction_error,
+        "long_horizon_survival_score": score,
+        "feedback_aggregation": {
             "formula": (
-                "mean(survival + vital + progress + productivity + failure)"
+                "0.75 * mean(survival_return) + 0.25 * "
+                "survival_lower_tail_mean + mean(secondary_return)"
+            ),
+            "survival_mean_weight": LHS_FEEDBACK_SURVIVAL_MEAN_WEIGHT,
+            "survival_lower_tail_weight": (
+                LHS_FEEDBACK_SURVIVAL_LOWER_TAIL_WEIGHT
+            ),
+            "secondary_mean_weight": 1.0,
+            "upper_tail_weight": 0.0,
+            "tail_fraction": LHS_FEEDBACK_SURVIVAL_TAIL_FRACTION,
+            "tail_count": tail_count,
+            "tail_selection": "survival_return_only",
+            "mean_survival_return": mean_survival,
+            "survival_lower_tail_mean": lower_survival,
+            "mean_secondary_return": mean_secondary,
+            "survival_lower_tail_episode_indices": cast(
+                list[PolicyValue], lower_indices
             ),
         },
+        "score_components": {
+            "by_component": component_aggregates,
+            "reconstructed_feedback_score": reconstructed_score,
+            "reconstruction_error": score - reconstructed_score,
+        },
         "episode_returns": {
-            "mean": score,
+            "mean": mean_return,
             "variance": return_variance,
             "standard_deviation": return_standard_deviation,
             "standard_error": return_standard_error,
             "confidence_interval_95": {
-                "lower": score - confidence_half_width,
-                "upper": score + confidence_half_width,
+                "lower": mean_return - confidence_half_width,
+                "upper": mean_return + confidence_half_width,
                 "half_width": confidence_half_width,
-                "method": (
-                    "normal approximation using sample standard deviation"
-                ),
+                "method": "normal approximation for the arithmetic mean",
             },
             "median": statistics.median(returns),
             "p10": _nearest_rank_number(returns, 0.10),
@@ -1594,34 +1250,30 @@ def _survival_development_profile(
         "terminated_episodes": sum(item.terminated for item in analyses),
         "truncated_episodes": sum(item.truncated for item in analyses),
         "policy_failures": sum(item.failure is not None for item in analyses),
-        "failure_return": -float(max_episode_steps),
+        "policy_failure_return": LHS_POLICY_FAILURE_RETURN,
+        "policy_failure_counts": cast(dict[str, PolicyValue], failure_counts),
         "survival_steps": {
             "mean": statistics.fmean(effective_steps),
             "median": statistics.median(effective_steps),
             "p10": _nearest_rank(effective_steps, 0.10),
+            "p25": _nearest_rank(effective_steps, 0.25),
             "p90": _nearest_rank(effective_steps, 0.90),
             "min": min(effective_steps),
             "max": max(effective_steps),
         },
         "survival_at_steps": survival_at_steps,
         "vital_quality": {
-            "mean": (
-                vital_quality_sum / alive_vital_steps
-                if alive_vital_steps
-                else 0.0
-            ),
+            "mean": vital_quality_sum / alive_vital_steps if alive_vital_steps else 0.0,
             "mean_min_vital": (
                 minimum_vital_sum / alive_vital_steps
                 if alive_vital_steps
                 else 0.0
             ),
-            "zero_min_vital_steps": zero_min_vital_steps,
-            "zero_min_vital_step_fraction": (
-                zero_min_vital_steps / alive_vital_steps
-                if alive_vital_steps
-                else 0.0
+            "zero_min_vital_steps": sum(
+                item.zero_min_vital_steps for item in analyses
             ),
             "steps_at_or_below": low_vital_steps,
+            "by_episode_age": vital_quality_by_age,
             "energy_scored": False,
         },
         "terminal_profile": {
@@ -1639,58 +1291,64 @@ def _survival_development_profile(
                 and cast(dict[str, int], item.terminal_vitals)["drink"] > 0
                 for item in deaths
             ),
-            "terminal_vital_means": terminal_vital_means,
         },
-        "health_change_diagnostics": _health_change_diagnostics(records),
-        "progress": {
-            "maximum_credit_per_episode": PROGRESS_CREDIT_MAX,
-            "absolute_reward_sum": int(PROGRESS_CREDIT_MAX),
-            "achievement_absolute_rewards": first_rewards,
+        "first_unlock": {
+            "credit_formula": "0.10 * log2(1 + raw_weight)",
+            "base_credit": LHS_FIRST_UNLOCK_BASE_CREDIT,
+            "maximum_credit_per_episode": LHS_FIRST_UNLOCK_CREDIT_MAX,
+            "credits": dict(LHS_FIRST_UNLOCK_CREDITS),
             "achievement_success_percent": success_rates,
-            "achievement_mean_credit": achievement_mean_credit,
         },
-        "productivity": {
-            "maximum_credit_per_episode": PRODUCTIVITY_CREDIT_MAX,
-            "weight_sum": int(sum(REPEAT_EVENT_WEIGHTS.values())),
+        "maintenance_repeat": {
+            "window_steps": LHS_REPEAT_WINDOW_STEPS,
+            "window_credit": LHS_MAINTENANCE_WINDOW_CREDIT,
+            "credited_restore_units": cast(
+                dict[str, PolicyValue], maintenance_units
+            ),
+            "credit_per_restore_unit": dict(
+                LHS_MAINTENANCE_UNIT_CREDITS
+            ),
             "repeats_only": True,
-            "event_weights": repeat_weights,
-            "event_caps": repeat_caps,
-            "event_counts": {
-                name: event_totals[name] for name in REPEAT_EVENT_WEIGHTS
-            },
-            "event_mean_credit": event_mean_credit,
-            "event_saturation_percent": event_saturation_percent,
+        },
+        "productivity_repeat": {
+            "window_steps": LHS_REPEAT_WINDOW_STEPS,
+            "fraction_of_first_unlock_credit": (
+                LHS_PRODUCTIVITY_REPEAT_FRACTION
+            ),
+            "credited_event_quotas": dict(
+                LHS_PRODUCTIVITY_REPEAT_QUOTAS
+            ),
+            "credited_events": cast(
+                dict[str, PolicyValue], productivity_events
+            ),
+            "repeats_only": True,
         },
         "canonical_comparison": {
             "crafter_score_percent": canonical_score,
             "mean_upstream_return": statistics.fmean(
                 item.upstream_return for item in analyses
             ),
+            "achievement_event_counts": cast(
+                dict[str, PolicyValue], event_totals
+            ),
         },
-        "world_development_diagnostics": {
-            "cultivation": {
-                "plants_placed": event_totals["place_plant"],
-                "ripe_plant_harvests": event_totals["eat_plant"],
-            },
-            "facilities": {
-                "tables_placed": event_totals["place_table"],
-                "furnaces_placed": event_totals["place_furnace"],
-                "dependent_tools_made": sum(
-                    event_totals[name]
-                    for name in ACHIEVEMENTS
-                    if name.startswith("make_")
-                ),
-            },
-            "construction": {
-                "stone_blocks_placed": event_totals["place_stone"],
-                "enclosure_geometry_verified": False,
-            },
-            "animal_breeding_supported": False,
-            "scored_beyond_published_event_components": False,
-        },
+        "health_change_diagnostics": _health_change_diagnostics(records),
         "episode_score_summaries": episode_summaries,
         "action_diagnostics": _action_diagnostics(records),
         "detailed_feedback": {},
+    }
+
+
+def _policy_failure_detail(failure: str, steps: int) -> dict[str, PolicyValue]:
+    if type(failure) is not str or not failure:
+        raise ValueError("Crafter Policy failure is invalid")
+    code = failure if failure in {"invalid_action", "timeout"} else "policy_error"
+    message = failure.splitlines()[0][:512]
+    return {
+        "code": code,
+        "message": message,
+        "step_index": steps,
+        "last_valid_observation_index": steps,
     }
 
 
@@ -1927,27 +1585,27 @@ def _complete_feedback_artifacts(
     failure_return: float | None = None,
     detailed_artifacts: bool = True,
     include_mp4: bool = False,
+    observation_profile: ObservationProfile = "rgb",
 ) -> tuple[tuple[Artifact, ...], dict[str, PolicyValue]]:
-    if score_profile not in {
-        "upstream",
-        "survival-development-v3",
-    }:
+    if score_profile not in {LHS_REWARD_PROFILE, "upstream"}:
         raise ValueError("Crafter Artifact score profile is invalid")
-    if (
-        score_profile == "survival-development-v3"
-        and failure_return is None
-    ):
-        raise ValueError("Crafter v3 Artifacts require a failure return")
+    if score_profile == LHS_REWARD_PROFILE and failure_return is None:
+        raise ValueError("Crafter shaped Artifacts require a failure return")
     if type(detailed_artifacts) is not bool:
         raise TypeError("detailed_artifacts must be bool")
     if type(include_mp4) is not bool:
         raise TypeError("include_mp4 must be bool")
+    if observation_profile not in {"rgb", "local-symbolic-v1"}:
+        raise ValueError("Crafter Artifact observation profile is invalid")
+    if observation_profile == "local-symbolic-v1" and include_mp4:
+        raise ValueError("Crafter symbolic Artifacts do not support MP4")
     if not detailed_artifacts:
         return (), _aggregate_only_artifact_summary(
             records,
             score_profile=score_profile,
             reason="split_disables_detailed_artifacts",
             include_mp4=include_mp4,
+            observation_profile=observation_profile,
         )
     if len(records) > _DETAILED_FEEDBACK_MAX_EPISODES:
         return (), _aggregate_only_artifact_summary(
@@ -1955,6 +1613,7 @@ def _complete_feedback_artifacts(
             score_profile=score_profile,
             reason="episode_count_exceeds_detailed_artifact_limit",
             include_mp4=include_mp4,
+            observation_profile=observation_profile,
         )
     artifacts: list[Artifact] = []
     trajectory_entries: list[dict[str, object]] = []
@@ -1970,6 +1629,7 @@ def _complete_feedback_artifacts(
             episode_index=episode_index,
             score_profile=score_profile,
             failure_return=failure_return,
+            observation_profile=observation_profile,
         )
         artifacts.append(trajectory)
         trajectory_entries.append(
@@ -1983,6 +1643,7 @@ def _complete_feedback_artifacts(
         episode_observations, episode_observation_entries = _observation_artifacts(
             record,
             episode_index=episode_index,
+            observation_profile=observation_profile,
         )
         artifacts.extend(episode_observations)
         observation_entries.extend(episode_observation_entries)
@@ -2015,37 +1676,19 @@ def _complete_feedback_artifacts(
         for artifact in artifacts
         if artifact.media_type == "video/mp4"
     )
-    manifest = {
-        "schema": "crafter/complete-feedback-manifest/v6",
+    manifest: dict[str, object] = {
+        "schema": (
+            "crafter/local-symbolic-feedback-manifest/v1"
+            if observation_profile == "local-symbolic-v1"
+            else (
+                "crafter/complete-feedback-manifest/v8"
+                if score_profile == LHS_REWARD_PROFILE
+                else "crafter/complete-feedback-manifest/v6"
+            )
+        ),
         "complete": True,
         "score_profile": score_profile,
-        "source_observation": {
-            "color_space": "RGB",
-            "dtype": "uint8",
-            "shape": list(_OBSERVATION_SHAPE),
-            "layout": "HWC",
-        },
-        "visual_evidence": {
-            "format": "compressed NumPy NPZ",
-            "arrays": {
-                "observations": "uint8 [frame_count, 64, 64, 3]",
-                "observation_indices": "uint32 [frame_count]",
-            },
-            "frame_sampling": "none",
-            "pixel_exact": True,
-            "resizing": "none",
-            "mp4_replays": {
-                "enabled": include_mp4,
-                "format": "H.264 MP4",
-                "frames_per_second": _MP4_REPLAY_FPS,
-                "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
-                "target_bitrate": _MP4_REPLAY_BITRATE,
-                "frame_sampling": "none",
-                "pixel_exact": False,
-                "audio": False,
-                "role": "derived viewing aid; NPZ remains authoritative",
-            },
-        },
+        "observation_profile": observation_profile,
         "alignment": (
             "observation[t] -> action[t] -> observation[t + 1]"
         ),
@@ -2069,10 +1712,81 @@ def _complete_feedback_artifacts(
             ),
         },
     }
-    if score_profile == "survival-development-v3":
+    if observation_profile == "rgb":
+        manifest.update(
+            {
+                "source_observation": {
+                    "color_space": "RGB",
+                    "dtype": "uint8",
+                    "shape": list(_OBSERVATION_SHAPE),
+                    "layout": "HWC",
+                },
+                "visual_evidence": {
+                    "format": "compressed NumPy NPZ",
+                    "arrays": {
+                        "observations": "uint8 [frame_count, 64, 64, 3]",
+                        "observation_indices": "uint32 [frame_count]",
+                    },
+                    "frame_sampling": "none",
+                    "pixel_exact": True,
+                    "resizing": "none",
+                    "mp4_replays": {
+                        "enabled": include_mp4,
+                        "format": "H.264 MP4",
+                        "frames_per_second": _MP4_REPLAY_FPS,
+                        "frame_size": [_MP4_REPLAY_SIZE, _MP4_REPLAY_SIZE],
+                        "target_bitrate": _MP4_REPLAY_BITRATE,
+                        "frame_sampling": "none",
+                        "pixel_exact": False,
+                        "audio": False,
+                        "role": "derived viewing aid; NPZ remains authoritative",
+                    },
+                },
+            }
+        )
+    else:
+        manifest.update(
+            {
+                "source_observation": {
+                    "type": "mapping",
+                    "spatial_shape": list(SYMBOLIC_VIEW_SHAPE),
+                    "player_center": list(SYMBOLIC_PLAYER_CENTER),
+                },
+                "symbolic_evidence": {
+                    "format": "compressed NumPy NPZ",
+                    "arrays": {
+                        "terrain": "uint8 [observation, 7, 9]",
+                        "entities": "uint8 [observation, 7, 9]",
+                        "inventory": "uint8 [observation, 16]",
+                        "facing": "uint8 [observation]",
+                        "sleeping": "bool [observation]",
+                        "daylight": "float64 [observation]",
+                        "observation_indices": "uint32 [observation]",
+                    },
+                    "inventory_order": list(SYMBOLIC_INVENTORY_KEYS),
+                    "facing_ids": {
+                        str(index): name
+                        for index, name in enumerate(SYMBOLIC_FACING_NAMES)
+                    },
+                    "lossless": True,
+                    "mp4_replays": {"enabled": False, "supported": False},
+                },
+            }
+        )
+    if score_profile == LHS_REWARD_PROFILE:
         manifest["reward_semantics"] = {
-            "reward": "survival-development-v3 shaped score delta",
-            "upstream_reward": "pinned Crafter 1.8.3 reward",
+            "reward": (
+                "LHS alive-survival + vital-survival + compressed "
+                "first-unlock + cadence-bounded maintenance-repeat + "
+                "cadence-bounded productivity-repeat"
+            ),
+            "episode_return": "sum(reward); Policy failure is formally zero",
+            "feedback": (
+                "survival-only lower tail plus mean secondary return; "
+                "no upper-tail bonus"
+            ),
+            "upstream_reward": "pinned Crafter 1.8.3 reward; diagnostic only",
+            "energy_scored": False,
         }
     artifacts.append(
         Artifact(
@@ -2090,14 +1804,31 @@ def _complete_feedback_artifacts(
             ).encode("utf-8", errors="strict"),
         )
     )
+    evidence_summary = (
+        "full-frame-sequence-lossless-npz"
+        if observation_profile == "rgb"
+        else "complete-local-symbolic-sequence-lossless-npz"
+    )
     return tuple(artifacts), {
-        "schema": "crafter/complete-feedback-summary/v5",
+        "schema": (
+            "crafter/local-symbolic-feedback-summary/v1"
+            if observation_profile == "local-symbolic-v1"
+            else (
+                "crafter/complete-feedback-summary/v7"
+                if score_profile == LHS_REWARD_PROFILE
+                else "crafter/complete-feedback-summary/v5"
+            )
+        ),
         "complete": True,
         "score_profile": score_profile,
+        "observation_profile": observation_profile,
         "episodes": len(records),
         "transitions": total_transitions,
         "observations": total_observations,
-        "visual_evidence": "full-frame-sequence-lossless-npz",
+        "observation_evidence": evidence_summary,
+        "visual_evidence": (
+            evidence_summary if observation_profile == "rgb" else "none"
+        ),
         "mp4_replays_enabled": include_mp4,
         "frame_sampling": "none",
         "pixel_exact": True,
@@ -2117,11 +1848,21 @@ def _aggregate_only_artifact_summary(
     score_profile: str,
     reason: str,
     include_mp4: bool,
+    observation_profile: ObservationProfile,
 ) -> dict[str, PolicyValue]:
     return {
-        "schema": "crafter/complete-feedback-summary/v5",
+        "schema": (
+            "crafter/local-symbolic-feedback-summary/v1"
+            if observation_profile == "local-symbolic-v1"
+            else (
+                "crafter/complete-feedback-summary/v7"
+                if score_profile == LHS_REWARD_PROFILE
+                else "crafter/complete-feedback-summary/v5"
+            )
+        ),
         "complete": False,
         "score_profile": score_profile,
+        "observation_profile": observation_profile,
         "detail_scope": "aggregate-only",
         "reason": reason,
         "detailed_artifact_episode_limit": (
@@ -2147,6 +1888,7 @@ def _trajectory_artifact(
     episode_index: int,
     score_profile: str = "upstream",
     failure_return: float | None = None,
+    observation_profile: ObservationProfile = "rgb",
 ) -> Artifact:
     output = io.BytesIO()
     with gzip.GzipFile(
@@ -2170,21 +1912,33 @@ def _trajectory_artifact(
             "initial_observation_index": 0,
             "final_observation_index": record.steps,
         }
-        if score_profile == "survival-development-v3":
+        if observation_profile == "local-symbolic-v1":
+            episode_header["observation_profile"] = observation_profile
+        if score_profile == LHS_REWARD_PROFILE:
             if failure_return is None:
-                raise ValueError("Crafter v3 trajectory requires failure return")
-            scored_return = (
-                record.total_reward
-                if record.policy_failure is None
-                else failure_return
-            )
+                raise ValueError(
+                    "Crafter LHS trajectory requires failure return"
+                )
+            failed = record.policy_failure is not None
+            scored_return = failure_return if failed else record.total_reward
             episode_header.update(
                 {
-                    "scored": record.policy_failure is None,
+                    "scored": not failed,
+                    "valid_episode": not failed,
+                    "included_in_feedback": True,
                     "partial_return": record.total_reward,
                     "scored_return": scored_return,
                     "return": scored_return,
-                    "reward_profile": "survival-development-v3",
+                    "partial_credit_discarded": failed,
+                    "reward_profile": LHS_REWARD_PROFILE,
+                    "failure": (
+                        None
+                        if record.policy_failure is None
+                        else _policy_failure_detail(
+                            record.policy_failure,
+                            record.steps,
+                        )
+                    ),
                 }
             )
         stream.write(_json_line(episode_header))
@@ -2211,19 +1965,34 @@ def _trajectory_artifact(
                 "terminated": transition.step.terminated,
                 "truncated": transition.step.truncated,
             }
-            if score_profile == "survival-development-v3":
+            if score_profile == LHS_REWARD_PROFILE:
                 upstream_reward = _transition_upstream_reward(
                     transition.step.metrics
                 )
-                components = _transition_score_delta_components(
+                components = _transition_lhs_score_delta_components(
                     transition.step.metrics
                 )
-                if upstream_reward is None or components is None:
-                    raise ValueError("Crafter v3 trajectory metrics are incomplete")
+                diagnostics = _transition_lhs_repeat_diagnostics(
+                    transition.step.metrics
+                )
+                vitals = _transition_maintenance_vitals(
+                    transition.step.metrics
+                )
+                if (
+                    upstream_reward is None
+                    or components is None
+                    or diagnostics is None
+                    or vitals is None
+                ):
+                    raise ValueError(
+                        "Crafter LHS trajectory metrics are incomplete"
+                    )
                 transition_line.update(
                     {
                         "upstream_reward": upstream_reward,
-                        "score_delta_components": components,
+                        "maintenance_vitals": vitals,
+                        "lhs_score_delta_components": components,
+                        "lhs_repeat_diagnostics": diagnostics,
                     }
                 )
             stream.write(_json_line(transition_line))
@@ -2242,6 +2011,7 @@ def _observation_artifacts(
     record: EpisodeRecord,
     *,
     episode_index: int,
+    observation_profile: ObservationProfile = "rgb",
 ) -> tuple[list[Artifact], list[dict[str, object]]]:
     observations = _observations(record)
     artifacts: list[Artifact] = []
@@ -2251,13 +2021,27 @@ def _observation_artifacts(
     ):
         stop = min(start + _OBSERVATION_CHUNK_FRAMES, len(observations))
         output = io.BytesIO()
-        np.savez_compressed(
-            output,
-            observations=np.stack(
-                tuple(_observation_array(item) for item in observations[start:stop])
-            ),
-            observation_indices=np.arange(start, stop, dtype=np.uint32),
-        )
+        selected = observations[start:stop]
+        if observation_profile == "rgb":
+            np.savez_compressed(
+                output,
+                observations=np.stack(
+                    tuple(_observation_array(item) for item in selected)
+                ),
+                observation_indices=np.arange(start, stop, dtype=np.uint32),
+            )
+        else:
+            decoded = tuple(symbolic_observation_arrays(item) for item in selected)
+            np.savez_compressed(
+                output,
+                terrain=np.stack(tuple(item[0] for item in decoded)),
+                entities=np.stack(tuple(item[1] for item in decoded)),
+                inventory=np.stack(tuple(item[2] for item in decoded)),
+                facing=np.asarray(tuple(item[3] for item in decoded), dtype=np.uint8),
+                sleeping=np.asarray(tuple(item[4] for item in decoded), dtype=np.bool_),
+                daylight=np.asarray(tuple(item[5] for item in decoded), dtype=np.float64),
+                observation_indices=np.arange(start, stop, dtype=np.uint32),
+            )
         name = (
             f"observations/episode-{episode_index:06d}/"
             f"observations-{chunk_index:06d}.npz"
@@ -2399,6 +2183,5 @@ def _json_line(document: dict[str, object]) -> bytes:
 
 __all__ = [
     "CrafterBenchmark",
-    "CrafterLongHorizonBenchmark",
-    "CrafterSurvivalDevelopmentBenchmark",
+    "CrafterLongHorizonSurvivalBenchmark",
 ]

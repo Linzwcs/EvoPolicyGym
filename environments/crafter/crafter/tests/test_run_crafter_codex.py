@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import runpy
 import unittest
 from pathlib import Path
@@ -21,55 +20,10 @@ class CrafterCodexLauncherTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.namespace = runpy.run_path(str(_SCRIPT))
 
-    def test_optional_positive_integer_parsers(self) -> None:
-        for name in (
-            "_max_train_index_uses",
-            "_recommended_episodes_per_submission",
-            "_minimum_candidate_evidence",
-        ):
-            parse = cast(Any, self.namespace[name])
-            with self.subTest(parser=name):
-                self.assertEqual(parse("1"), 1)
-                self.assertEqual(parse("3"), 3)
-                self.assertIsNone(parse("none"))
-                self.assertIsNone(parse("NONE"))
-                for invalid in ("0", "-1", "invalid"):
-                    with self.subTest(invalid=invalid):
-                        with self.assertRaises(argparse.ArgumentTypeError):
-                            parse(invalid)
-
-    def test_default_limit_is_two_and_can_be_disabled(self) -> None:
+    def test_parser_retains_submission_limit_and_feedback_options(self) -> None:
         parser = cast(Any, self.namespace["_parser"])()
         default = parser.parse_args(
             ["--model", "gpt-test", "--record-to", "runs/test"]
-        )
-        disabled = parser.parse_args(
-            [
-                "--model",
-                "gpt-test",
-                "--record-to",
-                "runs/test",
-                "--max-train-index-uses",
-                "none",
-                "--recommended-episodes-per-submission",
-                "none",
-                "--minimum-candidate-evidence",
-                "none",
-            ]
-        )
-        changed = parser.parse_args(
-            [
-                "--model",
-                "gpt-test",
-                "--record-to",
-                "runs/test",
-                "--max-train-index-uses",
-                "4",
-                "--recommended-episodes-per-submission",
-                "24",
-                "--minimum-candidate-evidence",
-                "48",
-            ]
         )
         mp4_enabled = parser.parse_args(
             [
@@ -80,48 +34,33 @@ class CrafterCodexLauncherTests(unittest.TestCase):
                 "--include-mp4-feedback",
             ]
         )
-        self.assertEqual(default.max_train_index_uses, 2)
-        self.assertEqual(default.max_episodes_per_submission, 64)
-        self.assertEqual(default.recommended_episodes_per_submission, 32)
-        self.assertEqual(default.minimum_candidate_evidence, 64)
-        self.assertIs(default.include_mp4_feedback, False)
-        self.assertIsNone(disabled.max_train_index_uses)
-        self.assertIsNone(disabled.recommended_episodes_per_submission)
-        self.assertIsNone(disabled.minimum_candidate_evidence)
-        self.assertEqual(changed.max_train_index_uses, 4)
-        self.assertEqual(changed.recommended_episodes_per_submission, 24)
-        self.assertEqual(changed.minimum_candidate_evidence, 48)
-        self.assertIs(mp4_enabled.include_mp4_feedback, True)
-
-    def test_launcher_rejects_inconsistent_evidence_guidance(self) -> None:
-        main = cast(Any, self.namespace["main"])
-        cases = (
-            (
-                "--max-episodes-per-submission",
-                "16",
-                "--recommended-episodes-per-submission",
-                "32",
-            ),
-            (
-                "--episode-budget",
-                "32",
-                "--minimum-candidate-evidence",
-                "64",
-            ),
+        lhs = parser.parse_args(
+            [
+                "--model",
+                "gpt-test",
+                "--record-to",
+                "runs/test",
+                "--profile",
+                "lhs",
+            ]
         )
-        for extra in cases:
-            with self.subTest(extra=extra):
-                with self.assertRaises(SystemExit) as raised:
-                    main(
-                        [
-                            "--model",
-                            "gpt-test",
-                            "--record-to",
-                            "runs/test",
-                            *extra,
-                        ]
-                    )
-                self.assertEqual(raised.exception.code, 2)
+        symbolic = parser.parse_args(
+            [
+                "--model",
+                "gpt-test",
+                "--record-to",
+                "runs/test",
+                "--observation-profile",
+                "local-symbolic-v1",
+            ]
+        )
+        self.assertEqual(default.max_episodes_per_submission, 64)
+        self.assertEqual(default.profile, "lhs")
+        self.assertEqual(default.observation_profile, "rgb")
+        self.assertIs(default.include_mp4_feedback, False)
+        self.assertIs(mp4_enabled.include_mp4_feedback, True)
+        self.assertEqual(lhs.profile, "lhs")
+        self.assertEqual(symbolic.observation_profile, "local-symbolic-v1")
 
     def test_launcher_rejects_overlong_session_socket_path(self) -> None:
         main = cast(Any, self.namespace["main"])
@@ -138,15 +77,12 @@ class CrafterCodexLauncherTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.code, 2)
 
-    def test_limit_retains_host_task_and_adds_recorded_instruction(self) -> None:
+    def test_launcher_adds_player_guide_and_no_reuse_instructions(self) -> None:
         agent_type = cast(Any, self.namespace["_CrafterCodex"])
         agent = agent_type(
             model="gpt-test",
             reasoning_effort="high",
             executable="codex-test",
-            recommended_episodes_per_submission=32,
-            minimum_candidate_evidence=64,
-            max_train_index_uses=2,
         )
         task = AgentTask(instructions="unaltered Host task")
         with patch(
@@ -158,72 +94,80 @@ class CrafterCodexLauncherTests(unittest.TestCase):
         self.assertEqual(invocation.instructions, task.instructions)
         self.assertEqual(invocation.command[-1], task.instructions)
         self.assertEqual(invocation.recorded_command[-1], "@agent/instructions.md")
-        self.assertEqual(
-            invocation.identity["recommended_episodes_per_submission"], "32"
-        )
-        self.assertEqual(invocation.identity["minimum_candidate_evidence"], "64")
-        self.assertEqual(invocation.identity["max_train_index_uses"], "2")
+        self.assertEqual(invocation.identity["max_train_index_uses"], "1")
         rendered = "\n".join(invocation.recorded_command)
         self.assertIn("developer_instructions=", rendered)
-        self.assertIn("Run analysis scripts with `python` directly", rendered)
-        self.assertIn("Do not prefix", rendered)
-        self.assertIn("bare `uv run`", rendered)
-        self.assertIn("about 32 Episodes per submission", rendered)
-        self.assertIn("at least 64 total training Episode results", rendered)
-        self.assertIn("exact same submitted Program revision", rendered)
-        self.assertIn("may finish early", rendered)
-        self.assertIn("at most 2 times", rendered)
-        self.assertIn("at most 1 retry", rendered)
-        self.assertIn("does not alter the Host's finish budget", rendered)
-
-    def test_none_disables_only_the_index_limit_instruction(self) -> None:
-        agent_type = cast(Any, self.namespace["_CrafterCodex"])
-        agent = agent_type(
-            model="gpt-test",
-            reasoning_effort="high",
-            executable="codex-test",
-            recommended_episodes_per_submission=32,
-            minimum_candidate_evidence=64,
-            max_train_index_uses=None,
+        self.assertIn(
+            "Before the first submission, read program/PLAYER_GUIDE.md in full",
+            rendered,
         )
-        with patch(
-            "evopolicygym.agents.codex.resolve_executable",
-            return_value="/bin/codex-test",
-        ):
-            invocation = agent.build_invocation(
-                AgentTask(instructions="unaltered Host task")
-            )
-
-        self.assertNotIn("max_train_index_uses", invocation.identity)
-        self.assertEqual(invocation.identity["agent_python_tools"], "numpy,pillow")
-        rendered = "\n".join(invocation.recorded_command)
-        self.assertIn("developer_instructions=", rendered)
-        self.assertIn("Run analysis scripts with `python` directly", rendered)
-        self.assertIn("Training batch evidence guidance", rendered)
-        self.assertNotIn("Training Episode diversity", rendered)
-
-    def test_none_disables_batch_evidence_instruction(self) -> None:
-        agent_type = cast(Any, self.namespace["_CrafterCodex"])
-        agent = agent_type(
-            model="gpt-test",
-            reasoning_effort="high",
-            executable="codex-test",
-            recommended_episodes_per_submission=None,
-            minimum_candidate_evidence=None,
-            max_train_index_uses=None,
+        self.assertIn(
+            "authoritative gameplay-mechanics reference", rendered
         )
-        with patch(
-            "evopolicygym.agents.codex.resolve_executable",
-            return_value="/bin/codex-test",
-        ):
-            invocation = agent.build_invocation(
-                AgentTask(instructions="unaltered Host task")
-            )
-
-        self.assertNotIn("recommended_episodes_per_submission", invocation.identity)
-        self.assertNotIn("minimum_candidate_evidence", invocation.identity)
-        rendered = "\n".join(invocation.recorded_command)
+        self.assertIn(
+            "Benchmark public specification as the authoritative evaluation",
+            rendered,
+        )
+        self.assertIn(
+            "not a prescribed Policy or fixed Action plan", rendered
+        )
+        self.assertIn(
+            "Use `python` directly for Crafter feedback analysis", rendered
+        )
+        self.assertIn("NumPy and Pillow", rendered)
+        self.assertIn("Do not invoke", rendered)
+        self.assertIn("`uv run`", rendered)
+        self.assertIn("may be selected at most once", rendered)
+        self.assertIn(
+            "Never select an index that has already been evaluated", rendered
+        )
+        self.assertIn("Every new", rendered)
+        self.assertIn("submission must use previously unseen indices", rendered)
+        self.assertIn("This requirement does not", rendered)
+        self.assertIn("prescribe a submission size", rendered)
+        self.assertIn("or require full budget consumption", rendered)
         self.assertNotIn("Training batch evidence guidance", rendered)
+        self.assertNotIn("about 32 Episodes", rendered)
+        self.assertNotIn("at least 64 total", rendered)
+        self.assertNotIn("matched-index", rendered)
+        self.assertNotIn("Host statement that index reuse", rendered)
+
+    def test_symbolic_launcher_selects_matching_program_skill_and_instruction(
+        self,
+    ) -> None:
+        starting_program = cast(Any, self.namespace["_starting_program"])
+        skill_directory = cast(Any, self.namespace["_benchmark_skill_directory"])
+        symbolic_program = starting_program("local-symbolic-v1")
+        self.assertIn("policy.py", symbolic_program.files)
+        self.assertIn(
+            b"local-symbolic Crafter starting Policy",
+            symbolic_program.read_bytes("policy.py"),
+        )
+        self.assertEqual(
+            skill_directory("local-symbolic-v1").name,
+            "optimize-crafter-local-symbolic-policy",
+        )
+
+        agent_type = cast(Any, self.namespace["_CrafterCodex"])
+        agent = agent_type(
+            model="gpt-test",
+            reasoning_effort="high",
+            executable="codex-test",
+            observation_profile="local-symbolic-v1",
+        )
+        task = AgentTask(instructions="unaltered Host task")
+        with patch(
+            "evopolicygym.agents.codex.resolve_executable",
+            return_value="/bin/codex-test",
+        ):
+            invocation = agent.build_invocation(task)
+        rendered = "\n".join(invocation.recorded_command)
+        self.assertEqual(
+            invocation.identity["crafter_observation_profile"],
+            "local-symbolic-v1",
+        )
+        self.assertIn("lossless local-symbolic NPZ", rendered)
+        self.assertNotIn("producing images", rendered)
 
 
 if __name__ == "__main__":

@@ -32,4 +32,28 @@ def baseline_program() -> Program:
             return Program.from_directory(directory)
 
 
-__all__ = ["baseline_program"]
+def local_symbolic_baseline_program() -> Program:
+    """Return the weak baseline matching local-symbolic-v1 observations."""
+
+    package = files("crafter_benchmarks")
+    policy_resource = package.joinpath(
+        "programs",
+        "local_symbolic_baseline",
+    )
+    guide_resource = package.joinpath(
+        "background",
+        "PLAYER_GUIDE.md",
+    )
+    with as_file(policy_resource) as policy_directory:
+        with tempfile.TemporaryDirectory(
+            prefix="crafter-local-symbolic-baseline-"
+        ) as temporary:
+            directory = Path(temporary) / "program"
+            shutil.copytree(policy_directory, directory)
+            (directory / "PLAYER_GUIDE.md").write_bytes(
+                guide_resource.read_bytes()
+            )
+            return Program.from_directory(directory)
+
+
+__all__ = ["baseline_program", "local_symbolic_baseline_program"]

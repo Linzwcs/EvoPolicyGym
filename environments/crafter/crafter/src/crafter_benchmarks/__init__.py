@@ -1,26 +1,20 @@
-"""Public canonical and survival-development Crafter Benchmark profiles."""
+"""Public canonical and default long-horizon Crafter Benchmarks."""
 
-from .baseline import baseline_program
+from .baseline import baseline_program, local_symbolic_baseline_program
 from .benchmark import (
     CrafterBenchmark,
-    CrafterCanonicalStrongSurvivalRepeatBenchmark,
-    CrafterCanonicalSurvivalBenchmark,
-    CrafterCanonicalSurvivalRepeatBenchmark,
-    CrafterLongHorizonBenchmark,
-    CrafterSurvivalDevelopmentBenchmark,
+    CrafterLongHorizonSurvivalBenchmark,
 )
-from .config import CrafterConfig
+from .config import CrafterConfig, ObservationProfile
 from .constants import ACHIEVEMENTS, ACTIONS
 
 __all__ = [
     "ACHIEVEMENTS",
     "ACTIONS",
     "CrafterBenchmark",
-    "CrafterCanonicalStrongSurvivalRepeatBenchmark",
-    "CrafterCanonicalSurvivalBenchmark",
-    "CrafterCanonicalSurvivalRepeatBenchmark",
     "CrafterConfig",
-    "CrafterLongHorizonBenchmark",
-    "CrafterSurvivalDevelopmentBenchmark",
+    "CrafterLongHorizonSurvivalBenchmark",
+    "ObservationProfile",
     "baseline_program",
+    "local_symbolic_baseline_program",
 ]

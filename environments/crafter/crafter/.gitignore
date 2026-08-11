@@ -3,3 +3,9 @@
 
 # Local repeatability audit generated from retained Runs.
 /docs/evaluation-repeatability-protocol.md
+
+# Historical metric studies and local experiment reports are not part of the
+# published Environment contract.
+/docs/long-horizon-feedback-v3-design.md
+/docs/rgb-symbolic-lhs-ablation-2026-08.md
+/docs/survival-development-s2-design.md

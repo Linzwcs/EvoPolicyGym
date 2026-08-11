@@ -7,9 +7,13 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
+import crafter.constants
+import crafter.engine
+import crafter.objects
 import imageio_ffmpeg
 import numpy
 from evopolicygym import EvaluationConfig, EvaluationResult, Program, evaluate
@@ -30,13 +34,23 @@ from crafter_benchmarks import (
     ACHIEVEMENTS,
     ACTIONS,
     CrafterBenchmark,
-    CrafterCanonicalStrongSurvivalRepeatBenchmark,
-    CrafterCanonicalSurvivalBenchmark,
-    CrafterCanonicalSurvivalRepeatBenchmark,
     CrafterConfig,
-    CrafterLongHorizonBenchmark,
-    CrafterSurvivalDevelopmentBenchmark,
+    CrafterLongHorizonSurvivalBenchmark,
     baseline_program,
+    local_symbolic_baseline_program,
+)
+from crafter_benchmarks.constants import (
+    SYMBOLIC_INVENTORY_KEYS,
+    SYMBOLIC_PLAYER_CENTER,
+)
+from crafter_benchmarks.lhs_scoring import (
+    LHS_ALIVE_ALPHA,
+    LHS_FIRST_UNLOCK_CREDITS,
+    LHS_PRODUCTIVITY_REPEAT_FRACTION,
+    LHS_PRODUCTIVITY_REPEAT_QUOTAS,
+    LHS_VITAL_ALPHA,
+    LHSScoringState,
+    lhs_feedback_score,
 )
 from crafter_benchmarks.programs.baseline.policy import (
     ActionProposal,
@@ -49,19 +63,31 @@ from crafter_benchmarks.programs.baseline.policy import (
     VisualTranslationModule,
     WorldMemoryModule,
 )
-from crafter_benchmarks.scoring import (
-    FIRST_UNLOCK_REWARDS,
-    PRODUCTIVITY_CREDIT_MAX,
-    PROGRESS_CREDIT_MAX,
-    REPEAT_EVENT_CAPS,
-    REPEAT_EVENT_WEIGHTS,
+from crafter_benchmarks.programs.local_symbolic_baseline.policy import (
+    LocalSymbolicBaselinePolicy,
 )
+from crafter_benchmarks.symbolic import local_symbolic_observation
 
 _ZERO_OBSERVATION = TensorValue(
     dtype="uint8",
     shape=(64, 64, 3),
     data=bytes(64 * 64 * 3),
 )
+_ZERO_SYMBOLIC_OBSERVATION: dict[str, PolicyValue] = {
+    "terrain": TensorValue(dtype="uint8", shape=(7, 9), data=bytes(63)),
+    "entities": TensorValue(
+        dtype="uint8",
+        shape=(7, 9),
+        data=bytes(31) + b"\x01" + bytes(31),
+    ),
+    "inventory": {
+        name: 9 if name in {"health", "food", "drink", "energy"} else 0
+        for name in SYMBOLIC_INVENTORY_KEYS
+    },
+    "facing": "down",
+    "sleeping": False,
+    "daylight": 1.0,
+}
 
 
 class _CountingCrafter:
@@ -111,6 +137,208 @@ class _CountingCrafter:
 
 
 class CrafterBenchmarkTests(unittest.TestCase):
+    def test_local_symbolic_configuration_and_spec_are_separate(self) -> None:
+        rgb = CrafterBenchmark()
+        symbolic_config = CrafterConfig(
+            observation_profile="local-symbolic-v1"
+        )
+        symbolic = CrafterBenchmark(symbolic_config)
+
+        self.assertEqual(
+            rgb.spec.environment_digest,
+            "sha256:9777c328423dee6989889d83b67976b2946ce0b68e2cef7f692ff9ee90dfee55",
+        )
+        self.assertNotIn("observation_profile", rgb.spec.environment_parameters)
+        self.assertEqual(
+            symbolic.spec.id,
+            "crafter/CrafterReward-v1/local-symbolic-v1/achievement-score-v1",
+        )
+        self.assertNotEqual(
+            rgb.spec.environment_digest,
+            symbolic.spec.environment_digest,
+        )
+        observation_space = symbolic.spec.observation_space
+        assert isinstance(observation_space, dict)
+        self.assertEqual(observation_space["type"], "mapping")
+        fields = observation_space["fields"]
+        assert isinstance(fields, dict)
+        self.assertEqual(set(fields), {
+            "terrain", "entities", "inventory", "facing", "sleeping", "daylight"
+        })
+        parameters = dict(symbolic.spec.environment_parameters)
+        self.assertEqual(parameters["symbolic_player_row"], 3)
+        self.assertEqual(parameters["symbolic_player_column"], 4)
+        with self.assertRaises(TypeError):
+            CrafterConfig(observation_profile=1)  # type: ignore[arg-type]
+        with self.assertRaises(ValueError):
+            CrafterConfig(observation_profile="global")  # type: ignore[arg-type]
+        with self.assertRaisesRegex(ValueError, "MP4|mp4"):
+            CrafterConfig(
+                observation_profile="local-symbolic-v1",
+                include_mp4_feedback=True,
+            )
+
+    def test_every_scoring_profile_supports_local_symbolic(self) -> None:
+        config = CrafterConfig(observation_profile="local-symbolic-v1")
+        benchmarks = (
+            CrafterBenchmark(config),
+            CrafterLongHorizonSurvivalBenchmark(config),
+        )
+        for benchmark in benchmarks:
+            with self.subTest(benchmark=benchmark.spec.primary_metric):
+                self.assertIn("/local-symbolic-v1/", benchmark.spec.id)
+                self.assertEqual(
+                    benchmark.spec.environment_parameters["observation_profile"],
+                    "local-symbolic-v1",
+                )
+
+    def test_real_local_symbolic_observation_and_rgb_dynamics_match(self) -> None:
+        episode = EpisodeSpec(environment_seed=0xC0FFEE)
+        rgb_benchmark = CrafterBenchmark(CrafterConfig(max_episode_steps=32))
+        symbolic_benchmark = CrafterBenchmark(
+            CrafterConfig(max_episode_steps=32, observation_profile="local-symbolic-v1")
+        )
+        rgb_environment = rgb_benchmark.make_environment(episode)
+        symbolic_environment = symbolic_benchmark.make_environment(episode)
+        rgb_transitions: list[Transition] = []
+        symbolic_transitions: list[Transition] = []
+        try:
+            rgb_initial = rgb_environment.reset()
+            symbolic_initial = symbolic_environment.reset()
+            self.assertIsInstance(rgb_initial, TensorValue)
+            self.assertIsInstance(symbolic_initial, dict)
+            assert isinstance(symbolic_initial, dict)
+            self.assertEqual(
+                set(symbolic_initial),
+                {"terrain", "entities", "inventory", "facing", "sleeping", "daylight"},
+            )
+            entities = symbolic_initial["entities"]
+            assert isinstance(entities, TensorValue)
+            entity_array = numpy.frombuffer(entities.data, dtype=numpy.uint8).reshape(7, 9)
+            self.assertEqual(entity_array[SYMBOLIC_PLAYER_CENTER], 1)
+            inventory = symbolic_initial["inventory"]
+            assert isinstance(inventory, dict)
+            self.assertEqual(tuple(inventory), SYMBOLIC_INVENTORY_KEYS)
+
+            for action in (0, 1, 5, 3, 5, 4, 0):
+                rgb_step = rgb_environment.step(action)
+                symbolic_step = symbolic_environment.step(action)
+                self.assertEqual(rgb_step.reward, symbolic_step.reward)
+                self.assertEqual(rgb_step.metrics, symbolic_step.metrics)
+                self.assertEqual(rgb_step.terminated, symbolic_step.terminated)
+                self.assertEqual(rgb_step.truncated, symbolic_step.truncated)
+                rgb_transitions.append(Transition(action=action, step=rgb_step))
+                symbolic_transitions.append(
+                    Transition(action=action, step=symbolic_step)
+                )
+        finally:
+            rgb_environment.close()
+            symbolic_environment.close()
+        rgb_record = EpisodeRecord(
+            episode=episode,
+            policy_seed=1,
+            initial_observation=rgb_initial,
+            transitions=tuple(rgb_transitions),
+        )
+        symbolic_record = EpisodeRecord(
+            episode=episode,
+            policy_seed=1,
+            initial_observation=symbolic_initial,
+            transitions=tuple(symbolic_transitions),
+        )
+        self.assertEqual(
+            rgb_benchmark.feedback((rgb_record,)).score,
+            symbolic_benchmark.feedback((symbolic_record,)).score,
+        )
+
+    def test_local_symbolic_padding_and_entity_variants(self) -> None:
+        world = crafter.engine.World(
+            (64, 64), crafter.constants.materials, (12, 12)
+        )
+        world._mat_map.fill(world._mat_ids["grass"])
+        player = crafter.objects.Player(world, (0, 0))
+        world.add(player)
+        arrow = crafter.objects.Arrow(world, (1, 0), (1, 0))
+        world.add(arrow)
+        plant = crafter.objects.Plant(world, (0, 1))
+        plant.grown = 301
+        world.add(plant)
+        world.daylight = 0.25
+        environment = SimpleNamespace(_world=world, _player=player)
+
+        observation = local_symbolic_observation(environment)
+        terrain = observation["terrain"]
+        entities = observation["entities"]
+        assert isinstance(terrain, TensorValue)
+        assert isinstance(entities, TensorValue)
+        terrain_array = numpy.frombuffer(terrain.data, dtype=numpy.uint8).reshape(7, 9)
+        entity_array = numpy.frombuffer(entities.data, dtype=numpy.uint8).reshape(7, 9)
+        self.assertTrue(numpy.all(terrain_array[:3, :] == 0))
+        self.assertTrue(numpy.all(terrain_array[:, :4] == 0))
+        self.assertEqual(terrain_array[3, 4], 2)
+        self.assertEqual(entity_array[3, 4], 1)
+        self.assertEqual(entity_array[3, 5], 6)
+        self.assertEqual(entity_array[4, 4], 10)
+        self.assertEqual(observation["daylight"], 0.25)
+
+    def test_local_symbolic_feedback_round_trips_policy_observations(self) -> None:
+        benchmark = CrafterBenchmark(
+            CrafterConfig(
+                max_episode_steps=8,
+                observation_profile="local-symbolic-v1",
+            )
+        )
+        episode = benchmark.episodes("train", seed=9, count=1)[0]
+        environment = benchmark.make_environment(episode)
+        try:
+            initial = environment.reset()
+            step = environment.step(0)
+        finally:
+            environment.close()
+        record = EpisodeRecord(
+            episode=episode,
+            policy_seed=10,
+            initial_observation=initial,
+            transitions=(Transition(action=0, step=step),),
+        )
+
+        feedback = benchmark.feedback((record,))
+        manifest = json.loads(feedback.artifacts[-1].read_bytes())
+        self.assertEqual(
+            manifest["schema"],
+            "crafter/local-symbolic-feedback-manifest/v1",
+        )
+        self.assertEqual(manifest["observation_profile"], "local-symbolic-v1")
+        self.assertNotIn("visual_evidence", manifest)
+        observation_artifact = next(
+            artifact for artifact in feedback.artifacts if artifact.name.endswith(".npz")
+        )
+        with numpy.load(
+            io.BytesIO(observation_artifact.read_bytes()), allow_pickle=False
+        ) as archive:
+            self.assertEqual(
+                set(archive.files),
+                {
+                    "terrain", "entities", "inventory", "facing", "sleeping",
+                    "daylight", "observation_indices",
+                },
+            )
+            self.assertEqual(archive["terrain"].shape, (2, 7, 9))
+            self.assertEqual(archive["entities"].shape, (2, 7, 9))
+            self.assertEqual(archive["inventory"].shape, (2, 16))
+            numpy.testing.assert_array_equal(
+                archive["observation_indices"], numpy.asarray([0, 1], dtype=numpy.uint32)
+            )
+        trajectory = tuple(
+            json.loads(line)
+            for line in gzip.decompress(feedback.artifacts[0].read_bytes()).splitlines()
+        )
+        self.assertEqual(trajectory[0]["observation_profile"], "local-symbolic-v1")
+        public = b"".join(artifact.read_bytes() for artifact in feedback.artifacts)
+        self.assertNotIn(b"environment_seed", public)
+        self.assertNotIn(b"player_pos", public)
+        self.assertNotIn(b"semantic", public)
+
     def test_lossless_observation_feedback_contract_is_public(self) -> None:
         disabled = CrafterBenchmark()
         enabled = CrafterBenchmark(
@@ -231,7 +459,13 @@ class CrafterBenchmarkTests(unittest.TestCase):
         )
         benchmarks = (
             CrafterBenchmark(CrafterConfig(max_episode_steps=32)),
-            CrafterSurvivalDevelopmentBenchmark(
+            CrafterBenchmark(
+                CrafterConfig(
+                    max_episode_steps=32,
+                    observation_profile="local-symbolic-v1",
+                )
+            ),
+            CrafterLongHorizonSurvivalBenchmark(
                 CrafterConfig(max_episode_steps=32)
             ),
         )
@@ -460,145 +694,6 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertNotIn(b"policy_seed", public)
         self.assertNotIn(b"player_pos", public)
         self.assertNotIn(b"semantic", public)
-
-    def test_canonical_survival_feedback_adds_mean_effective_steps(self) -> None:
-        survived = _event_record(
-            steps=4,
-            unlocked=("collect_wood",),
-            event_counts={"collect_wood": 1},
-        )
-        failed = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=11),
-            policy_seed=21,
-            initial_observation=_ZERO_OBSERVATION,
-            transitions=(),
-            policy_failure="invalid_action",
-        )
-
-        canonical = CrafterBenchmark().feedback((survived, failed))
-        feedback = CrafterCanonicalSurvivalBenchmark().feedback(
-            (survived, failed)
-        )
-
-        self.assertAlmostEqual(feedback.score, canonical.score + 0.02)
-        assert isinstance(feedback.content, dict)
-        self.assertEqual(
-            feedback.content["canonical_survival_score"], feedback.score
-        )
-        self.assertEqual(
-            feedback.content["crafter_score_percent"], canonical.score
-        )
-        self.assertEqual(
-            feedback.content["mean_effective_survival_steps"], 2.0
-        )
-        self.assertEqual(feedback.content["survival_bonus"], 0.02)
-        self.assertEqual(feedback.content["survival_bonus_divisor"], 100.0)
-        self.assertEqual(feedback.artifacts[-1].retention, "permanent")
-
-    def test_canonical_survival_repeat_feedback_is_additive(self) -> None:
-        repeated_drink = _event_record(
-            steps=300,
-            unlocked=("collect_drink",),
-            event_counts={"collect_drink": 17},
-        )
-        failed = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=11),
-            policy_seed=21,
-            initial_observation=_ZERO_OBSERVATION,
-            transitions=(),
-            policy_failure="invalid_action",
-        )
-
-        canonical_survival = CrafterCanonicalSurvivalBenchmark().feedback(
-            (repeated_drink, failed)
-        )
-        feedback = CrafterCanonicalSurvivalRepeatBenchmark().feedback(
-            (repeated_drink, failed)
-        )
-        expected_episode_credit = (
-            25.0 * 3.0 / 40.0 * math.log1p(16) / math.log1p(8)
-        )
-        expected_mean_credit = expected_episode_credit / 2
-
-        self.assertAlmostEqual(
-            feedback.score,
-            canonical_survival.score + expected_mean_credit,
-        )
-        assert isinstance(feedback.content, dict)
-        self.assertEqual(
-            feedback.content["canonical_survival_repeat_score"],
-            feedback.score,
-        )
-        mean_repeat_score = feedback.content[
-            "mean_repeated_achievement_score"
-        ]
-        assert isinstance(mean_repeat_score, float)
-        self.assertAlmostEqual(
-            mean_repeat_score,
-            expected_mean_credit,
-        )
-        repeated = feedback.content["repeated_achievement"]
-        assert isinstance(repeated, dict)
-        self.assertIs(repeated["single_event_saturation"], False)
-        repeat_counts = repeated["repeat_counts"]
-        assert isinstance(repeat_counts, dict)
-        self.assertEqual(repeat_counts["collect_drink"], 16)
-        self.assertEqual(repeated["episodes_with_limit_applied"], 0)
-
-    def test_canonical_repeat_limit_is_continuous_across_300_steps(self) -> None:
-        benchmark = CrafterCanonicalSurvivalRepeatBenchmark()
-        canonical = CrafterCanonicalSurvivalBenchmark()
-        repeat_credits: list[float] = []
-        for steps in (299, 300, 301):
-            record = _event_record(
-                steps=steps,
-                unlocked=("collect_diamond",),
-                event_counts={"collect_diamond": 1_000_000_001},
-            )
-            feedback = benchmark.feedback((record,))
-            base = canonical.feedback((record,))
-            repeat_credits.append(feedback.score - base.score)
-            self.assertAlmostEqual(
-                repeat_credits[-1],
-                25.0 * steps / 300.0,
-            )
-            assert isinstance(feedback.content, dict)
-            repeated = feedback.content["repeated_achievement"]
-            assert isinstance(repeated, dict)
-            self.assertEqual(repeated["episodes_with_limit_applied"], 1)
-
-        self.assertAlmostEqual(repeat_credits[1] - repeat_credits[0], 1 / 12)
-        self.assertAlmostEqual(repeat_credits[2] - repeat_credits[1], 1 / 12)
-
-    def test_strong_survival_repeat_uses_divisor_20(self) -> None:
-        record = _event_record(
-            steps=300,
-            unlocked=("collect_drink",),
-            event_counts={"collect_drink": 17},
-        )
-        regular = CrafterCanonicalSurvivalRepeatBenchmark().feedback(
-            (record,)
-        )
-        strong = CrafterCanonicalStrongSurvivalRepeatBenchmark().feedback(
-            (record,)
-        )
-
-        self.assertAlmostEqual(strong.score - regular.score, 12.0)
-        assert isinstance(strong.content, dict)
-        self.assertEqual(strong.content["survival_bonus"], 15.0)
-        self.assertEqual(strong.content["survival_bonus_divisor"], 20.0)
-        self.assertEqual(
-            strong.content["canonical_strong_survival_repeat_score"],
-            strong.score,
-        )
-        self.assertEqual(
-            strong.content["score_formula"],
-            (
-                "crafter_score_percent + "
-                "mean_effective_survival_steps / 20 + "
-                "mean(repeated_achievement_score)"
-            ),
-        )
 
     def test_feedback_artifacts_remain_bounded_for_large_batches(self) -> None:
         record = _record(("collect_wood",), reward=1.0)
@@ -888,194 +983,72 @@ class CrafterBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(diagnostics["longest_same_action_run"], 1)
 
-    def test_long_horizon_profile_gates_productivity_and_innovation(self) -> None:
-        record = _event_record(
-            steps=300,
-            unlocked=("collect_drink", "collect_wood"),
-            event_counts={"collect_drink": 9, "collect_wood": 9},
-        )
-
-        feedback = CrafterLongHorizonBenchmark().feedback((record,))
-
-        self.assertIsInstance(feedback.content, dict)
-        assert isinstance(feedback.content, dict)
-        components = feedback.content["score_components"]
-        self.assertIsInstance(components, dict)
-        assert isinstance(components, dict)
-        survival = 100 / 7
-        productivity = 10.0
-        innovation = 200 / len(ACHIEVEMENTS)
-        expected = survival * (
-            0.70 + 0.10 * productivity / 100 + 0.05 * innovation / 100
-        )
-        survival_component = components["survival_score_percent"]
-        productivity_component = components["productivity_score_percent"]
-        innovation_component = components["innovation_score_percent"]
-        self.assertIsInstance(survival_component, float)
-        self.assertIsInstance(productivity_component, float)
-        self.assertIsInstance(innovation_component, float)
-        assert isinstance(survival_component, float)
-        assert isinstance(productivity_component, float)
-        assert isinstance(innovation_component, float)
-        self.assertAlmostEqual(feedback.score, expected)
-        self.assertAlmostEqual(survival_component, survival)
-        self.assertAlmostEqual(
-            productivity_component,
-            productivity,
-        )
-        self.assertAlmostEqual(
-            innovation_component,
-            innovation,
-        )
-        survival_at_steps = feedback.content["survival_at_steps"]
-        self.assertIsInstance(survival_at_steps, dict)
-        assert isinstance(survival_at_steps, dict)
-        self.assertEqual(
-            survival_at_steps["300"],
-            {"count": 1, "percent": 100.0},
-        )
-        self.assertEqual(
-            survival_at_steps["600"],
-            {"count": 0, "percent": 0.0},
-        )
-        self.assertLessEqual(feedback.score, survival)
-
-    def test_long_horizon_productivity_is_capped_and_excludes_maintenance_spam(
+    def test_lhs_scoring_keeps_alive_signal_and_scales_development(
         self,
     ) -> None:
-        capped = CrafterLongHorizonBenchmark().feedback(
-            (
-                _event_record(
-                    steps=1,
-                    unlocked=("collect_wood",),
-                    event_counts={"collect_wood": 9},
-                ),
-            )
+        state = LHSScoringState()
+        first, _ = state.transition(
+            terminated=False,
+            unlocked=("collect_wood",),
+            event_counts={"collect_wood": 1},
+            vitals={"health": 9, "food": 9, "drink": 9},
         )
-        excessive = CrafterLongHorizonBenchmark().feedback(
-            (
-                _event_record(
-                    steps=1,
-                    unlocked=("collect_wood",),
-                    event_counts={"collect_wood": 100},
-                ),
-            )
+        repeated, _ = state.transition(
+            terminated=False,
+            unlocked=(),
+            event_counts={"collect_wood": 1},
+            vitals={"health": 9, "food": 9, "drink": 9},
         )
-        tool_spam = CrafterLongHorizonBenchmark().feedback(
-            (
-                _event_record(
-                    steps=1,
-                    unlocked=("make_wood_pickaxe",),
-                    event_counts={"make_wood_pickaxe": 100},
-                ),
-            )
-        )
-        maintenance_spam = CrafterLongHorizonBenchmark().feedback(
-            (
-                _event_record(
-                    steps=1,
-                    unlocked=("collect_drink",),
-                    event_counts={"collect_drink": 100},
-                ),
-            )
-        )
-
-        for feedback in (capped, excessive, tool_spam, maintenance_spam):
-            self.assertIsInstance(feedback.content, dict)
-        assert isinstance(capped.content, dict)
-        assert isinstance(excessive.content, dict)
-        assert isinstance(tool_spam.content, dict)
-        assert isinstance(maintenance_spam.content, dict)
-        capped_components = capped.content["score_components"]
-        excessive_components = excessive.content["score_components"]
-        tool_components = tool_spam.content["score_components"]
-        maintenance_components = maintenance_spam.content["score_components"]
-        assert isinstance(capped_components, dict)
-        assert isinstance(excessive_components, dict)
-        assert isinstance(tool_components, dict)
-        assert isinstance(maintenance_components, dict)
-        self.assertEqual(
-            capped_components["productivity_score_percent"],
-            excessive_components["productivity_score_percent"],
-        )
-        self.assertEqual(tool_components["productivity_score_percent"], 0.0)
-        self.assertEqual(
-            maintenance_components["productivity_score_percent"],
-            0.0,
-        )
-
-    def test_long_horizon_maintenance_credits_low_state_recovery(self) -> None:
-        record = _event_record(
-            steps=4,
+        depleted, _ = state.transition(
+            terminated=False,
             unlocked=(),
             event_counts={},
-            vitals=(
-                (4, 5, 5),
-                (5, 9, 9),
-                (7, 9, 9),
-                (7, 9, 9),
-            ),
+            vitals={"health": 9, "food": 0, "drink": 9},
+        )
+        terminal, _ = state.transition(
+            terminated=True,
+            unlocked=(),
+            event_counts={},
+            vitals={"health": 0, "food": 0, "drink": 9},
         )
 
-        feedback = CrafterLongHorizonBenchmark().feedback((record,))
-
-        assert isinstance(feedback.content, dict)
-        components = feedback.content["score_components"]
-        assert isinstance(components, dict)
-        maintenance = 100.0 * (
-            math.log1p(2) / math.log1p(3)
-            + math.log1p(1) / math.log1p(3)
-            + math.log1p(1) / math.log1p(3)
-        ) / 3
-        survival = 100.0 * 4 / 2100
-        maintenance_component = components["maintenance_score_percent"]
-        self.assertIsInstance(maintenance_component, float)
-        assert isinstance(maintenance_component, float)
+        self.assertAlmostEqual(first["alive_survival"], LHS_ALIVE_ALPHA)
+        self.assertAlmostEqual(first["vital_survival"], LHS_VITAL_ALPHA)
         self.assertAlmostEqual(
-            maintenance_component,
-            maintenance,
+            first["first_unlock"],
+            LHS_FIRST_UNLOCK_CREDITS["collect_wood"],
         )
         self.assertAlmostEqual(
-            feedback.score,
-            survival * (0.70 + 0.15 * maintenance / 100),
+            repeated["productivity_repeat"],
+            LHS_PRODUCTIVITY_REPEAT_FRACTION
+            * LHS_FIRST_UNLOCK_CREDITS["collect_wood"]
+            / LHS_PRODUCTIVITY_REPEAT_QUOTAS["collect_wood"],
         )
-        self.assertEqual(
-            feedback.content["maintenance_recovery_counts"],
-            {"health": 2, "food": 1, "drink": 1},
+        self.assertEqual(depleted["alive_survival"], LHS_ALIVE_ALPHA)
+        self.assertEqual(depleted["vital_survival"], 0.0)
+        self.assertEqual(terminal["alive_survival"], 0.0)
+        self.assertEqual(terminal["vital_survival"], 0.0)
+
+    def test_lhs_feedback_selects_lower_tail_by_survival_only(self) -> None:
+        mean, lower, secondary, count, score = lhs_feedback_score(
+            (1.0, 2.0, 3.0, 4.0),
+            (100.0, 0.0, 0.0, 0.0),
         )
+        self.assertEqual(mean, 2.5)
+        self.assertEqual(lower, 1.0)
+        self.assertEqual(secondary, 25.0)
+        self.assertEqual(count, 1)
+        self.assertEqual(score, 27.125)
 
-    def test_long_horizon_policy_failure_receives_zero_components(self) -> None:
-        failed = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=11),
-            policy_seed=21,
-            initial_observation=_ZERO_OBSERVATION,
-            transitions=(),
-            policy_failure="invalid_action",
-        )
-
-        feedback = CrafterLongHorizonBenchmark().feedback((failed,))
-
-        self.assertEqual(feedback.score, 0.0)
-        self.assertIsInstance(feedback.content, dict)
-        assert isinstance(feedback.content, dict)
-        components = feedback.content["score_components"]
-        self.assertIsInstance(components, dict)
-        assert isinstance(components, dict)
-        self.assertEqual(components["survival_score_percent"], 0.0)
-        self.assertEqual(components["maintenance_score_percent"], 0.0)
-        self.assertEqual(components["productivity_score_percent"], 0.0)
-        self.assertEqual(components["innovation_score_percent"], 0.0)
-
-    def test_survival_development_environment_and_feedback_reconstruct_reward(
+    def test_lhs_environment_feedback_and_trajectory_reconstruct_reward(
         self,
     ) -> None:
         fake = _CountingCrafter(
-            achievement_name="collect_drink",
-            energy=0,
-            reward=-0.2,
+            achievement_name="collect_wood",
+            reward=-0.75,
         )
-        benchmark = CrafterSurvivalDevelopmentBenchmark(
-            CrafterConfig(max_episode_steps=2)
+        benchmark = CrafterLongHorizonSurvivalBenchmark(
+            CrafterConfig(max_episode_steps=8)
         )
         with patch(
             "crafter_benchmarks.environment.crafter.Env",
@@ -1087,295 +1060,112 @@ class CrafterBenchmarkTests(unittest.TestCase):
             try:
                 initial = environment.reset()
                 first = environment.step(5)
-                second = environment.step(5)
+                repeated = environment.step(5)
             finally:
                 environment.close()
 
-        first_repeat_credit = (
-            PRODUCTIVITY_CREDIT_MAX
-            * 3.0
-            / 40.0
-            * math.log1p(1)
-            / math.log1p(8)
-        )
-        self.assertAlmostEqual(first.reward, 2.1)
-        self.assertAlmostEqual(second.reward, 1.1 + first_repeat_credit)
-        self.assertTrue(second.truncated)
         assert isinstance(first.metrics, dict)
-        assert isinstance(second.metrics, dict)
-        self.assertEqual(first.metrics["energy"], 0)
-        self.assertEqual(first.metrics["upstream_reward"], -0.2)
         first_components = cast(
-            dict[str, PolicyValue], first.metrics["score_delta_components"]
-        )
-        self.assertEqual(first_components["progress"], 1.0)
-        self.assertEqual(first_components["vital"], 0.1)
-        second_components = cast(
-            dict[str, PolicyValue], second.metrics["score_delta_components"]
+            dict[str, PolicyValue],
+            first.metrics["lhs_score_delta_components"],
         )
         self.assertAlmostEqual(
-            cast(float, second_components["productivity"]),
-            first_repeat_credit,
+            cast(float, first_components["alive_survival"]), 0.01
         )
+        self.assertAlmostEqual(
+            cast(float, first_components["vital_survival"]), 0.03
+        )
+        self.assertAlmostEqual(
+            cast(float, first_components["first_unlock"]),
+            LHS_FIRST_UNLOCK_CREDITS["collect_wood"],
+        )
+        self.assertEqual(first.metrics["upstream_reward"], -0.75)
+        self.assertNotAlmostEqual(first.reward, -0.75)
 
         record = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=1),
-            policy_seed=2,
+            episode=benchmark.episodes("train", seed=2, count=1)[0],
+            policy_seed=3,
             initial_observation=initial,
             transitions=(
                 Transition(action=5, step=first),
-                Transition(action=5, step=second),
+                Transition(action=5, step=repeated),
             ),
         )
         feedback = benchmark.feedback((record,))
-
-        expected = first.reward + second.reward
-        self.assertAlmostEqual(feedback.score, expected)
+        self.assertAlmostEqual(feedback.score, first.reward + repeated.reward)
         assert isinstance(feedback.content, dict)
-        self.assertEqual(
-            feedback.content["score_profile"],
-            "mean-survival-development-return-v3",
-        )
-        components = feedback.content["score_components"]
-        assert isinstance(components, dict)
-        self.assertAlmostEqual(
-            cast(float, components["mean_survival_credit"]),
-            2.0,
-        )
-        self.assertAlmostEqual(cast(float, components["mean_vital_credit"]), 0.2)
-        self.assertAlmostEqual(
-            cast(float, components["mean_progress_credit"]),
-            1.0,
-        )
-        self.assertAlmostEqual(
-            cast(float, components["mean_productivity_credit"]),
-            first_repeat_credit,
-        )
-        self.assertLessEqual(
-            abs(cast(float, components["reconstruction_error"])),
-            1e-12,
-        )
-        episode_returns = feedback.content["episode_returns"]
-        assert isinstance(episode_returns, dict)
-        self.assertEqual(episode_returns["variance"], 0.0)
-        self.assertEqual(episode_returns["standard_deviation"], 0.0)
-        self.assertEqual(episode_returns["standard_error"], 0.0)
-        productivity = feedback.content["productivity"]
-        assert isinstance(productivity, dict)
-        event_counts = productivity["event_counts"]
-        assert isinstance(event_counts, dict)
-        self.assertEqual(event_counts["collect_drink"], 2)
-        canonical = feedback.content["canonical_comparison"]
-        assert isinstance(canonical, dict)
-        self.assertAlmostEqual(
-            cast(float, canonical["mean_upstream_return"]),
-            -0.4,
-        )
-
-        manifest = json.loads(feedback.artifacts[-1].read_bytes())
-        self.assertEqual(
-            manifest["schema"],
-            "crafter/complete-feedback-manifest/v6",
-        )
+        aggregation = feedback.content["feedback_aggregation"]
+        assert isinstance(aggregation, dict)
+        self.assertEqual(aggregation["tail_selection"], "survival_return_only")
+        self.assertEqual(aggregation["upper_tail_weight"], 0.0)
+        survival_at = feedback.content["survival_at_steps"]
+        assert isinstance(survival_at, dict)
+        self.assertEqual(set(survival_at), {"150", "200", "250", "300", "400"})
+        vital_quality = feedback.content["vital_quality"]
+        assert isinstance(vital_quality, dict)
+        by_age = vital_quality["by_episode_age"]
+        assert isinstance(by_age, dict)
+        first_band = by_age["0-99"]
+        assert isinstance(first_band, dict)
+        self.assertEqual(first_band["alive_steps"], 2)
         trajectory = tuple(
             json.loads(line)
             for line in gzip.decompress(
                 feedback.artifacts[0].read_bytes()
             ).splitlines()
         )
-        self.assertIs(trajectory[0]["scored"], True)
-        self.assertAlmostEqual(trajectory[0]["scored_return"], expected)
-        self.assertEqual(trajectory[1]["upstream_reward"], -0.2)
-        self.assertEqual(trajectory[1]["reward"], first.reward)
-        self.assertIn("score_delta_components", trajectory[1])
+        self.assertEqual(
+            trajectory[0]["reward_profile"],
+            "lhs",
+        )
+        self.assertIn("lhs_score_delta_components", trajectory[1])
+        self.assertIn("lhs_repeat_diagnostics", trajectory[2])
 
-    def test_survival_development_repeat_credit_is_capped_but_events_remain(
-        self,
-    ) -> None:
-        fake = _CountingCrafter(achievement_name="collect_drink")
-        benchmark = CrafterSurvivalDevelopmentBenchmark(
-            CrafterConfig(max_episode_steps=10)
-        )
-        with patch(
-            "crafter_benchmarks.environment.crafter.Env",
-            return_value=fake,
-        ):
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=1)
-            )
-            try:
-                initial = environment.reset()
-                steps = tuple(environment.step(5) for _ in range(10))
-            finally:
-                environment.close()
-
-        assert isinstance(steps[-1].metrics, dict)
-        final_components = cast(
-            dict[str, PolicyValue],
-            steps[-1].metrics["score_delta_components"],
-        )
-        self.assertEqual(final_components["productivity"], 0.0)
-        record = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=1),
-            policy_seed=2,
-            initial_observation=initial,
-            transitions=tuple(
-                Transition(action=5, step=step) for step in steps
-            ),
-        )
-        feedback = benchmark.feedback((record,))
-        assert isinstance(feedback.content, dict)
-        productivity = feedback.content["productivity"]
-        assert isinstance(productivity, dict)
-        event_counts = productivity["event_counts"]
-        saturation = productivity["event_saturation_percent"]
-        assert isinstance(event_counts, dict)
-        assert isinstance(saturation, dict)
-        self.assertEqual(event_counts["collect_drink"], 10)
-        self.assertEqual(saturation["collect_drink"], 100.0)
-        components = feedback.content["score_components"]
-        assert isinstance(components, dict)
-        self.assertAlmostEqual(
-            cast(float, components["mean_productivity_credit"]),
-            PRODUCTIVITY_CREDIT_MAX * 3.0 / 40.0,
-        )
-
-    def test_survival_development_natural_death_has_no_alive_credit(self) -> None:
-        fake = _CountingCrafter(done=True, discount=0.0, energy=0, reward=-0.9)
-        benchmark = CrafterSurvivalDevelopmentBenchmark(
-            CrafterConfig(max_episode_steps=8)
-        )
-        with patch(
-            "crafter_benchmarks.environment.crafter.Env",
-            return_value=fake,
-        ):
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=1)
-            )
-            try:
-                initial = environment.reset()
-                step = environment.step(0)
-            finally:
-                environment.close()
-
-        self.assertTrue(step.terminated)
-        self.assertEqual(step.reward, 0.0)
-        record = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=1),
-            policy_seed=2,
-            initial_observation=initial,
-            transitions=(Transition(action=0, step=step),),
-        )
-        feedback = benchmark.feedback((record,))
-        self.assertEqual(feedback.score, 0.0)
-        assert isinstance(feedback.content, dict)
-        self.assertEqual(feedback.content["terminated_episodes"], 1)
-        survival = feedback.content["survival_steps"]
-        assert isinstance(survival, dict)
-        self.assertEqual(survival["mean"], 0.0)
-        terminal = feedback.content["terminal_profile"]
-        assert isinstance(terminal, dict)
-        self.assertEqual(terminal["natural_deaths"], 1)
-
-    def test_survival_development_policy_failure_discards_partial_credit(
+    def test_lhs_policy_failure_is_zero_with_explicit_partial_trace(
         self,
     ) -> None:
         fake = _CountingCrafter(achievement_name="collect_wood")
-        benchmark = CrafterSurvivalDevelopmentBenchmark(
+        benchmark = CrafterLongHorizonSurvivalBenchmark(
             CrafterConfig(max_episode_steps=8)
         )
+        episode = benchmark.episodes("train", seed=2, count=1)[0]
         with patch(
             "crafter_benchmarks.environment.crafter.Env",
             return_value=fake,
         ):
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=1)
-            )
+            environment = benchmark.make_environment(episode)
             try:
                 initial = environment.reset()
                 step = environment.step(5)
             finally:
                 environment.close()
         record = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=1),
-            policy_seed=2,
+            episode=episode,
+            policy_seed=3,
             initial_observation=initial,
             transitions=(Transition(action=5, step=step),),
             policy_failure="invalid_action",
         )
-
         feedback = benchmark.feedback((record,))
-
-        self.assertEqual(feedback.score, -8.0)
+        self.assertEqual(feedback.score, 0.0)
         assert isinstance(feedback.content, dict)
-        components = feedback.content["score_components"]
-        assert isinstance(components, dict)
-        self.assertEqual(components["mean_survival_credit"], 0.0)
-        self.assertEqual(components["mean_progress_credit"], 0.0)
-        self.assertEqual(components["mean_failure_adjustment"], -8.0)
         summaries = feedback.content["episode_score_summaries"]
         assert isinstance(summaries, list)
         summary = summaries[0]
         assert isinstance(summary, dict)
-        self.assertEqual(summary["return"], -8.0)
+        self.assertEqual(summary["return"], 0.0)
         self.assertEqual(summary["partial_return"], step.reward)
+        self.assertIs(summary["partial_credit_discarded"], True)
         trajectory = tuple(
             json.loads(line)
             for line in gzip.decompress(
                 feedback.artifacts[0].read_bytes()
             ).splitlines()
         )
-        self.assertIs(trajectory[0]["scored"], False)
-        self.assertEqual(trajectory[0]["scored_return"], -8.0)
+        self.assertEqual(trajectory[0]["return"], 0.0)
         self.assertEqual(trajectory[0]["partial_return"], step.reward)
-        self.assertEqual(trajectory[1]["reward"], step.reward)
-
-    def test_survival_development_rejects_reward_component_drift(self) -> None:
-        fake = _CountingCrafter(achievement_name="collect_wood")
-        benchmark = CrafterSurvivalDevelopmentBenchmark(
-            CrafterConfig(max_episode_steps=8)
-        )
-        with patch(
-            "crafter_benchmarks.environment.crafter.Env",
-            return_value=fake,
-        ):
-            environment = benchmark.make_environment(
-                EpisodeSpec(environment_seed=1)
-            )
-            try:
-                initial = environment.reset()
-                trusted = environment.step(5)
-            finally:
-                environment.close()
-        tampered = Step(
-            observation=trusted.observation,
-            reward=trusted.reward + 1.0,
-            terminated=trusted.terminated,
-            truncated=trusted.truncated,
-            metrics=trusted.metrics,
-        )
-        record = EpisodeRecord(
-            episode=EpisodeSpec(environment_seed=1),
-            policy_seed=2,
-            initial_observation=initial,
-            transitions=(Transition(action=5, step=tampered),),
-        )
-
-        with self.assertRaisesRegex(ValueError, "Step.reward"):
-            benchmark.feedback((record,))
-
-    def test_survival_development_absolute_reward_contract(self) -> None:
-        self.assertEqual(set(FIRST_UNLOCK_REWARDS), set(ACHIEVEMENTS))
-        self.assertEqual(
-            sum(FIRST_UNLOCK_REWARDS.values()),
-            PROGRESS_CREDIT_MAX,
-        )
-        self.assertEqual(PROGRESS_CREDIT_MAX, 1_829.0)
-        self.assertEqual(PRODUCTIVITY_CREDIT_MAX, 25.0)
-        self.assertEqual(FIRST_UNLOCK_REWARDS["collect_diamond"], 1_024.0)
-        self.assertEqual(FIRST_UNLOCK_REWARDS["make_iron_pickaxe"], 256.0)
-        self.assertEqual(set(REPEAT_EVENT_CAPS), set(REPEAT_EVENT_WEIGHTS))
-        self.assertEqual(sum(REPEAT_EVENT_WEIGHTS.values()), 40.0)
+        self.assertEqual(trajectory[0]["failure"]["code"], "invalid_action")
+        self.assertIs(trajectory[0]["included_in_feedback"], True)
 
     def test_spec_baseline_and_agent_skill_are_packaged(self) -> None:
         benchmark = CrafterBenchmark()
@@ -1431,103 +1221,53 @@ class CrafterBenchmarkTests(unittest.TestCase):
         )
         self.assertIn("expanding-square", skill_instructions)
         self.assertNotIn("environment_seed", skill_instructions)
-
-        long_horizon = CrafterLongHorizonBenchmark()
-        self.assertEqual(
-            long_horizon.spec.id,
-            "crafter/CrafterReward-v1/long-horizon-development-v2",
+        symbolic_program = local_symbolic_baseline_program()
+        self.assertIn("policy.py", symbolic_program.files)
+        self.assertIn("PLAYER_GUIDE.md", symbolic_program.files)
+        self.assertIn(
+            b"local-symbolic Crafter starting Policy",
+            symbolic_program.read_bytes("policy.py"),
+        )
+        symbolic_skill = AgentSkill.from_directory(
+            Path(__file__).parents[1]
+            / "skills"
+            / "optimize-crafter-local-symbolic-policy"
         )
         self.assertEqual(
-            long_horizon.spec.primary_metric,
-            "long_horizon_development_score",
+            symbolic_skill.name,
+            "optimize-crafter-local-symbolic-policy",
         )
-        self.assertIn("episode_score_formula", long_horizon.spec.metadata)
-        self.assertIn("productivity", long_horizon.spec.metadata)
-        self.assertIn("maintenance", long_horizon.spec.metadata)
-        with self.assertRaisesRegex(ValueError, "at least 900"):
-            CrafterLongHorizonBenchmark(CrafterConfig(max_episode_steps=899))
+        self.assertIn(
+            b"player is at\n  `[3, 4]`",
+            symbolic_skill.read_bytes("SKILL.md"),
+        )
 
-        survival_development = CrafterSurvivalDevelopmentBenchmark()
+        lhs = CrafterLongHorizonSurvivalBenchmark()
         self.assertEqual(
-            survival_development.spec.id,
+            lhs.spec.id,
             (
                 "crafter/CrafterReward-v1/"
-                "mean-survival-development-return-v3"
+                "long-horizon-survival-score-v1"
             ),
         )
         self.assertEqual(
-            survival_development.spec.primary_metric,
-            "mean_survival_development_return",
+            lhs.spec.primary_metric,
+            "long_horizon_survival_score",
         )
         self.assertEqual(
-            survival_development.spec.environment_parameters["reward_profile"],
-            "survival-development-v3",
+            lhs.spec.environment_parameters[
+                "reward_profile"
+            ],
+            "lhs",
         )
-
-        canonical_survival = CrafterCanonicalSurvivalBenchmark()
-        self.assertEqual(
-            canonical_survival.spec.id,
-            (
-                "crafter/CrafterReward-v1/"
-                "achievement-score-plus-survival-v1"
-            ),
-        )
-        self.assertEqual(
-            canonical_survival.spec.primary_metric,
-            "canonical_survival_score",
-        )
-        self.assertEqual(
-            canonical_survival.spec.environment_parameters,
-            benchmark.spec.environment_parameters,
-        )
-
-        canonical_survival_repeat = (
-            CrafterCanonicalSurvivalRepeatBenchmark()
-        )
-        self.assertEqual(
-            canonical_survival_repeat.spec.id,
-            (
-                "crafter/CrafterReward-v1/"
-                "achievement-score-plus-survival-repeat-v1"
-            ),
-        )
-        self.assertEqual(
-            canonical_survival_repeat.spec.primary_metric,
-            "canonical_survival_repeat_score",
-        )
-        self.assertEqual(
-            canonical_survival_repeat.spec.environment_parameters,
-            benchmark.spec.environment_parameters,
-        )
-        repeat_metadata = canonical_survival_repeat.spec.metadata[
-            "repeated_achievement"
+        lhs_aggregation = lhs.spec.metadata[
+            "feedback_aggregation"
         ]
-        assert isinstance(repeat_metadata, dict)
-        self.assertEqual(repeat_metadata["reference_score"], 25.0)
-        self.assertIs(repeat_metadata["single_event_saturation"], False)
-
-        strong_survival_repeat = (
-            CrafterCanonicalStrongSurvivalRepeatBenchmark()
-        )
+        assert isinstance(lhs_aggregation, dict)
         self.assertEqual(
-            strong_survival_repeat.spec.id,
-            (
-                "crafter/CrafterReward-v1/"
-                "achievement-score-plus-strong-survival-repeat-v1"
-            ),
+            lhs_aggregation["tail_selection"], "survival_return_only"
         )
-        self.assertEqual(
-            strong_survival_repeat.spec.primary_metric,
-            "canonical_strong_survival_repeat_score",
-        )
-        self.assertEqual(
-            strong_survival_repeat.spec.metadata["survival_bonus_divisor"],
-            20.0,
-        )
-        self.assertEqual(
-            strong_survival_repeat.spec.environment_parameters,
-            benchmark.spec.environment_parameters,
-        )
+        self.assertEqual(lhs_aggregation["upper_tail_weight"], 0.0)
 
     def test_baseline_direct_evaluation(self) -> None:
         def run_evaluation() -> EvaluationResult:
@@ -1554,10 +1294,35 @@ class CrafterBenchmarkTests(unittest.TestCase):
         self.assertIsNone(result.episodes[0].failure)
         self.assertTrue(math.isfinite(result.feedback.score))
 
-    def test_survival_development_baseline_direct_evaluation(self) -> None:
+    def test_local_symbolic_baseline_direct_evaluation(self) -> None:
+        result = evaluate(
+            local_symbolic_baseline_program(),
+            CrafterBenchmark(
+                CrafterConfig(
+                    max_episode_steps=64,
+                    observation_profile="local-symbolic-v1",
+                )
+            ),
+            execution=ProcessExecution.unsafe(),
+            config=EvaluationConfig(
+                split="validation",
+                episodes=1,
+                seed=5,
+                episode_timeout_seconds=30,
+            ),
+        )
+
+        self.assertEqual(
+            result.benchmark_id,
+            "crafter/CrafterReward-v1/local-symbolic-v1/achievement-score-v1",
+        )
+        self.assertIsNone(result.episodes[0].failure)
+        self.assertTrue(math.isfinite(result.feedback.score))
+
+    def test_lhs_baseline_direct_evaluation(self) -> None:
         result = evaluate(
             baseline_program(),
-            CrafterSurvivalDevelopmentBenchmark(
+            CrafterLongHorizonSurvivalBenchmark(
                 CrafterConfig(max_episode_steps=256)
             ),
             execution=ProcessExecution.unsafe(),
@@ -1573,7 +1338,7 @@ class CrafterBenchmarkTests(unittest.TestCase):
             result.benchmark_id,
             (
                 "crafter/CrafterReward-v1/"
-                "mean-survival-development-return-v3"
+                "long-horizon-survival-score-v1"
             ),
         )
         self.assertIsNone(result.episodes[0].failure)
@@ -1584,13 +1349,11 @@ class CrafterBenchmarkTests(unittest.TestCase):
             abs(cast(float, components["reconstruction_error"])),
             1e-12,
         )
+        aggregation = result.feedback.content["feedback_aggregation"]
+        assert isinstance(aggregation, dict)
+        self.assertEqual(aggregation["tail_selection"], "survival_return_only")
+        self.assertEqual(aggregation["upper_tail_weight"], 0.0)
         self.assertEqual(result.feedback.artifacts, ())
-        detailed = result.feedback.content["detailed_feedback"]
-        assert isinstance(detailed, dict)
-        self.assertEqual(
-            detailed["reason"],
-            "split_disables_detailed_artifacts",
-        )
 
     def test_baseline_exposes_executable_empty_capability_scaffold(self) -> None:
         perception = VisualTranslationModule().translate(_ZERO_OBSERVATION.data)
@@ -1687,6 +1450,18 @@ class CrafterBenchmarkTests(unittest.TestCase):
             previous_direction = direction
         self.assertEqual(seen_directions, {1, 2, 3, 4})
 
+    def test_symbolic_baseline_matches_rgb_starting_action_stream(self) -> None:
+        rgb = BaselinePolicy(7)
+        symbolic = LocalSymbolicBaselinePolicy(7)
+
+        self.assertEqual(
+            tuple(rgb.act(_ZERO_OBSERVATION) for _ in range(256)),
+            tuple(
+                symbolic.act(_ZERO_SYMBOLIC_OBSERVATION)
+                for _ in range(256)
+            ),
+        )
+
 
 def _record(
     achievements: tuple[str, ...],
@@ -1757,6 +1532,51 @@ def _event_record(
         policy_seed=20,
         initial_observation=_ZERO_OBSERVATION,
         transitions=transitions,
+    )
+
+
+def _m2_s1_record(
+    *,
+    steps: int,
+    unlocked: tuple[str, ...] = (),
+    terminated: bool = False,
+    survival_credit: float = 0.05,
+) -> EpisodeRecord:
+    transitions: list[Transition] = []
+    for index in range(steps):
+        final = index == steps - 1
+        upstream_reward = 1.0 if index == 0 and unlocked else 0.0
+        transition_survival_credit = (
+            0.0 if final and terminated else survival_credit
+        )
+        transitions.append(
+            Transition(
+                action=5,
+                step=Step(
+                    observation=_ZERO_OBSERVATION,
+                    reward=upstream_reward + transition_survival_credit,
+                    terminated=final and terminated,
+                    truncated=final and not terminated,
+                    metrics={
+                        "achievements_unlocked": (
+                            list(unlocked) if index == 0 else []
+                        ),
+                        "achievement_event_counts": (
+                            {name: 1 for name in unlocked}
+                            if index == 0
+                            else {}
+                        ),
+                        "upstream_reward": upstream_reward,
+                        "survival_credit": transition_survival_credit,
+                    },
+                ),
+            )
+        )
+    return EpisodeRecord(
+        episode=EpisodeSpec(environment_seed=10),
+        policy_seed=20,
+        initial_observation=_ZERO_OBSERVATION,
+        transitions=tuple(transitions),
     )
 
 

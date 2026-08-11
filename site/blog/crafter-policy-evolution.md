@@ -1,11 +1,11 @@
 ---
 locale: en
 page: crafter-policy-evolution
-title: "Survive, Build, Repeat: Shaping Policy Evolution in Crafter"
-description: "How achievement, survival, and repeat-production Feedback redirected executable Policy evolution in Crafter."
-lead: "A reward ablation with GPT-5.6 Luna, Terra, and Sol shows the tension between surviving longer and progressing through Crafter's technology tree."
-publishedAt: "2026-08-09"
-date: "2026-08-09"
+title: "Perception or Planning? Policy Evolution in Crafter"
+description: "A paired RGB and local-symbolic experiment reveals different perception and long-horizon control bottlenecks in Crafter Policy evolution."
+lead: "GPT-5.6 Sol, Terra, and Luna evolve markedly different Crafter Policies when local visual recognition is separated from long-horizon survival and development."
+publishedAt: "2026-08-11"
+date: "2026-08-11"
 authors: [evopolicygym]
 tags:
   - Benchmark
@@ -15,246 +15,370 @@ tags:
 status: published
 ---
 
-## What is Crafter?
+Crafter is an open-world survival game where an agent must stay alive while
+exploring, gathering resources, fighting enemies, and progressing through a
+crafting technology tree. Unlike environments with a short and well-defined
+objective, success in Crafter requires many decisions to remain coordinated
+over hundreds of steps.
 
-Crafter is an open-world survival game built around exploration, resource
-gathering, crafting, combat, and survival. Each Episode takes place in a
-randomly generated world. The player must find food and water, avoid or fight
-creatures, collect materials, and progress from wood and stone to iron and
-diamond.
+For a coding Agent evolving a Policy, this creates two intertwined challenges:
+
+1. **Perception:** recover nearby terrain, entities, inventory, and player
+   status from the observation.
+2. **Long-horizon control:** turn that state into a coherent strategy for
+   survival, exploration, combat, and development.
+
+In this experiment, we separate these two sources of difficulty. We evaluate
+GPT-5.6 Sol, Terra, and Luna under the same Crafter task, but give their evolved
+Policies either the original RGB observation or a local symbolic representation
+of the same visible state.
+
+The difference is substantial for **Sol and Terra**, but much smaller for
+**Luna**. Removing most visual recognition work therefore exposes different
+bottlenecks in the Policies evolved by the three coding Agents.
 
 <!-- truncate -->
 
-A simplified progression loop looks like this:
+## Crafter as a Policy-Evolution Environment
 
-```text
-explore the world
-        ↓
-gather food, water, and materials
-        ↓
-survive long enough to craft tools
-        ↓
-unlock new resources and abilities
-        ↓
-reach harder achievements
-```
+Crafter procedurally generates a fresh world for every Episode. The player
+begins without tools or resources and must balance immediate survival with
+longer-term development.
 
-Crafter evaluates 22 meaningful achievements spanning resources, creatures,
-tools, farming, and construction. Its standard score takes a shifted geometric
-mean of achievement success rates. This rewards broad progress across the
-technology tree rather than repeatedly completing one easy task.
+A capable Policy needs to coordinate several behaviors:
 
-That creates a strategy problem: progress requires survival, but optimizing
-only for survival can produce conservative behavior that never reaches the
-deeper technology tree.
+- maintain food, drink, and health;
+- explore an initially unknown world;
+- collect increasingly advanced resources;
+- craft and place tools and structures;
+- avoid or fight hostile creatures;
+- retain enough local information to revisit useful areas.
 
-## Bringing Crafter into EvoPolicyGym
+These objectives compete with one another. Exploration creates opportunities
+for development but also exposes the player to danger. Crafting requires
+resources that may be far from safety. A Policy that focuses only on immediate
+survival can stagnate, while aggressive progression can quickly collapse if
+basic needs are neglected.
 
-The Benchmark uses Crafter 1.8.3 with 10,000-step Episodes. The Policy receives
-only a `64 × 64 × 3` RGB observation and chooses from 17 discrete Actions.
-Health, food, water, and inventory are visible only through the rendered
-screen; player position, semantic maps, and Environment seeds are not exposed
-as structured Policy inputs.
+Crafter therefore tests whether a coding Agent can evolve a **coordinated
+long-horizon program**, rather than merely discover a locally useful action
+rule.
 
-The standard Crafter score measures achievement breadth well, but it does not
-directly distinguish a sustainable long-lived routine from a brief burst of
-progress before death. We therefore evaluated four aggregate Feedback
-profiles:
+## RGB vs. Local Symbolic Observations
 
-| Profile | Feedback score | Purpose |
-| --- | --- | --- |
-| **M1 · Achievement** | `C` | Standard Crafter achievement progress |
-| **M2 · Survival** | `C + L / 100` | Add a light survival incentive |
-| **M3 · Survival + Repeat** | `C + L / 100 + R` | Balance progress, survival, and repeatable production |
-| **M4 · Strong Survival + Repeat** | `C + L / 20 + R` | Strongly prioritize survival |
+The two conditions use the same simulator, procedural worlds, action space,
+reward metric, Episode pools, and evaluation setup. Only the observation
+exposed to the Policy changes.
 
-`C` is the standard Crafter achievement score, `L` is mean effective survival
-length, and `R` rewards confirmed repeated activities such as gathering,
-drinking, eating, building, and defeating creatures. The first successful
-event remains part of `C`; only later successes contribute to `R`. Repeat
-credit grows logarithmically and has a continuous survival-scaled limit, so a
-short-lived Policy cannot obtain an arbitrarily large score from one easy
-loop.
+### RGB
 
-These profiles do **not** change Crafter's original step reward. They change
-only the aggregate Feedback used to compare submitted Programs.
+The RGB Policy receives the rendered `64 × 64 × 3` Crafter frame.
 
-## Learning from visual trajectories
+It must infer:
 
-Aggregate scores reveal whether a Policy improved, but many Crafter failures
-are easier to understand visually. A Policy may circle within one area, ignore
-food or water, remain limited to low-level resources, or discover a productive
-loop without progressing further.
+- terrain from colors and textures;
+- creatures and objects from sprites;
+- inventory and vitals from the HUD;
+- player position and orientation from rendering;
+- useful state under changing illumination, including nighttime.
 
-For every training submission, the Agent receives the complete Policy-visible
-Action trajectory and lossless RGB observations. Validation and held-out test
-trajectories remain private. NumPy, Pillow, and image-viewing tools let the
-coding Agent inspect what the Policy saw and did before rewriting the
-executable strategy. The Environment supplies evidence; choosing what to
-inspect and how to interpret it remains part of the Agent's work.
+### Local symbolic
+
+The symbolic Policy instead receives structured information for the **same
+local region**:
+
+- local terrain and entity IDs;
+- health, food, drink, energy, resources, and tools;
+- facing direction, sleeping state, and daylight.
+
+This representation removes most object recognition, HUD reading, and
+nighttime visual ambiguity.
+
+However, it does **not** expose privileged global state. The Policy still
+receives no global semantic map, absolute position, Environment seed, hidden
+creature state, or other information outside the local observation.
+
+It must still explore, remember useful locations, handle collisions, sequence
+resources, time interactions, fight enemies, and coordinate survival with
+development.
+
+The paired experiment therefore simplifies **state recognition** while
+preserving most of the **long-horizon decision-making problem**.
+
+## Long-Horizon Survival Score
+
+Crafter's canonical score is primarily achievement-oriented. For our
+policy-evolution setting, we additionally want to distinguish a Policy that
+occasionally reaches advanced achievements from one that can survive reliably
+while continuing to make progress.
+
+We therefore use the **Long-Horizon Survival Score (LHS Score)** as the primary
+Benchmark metric.
+
+At each step, its survival component contains two signals:
+
+- an **alive reward** for remaining alive;
+- a **vital-quality reward** determined by the weakest of health, food, and
+  drink.
+
+Using the weakest vital is intentional: high food and health should not
+compensate for a Policy that is about to die from thirst.
+
+LHS also retains bounded secondary incentives for useful development:
+
+- the first unlock of a new achievement;
+- actual restoration of food or drink;
+- productive repeated behaviors such as resource collection, combat, and
+  planting.
+
+Repeated actions are capped within rolling windows, preventing a simple farming
+or maintenance loop from dominating the score.
+
+Across Episodes, LHS further emphasizes robustness. The aggregate score
+combines:
+
+- average healthy-survival return;
+- additional weight on the **weakest quarter of Episodes**;
+- bounded development and maintenance return.
+
+Conceptually,
+
+`LHS = average survival + lower-tail robustness + bounded progression`
+
+rather than rewarding only the best trajectories.
+
+This makes short achievement-rich Episodes insufficient to compensate for a
+fragile survival Policy, while still encouraging the Agent to progress beyond
+passive survival.
+
+The canonical Crafter score is reported separately as a diagnostic of
+technology-tree progression.
 
 ## Experiment
 
-We ran GPT-5.6 Luna, Terra, and Sol through Codex. Each Agent started from the
-same packaged baseline and optimized it independently under each reward
-profile. All 12 Runs shared the same Environment, split construction, and Run
-seed; within each model lane, the reward profile was the experimental
-variable. The optional Benchmark Skill was disabled.
+We evaluate GPT-5.6 **Sol**, **Terra**, and **Luna**.
 
-| Setting | Value |
-| --- | --- |
-| Environment | Crafter 1.8.3 |
-| Policy input | `64 × 64 × 3` RGB |
-| Actions | 17 |
-| Episode horizon | 10,000 steps |
-| Training allowance | up to 256 Episodes |
-| Maximum per submission | 16 Episodes |
-| Validation | 32 Episodes per candidate |
-| Final Assessment | 64 held-out Episodes |
-| Agent harness | Codex, high reasoning effort |
-| Optional Benchmark Skill | disabled |
+For each coding Agent, we run one policy-evolution trajectory with RGB
+observations and one with local symbolic observations. All six Runs use the
+same long-horizon survival objective.
 
-The training allowance was a ceiling, not forced consumption, so Agents could
-finish before using all 256 Episodes.
+The evolved candidate selected at the end of each Run is evaluated on **64
+held-out Episodes**.
 
-On the fixed held-out pool, the baseline had a Crafter achievement score of
-`1.025`, survived for `163.4` effective steps on average, and reached only
-`5/22` achievement types. Its behavior was dominated by collecting wood,
-drinking water, and collecting saplings.
+In addition to LHS, we report:
+
+- mean and maximum effective survival;
+- the fraction of Episodes surviving at least 300 steps;
+- canonical Crafter score;
+- achievement coverage.
+
+These diagnostics allow us to distinguish average robustness, exceptionally
+long trajectories, and technology progression.
 
 ## Results
 
-All three Agents improved over the packaged baseline on the aggregate objective
-used in their Runs, but the resulting Policies differed substantially across
-both Agents and objectives.
+The effect of simplifying perception differs sharply across the three Agents.
 
-| Metric | Agent | Final score | Achievement `C` | Survival `L` | Repeat `R` | Coverage |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| **M1 · Achievement** | **Sol** | **12.748** | **12.748** | 183.8 | — | **17/22** |
-|  | Luna | 3.461 | 3.461 | 163.3 | — | 11/22 |
-|  | Terra | 1.655 | 1.655 | 176.8 | — | 7/22 |
-| **M2 · + Survival** | **Sol** | **10.110** | **8.308** | **180.2** | — | **15/22** |
-|  | Luna | 3.563 | 1.803 | 176.0 | — | 8/22 |
-|  | Terra | 3.918 | 2.134 | 178.5 | — | 7/22 |
-| **M3 · + Survival + Repeat** | Sol | 7.073 | 4.007 | 177.8 | 1.288 | 10/22 |
-|  | Luna | 6.651 | 2.305 | 177.7 | **2.570** | 9/22 |
-|  | **Terra** | **7.997** | **4.092** | **186.8** | 2.037 | **11/22** |
-| **M4 · Strong Survival + Repeat** | **Sol** | **15.501** | **4.717** | 176.5 | 1.957 | **14/22** |
-|  | Luna | 14.193 | 2.253 | **185.9** | 2.647 | 10/22 |
-|  | Terra | 13.055 | 1.023 | 184.7 | **2.799** | 5/22 |
+| Agent | LHS Score | Mean Survival | Max Survival | Survive ≥300 | Crafter C | Coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Sol** | 5.70 → **11.53** | 195 → **316** | 401 → **1043** | 3.1% → **39.1%** | 3.91 → **19.47** | 10 → **18/22** |
+| **Terra** | 4.58 → **9.88** | 164 → **291** | 288 → **871** | 0.0% → **31.2%** | 1.12 → **11.31** | 5 → **14/22** |
+| **Luna** | 4.58 → **4.97** | 164 → **178** | 288 → **401** | 0.0% → **3.1%** | 1.12 → **3.44** | 5 → **11/22** |
 
-Final scores should be compared with the corresponding profile's baseline,
-not directly across profiles: M4 deliberately assigns more points to every
-survival step than M1–M3.
+*Each cell compares RGB → local symbolic observations.*
 
-M1 produced the broadest technology-tree progression. Sol reached `17/22`
-achievements and a standard Crafter score of **12.748**, compared with `11/22`
-for Luna and `7/22` for Terra. M2 increased survival for all three Agents while
-Sol retained substantially broader achievement progress.
+For **Sol**, LHS increases from 5.70 to 11.53, while mean survival rises from
+195 to 316 steps. Its longest held-out trajectory grows from 401 to **1,043
+steps**.
 
-M3 produced the most balanced result. Within that profile, Terra achieved the
-highest final score at **7.997**, combining `C = 4.092`, `186.8` effective
-survival steps, and non-zero success on `11/22` achievements. Its repeat credit
-came from a mixture of wood and stone collection, placing stone, eating cows,
-and drinking rather than one maintenance action alone.
+**Terra** shows an equally pronounced shift. LHS more than doubles, mean
+survival increases by 127 steps, and its longest trajectory reaches **871
+steps**.
 
-Across the three M4 Runs, mean survival increased, but the Policies did not all
-progress broadly. Sol still reached `14/22` achievements, whereas Terra
-remained at `5/22`, the same coverage as the baseline. Terra's standard
-achievement score, `1.023`, was also slightly below the baseline despite its
-much higher aggregate M4 score.
+The change for **Luna** is much smaller. Symbolic observations increase
+achievement coverage substantially, from 5 to 11 achievements, but mean
+survival rises by only 13 steps and LHS improves by only 8%.
 
-Across Agents, increasing the survival incentive produced a consistent
-aggregate trade-off:
+The difference is especially visible in robust long-horizon survival. Under
+symbolic observations, **39.1%** of Sol Episodes and **31.2%** of Terra
+Episodes survive at least 300 steps, compared with only **3.1%** for Luna.
 
-| Metric | Mean achievement `C` | Mean survival `L` | Mean repeat `R` |
-| --- | ---: | ---: | ---: |
-| M1 | **5.955** | 174.6 | — |
-| M2 | 4.082 | 178.2 | — |
-| M3 | 3.468 | 180.8 | 1.965 |
-| M4 | 2.664 | **182.4** | **2.468** |
+For Sol and Terra, simplifying perception therefore changes not only their
+best-case behavior, but the broader survival distribution.
 
-Mean survival rose monotonically from `174.6` to `182.4` steps, while the mean
-standard Crafter score fell from `5.955` to `2.664`. Reward shaping therefore
-redirected Policy evolution rather than merely rescaling the same behavior.
+*Terra's symbolic Run includes one validation protocol failure and one protocol
+error during the held-out Assessment. The failed held-out Episode receives zero
+under the Benchmark definition; among successfully completed Episodes, its
+shortest survival is 156 steps.*
 
-![Step-aligned, side-by-side sampled replays of representative M3 training
-Episodes from the Validation-selected Sol, Luna, and Terra Policies. The three
-Policies explore, gather, craft, and survive in different generated
-worlds.](/images/blog/crafter-m3-policy-replay-comparison.gif)
+## Three Agents, Different Bottlenecks
 
-*Representative, non-seed-matched M3 training trajectories. Sol uses train
-index 159 from Submission 000010 and reaches 7 achievements in 296 steps; Luna
-uses index 62 from Submission 000004 and reaches 7 achievements in 194 steps;
-Terra uses index 120 from Submission 000008 and reaches 8 achievements in 294
-steps. The replay displays one frame every three Policy steps on a shared step
-timeline; after an Episode ends, its final observation remains visible. These
-Episodes are not part of the held-out Assessment.*
+The paired experiment produces three qualitatively different policy-evolution
+trajectories.
 
-## The baseline's capability boundary
+### Sol: strong RGB progress, then another large gain
 
-The baseline can answer an early-game question:
+Sol already evolves a useful Policy from RGB observations. Its RGB result
+clearly exceeds the packaged baseline, indicating that the Agent can make
+progress while jointly solving visual interpretation and control.
 
-> How do I obtain nearby resources and satisfy immediate survival needs?
+Symbolic observations nevertheless produce another major jump.
 
-The broader task is different:
+Its selected symbolic Policy achieves:
 
-> How should I coordinate survival, exploration, production, and the
-> technology tree over a long Episode?
+- **11.53** LHS Score;
+- **316** mean survival steps;
+- **1,043** maximum survival steps;
+- **18/22** achievement coverage;
+- **19.47** canonical Crafter score.
 
-Its `5/22` achievement coverage shows that it can enter the early game but
-rarely develops a broad progression chain. Policy evolution must decide when
-to gather familiar resources, when to explore, when to invest in tools and
-structures, and how much effort to spend simply staying alive.
+Sol therefore appears capable of handling both parts of the problem, while
+still benefiting strongly when state recognition becomes more reliable.
 
-## How reward shaping changed Policy evolution
+### Terra: perception was a major bottleneck
 
-**M1 favored technology-tree breadth.** Without an explicit survival bonus,
-new achievement types remained the dominant route to a higher score.
+Terra follows a different trajectory.
 
-**M2 added survival without substantially redefining the task.** Mean survival
-improved by about 15 steps over the baseline while achievement score remained
-above baseline for all three Agents.
+Under RGB observations, its policy-evolution Run ultimately selects the
+unmodified packaged baseline: its attempted visual Policies do not validate
+above that fallback.
 
-**M3 rewarded sustainable progression.** Repeated production, food, combat,
-and construction contributed after their first achievement, while the light
-survival term discouraged immediate death without overwhelming the original
-objective.
+Once the same local world state is presented symbolically, the result changes
+dramatically.
 
-**M4 pushed the trade-off too far.** It gained only about `1.6` mean survival
-steps over M3 while losing roughly `0.8` mean achievement points. Drinking
-alone contributed about 65% of Sol's repeat score, 86% of Luna's, and 83% of
-Terra's. The stronger survival term made low-risk maintenance loops
-disproportionately attractive.
+Terra reaches an LHS Score of **9.88**, mean survival of **291 steps**, maximum
+survival of **871 steps**, and **14/22** achievement coverage.
 
-This is a useful failure mode for an executable-Policy Benchmark: a coding
-Agent can discover and encode behavior that exploits whichever incentives the
-Environment makes durable.
+The RGB result alone therefore substantially understates what Terra can do
+once reliable local state is available.
 
-## Findings and boundaries
+For this Run, visual state extraction appears to have been a major bottleneck
+upstream of long-horizon strategy.
 
-Among these four profiles, **M3 is the most useful long-survival variant**. It
-captures most of M4's survival improvement while preserving more achievement
-progress and supporting a broader mix of repeatable activities. M1 remains the
-standard Crafter control, M2 a simple survival hybrid, and M4 a strong-survival
-ablation.
+### Luna: better recognition does not solve coordination
 
-This is an initial reward ablation. Each model/profile pair is represented by
-one primary coding-agent trajectory, and the Agents did not consume equal
-training budgets. The results show that reward design systematically redirected
-Policy evolution in these Runs; they are not a general ranking of Luna, Terra,
-and Sol.
+Luna also returns to the packaged baseline under RGB observations.
 
-More broadly, Crafter exposes a useful tension for EvoPolicyGym: **a good
-metric must reward staying alive long enough to build a strategy without
-making survival itself easier to optimize than progress.**
+Symbolic observations help its Policy reach a substantially broader portion
+of the technology tree: achievement coverage increases from **5/22 to 11/22**.
 
-## Code and notes
+However, that development gain does not translate into comparable survival
+robustness.
 
-- [Crafter upstream Environment](https://github.com/danijar/crafter)
-- [EvoPolicyGym Crafter Benchmark](https://github.com/Linzwcs/EvoPolicyGym/tree/main/environments/crafter/crafter)
-- [Evaluation and Runs](/docs/evaluation/)
-- [Policy boundary](/docs/policy/)
+Mean survival increases only from 164 to 178 steps, maximum survival reaches
+401 steps, and LHS moves from 4.58 to 4.97.
 
-The EvoPolicyGym adapter is MIT licensed. Crafter remains a separate dependency
-governed by its own license.
+This suggests a different failure boundary from Terra.
+
+For Luna, removing most of the perception problem exposes continuing
+difficulty in coordinating survival, exploration, resource progression, and
+action control over long horizons.
+
+The three Agents are therefore not simply producing stronger or weaker
+versions of the same strategy.
+
+**Changing the observation contract affects their policy evolution in
+fundamentally different ways.**
+
+## One World, Six Policies
+
+Aggregate results measure robustness across procedural worlds. To make the
+behavioral differences easier to inspect, we also run the six selected
+Policies on the **same fixed Episode**.
+
+This Episode was fixed independently of Policy performance and is separate
+from the 64-Episode held-out Assessment. The replays are therefore qualitative
+illustrations rather than evaluation evidence.
+
+For the symbolic conditions, each Policy still receives only its structured
+local observation. The RGB GIF is a human-facing deterministic replay of that
+Policy's recorded Actions in the identical world; those RGB frames are not
+Policy inputs.
+
+### Sol
+
+#### RGB Policy
+
+![Sol RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-sol-rgb-showcase.gif)
+
+Effective survival in the showcase Episode: **164 steps**.
+
+#### Local-symbolic Policy
+
+![Sol local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-sol-symbolic-showcase.gif)
+
+Effective survival: **216 steps**.
+
+### Terra
+
+#### RGB Policy
+
+![Terra RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-terra-rgb-showcase.gif)
+
+Effective survival: **165 steps**.
+
+#### Local-symbolic Policy
+
+![Terra local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-terra-symbolic-showcase.gif)
+
+Effective survival: **212 steps**.
+
+### Luna
+
+#### RGB Policy
+
+![Luna RGB Policy on the fixed Crafter Episode](/images/blog/crafter-lhs-luna-rgb-showcase.gif)
+
+Effective survival: **165 steps**.
+
+#### Local-symbolic Policy
+
+![Luna local-symbolic Policy on the same fixed Crafter Episode](/images/blog/crafter-lhs-luna-symbolic-showcase.gif)
+
+Effective survival: **254 steps**.
+
+Interestingly, Luna survives longest among the three symbolic Policies on this
+particular Episode.
+
+The held-out results tell a very different story: Sol and Terra are
+substantially more robust across 64 procedurally generated worlds.
+
+This contrast illustrates why individual trajectories are useful for
+understanding behavior, but cannot substitute for aggregate evaluation.
+
+## What Does the Ablation Tell Us?
+
+At first glance, Crafter poses a single challenge: evolve a Policy that can
+survive and develop in an open world.
+
+The paired experiment shows that the difficulty can originate at different
+stages.
+
+For **Sol and Terra**, local visual state extraction is a major part of the
+challenge. Removing object recognition, HUD reading, and nighttime visual
+ambiguity leads to much stronger survival and technology progression.
+
+For **Luna**, perception is only part of the problem. Cleaner state information
+enables broader development, but the resulting Policy still struggles to turn
+those capabilities into reliable long-horizon survival.
+
+This is the distinction we want environments such as Crafter to expose.
+
+A final scalar score tells us which Program performs better. Controlled
+changes to the observation interface can additionally reveal **where policy
+evolution stops improving**.
+
+Crafter therefore evaluates more than whether a coding Agent can write a
+game-playing Policy. It gives us a way to separate failures of perception from
+failures of long-horizon planning, control, and program coordination.
+
+These six Runs represent individual policy-evolution trajectories rather than
+repeated statistical trials, and their training Episode consumption is not
+identical. We therefore do not interpret them as a general ranking of Sol,
+Terra, and Luna.
+
+The narrower observation is more informative:
+
+> **Removing local visual recognition transforms the Policies evolved by Sol
+> and Terra, but only modestly improves Luna's survival—revealing different
+> bottlenecks behind long-horizon policy evolution.**

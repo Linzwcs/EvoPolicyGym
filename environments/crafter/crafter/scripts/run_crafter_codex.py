@@ -8,6 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from evopolicygym import Program
 from evopolicygym.agents import AgentInvocation, AgentTask, Codex
 from evopolicygym.execution import ProcessExecution
 from evopolicygym.run import (
@@ -21,13 +22,10 @@ from evopolicygym.skills import AgentSkill
 
 from crafter_benchmarks import (
     CrafterBenchmark,
-    CrafterCanonicalStrongSurvivalRepeatBenchmark,
-    CrafterCanonicalSurvivalBenchmark,
-    CrafterCanonicalSurvivalRepeatBenchmark,
     CrafterConfig,
-    CrafterLongHorizonBenchmark,
-    CrafterSurvivalDevelopmentBenchmark,
+    CrafterLongHorizonSurvivalBenchmark,
     baseline_program,
+    local_symbolic_baseline_program,
 )
 
 
@@ -38,62 +36,33 @@ class _CrafterCodex:
     model: str
     reasoning_effort: str
     executable: str
-    recommended_episodes_per_submission: int | None
-    minimum_candidate_evidence: int | None
-    max_train_index_uses: int | None
-
-    def __post_init__(self) -> None:
-        for field, value in (
-            (
-                "recommended_episodes_per_submission",
-                self.recommended_episodes_per_submission,
-            ),
-            ("minimum_candidate_evidence", self.minimum_candidate_evidence),
-            ("max_train_index_uses", self.max_train_index_uses),
-        ):
-            if value is not None and (type(value) is not int or value <= 0):
-                raise ValueError(f"{field} must be a positive integer or None")
+    observation_profile: str = "rgb"
 
     def build_invocation(self, task: AgentTask) -> AgentInvocation:
         base = Codex(
             model=self.model,
             reasoning_effort=self.reasoning_effort,
             executable=self.executable,
-            view_image=True,
+            view_image=self.observation_profile == "rgb",
         ).build_invocation(task)
-        limit = self.max_train_index_uses
-        instructions = [_agent_analysis_python_instruction()]
-        if (
-            self.recommended_episodes_per_submission is not None
-            or self.minimum_candidate_evidence is not None
-        ):
-            instructions.append(
-                _training_batch_evidence_instruction(
-                    recommended_episodes_per_submission=(
-                        self.recommended_episodes_per_submission
-                    ),
-                    minimum_candidate_evidence=self.minimum_candidate_evidence,
-                )
-            )
-        if limit is not None:
-            instructions.append(_training_index_diversity_instruction(limit))
+        instructions = [
+            _player_guide_instruction(),
+            _agent_analysis_python_instruction(self.observation_profile),
+            _training_episode_diversity_instruction(),
+        ]
         instruction = "\n".join(instructions)
         option = (
             "-c",
             f"developer_instructions={json.dumps(instruction)}",
         )
         identity = dict(base.identity)
-        identity["agent_python_tools"] = "numpy,pillow"
-        if self.recommended_episodes_per_submission is not None:
-            identity["recommended_episodes_per_submission"] = str(
-                self.recommended_episodes_per_submission
-            )
-        if self.minimum_candidate_evidence is not None:
-            identity["minimum_candidate_evidence"] = str(
-                self.minimum_candidate_evidence
-            )
-        if limit is not None:
-            identity["max_train_index_uses"] = str(limit)
+        identity["agent_python_tools"] = (
+            "numpy"
+            if self.observation_profile == "local-symbolic-v1"
+            else "numpy,pillow"
+        )
+        identity["max_train_index_uses"] = "1"
+        identity["crafter_observation_profile"] = self.observation_profile
         return AgentInvocation(
             command=(*base.command[:-1], *option, base.command[-1]),
             recorded_command=(
@@ -108,111 +77,67 @@ class _CrafterCodex:
         )
 
 
-def _agent_analysis_python_instruction() -> str:
+def _player_guide_instruction() -> str:
     return """\
-Crafter feedback analysis uses the launcher's uv-managed Python environment.
-Run analysis scripts with `python` directly; that interpreter provides NumPy
-and Pillow for loading NPZ observations and producing images. Do not prefix
-analysis commands with bare `uv run` from the Run workspace: uv would discover
-the repository-root Kernel project instead of the independently packaged
-Crafter environment, and that Kernel environment intentionally does not own
-Crafter's dependencies. This tooling guidance does not prescribe which
-evidence to inspect or how to change the Policy.
+Before the first submission, read program/PLAYER_GUIDE.md in full. Treat it as
+the authoritative gameplay-mechanics reference available for this Run,
+including the observation layout, survival systems, terrain collision,
+creatures, gathering, crafting, placement, and day-night behavior. Treat the
+Benchmark public specification as the authoritative evaluation objective and
+scoring contract. Policy design must jointly respect the game mechanics in
+PLAYER_GUIDE.md and the objective in the Benchmark specification; neither
+source should be ignored in favor of the other. PLAYER_GUIDE.md provides
+environment knowledge, not a prescribed Policy or fixed Action plan. You
+remain responsible for discovering and evaluating the strategy.
 """
 
 
-def _training_batch_evidence_instruction(
-    *,
-    recommended_episodes_per_submission: int | None,
-    minimum_candidate_evidence: int | None,
-) -> str:
-    guidance: list[str] = [
-        "Crafter training returns have substantial between-Episode variance. "
-        "Batches of 8 or fewer Episodes are useful for smoke tests and targeted "
-        "diagnosis, but differences between their raw means are weak evidence "
-        "about Policy quality."
-    ]
-    if recommended_episodes_per_submission is not None:
-        guidance.append(
-            "For ordinary candidate comparisons, normally use about "
-            f"{recommended_episodes_per_submission} Episodes per submission."
-        )
-    if minimum_candidate_evidence is not None:
-        guidance.append(
-            "Before rejecting a promising Policy direction or deciding that no "
-            "further Policy improvement is justified, normally accumulate at "
-            f"least {minimum_candidate_evidence} total training Episode results "
-            "for that exact submitted Program revision; this evidence may span "
-            "multiple submissions."
-        )
-    guidance.extend(
-        [
-            "Combine deliberate matched-index comparisons with fresh, unseen "
-            "indices for generalization evidence. A matched comparison requires "
-            "the exact same submitted Program revision; a hand-written recreation "
-            "or approximate revert is a different Policy.",
-            "These are statistical evidence guidelines, not Kernel-enforced "
-            "submission sizes. You remain responsible for allocating the finite "
-            "training budget, may use smaller diagnostic batches when justified, "
-            "and may finish early under the Host finish policy.",
-        ]
-    )
-    return (
-        "Training batch evidence guidance for this Run. "
-        + " ".join(guidance)
-        + "\n"
-    )
+def _agent_analysis_python_instruction(observation_profile: str) -> str:
+    if observation_profile == "local-symbolic-v1":
+        return """\
+Use `python` directly for Crafter feedback analysis. NumPy is available for
+loading the lossless local-symbolic NPZ observations. Do not invoke `uv run`
+from the Run workspace; it selects a different project environment.
+"""
+    return """\
+Use `python` directly for Crafter feedback analysis. NumPy and Pillow are
+available for loading NPZ observations and producing images. Do not invoke
+`uv run` from the Run workspace; it selects a different project environment.
+"""
 
 
-def _training_index_diversity_instruction(max_uses: int) -> str:
-    if max_uses == 1:
-        reuse_rule = (
-            "Each Run-local training Episode index may be selected at most once "
-            "across the entire Run. Never select an index that has already been "
-            "evaluated."
-        )
+def _training_episode_diversity_instruction() -> str:
+    return """\
+Training Episode diversity is an explicit requirement for this Run. Each
+Run-local training Episode index may be selected at most once across the entire
+Run. Never select an index that has already been evaluated. Every new
+submission must use previously unseen indices. Keep a simple index-usage record
+under analysis/ and check it before every submission. This requirement does not
+prescribe a submission size or require full budget consumption.
+"""
+
+
+def _starting_program(observation_profile: str) -> Program:
+    if observation_profile == "rgb":
+        return baseline_program()
+    if observation_profile == "local-symbolic-v1":
+        return local_symbolic_baseline_program()
+    raise ValueError("Crafter observation profile is invalid")
+
+
+def _benchmark_skill_directory(observation_profile: str) -> Path:
+    if observation_profile == "rgb":
+        name = "optimize-crafter-policy"
+    elif observation_profile == "local-symbolic-v1":
+        name = "optimize-crafter-local-symbolic-policy"
     else:
-        retries = max_uses - 1
-        retry_noun = "retry" if retries == 1 else "retries"
-        reuse_rule = (
-            "Across the entire Run, select each Run-local training Episode index "
-            f"at most {max_uses} times in total: its first evaluation plus at most "
-            f"{retries} {retry_noun}. A repeat evaluation of an index is permitted only "
-            "for a deliberate matched comparison between Policy revisions. Never "
-            f"select any index more than {max_uses} times."
-        )
-    return f"""\
-Training Episode diversity is an explicit requirement for this Run. {reuse_rule}
-While any unseen training indices remain, every new submission must include
-unseen indices and should prefer expanding unique Episode coverage over
-repeating previous evidence. Keep a simple index-usage record under analysis/
-and check it before every submission. This requirement supplements the Host
-statement that index reuse is technically permitted; it limits that permission
-in order to preserve rollout diversity. It does not prescribe a particular
-selector or submission size, and it does not alter the Host's finish budget
-policy.
-"""
+        raise ValueError("Crafter observation profile is invalid")
+    return Path(__file__).parents[1] / "skills" / name
 
 
 def main(arguments: list[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(arguments)
-    if (
-        namespace.recommended_episodes_per_submission is not None
-        and namespace.recommended_episodes_per_submission
-        > namespace.max_episodes_per_submission
-    ):
-        parser.error(
-            "--recommended-episodes-per-submission cannot exceed "
-            "--max-episodes-per-submission"
-        )
-    if (
-        namespace.minimum_candidate_evidence is not None
-        and namespace.minimum_candidate_evidence > namespace.episode_budget
-    ):
-        parser.error(
-            "--minimum-candidate-evidence cannot exceed --episode-budget"
-        )
     if not namespace.allow_unsafe_process:
         parser.error(
             "local Agent and Policy processes are not isolated by "
@@ -234,18 +159,13 @@ def main(arguments: list[str] | None = None) -> int:
     config = CrafterConfig(
         max_episode_steps=namespace.max_episode_steps,
         include_mp4_feedback=namespace.include_mp4_feedback,
+        observation_profile=namespace.observation_profile,
     )
-    benchmark_types = {
+    benchmark_types: dict[str, type[CrafterBenchmark]] = {
         "canonical": CrafterBenchmark,
-        "canonical-survival": CrafterCanonicalSurvivalBenchmark,
-        "canonical-survival-repeat": (
-            CrafterCanonicalSurvivalRepeatBenchmark
+        "lhs": (
+            CrafterLongHorizonSurvivalBenchmark
         ),
-        "canonical-strong-survival-repeat": (
-            CrafterCanonicalStrongSurvivalRepeatBenchmark
-        ),
-        "long-horizon": CrafterLongHorizonBenchmark,
-        "survival-development": CrafterSurvivalDevelopmentBenchmark,
     }
     benchmark = benchmark_types[namespace.profile](config)
     observer = (
@@ -255,17 +175,13 @@ def main(arguments: list[str] | None = None) -> int:
     )
 
     result = run(
-        baseline_program(),
+        _starting_program(namespace.observation_profile),
         benchmark,
         agent=_CrafterCodex(
             model=namespace.model,
             reasoning_effort=namespace.reasoning_effort,
             executable=namespace.codex_executable,
-            recommended_episodes_per_submission=(
-                namespace.recommended_episodes_per_submission
-            ),
-            minimum_candidate_evidence=namespace.minimum_candidate_evidence,
-            max_train_index_uses=namespace.max_train_index_uses,
+            observation_profile=namespace.observation_profile,
         ),
         execution=ProcessExecution.unsafe(),
         record_to=record_to,
@@ -304,9 +220,7 @@ def main(arguments: list[str] | None = None) -> int:
         skills=(
             (
                 AgentSkill.from_directory(
-                    Path(__file__).parents[1]
-                    / "skills"
-                    / "optimize-crafter-policy"
+                    _benchmark_skill_directory(namespace.observation_profile)
                 ),
             )
             if namespace.benchmark_skill
@@ -377,16 +291,25 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--profile",
         choices=(
-            "survival-development",
-            "long-horizon",
+            "lhs",
             "canonical",
-            "canonical-survival",
-            "canonical-survival-repeat",
-            "canonical-strong-survival-repeat",
         ),
-        default="survival-development",
+        default="lhs",
+        help=(
+            "select the default long-horizon LHS metric or upstream "
+            "canonical Crafter scoring (default: lhs)"
+        ),
     )
     parser.add_argument("--max-episode-steps", type=int, default=10_000)
+    parser.add_argument(
+        "--observation-profile",
+        choices=("rgb", "local-symbolic-v1"),
+        default="rgb",
+        help=(
+            "select canonical RGB or the separate local-symbolic-v1 Policy "
+            "observation task (default: rgb)"
+        ),
+    )
     parser.add_argument(
         "--include-mp4-feedback",
         action=argparse.BooleanOptionalAction,
@@ -406,39 +329,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-submissions", type=int, default=1024)
     parser.add_argument("--episode-budget", type=int, default=1024)
     parser.add_argument("--max-episodes-per-submission", type=int, default=64)
-    parser.add_argument(
-        "--recommended-episodes-per-submission",
-        type=_recommended_episodes_per_submission,
-        default=32,
-        metavar="N|none",
-        help=(
-            "tell Codex to normally use about N Episodes for an ordinary "
-            "candidate comparison (default: 32); use 'none' to omit this "
-            "launcher-level guidance"
-        ),
-    )
-    parser.add_argument(
-        "--minimum-candidate-evidence",
-        type=_minimum_candidate_evidence,
-        default=64,
-        metavar="N|none",
-        help=(
-            "tell Codex to normally collect at least N total train Episode "
-            "results for an exact candidate before rejecting it or finishing "
-            "(default: 64); use 'none' to omit this launcher-level guidance"
-        ),
-    )
-    parser.add_argument(
-        "--max-train-index-uses",
-        type=_max_train_index_uses,
-        default=2,
-        metavar="N|none",
-        help=(
-            "tell Codex to select each train Episode index at most N times "
-            "across the Run (default: 2); use 'none' to disable this "
-            "launcher-level instruction"
-        ),
-    )
     parser.add_argument(
         "--finish-budget-policy",
         choices=("allow_early", "require_budget_exhaustion"),
@@ -501,36 +391,6 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     return parser
-
-
-def _max_train_index_uses(value: str) -> int | None:
-    return _optional_positive_integer(value, label="max train index uses")
-
-
-def _recommended_episodes_per_submission(value: str) -> int | None:
-    return _optional_positive_integer(
-        value, label="recommended episodes per submission"
-    )
-
-
-def _minimum_candidate_evidence(value: str) -> int | None:
-    return _optional_positive_integer(value, label="minimum candidate evidence")
-
-
-def _optional_positive_integer(value: str, *, label: str) -> int | None:
-    if value.lower() == "none":
-        return None
-    try:
-        parsed = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"{label} must be a positive integer or 'none'"
-        ) from None
-    if parsed <= 0:
-        raise argparse.ArgumentTypeError(
-            f"{label} must be a positive integer or 'none'"
-        )
-    return parsed
 
 
 if __name__ == "__main__":

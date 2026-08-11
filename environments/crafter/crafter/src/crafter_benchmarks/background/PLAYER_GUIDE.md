@@ -9,15 +9,27 @@ The world is procedurally generated, so fixed routes do not transfer between
 episodes. Use the visible terrain, creatures, player status, and inventory to
 decide what is possible now.
 
-## Read the screen
+## Read the observation
 
-The RGB observation has two parts:
+The Benchmark may expose one of two observation profiles. The public Benchmark
+specification identifies which one is active.
+
+In the RGB profile, the `64 x 64 x 3` image has two parts:
 
 - The upper portion is a local 9 by 7 tile view centered on the player. It
   shows terrain, resources, creatures, placed structures, projectiles, and the
   current daylight level.
 - The lower two rows are the inventory and status display. Each item is shown
   with a count from 0 through 9.
+
+In the separate `local-symbolic-v1` profile, the same visible spatial area is
+provided as two row-major `7 x 9` grids named `terrain` and `entities`, with
+the player at row 3, column 4. Named `inventory` values, `facing`, `sleeping`,
+and `daylight` are provided alongside the grids. This profile removes image
+recognition and inventory OCR, but it does not provide a global map, absolute
+position, seeds, achievement counters, action masks, or hidden creature and
+survival counters. The Benchmark specification defines the stable symbolic
+IDs and exact carriers.
 
 The display order is:
 
@@ -27,8 +39,9 @@ row 2: diamond, wood pickaxe, stone pickaxe, iron pickaxe,
        wood sword, stone sword, iron sword
 ```
 
-The player sprite indicates the facing direction. Movement attempts always
-change the facing direction, even when the destination is blocked.
+The player sprite in RGB, or `facing` in the symbolic profile, indicates the
+facing direction. Movement attempts always change the facing direction, even
+when the destination is blocked.
 
 ## Actions
 

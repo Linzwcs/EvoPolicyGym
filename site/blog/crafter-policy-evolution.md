@@ -246,69 +246,29 @@ outcomes are intentional.
 
 ## Three Agents, Different Bottlenecks
 
-The paired experiment produces three qualitatively different policy-evolution
-trajectories.
+The paired results expose a different limiting factor for each Agent.
 
 ### Sol: strong RGB progress, then another large gain
 
-Sol already evolves a useful Policy from RGB observations. Its RGB result
-clearly exceeds the packaged baseline, indicating that the Agent can make
-progress while jointly solving visual interpretation and control.
-
-Symbolic observations nevertheless produce another major jump.
-
-Its selected symbolic Policy achieves:
-
-- **11.53** LHS Score;
-- **316** mean survival steps;
-- **1,043** maximum survival steps;
-- **18/22** achievement coverage;
-- **19.47** canonical Crafter score.
-
-Sol therefore appears capable of handling both parts of the problem, while
-still benefiting strongly when state recognition becomes more reliable.
+Sol already beats the packaged baseline with RGB, then improves again with
+symbolic input: LHS rises from **5.70 to 11.53**, mean survival from **195 to
+316** steps, and coverage from **10/22 to 18/22**. It can jointly improve
+perception and control, but more reliable state recognition still unlocks a
+large gain.
 
 ### Terra: perception was a major bottleneck
 
-Terra follows a different trajectory.
-
-Under RGB observations, its policy-evolution Run ultimately selects the
-unmodified packaged baseline: its attempted visual Policies do not validate
-above that fallback.
-
-Once the same local world state is presented symbolically, the result changes
-dramatically.
-
-Terra reaches an LHS Score of **9.88**, mean survival of **291 steps**, maximum
-survival of **871 steps**, and **14/22** achievement coverage.
-
-The RGB result alone therefore substantially understates what Terra can do
-once reliable local state is available.
-
-For this Run, visual state extraction appears to have been a major bottleneck
-upstream of long-horizon strategy.
+Terra's RGB Run falls back to the unmodified baseline, while symbolic input
+raises LHS from **4.58 to 9.88**, mean survival from **164 to 291** steps, and
+coverage from **5/22 to 14/22**. Visual state extraction was therefore its
+dominant bottleneck in this Run.
 
 ### Luna: better recognition does not solve coordination
 
-Luna also returns to the packaged baseline under RGB observations.
-
-Symbolic observations help its Policy reach a substantially broader portion
-of the technology tree: achievement coverage increases from **5/22 to 11/22**.
-
-However, that development gain does not translate into comparable survival
-robustness.
-
-Mean survival increases only from 164 to 178 steps, maximum survival reaches
-401 steps, and LHS moves from 4.58 to 4.97.
-
-This suggests a different failure boundary from Terra.
-
-For Luna, removing most of the perception problem exposes continuing
-difficulty in coordinating survival, exploration, resource progression, and
-action control over long horizons.
-
-The three Agents are therefore not simply producing stronger or weaker
-versions of the same strategy.
+Luna also falls back to the baseline under RGB. Symbolic input expands coverage
+from **5/22 to 11/22**, but LHS only moves from **4.58 to 4.97** and mean
+survival from **164 to 178** steps. Its remaining bottleneck is long-horizon
+coordination rather than recognition alone.
 
 **Changing the observation contract affects their policy evolution in
 fundamentally different ways.**

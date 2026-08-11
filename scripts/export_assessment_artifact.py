@@ -43,16 +43,18 @@ def main(arguments: list[str] | None = None) -> int:
         execution=ProcessExecution.unsafe(),
         config=EvaluationConfig(
             split=namespace.split,
-            episodes=1,
+            episodes=namespace.episode_index + 1,
             seed=_assessment_seed(namespace.run_seed),
             episode_timeout_seconds=namespace.episode_timeout_seconds,
         ),
     )
+    episode_artifact_prefix = f"episode-{namespace.episode_index:03d}/"
     artifact = next(
         (
             item
             for item in result.feedback.artifacts
             if item.media_type == namespace.media_type
+            and item.name.startswith(episode_artifact_prefix)
         ),
         None,
     )
@@ -70,9 +72,9 @@ def main(arguments: list[str] | None = None) -> int:
         json.dumps(
             {
                 "artifact": str(namespace.output),
-                "episode_index": 0,
+                "episode_index": namespace.episode_index,
                 "program_digest": result.program_digest,
-                "score": result.feedback.score,
+                "score": result.episodes[namespace.episode_index].reward,
                 "source_artifact": artifact.name,
                 "source_media_type": artifact.media_type,
                 "split": namespace.split,
@@ -141,8 +143,8 @@ def _assessment_seed(run_seed: int) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Re-evaluate a selected Program on Assessment Episode 0 and export "
-            "one exact feedback artifact."
+            "Re-evaluate a selected Program on one Assessment Episode and "
+            "export its exact feedback artifact."
         ),
     )
     parser.add_argument("--program", type=Path, required=True)
@@ -153,9 +155,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--media-type", default="image/gif")
     parser.add_argument("--run-seed", type=int, required=True)
     parser.add_argument("--split", default="test")
+    parser.add_argument("--episode-index", type=_non_negative_int, default=0)
     parser.add_argument("--episode-timeout-seconds", type=float, default=1_800)
     parser.add_argument("--allow-unsafe-process", action="store_true")
     return parser
+
+
+def _non_negative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
 
 
 if __name__ == "__main__":

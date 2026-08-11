@@ -1,0 +1,124 @@
+{
+  "schema": "evopolicygym/leaderboard-results/v1",
+  "generated_at": "2026-08-11T03:49:07Z",
+  "final_reruns": 3,
+  "test_configurations": [
+    {
+      "id": "tetris-strict-128-1-64-v1",
+      "label": {
+        "en": "Strict · 128 train / 1 validation / 64 assessment",
+        "zh": "严格模式 · 128 训练 / 1 Validation / 64 Assessment"
+      },
+      "description": {
+        "en": "Use all 128 training Episodes, select one Program with 1 Validation Episode, then measure it on 64 held-out Assessment Episodes.",
+        "zh": "用完 128 个训练 Episode，通过 1 个 Validation Episode 选择一个 Program，再在 64 个 held-out Assessment Episodes 上评测。"
+      },
+      "parameters": {
+        "run_seed": 20260810,
+        "training_split": "train",
+        "episode_budget": 128,
+        "episode_pool_size": 128,
+        "max_submissions": 128,
+        "max_episodes_per_submission": 8,
+        "finish_budget_policy": "require_budget_exhaustion",
+        "validation_split": "validation",
+        "validation_episodes_per_candidate": 1,
+        "validation_max_candidates": 1,
+        "assessment_split": "test",
+        "assessment_episodes": 64,
+        "episode_timeout_seconds": 1800,
+        "agent_timeout_seconds": 21600
+      }
+    }
+  ],
+  "environments": [
+    {
+      "id": "tetris-v5",
+      "display": "Atari Tetris",
+      "category": "Arcade control",
+      "order": 0,
+      "primary_metric": "assessment_mean_return",
+      "score_direction": "maximize",
+      "score_decimal_places": 6,
+      "configuration_ids": ["tetris-strict-128-1-64-v1"],
+      "default_configuration_id": "tetris-strict-128-1-64-v1",
+      "summary": {
+        "en": "Pixel-observation Tetris control in ALE, ranked by mean return across 64 held-out Episodes.",
+        "zh": "ALE 像素观测 Tetris 控制环境，按 64 个 held-out Episode 的 mean return 排名。"
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "gpt_5_6_sol",
+      "display": "GPT-5.6 Sol",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "tetris-v5": {
+          "tetris-strict-128-1-64-v1": 400.375
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_terra",
+      "display": "GPT-5.6 Terra",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "tetris-v5": {
+          "tetris-strict-128-1-64-v1": 3.328125
+        }
+      }
+    },
+    {
+      "id": "gpt_5_6_luna",
+      "display": "GPT-5.6 Luna",
+      "harness": "Codex",
+      "kind": "agent",
+      "thinking_effort": "xhigh",
+      "scores": {
+        "tetris-v5": {
+          "tetris-strict-128-1-64-v1": 1.625
+        }
+      }
+    }
+  ],
+  "policy_rollouts": [
+    {
+      "entry_id": "gpt_5_6_sol",
+      "environment_id": "tetris-v5",
+      "configuration_id": "tetris-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/ale-v1/tetris-v5/sol-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "ale-rgb-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 522.0
+    },
+    {
+      "entry_id": "gpt_5_6_terra",
+      "environment_id": "tetris-v5",
+      "configuration_id": "tetris-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/ale-v1/tetris-v5/terra-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "ale-rgb-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 3.0
+    },
+    {
+      "entry_id": "gpt_5_6_luna",
+      "environment_id": "tetris-v5",
+      "configuration_id": "tetris-strict-128-1-64-v1",
+      "artifact": "/media/leaderboard/ale-v1/tetris-v5/luna-assessment-episode-000.gif",
+      "media_type": "image/gif",
+      "camera": "ale-rgb-v1",
+      "split": "test",
+      "episode_index": 0,
+      "score": 2.0
+    }
+  ]
+}

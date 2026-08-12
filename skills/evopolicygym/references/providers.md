@@ -3,12 +3,12 @@
 Integrate another command-line Coding Agent through the public structural
 `CodingAgent` contract.
 
-The Kernel includes first-party `Codex`, `ClaudeCode`, and `KimiCode`
+The Kernel includes first-party `Codex`, `ClaudeCode`, `KimiCode`, and `Qoder`
 translations. They all retain the unchanged Host task and use the same generic
 process runner. `ClaudeCode` selects bare, non-persistent print mode. Kimi Code
-does not currently expose an equivalent no-session-persistence flag, so callers
-that require isolated CLI configuration and session history should set a
-dedicated `KIMI_CODE_HOME` before the Run.
+and Qoder do not currently expose an equivalent no-session-persistence flag,
+so callers that require isolated CLI configuration and session history should
+set a dedicated `KIMI_CODE_HOME` or `QODER_CONFIG_DIR` before the Run.
 
 Translate the Host-owned `AgentTask` into an `AgentInvocation`. Do not author
 Run instructions, duplicate Agent Session syntax, or move process supervision

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a first-party Qoder CLI integration with explicit model selection,
+  optional reasoning effort, headless stream output, retained identity, and
+  caller-controlled authentication and configuration environment variables.
 - Added Crafter and Linux-targeted NLE NetHack Benchmark distributions,
   complete reversible training trajectories, and the NLE held-out experiment
   reference page.

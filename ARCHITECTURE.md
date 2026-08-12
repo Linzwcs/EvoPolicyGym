@@ -55,7 +55,8 @@ evopolicygym/
 │   ├── base.py                 Agent contract and shared command helpers
 │   ├── claude_code.py          Claude Code selection and CLI translation
 │   ├── codex.py                Codex selection and CLI translation
-│   └── kimi_code.py            Kimi Code selection and CLI translation
+│   ├── kimi_code.py            Kimi Code selection and CLI translation
+│   └── qoder.py                Qoder selection and CLI translation
 │
 ├── evaluation/                 complete direct-Evaluation use case
 │   ├── __init__.py             EvaluationConfig and evaluate()
@@ -238,7 +239,7 @@ The rules are:
 - `evaluation/_service.py` reports only sanitized Episode completion through a
   narrow callback and performs no terminal or file I/O;
 - `execution/process` owns only generic process mechanisms and never imports a
-  Codex, Claude Code, Kimi Code, or other provider integration;
+  Codex, Claude Code, Kimi Code, Qoder, or other provider integration;
 - `agents.base.CodingAgent` is the supported structural integration template:
   the Host supplies an `AgentTask`, and the provider returns a validated
   `AgentInvocation`;

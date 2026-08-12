@@ -14,6 +14,7 @@ from .base import (
 from .claude_code import ClaudeCode
 from .codex import Codex
 from .kimi_code import KimiCode
+from .qoder import Qoder
 
 __all__ = [
     "AgentInvocation",
@@ -22,6 +23,7 @@ __all__ = [
     "ClaudeCode",
     "Codex",
     "KimiCode",
+    "Qoder",
     "command_invocation",
     "resolve_executable",
 ]

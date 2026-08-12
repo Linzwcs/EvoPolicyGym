@@ -9,6 +9,7 @@ from evopolicygym.agents import (
     ClaudeCode,
     CodingAgent,
     KimiCode,
+    Qoder,
 )
 from evopolicygym.authoring import BenchmarkSpec
 from evopolicygym.run import RunConfig
@@ -144,6 +145,75 @@ class KimiCodeIntegrationTests(unittest.TestCase):
                     KimiCode(model=invalid)
         with self.assertRaisesRegex(TypeError, "task must be AgentTask"):
             KimiCode(model="kimi-code/kimi-for-coding").build_invocation(
+                object()  # type: ignore[arg-type]
+            )
+
+
+class QoderIntegrationTests(unittest.TestCase):
+    def test_selection_becomes_a_headless_stream_invocation(self) -> None:
+        task = _task()
+        with tempfile.TemporaryDirectory() as temporary:
+            executable = _executable(temporary, "qodercli")
+            invocation = Qoder(
+                model="performance",
+                reasoning_effort="high",
+                executable=str(executable),
+            ).build_invocation(task)
+
+        self.assertIsInstance(Qoder(model="auto"), CodingAgent)
+        self.assertEqual(invocation.instructions, task.instructions)
+        self.assertEqual(invocation.identity["provider"], "qoder")
+        self.assertEqual(invocation.identity["model"], "performance")
+        self.assertEqual(invocation.identity["reasoning_effort"], "high")
+        self.assertEqual(invocation.stdout_media_type, "application/x-ndjson")
+        self.assertIn("--print", invocation.command)
+        self.assertEqual(
+            invocation.command[
+                invocation.command.index("--output-format") + 1
+            ],
+            "stream-json",
+        )
+        self.assertEqual(
+            invocation.command[
+                invocation.command.index("--permission-mode") + 1
+            ],
+            "bypass_permissions",
+        )
+        self.assertEqual(invocation.command[-1], task.instructions)
+        self.assertEqual(
+            invocation.recorded_command[-1],
+            "@agent/instructions.md",
+        )
+        self.assertNotIn(task.instructions, invocation.recorded_command)
+        self.assertIn(
+            "QODER_PERSONAL_ACCESS_TOKEN",
+            invocation.inherited_environment,
+        )
+        self.assertIn("QODER_CONFIG_DIR", invocation.inherited_environment)
+
+    def test_optional_reasoning_effort_is_omitted(self) -> None:
+        task = _task()
+        with tempfile.TemporaryDirectory() as temporary:
+            executable = _executable(temporary, "qodercli")
+            invocation = Qoder(
+                model="auto",
+                executable=str(executable),
+            ).build_invocation(task)
+
+        self.assertNotIn("--reasoning-effort", invocation.command)
+        self.assertNotIn("reasoning_effort", invocation.identity)
+
+    def test_rejects_invalid_selections_and_tasks(self) -> None:
+        for invalid in ("", "two models", "model\n", "x" * 129):
+            with self.subTest(model=invalid):
+                with self.assertRaisesRegex(ValueError, "model"):
+                    Qoder(model=invalid)
+        for invalid in ("", "extra high", "high\n", "x" * 65):
+            with self.subTest(reasoning_effort=invalid):
+                with self.assertRaisesRegex(ValueError, "reasoning_effort"):
+                    Qoder(model="auto", reasoning_effort=invalid)
+        with self.assertRaisesRegex(TypeError, "task must be AgentTask"):
+            Qoder(model="auto").build_invocation(
                 object()  # type: ignore[arg-type]
             )
 

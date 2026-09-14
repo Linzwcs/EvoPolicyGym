@@ -89,8 +89,15 @@ If a Policy failure appears, prefer a previously published safe candidate.
 
 ## Report the right metrics
 
-Balatro run reward is `rounds_cleared + 1000` on a win. A completed Ante 8 run
-therefore normally has reward 1024. Report reward and progress separately:
+Balatro `run-score-v3` reward is `rounds_cleared` without a win and
+`2 * rounds_cleared` on a win. Clearing 24 Blinds and winning scores 48;
+skipped Blinds do not count. Read `won` and `rounds_cleared` from public
+`content.episode_diagnostics`, whose indices are positions within that batch,
+or from explicitly enriched Episode entries. Match diagnostics to Episode
+entries by batch position, not by the selected train Episode index. The
+analysis scripts require these fields: a win after 8 cleared Blinds and a
+loss after 16 cleared Blinds both score 16, so reward cannot identify wins.
+Keep older scoring versions separate. Report reward and progress separately:
 
 - immutable Program digest, submission IDs, evidence role, selected indices,
   and Episodes;

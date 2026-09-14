@@ -11,8 +11,14 @@ The first profile is deliberately narrow:
 - White Stake (`stake=1`);
 - one complete run per Episode;
 - deterministic, split-scoped hidden seeds;
-- 1000 points for a win plus one point per Blind cleared;
+- one point per Blind actually cleared, with the total doubled on a win;
 - zero score for a Policy failure.
+
+For `N` Blinds actually cleared, an unwon Episode scores `N` and a won Episode
+scores `2N`. Clearing all 24 Blinds and winning scores 48. Skipped Blinds do
+not count toward `N`. Each Blind clear gives +1 transition reward; clearing
+the winning Boss also adds a one-time bonus of `N`, so the transition rewards
+sum to `2N`. The following cash-out does not award the win bonus again.
 
 The profile is selected through a typed Benchmark constructor:
 
@@ -42,9 +48,11 @@ constructing the RNG-backed pool, before selection:
 The partially implemented `v_illusion` remains available with a tooltip that
 describes only its active behavior. Working prerequisites such as Crystal Ball
 and Magic Trick also remain available. The exact exclusions are machine-readable
-in `BenchmarkSpec.metadata.excluded_content`. Because these restrictions change
-seed-to-content trajectories, this profile uses the `run-score-v2` Benchmark ID
-and its results are not directly comparable with `run-score-v1`.
+in `BenchmarkSpec.metadata.excluded_content`. These restrictions were introduced
+in `run-score-v2` and change seed-to-content trajectories relative to
+`run-score-v1`. The current `run-score-v3` Benchmark ID retains those restrictions
+and replaces the former fixed 1000-point win bonus with a doubling of cleared
+Blinds. Its scores are not directly comparable with either earlier version.
 
 Jackdaw is maintained as vendored source under `vendor/jackdaw/`. Its base is
 commit `c84dca9227b40eb5f7ff9fd7cd78945aa07854ce`, the immutable head of

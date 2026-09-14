@@ -130,7 +130,7 @@ still absent.
 | [Gymnasium / Toy Text](gymnasium/toy_text/) | `evopolicygym-benchmark-cliff-walking` | `cliff_walking` | `gymnasium/CliffWalking-v1/mean-return-v1` |
 | [Gymnasium / Toy Text](gymnasium/toy_text/) | `evopolicygym-benchmark-frozen-lake` | `frozen_lake` | `gymnasium/FrozenLake-v1/success-rate-v1` |
 | [Gymnasium / Toy Text](gymnasium/toy_text/) | `evopolicygym-benchmark-taxi` | `taxi` | `gymnasium/Taxi-v4/mean-return-v1` |
-| [Jackdaw / Balatro](jackdaw/) | `evopolicygym-benchmark-balatro` | `balatro` | `jackdaw/Balatro/red-deck-white-stake/run-score-v2` |
+| [Jackdaw / Balatro](jackdaw/) | `evopolicygym-benchmark-balatro` | `balatro` | `jackdaw/Balatro/red-deck-white-stake/run-score-v3` |
 | [MiniGrid / MiniGrid](minigrid/minigrid/) | `evopolicygym-benchmark-minigrid-doorkey` | `minigrid_doorkey` | `minigrid/DoorKey-v0/success-rate-v1` |
 | [MiniGrid / MiniGrid](minigrid/minigrid/) | `evopolicygym-benchmark-minigrid-keycorridor` | `minigrid_keycorridor` | `minigrid/KeyCorridor-v0/success-rate-v1` |
 | [MiniGrid / MiniGrid](minigrid/minigrid/) | `evopolicygym-benchmark-minigrid-memory` | `minigrid_memory` | `minigrid/Memory-v0/success-rate-v1` |

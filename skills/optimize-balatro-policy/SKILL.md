@@ -36,9 +36,10 @@ phase heuristics, tooltip tier lists, and encounter-specific patches.
 ## Align with the objective
 
 - Distinguish Benchmark reward from in-game Chips and dollars. Optimize
-  expected Episode score: Blinds cleared plus the large complete-run win bonus.
-- Keep win reward and ordinary progress separate. A normal win clears 24
-  Blinds and receives the 1000-point win bonus, producing run reward 1024.
+  expected Episode score: Blinds actually cleared, doubled on a complete-run win.
+- Keep win reward and ordinary progress separate. In `run-score-v3`, clearing
+  24 Blinds and winning scores 48. Skipped Blinds do not count. Read explicit
+  `won` and `rounds_cleared` diagnostics; reward alone cannot identify a win.
 - Treat Ante reach and Blinds cleared as development diagnostics, not
   substitutes for winning. Prefer changes that increase robust Ante 8
   completion probability over changes that only improve early progress.
@@ -347,6 +348,6 @@ reconstructing a previous candidate.
 - Finish successfully before exiting. Unsubmitted workspace edits are not
   candidates.
 
-Optimize for defeating the Ante 8 Boss. Use cleared Blinds and Ante reach as
-development signals, but remember that the objective's large win bonus makes a
-robust complete-run system more valuable than a brittle progress heuristic.
+Optimize expected Episode score while developing a system that defeats the
+Ante 8 Boss. Balance cleared-Blind progress with the doubling on a win, and
+report completion probability separately from score.

@@ -9,6 +9,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from _feedback import episode_outcome
+
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -18,12 +20,6 @@ def _arguments() -> argparse.Namespace:
         choices=("auto", "candidate", "baseline", "direct"),
         default="auto",
         help="select a side from comparison JSON; auto prefers candidate",
-    )
-    parser.add_argument(
-        "--win-bonus",
-        type=float,
-        default=1000.0,
-        help="Benchmark win bonus to remove from ordinary progress",
     )
     parser.add_argument(
         "--allow-mixed-digests",
@@ -48,15 +44,6 @@ def _selected(document: dict[str, Any], side: str) -> dict[str, Any]:
     return _mapping(candidate, "candidate") if candidate is not None else document
 
 
-def _reward(episode: dict[str, Any]) -> float | None:
-    value = episode.get("reward")
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError("Episode reward must be numeric or null")
-    return float(value)
-
-
 def _episode_index(episode: dict[str, Any]) -> int | None:
     value = episode.get("episode_index")
     if value is None:
@@ -64,13 +51,6 @@ def _episode_index(episode: dict[str, Any]) -> int | None:
     if type(value) is not int or value < 0:
         raise ValueError("episode_index must be a non-negative integer")
     return value
-
-
-def _progress(reward: float | None, win_bonus: float) -> tuple[float, bool]:
-    if reward is None:
-        return 0.0, False
-    won = reward >= win_bonus
-    return (reward - win_bonus if won else reward), won
 
 
 def _summary(values: list[float]) -> dict[str, float | int]:
@@ -106,16 +86,15 @@ def main() -> int:
 
         selected_progress: list[float] = []
         selected_indices: list[int | None] = []
-        for value in episodes:
+        for position, value in enumerate(episodes):
             episode = _mapping(value, "Episode")
             selected_indices.append(_episode_index(episode))
-            reward = _reward(episode)
-            item_progress, won = _progress(reward, arguments.win_bonus)
+            item_progress, reward, won, failed = episode_outcome(episode, selected, position)
             selected_progress.append(item_progress)
             progress.append(item_progress)
-            raw_rewards.append(0.0 if reward is None else reward)
+            raw_rewards.append(reward)
             wins += won
-            failures += episode.get("failure") is not None
+            failures += failed
 
         compare_candidate = (
             arguments.side in {"auto", "candidate"}
@@ -143,10 +122,7 @@ def main() -> int:
                     raise ValueError(
                         f"{path}: paired Episode indices differ"
                     )
-                baseline_reward = _reward(baseline_value)
-                baseline_progress, _ = _progress(
-                    baseline_reward, arguments.win_bonus
-                )
+                baseline_progress, _, _, _ = episode_outcome(baseline_value, baseline, index)
                 paired_deltas.append(selected_value - baseline_progress)
 
     if not progress:

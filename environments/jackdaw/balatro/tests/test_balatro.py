@@ -38,6 +38,7 @@ from balatro.environment import (
     EXCLUDED_TAG_KEYS,
     EXCLUDED_VOUCHER_KEYS,
     BalatroEnvironment,
+    _run_score,
 )
 from balatro.observation import encode_observation
 from balatro.rules import blind_rule, visible_card_rule, visible_tag_rule
@@ -136,8 +137,10 @@ class BalatroBenchmarkTests(unittest.TestCase):
         self.assertIn("exactly the required fields", strictness)
         self.assertEqual(
             benchmark.spec.id,
-            "jackdaw/Balatro/red-deck-white-stake/run-score-v2",
+            "jackdaw/Balatro/red-deck-white-stake/run-score-v3",
         )
+        self.assertEqual(benchmark.spec.metadata["win_multiplier"], 2)
+        self.assertNotIn("win_bonus", benchmark.spec.metadata)
         excluded = benchmark.spec.metadata["excluded_content"]
         assert isinstance(excluded, dict)
         self.assertEqual(excluded["tags"], list(EXCLUDED_TAG_KEYS))
@@ -152,6 +155,91 @@ class BalatroBenchmarkTests(unittest.TestCase):
             BalatroConfig(stake=2)
         with self.assertRaises(TypeError):
             BalatroBenchmark(config=object())  # type: ignore[arg-type]
+
+    def test_score_distinguishes_wins_from_ordinary_progress(self) -> None:
+        for rounds, won, expected in (
+            (0, False, 0),
+            (16, False, 16),
+            (23, False, 23),
+            (8, True, 16),
+            (24, True, 48),
+        ):
+            with self.subTest(rounds=rounds, won=won):
+                self.assertEqual(_run_score({"round": rounds, "won": won}), expected)
+
+    def test_win_doubles_cleared_blinds_once_and_excludes_skips(self) -> None:
+        for skip_optional in (False, True):
+            with self.subTest(skip_optional=skip_optional):
+                benchmark = BalatroBenchmark()
+                episode = EpisodeSpec(environment_seed=123)
+                environment = BalatroEnvironment(episode, config=BalatroConfig())
+                transitions: list[Transition] = []
+
+                def act(
+                    action: PolicyValue,
+                    environment: BalatroEnvironment = environment,
+                    transitions: list[Transition] = transitions,
+                ) -> Step:
+                    step = environment.step(action)
+                    transitions.append(Transition(action=action, step=step))
+                    return step
+
+                expected_clears = 8 if skip_optional else 24
+                try:
+                    initial = environment.reset()
+                    for ante in range(8):
+                        for blind in range(3):
+                            state = environment._state_or_raise()
+                            if skip_optional and blind < 2:
+                                # A cash tag avoids unrelated pack-opening phases.
+                                state["round_resets"]["blind_tags"][state["blind_on_deck"]] = "tag_handy"
+                                skipped = act({"kind": "skip_blind"})
+                                self.assertEqual(skipped.reward, 0.0)
+                                continue
+                            # Keep the real engine's round/win transitions while
+                            # making the trusted fixture independent of strategy.
+                            state["round_resets"]["blind_choices"][state["blind_on_deck"]] = "bl_small"
+                            act({"kind": "select_blind"})
+                            state["blind"].chips = 1
+                            cleared = act({"kind": "play_hand", "card_indices": [0]})
+                            winning_blind = ante == 7 and blind == 2
+                            self.assertEqual(
+                                cleared.reward,
+                                expected_clears + 1 if winning_blind else 1,
+                            )
+                            cashed_out = act({"kind": "cash_out"})
+                            self.assertEqual(cashed_out.reward, 0.0)
+                            self.assertEqual(cashed_out.terminated, winning_blind)
+                            if not winning_blind:
+                                act({"kind": "next_round"})
+                    with self.assertRaisesRegex(RuntimeError, "already complete"):
+                        environment.step({"kind": "next_round"})
+                finally:
+                    environment.close()
+                with self.assertRaisesRegex(RuntimeError, "closed"):
+                    environment.step({"kind": "next_round"})
+
+                record = EpisodeRecord(
+                    episode=episode,
+                    policy_seed=321,
+                    initial_observation=initial,
+                    transitions=tuple(transitions),
+                )
+                feedback = benchmark.feedback((record,))
+                self.assertEqual(record.total_reward, 2 * expected_clears)
+                self.assertEqual(feedback.score, 2 * expected_clears)
+                assert isinstance(feedback.content, dict)
+                self.assertEqual(feedback.content["win_rate"], 1.0)
+                self.assertEqual(feedback.content["mean_rounds_cleared"], expected_clears)
+
+                failed = EpisodeRecord(
+                    episode=episode,
+                    policy_seed=321,
+                    initial_observation=initial,
+                    transitions=tuple(transitions[:-1]),
+                    policy_failure="invalid_action",
+                )
+                self.assertEqual(benchmark.feedback((failed,)).score, 0.0)
 
     def test_every_joker_has_a_public_rule_and_parameters(self) -> None:
         for key in BLINDS:
@@ -588,7 +676,7 @@ class BalatroBenchmarkTests(unittest.TestCase):
 
         self.assertEqual(
             result.benchmark_id,
-            "jackdaw/Balatro/red-deck-white-stake/run-score-v2",
+            "jackdaw/Balatro/red-deck-white-stake/run-score-v3",
         )
         self.assertEqual(
             result.environment_digest,

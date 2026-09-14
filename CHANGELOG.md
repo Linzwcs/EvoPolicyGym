@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Changed Balatro to `run-score-v3`: one point per Blind actually cleared,
+  doubled on a win (24 cleared Blinds score 48), with Policy failures still
+  scoring zero. Public rules and evidence tools use the new scoring contract.
 - Added a first-party Qoder CLI integration with explicit model selection,
   optional reasoning effort, headless stream output, retained identity, and
   caller-controlled authentication and configuration environment variables.

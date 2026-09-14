@@ -15,7 +15,7 @@ from .config import BalatroConfig
 from .observation import encode_observation
 
 MAX_EPISODE_STEPS = 2_048
-WIN_BONUS = 1_000
+WIN_MULTIPLIER = 2
 CONTENT_PROFILE = "jackdaw-active-content-v1"
 EXCLUDED_TAG_KEYS = (
     "tag_rare",
@@ -300,7 +300,7 @@ def _run_score(game_state: dict[str, Any]) -> int:
     rounds = game_state.get("round", 0)
     if type(rounds) is not int:
         raise RuntimeError("Jackdaw returned invalid round")
-    return rounds + (WIN_BONUS if game_state.get("won", False) else 0)
+    return rounds * (WIN_MULTIPLIER if game_state.get("won", False) else 1)
 
 
 def _metrics(game_state: dict[str, Any]) -> dict[str, PolicyValue]:
@@ -461,5 +461,5 @@ __all__ = [
     "EXCLUDED_VOUCHER_KEYS",
     "BalatroEnvironment",
     "MAX_EPISODE_STEPS",
-    "WIN_BONUS",
+    "WIN_MULTIPLIER",
 ]

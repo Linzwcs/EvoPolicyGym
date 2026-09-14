@@ -1,6 +1,6 @@
 [project]
 name = "evopolicygym-benchmark-balatro"
-version = "0.2.0"
+version = "0.3.0"
 description = "An unofficial Balatro Benchmark distribution for EvoPolicyGym, powered by Jackdaw."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

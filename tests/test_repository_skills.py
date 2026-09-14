@@ -102,16 +102,22 @@ class RepositorySkillTests(unittest.TestCase):
                     {
                         "episode_index": 0,
                         "reward": 5,
+                        "won": False,
+                        "rounds_cleared": 5,
                         "failure": None,
                     },
                     {
                         "episode_index": 1,
                         "reward": 12,
+                        "won": False,
+                        "rounds_cleared": 12,
                         "failure": None,
                     },
                     {
                         "episode_index": 2,
                         "reward": 7,
+                        "won": False,
+                        "rounds_cleared": 7,
                         "failure": None,
                     },
                 ],
@@ -122,11 +128,15 @@ class RepositorySkillTests(unittest.TestCase):
                     {
                         "episode_index": 0,
                         "reward": 11,
+                        "won": False,
+                        "rounds_cleared": 11,
                         "failure": None,
                     },
                     {
                         "episode_index": 1,
-                        "reward": 1024,
+                        "reward": 48,
+                        "won": True,
+                        "rounds_cleared": 24,
                         "failure": None,
                     },
                     {
@@ -195,11 +205,15 @@ class RepositorySkillTests(unittest.TestCase):
                 {
                     "episode_index": 2,
                     "reward": 5,
+                    "won": False,
+                    "rounds_cleared": 5,
                     "failure": None,
                 },
                 {
                     "episode_index": 7,
                     "reward": 12,
+                    "won": False,
+                    "rounds_cleared": 12,
                     "failure": None,
                 },
             ],
@@ -210,11 +224,15 @@ class RepositorySkillTests(unittest.TestCase):
                 {
                     "episode_index": 2,
                     "reward": 11,
+                    "won": False,
+                    "rounds_cleared": 11,
                     "failure": None,
                 },
                 {
                     "episode_index": 7,
-                    "reward": 1024,
+                    "reward": 48,
+                    "won": True,
+                    "rounds_cleared": 24,
                     "failure": None,
                 },
             ],
@@ -261,6 +279,63 @@ class RepositorySkillTests(unittest.TestCase):
             "Episode index sets differ",
             mismatched.stderr,
         )
+
+    def test_balatro_tools_use_diagnostics_when_win_and_loss_rewards_overlap(self) -> None:
+        document: dict[str, Any] = {
+            "program_digest": f"sha256:{'a' * 64}",
+            "episodes": [
+                {"episode_index": 2, "reward": 16, "failure": None},
+                {"episode_index": 7, "reward": 16, "failure": None},
+                {"episode_index": 9, "reward": 48, "failure": "invalid_action"},
+            ],
+            "content": {
+                "episode_diagnostics": [
+                    {"episode_index": 0, "won": True, "rounds_cleared": 8},
+                    {"episode_index": 1, "won": False, "rounds_cleared": 16},
+                    {"episode_index": 2, "won": False, "rounds_cleared": 0},
+                ],
+            },
+        }
+        scripts = SKILLS / "optimize-balatro-policy" / "scripts"
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "feedback.json"
+            commands = (
+                [sys.executable, str(scripts / "summarize_evidence.py"), str(source)],
+                [
+                    sys.executable,
+                    str(scripts / "compare_indexed_feedback.py"),
+                    "--baseline", str(source), "--candidate", str(source),
+                ],
+            )
+            for command in commands:
+                with self.subTest(script=command[1]):
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    completed = subprocess.run(
+                        command, check=True, capture_output=True, text=True,
+                    )
+                    result = json.loads(completed.stdout)
+                    summary = result.get("candidate", result)
+                    self.assertEqual(summary["wins"], 1)
+                    self.assertEqual(summary["policy_failures"], 1)
+                    self.assertEqual(summary["mean_blinds"], 8.0)
+                    self.assertEqual(summary["mean_run_reward"], 32 / 3)
+
+                    incomplete = {key: value for key, value in document.items() if key != "content"}
+                    source.write_text(json.dumps(incomplete), encoding="utf-8")
+                    rejected = subprocess.run(
+                        command, check=False, capture_output=True, text=True,
+                    )
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn("explicit won and rounds_cleared", rejected.stderr)
+
+                    historical = json.loads(json.dumps(document))
+                    historical["episodes"][0]["reward"] = 1008
+                    source.write_text(json.dumps(historical), encoding="utf-8")
+                    rejected = subprocess.run(
+                        command, check=False, capture_output=True, text=True,
+                    )
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn("disagrees with run-score-v3", rejected.stderr)
 
 
 if __name__ == "__main__":

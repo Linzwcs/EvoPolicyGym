@@ -9,6 +9,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from _feedback import episode_outcome
+
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -26,7 +28,6 @@ def _arguments() -> argparse.Namespace:
         type=Path,
         help="candidate feedback.json; repeat for multiple files",
     )
-    parser.add_argument("--win-bonus", type=float, default=1000.0)
     return parser.parse_args()
 
 
@@ -36,29 +37,8 @@ def _mapping(value: object, label: str) -> dict[str, Any]:
     return value
 
 
-def _outcome(
-    episode: dict[str, Any],
-    *,
-    win_bonus: float,
-) -> tuple[float, float, bool, bool]:
-    reward = episode.get("reward")
-    failed = episode.get("failure") is not None
-    if reward is None:
-        if not failed:
-            raise ValueError("null reward requires a Policy failure")
-        return 0.0, 0.0, False, True
-    if isinstance(reward, bool) or not isinstance(reward, (int, float)):
-        raise ValueError("Episode reward must be numeric or null")
-    raw = float(reward)
-    won = raw >= win_bonus
-    progress = raw - win_bonus if won else raw
-    return progress, raw, won, failed
-
-
 def _load(
     paths: list[Path],
-    *,
-    win_bonus: float,
 ) -> tuple[str, dict[int, list[tuple[float, float, bool, bool]]]]:
     digests: set[str] = set()
     indexed: dict[int, list[tuple[float, float, bool, bool]]] = {}
@@ -74,13 +54,13 @@ def _load(
         episodes = document.get("episodes")
         if not isinstance(episodes, list):
             raise ValueError(f"{path}: missing Episode list")
-        for value in episodes:
+        for position, value in enumerate(episodes):
             episode = _mapping(value, "Episode")
             index = episode.get("episode_index")
             if type(index) is not int or index < 0:
                 raise ValueError(f"{path}: invalid episode_index")
             indexed.setdefault(index, []).append(
-                _outcome(episode, win_bonus=win_bonus)
+                episode_outcome(episode, document, position)
             )
     if len(digests) != 1:
         raise ValueError("each comparison side must contain one Program digest")
@@ -107,14 +87,8 @@ def _summary(
 
 def main() -> int:
     arguments = _arguments()
-    baseline_digest, baseline = _load(
-        arguments.baseline,
-        win_bonus=arguments.win_bonus,
-    )
-    candidate_digest, candidate = _load(
-        arguments.candidate,
-        win_bonus=arguments.win_bonus,
-    )
+    baseline_digest, baseline = _load(arguments.baseline)
+    candidate_digest, candidate = _load(arguments.candidate)
     if baseline.keys() != candidate.keys():
         raise ValueError("baseline and candidate Episode index sets differ")
 

@@ -23,7 +23,7 @@ from .environment import (
     EXCLUDED_TAG_KEYS,
     EXCLUDED_VOUCHER_KEYS,
     MAX_EPISODE_STEPS,
-    WIN_BONUS,
+    WIN_MULTIPLIER,
     BalatroEnvironment,
 )
 from .rules import POLICY_GUIDE
@@ -50,11 +50,11 @@ _MAX_EPISODE_DIAGNOSTICS = 256
 
 def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
     return BenchmarkSpec(
-        id="jackdaw/Balatro/red-deck-white-stake/run-score-v2",
+        id="jackdaw/Balatro/red-deck-white-stake/run-score-v3",
         description=(
             "Play one complete white-stake Red Deck run through the Jackdaw "
-            "headless Balatro engine. A win is worth 1000 points plus one point "
-            "for every Blind cleared; failed Policies receive zero."
+            "headless Balatro engine. Score one point for every Blind actually "
+            "cleared and double the total on a win; failed Policies receive zero."
         ),
         observation_space={
             "type": "semantic_object",
@@ -159,7 +159,7 @@ def _benchmark_spec(config: BalatroConfig) -> BenchmarkSpec:
                     "effects are not active in the pinned Jackdaw revision."
                 ),
             },
-            "win_bonus": WIN_BONUS,
+            "win_multiplier": WIN_MULTIPLIER,
             "unofficial": True,
             "original_game_assets_included": False,
             "feedback_diagnostics": (

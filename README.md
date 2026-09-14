@@ -46,7 +46,7 @@
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Balatro</strong><br>Final held-out Policy · score 1021</td>
+    <td align="center"><strong>Balatro</strong><br>Final held-out Policy · historical score 1021</td>
     <td align="center"><strong>Crafter</strong><br>Submission 15 · deep-iron combat</td>
     <td align="center"><strong>NetHack</strong><br>1,269 steps · dungeon depth 11</td>
   </tr>
@@ -274,7 +274,7 @@ EvoPolicyGym authoring API.
 | [ALE](environments/ale/) | Redistributable Tetris profile |
 | [ViZDoom](environments/vizdoom/) | 12 wheel-bundled standard scenarios |
 | [Stable-Retro](environments/stable_retro/) | Redistributable Airstriker Level 1 profile |
-| [Jackdaw](environments/jackdaw/) | Balatro |
+| [Jackdaw](environments/jackdaw/) | Balatro (`run-score-v3`: Blinds cleared, doubled on a win) |
 | [Core16](https://linzwcs.github.io/EvoPolicyGym/results/) | Historical `v0.1.0` paper suite |
 
 See the [environment catalog](environments/) and

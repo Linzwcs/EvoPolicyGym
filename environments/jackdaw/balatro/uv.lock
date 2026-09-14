@@ -39,7 +39,7 @@ wheels = [
 [[package]]
 name = "evopolicygym"
 version = "0.3.0"
-source = { editable = "../../.." }
+source = { editable = "../../../" }
 
 [package.metadata]
 requires-dist = [
@@ -50,7 +50,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "evopolicygym-benchmark-balatro"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "evopolicygym" },
@@ -65,7 +65,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "evopolicygym", editable = "../../.." },
+    { name = "evopolicygym", editable = "../../../" },
     { name = "jackdaw", directory = "vendor/jackdaw" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.3.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },

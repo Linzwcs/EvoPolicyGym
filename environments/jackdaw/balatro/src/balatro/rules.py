@@ -50,7 +50,8 @@ POLICY_GUIDE: dict[str, PolicyValue] = {
     "objective": {
         "benchmark_reward": (
             "A transition's top-level reward is Benchmark progress: +1 when a Blind is "
-            "actually cleared, plus a one-time +1000 when the run is won. Playing a hand, "
+            "actually cleared, plus a one-time bonus equal to all Blinds actually cleared "
+            "when the run is won, doubling the total. Playing a hand, "
             "shopping, cashing out, or skipping without clearing a Blind normally gives 0."
         ),
         "game_money": (
@@ -58,8 +59,10 @@ POLICY_GUIDE: dict[str, PolicyValue] = {
             "Blind's base cash payout and is never the transition reward."
         ),
         "episode_score": (
-            "The Episode score is the sum of transition rewards: Blinds cleared plus the "
-            "1000-point win bonus. A Policy failure receives zero regardless of progress."
+            "The Episode score is the sum of transition rewards: N for an unwon run "
+            "and 2N for a won run, where N counts Blinds actually cleared. Skipped Blinds "
+            "do not count. Clearing 24 Blinds and winning scores 48. A Policy failure "
+            "receives zero regardless of progress."
         ),
     },
     "run_loop": {

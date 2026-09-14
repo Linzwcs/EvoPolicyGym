@@ -66,6 +66,7 @@ def main(arguments: list[str] | None = None) -> int:
             episode_budget=namespace.episode_budget,
             episode_pool_size=namespace.episode_pool_size,
             max_episodes_per_submission=namespace.max_episodes_per_submission,
+            finish_budget_policy=namespace.finish_budget_policy,
             validation=(
                 None
                 if namespace.validation_episodes_per_candidate is None
@@ -184,6 +185,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--episode-budget", type=int, default=12)
     parser.add_argument("--episode-pool-size", type=int)
     parser.add_argument("--max-episodes-per-submission", type=int)
+    parser.add_argument(
+        "--finish-budget-policy",
+        choices=("allow_early", "require_budget_exhaustion"),
+        default="allow_early",
+    )
     parser.add_argument("--validation-episodes-per-candidate", type=int)
     parser.add_argument(
         "--validation-split",
